@@ -1,0 +1,47 @@
+---
+- hosts: all
+  become: true
+  become_user: root
+  tasks:
+    - name: Wait for apt to be ready
+      shell: |
+        while ps aux | grep -i apt | grep -v grep > /dev/null; do
+          echo "Waiting for other apt processes to finish..."
+          ps aux | grep -i apt | grep -v grep
+          sleep 5
+        done
+      register: apt_wait
+      retries: 60
+      delay: 3
+      until: apt_wait.rc == 0
+      changed_when: false
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - nginx
+        - ufw
+
+    - name: Ensure nginx is running
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Allow HTTP on firewall
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Create a new file
+      copy:
+        dest: /root/newfile.txt
+        content: "Nice! 🚀\n"
