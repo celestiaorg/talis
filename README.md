@@ -1,3 +1,5 @@
+![logo](./docs/logo.png)
+
 # Talis
 
 Talis is a multi-cloud infrastructure provisioning and configuration project that uses:
