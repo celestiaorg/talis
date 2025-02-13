@@ -25,46 +25,84 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 ```
 talis/
 ├── cmd/
-│   └── main.go                    # Main entry point
+│   ├── main.go                    # Main entry point
+│   └── migrate/                   # Database migration tools
+│       └── main.go               # Migration entry point
 ├── internal/
+│   ├── api/                       # API related code
+│   │   └── v1/
+│   │       ├── handlers/         # Request handlers
+│   │       ├── middleware/       # API middleware
+│   │       └── routes/           # Route definitions
+│   ├── application/              # Application layer
+│   │   └── job/                 # Job service implementation
 │   ├── compute/                   # Cloud provider implementations
 │   │   ├── compute.go            # ComputeProvider interface and common types
-│   │   └── digitalocean.go       # DigitalOcean implementation
+│   │   ├── digitalocean.go       # DigitalOcean implementation
+│   │   └── nix.go                # NixOS configuration and provisioning
+│   ├── db/                        # Database layer
+│   │   ├── migrations/          # Database migrations
+│   │   └── job/                 # Job database models
+│   ├── domain/                    # Domain layer
+│   │   └── job/                 # Job domain models and interfaces
+│   ├── infrastructure/           # Infrastructure layer
+│   │   └── persistence/         # Data persistence implementations
+│   │       └── postgres/        # PostgreSQL implementations
 │   └── types/
 │       └── infrastructure/        # Infrastructure types and logic
 │           ├── models.go         # Type definitions
 │           ├── validation.go     # Request validation
 │           ├── pulumi.go        # Pulumi logic
-│           ├── nix.go           # NixOS configuration
 │           └── infrastructure.go # Main infrastructure logic
 ├── nix/                          # NixOS configurations
 │   ├── base.nix                  # Base system configuration
 │   └── cloud/                    # Cloud-specific configurations
 │       └── digitalocean.nix      # DigitalOcean configuration
+├── migrations/                    # SQL migration files
+│   └── *.sql                     # Migration SQL files
+├── scripts/                      # Utility scripts
 └── .env.example                  # Environment variables example
+├── Makefile                      # Build and development commands
+└── Pulumi.*.yaml                 # Pulumi stack configurations
 ```
 
 ## Key Files
 
+### cmd/
+- **main.go**: Application entry point with server setup
+- **migrate/main.go**: Database migration tool
+
+### internal/api/v1/
+- **handlers/**: HTTP request handlers
+- **middleware/**: API middleware (logging, auth, etc.)
+- **routes/**: API route definitions
+
+### internal/application/
+- **job/**: Job service implementation with business logic
+
 ### internal/compute/
-- **compute.go**: Defines the `ComputeProvider` interface and common types:
-  ```go
-  type ComputeProvider interface {
-      ConfigureProvider(stack auto.Stack) error
-      CreateInstance(ctx *pulumi.Context, name string, config InstanceConfig) (pulumi.Resource, error)
-      GetNixOSConfig() string
-      ValidateCredentials() error
-      GetEnvironmentVars() map[string]string
-  }
-  ```
+- **compute.go**: Defines the `ComputeProvider` interface and common types
 - **digitalocean.go**: `ComputeProvider` implementation for DigitalOcean
+- **nix.go**: NixOS installation and configuration management
+
+### internal/db/
+- **migrations/**: Database migration management
+- **job/**: Job database models and operations
+
+### internal/domain/
+- **job/**: Job domain models, interfaces and business rules
+
+### internal/infrastructure/
+- **persistence/postgres/**: PostgreSQL implementations of repositories
 
 ### internal/types/infrastructure/
 - **models.go**: Main data structure definitions
 - **validation.go**: Request validation
 - **pulumi.go**: Pulumi stack management
-- **nix.go**: NixOS configuration and provisioning
 - **infrastructure.go**: Main infrastructure management logic
+
+### migrations/
+- SQL files for database schema and updates
 
 ## Setup
 
