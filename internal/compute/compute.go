@@ -1,3 +1,4 @@
+// Package compute provides a ComputeProvider interface and implementations for different cloud providers
 package compute
 
 import (
@@ -7,24 +8,27 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-// InstanceInfo stores information about the created instance (e.g. IP)
-type InstanceInfo struct {
-	PublicIP pulumi.StringOutput
-}
-
-// ComputeProvider is the interface for creating instances across different providers
+// ComputeProvider defines the interface for cloud providers
 type ComputeProvider interface {
-	CreateInstance(ctx *pulumi.Context, name string, config InstanceConfig) (InstanceInfo, error)
 	ConfigureProvider(stack auto.Stack) error
+	CreateInstance(ctx *pulumi.Context, name string, config InstanceConfig) (pulumi.Resource, error)
+	GetNixOSConfig() string
+	ValidateCredentials() error
+	GetEnvironmentVars() map[string]string
 }
 
+// InstanceInfo represents information about a created instance
+type InstanceInfo struct {
+	PublicIP pulumi.StringOutput // Public IP address of the instance
+}
+
+// InstanceConfig represents the configuration for a created instance
 type InstanceConfig struct {
-	Region   string
-	Size     string
-	Image    string
-	UserData string
-	SSHKeyID string
-	Tags     []string
+	Region   string   // Region of the instance
+	Size     string   // Size of the instance
+	Image    string   // Image to use for the instance
+	SSHKeyID string   // SSH key ID to use for the instance
+	Tags     []string // Tags to apply to the instance
 }
 
 // NewComputeProvider returns the correct implementation based on providerName

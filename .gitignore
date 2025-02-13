@@ -1,0 +1,18 @@
+# Pulumi
+.pulumi/
+.pulumi/credentials.json
+
+# Build artifacts
+bin/
+build/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local environment variables
+.env.local
+.DS_Store
+
+Pulumi.*.yaml
