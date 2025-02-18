@@ -16,3 +16,6 @@ build/
 .DS_Store
 
 Pulumi.*.yaml
+
+create.json
+delete.json

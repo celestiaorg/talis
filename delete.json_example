@@ -1,0 +1,13 @@
+{
+    "name": "talis",
+    "project_name": "talis-pulumi-ansible",
+    "action": "delete",
+    "instances": [
+        {
+            "provider": "digitalocean",
+            "number_of_instances": 1,
+            "region": "nyc3",
+            "size": "s-1vcpu-1gb"
+        }
+    ]
+}
