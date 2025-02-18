@@ -26,7 +26,6 @@ services:
       db:
         condition: service_healthy
 
-  # Para desarrollo, podemos usar una UI para la base de datos
   pgadmin:
     image: dpage/pgadmin4
     environment:

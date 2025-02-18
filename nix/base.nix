@@ -1,10 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  imports = [ 
-    # Import cloud specific configurations if needed
-    ./cloud/digitalocean.nix 
-  ];
+  imports = [ ];
 
   # System packages
   environment.systemPackages = with pkgs; [
@@ -13,25 +10,18 @@
     git
     curl
     wget
-    htop
-    tmux
-    tree
-    
-    docker.io
-    docker-compose
-
-    # Network tools
-    net-tools
-    inetutils
-    mtr
-    tcpdump
   ];
 
   # Nix configuration
   nix = {
     settings = {
       auto-optimise-store = true;
-      experimental-features = [ "nix-command" "flakes" ];
+      cores = 1;
+      max-jobs = 1;
+      sandbox = false;
+      substituters = [ "https://cache.nixos.org" ];
+      trusted-substituters = [ "https://cache.nixos.org" ];
+      trusted-public-keys = [ "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" ];
     };
     gc = {
       automatic = true;
@@ -41,6 +31,16 @@
   };
 
   # Common shell configurations
-  programs.bash.enableCompletion = true;
-  programs.zsh.enable = true;
+  programs.bash.completion.enable = true;
+
+  boot.loader.grub.enable = true;
+
+  services.openssh.enable = true;
+  services.openssh.settings.PermitRootLogin = "yes";
+
+  users.users.root.openssh.authorizedKeys.keys = [
+    "$(cat ~/.ssh/authorized_keys)"
+  ];
+
+  system.stateVersion = "23.11";
 } 

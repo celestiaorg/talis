@@ -52,27 +52,34 @@ func (n *NixConfigurator) InstallNix(
 	host string,
 	sshKeyPath string,
 ) error {
-	// Esperar a que SSH esté disponible
+	// Wait for SSH to be available
 	fmt.Printf("⏳ Waiting for SSH to be available on %s...\n", host)
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		checkCmd := exec.Command("ssh",
 			"-i", sshKeyPath,
 			"-o", "StrictHostKeyChecking=no",
-			"-o", "ConnectTimeout=5",
+			"-o", "ConnectTimeout=10",
+			"-o", "ServerAliveInterval=5",
+			"-o", "ServerAliveCountMax=3",
 			fmt.Sprintf("root@%s", host),
-			"echo 'SSH is ready'")
+			"echo 'SSH is ready' && test -w /root")
 
 		if err := checkCmd.Run(); err == nil {
+			fmt.Printf("✅ SSH connection established to %s\n", host)
 			break
 		}
 
-		if i == 29 {
+		if i == 59 {
 			return fmt.Errorf("timeout waiting for SSH to be ready")
 		}
 
-		fmt.Printf("  Retrying in 10 seconds... (%d/30)\n", i+1)
+		fmt.Printf("  Retrying in 10 seconds... (%d/60)\n", i+1)
 		time.Sleep(10 * time.Second)
 	}
+
+	// Give the system a moment to stabilize
+	fmt.Println("⏳ Waiting for system to stabilize...")
+	time.Sleep(15 * time.Second)
 
 	// Verificar si Nix ya está instalado
 	checkCmd := exec.Command("ssh",
@@ -88,7 +95,31 @@ func (n *NixConfigurator) InstallNix(
 
 	fmt.Printf("🔧 Installing Nix on %s...\n", host)
 
-	// Descargar e instalar Nix directamente
+	// Clean up any previous Nix installation files
+	cleanupCmd := exec.Command("ssh",
+		"-i", sshKeyPath,
+		"-o", "StrictHostKeyChecking=no",
+		fmt.Sprintf("root@%s", host),
+		`rm -f /etc/bash.bashrc.backup-before-nix \
+		 /etc/profile.backup-before-nix \
+		 /etc/zshrc.backup-before-nix \
+		 /etc/bashrc.backup-before-nix \
+		 /etc/profile.d/nix.sh.backup-before-nix \
+		 /etc/profile.d/nix.sh \
+		 && \
+		 rm -rf /nix /etc/nix ~/.nix* /root/.nix* && \
+		 mkdir -p /etc/profile.d && \
+		 touch /etc/profile.d/nix.sh && \
+		 systemctl daemon-reload`)
+
+	cleanupCmd.Stdout = os.Stdout
+	cleanupCmd.Stderr = os.Stderr
+
+	if err := cleanupCmd.Run(); err != nil {
+		fmt.Printf("⚠️ Warning: Failed to clean up previous installation: %v\n", err)
+	}
+
+	// Download and install Nix directly
 	cmd := exec.Command("ssh",
 		"-i", sshKeyPath,
 		"-o", "StrictHostKeyChecking=no",
@@ -102,7 +133,7 @@ func (n *NixConfigurator) InstallNix(
 		return fmt.Errorf("failed to install Nix: %v", err)
 	}
 
-	// Configurar Nix
+	// Configure Nix
 	fmt.Println("⚙️ Configuring Nix...")
 	configCmd := exec.Command("ssh",
 		"-i", sshKeyPath,
@@ -123,7 +154,7 @@ func (n *NixConfigurator) InstallNix(
 	return nil
 }
 
-// ApplyConfiguration applies the Nix configuration to a host
+// Apply Configuration applies the Nix configuration to a host
 func (n *NixConfigurator) ApplyConfiguration(
 	host,
 	sshKeyPath,
@@ -166,7 +197,29 @@ func (n *NixConfigurator) ApplyConfiguration(
 		"-i", resolvedPath,
 		"-o", "StrictHostKeyChecking=no",
 		fmt.Sprintf("root@%s", host),
-		"nixos-rebuild test && nixos-rebuild switch") // test primero para validar
+		`source /etc/profile && \
+		 export PATH=$PATH:/nix/var/nix/profiles/default/bin && \
+		 export NIX_PATH=nixpkgs=/nix/var/nix/profiles/per-user/root/channels/nixos:nixos-config=/etc/nixos/configuration.nix && \
+		 nix-collect-garbage -d && \
+		 rm -rf /nix/var/nix/profiles && \
+		 mkdir -p /nix/var/nix/profiles && \
+		 nix-env -iA nixos.nixos-rebuild && \
+		 export PATH=$PATH:/root/.nix-profile/bin && \
+		 free -h && \
+		 TMPDIR=/tmp nixos-rebuild switch \
+		   --option sandbox false \
+		   --option cores 1 \
+		   --max-jobs 1 \
+		   --option binary-caches https://cache.nixos.org \
+		   --option trusted-binary-caches https://cache.nixos.org \
+		   --option binary-cache-public-keys cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= \
+		   --option use-substitutes true \
+		   --option build-use-substitutes true \
+		   --option enforce-substitutes true \
+		   --option build-cores 1 \
+		   --option system-features "" \
+		   --no-build-output \
+		   --show-trace`)
 
 	applyCmd.Stdout = os.Stdout
 	applyCmd.Stderr = os.Stderr
@@ -181,31 +234,12 @@ func (n *NixConfigurator) PrepareNixOS(
 ) error {
 	fmt.Printf("🔧 Preparing NixOS on %s...\n", host)
 
-	// Instalar nixos-install
-	fmt.Println("📦 Installing NixOS tools...")
-	installCmd := exec.Command("ssh",
-		"-i", sshKeyPath,
-		"-o", "StrictHostKeyChecking=no",
-		fmt.Sprintf("root@%s", host),
-		`source /etc/profile && \
-		 nix-env -iA \
-		   nixos.nixos-install-tools \
-		   nixos.nixos-rebuild \
-		   nixos.nix`)
-
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-
-	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install NixOS tools: %v", err)
-	}
-
-	// Crear directorios necesarios
+	// Create necessary directories first
 	createDirsCmd := exec.Command("ssh",
 		"-i", sshKeyPath,
 		"-o", "StrictHostKeyChecking=no",
 		fmt.Sprintf("root@%s", host),
-		`mkdir -p /etc/nixos && \
+		`mkdir -p /etc/nixos/cloud && \
 		 touch /etc/nixos/configuration.nix && \
 		 chmod 644 /etc/nixos/configuration.nix`)
 
@@ -216,44 +250,67 @@ func (n *NixConfigurator) PrepareNixOS(
 		return fmt.Errorf("failed to create NixOS directories: %v", err)
 	}
 
-	// Crear archivo base.nix
-	baseNixCmd := exec.Command("ssh",
+	// Copy NixOS configuration files
+	fmt.Println("📁 Copying NixOS configuration files...")
+	copyFilesCmd := exec.Command("ssh",
 		"-i", sshKeyPath,
 		"-o", "StrictHostKeyChecking=no",
 		fmt.Sprintf("root@%s", host),
-		`cat > /etc/nixos/base.nix << 'EOL'
-{ config, pkgs, ... }:
-{
-  imports = [ ];
-  
-  boot.loader.grub.enable = true;
-  boot.loader.grub.version = 2;
-  
-  networking.useDHCP = true;
-  
-  services.openssh.enable = true;
-  services.openssh.permitRootLogin = "yes";
-  
-  users.users.root.openssh.authorizedKeys.keys = [
-    "$(cat ~/.ssh/authorized_keys)"
-  ];
-  
-  system.stateVersion = "23.11";
-}
-EOL`)
+		`mkdir -p /etc/nixos/cloud`)
 
-	baseNixCmd.Stdout = os.Stdout
-	baseNixCmd.Stderr = os.Stderr
+	if err := copyFilesCmd.Run(); err != nil {
+		return fmt.Errorf("failed to create cloud directory: %v", err)
+	}
 
-	if err := baseNixCmd.Run(); err != nil {
-		return fmt.Errorf("failed to create base.nix: %v", err)
+	// Copy configuration files to their respective locations
+	copyFilesCmd = exec.Command("scp",
+		"-i", sshKeyPath,
+		"-o", "StrictHostKeyChecking=no",
+		"-r",
+		"nix/base.nix",
+		fmt.Sprintf("root@%s:/etc/nixos/base.nix", host))
+
+	if err := copyFilesCmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy base.nix: %v", err)
+	}
+
+	copyFilesCmd = exec.Command("scp",
+		"-i", sshKeyPath,
+		"-o", "StrictHostKeyChecking=no",
+		"-r",
+		"nix/cloud/digitalocean.nix",
+		fmt.Sprintf("root@%s:/etc/nixos/cloud/digitalocean.nix", host))
+
+	copyFilesCmd.Stdout = os.Stdout
+	copyFilesCmd.Stderr = os.Stderr
+
+	if err := copyFilesCmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy NixOS configuration files: %v", err)
+	}
+
+	// Install NixOS tools first
+	fmt.Println("📦 Installing NixOS tools...")
+	nixosToolsCmd := exec.Command("ssh",
+		"-i", sshKeyPath,
+		"-o", "StrictHostKeyChecking=no",
+		fmt.Sprintf("root@%s", host),
+		`source /etc/profile && \
+		 nix-channel --add https://nixos.org/channels/nixos-unstable nixos && \
+		 nix-channel --update && \
+		 nix-env -iA nixos.nixos-install nixos.nixos-rebuild`)
+
+	nixosToolsCmd.Stdout = os.Stdout
+	nixosToolsCmd.Stderr = os.Stderr
+
+	if err := nixosToolsCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install NixOS tools: %v", err)
 	}
 
 	fmt.Printf("✅ NixOS preparation completed on %s\n", host)
 	return nil
 }
 
-// InstallNixOS performs the NixOS installation
+// Install NixOS performs the NixOS installation
 func (n *NixConfigurator) InstallNixOS(
 	host string,
 	sshKeyPath string,

@@ -6,6 +6,12 @@
   # DigitalOcean specific configurations
   boot.loader.grub.device = "/dev/vda";
   
+  # Root filesystem configuration
+  fileSystems."/" = {
+    device = "/dev/vda1";
+    fsType = "ext4";
+  };
+  
   # Enable qemu-guest-agent
   services.qemuGuest.enable = true;
 
@@ -31,13 +37,21 @@
 
   # Network optimizations for DO
   networking = {
-    # Enable TCP BBR for better network performance
-    tcp.bbr.enable = true;
+    # # Enable TCP BBR for better network performance
+    # boot.kernel.sysctl = {
+    #   "net.ipv4.tcp_congestion_control" = "bbr";
+    #   "net.core.default_qdisc" = "fq";
+    # };
     
     # Firewall configuration
     firewall = {
       enable = true;
       allowedTCPPorts = [ 22 80 443 ];
+    };
+
+    useNetworkd = true;  # Use systemd-networkd
+    interfaces.eth0 = {
+      useDHCP = true;
     };
   };
 

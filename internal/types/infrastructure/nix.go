@@ -50,15 +50,18 @@ func (i *Infrastructure) RunNixProvisioning(instances []InstanceInfo) error {
 // getNixOSConfig returns the NixOS configuration for a specific instance
 func (i *Infrastructure) getNixOSConfig(instanceName string) string {
 	return fmt.Sprintf(`
-		# Provider specific settings
-		imports = [ 
-			./base.nix
-			./%s 
-		];
-		
-		# Custom instance settings
-		networking.hostName = "%s";
-	`, i.provider.GetNixOSConfig(), instanceName)
+{ config, pkgs, ... }:
+{
+	# Provider specific settings
+	imports = [ 
+		./base.nix
+		./%s 
+	];
+	
+	# Custom instance settings
+	networking.hostName = "%s";
+}
+    `, i.provider.GetNixOSConfig(), instanceName)
 }
 
 // provisionInstance configures a single instance with Nix

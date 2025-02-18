@@ -49,11 +49,11 @@ func (p *DigitalOceanProvider) ConfigureProvider(stack auto.Stack) error {
 	return nil
 }
 
-// getSSHKeyID obtiene el ID de una clave SSH por su nombre
+// getSSHKeyID gets the ID of an SSH key by its name
 func (p *DigitalOceanProvider) getSSHKeyID(ctx *pulumi.Context, keyName string) (string, error) {
 	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
 
-	// Verificar que tenemos el token configurado
+	// Verify that we have the token configured
 	if os.Getenv("DIGITALOCEAN_TOKEN") == "" {
 		return "", fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
 	}
@@ -62,7 +62,7 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx *pulumi.Context, keyName string) 
 		Name: keyName,
 	})
 	if err != nil {
-		// Intentar listar las claves disponibles para ayudar en el diagnóstico
+		// Try listing available keys to help with diagnosis
 		keys, listErr := digitalocean.GetSshKeys(ctx, nil)
 		if listErr == nil && len(keys.SshKeys) > 0 {
 			fmt.Println("Available SSH keys:")
