@@ -87,3 +87,8 @@ var getJobCmd = &cobra.Command{
 		fmt.Println(string(prettyJSON))
 	},
 }
+
+// GetJobsCmd returns the jobs command
+func GetJobsCmd() *cobra.Command {
+	return jobsCmd
+}

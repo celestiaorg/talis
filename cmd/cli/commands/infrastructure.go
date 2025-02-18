@@ -187,3 +187,8 @@ var deleteInfraCmd = &cobra.Command{
 		fmt.Println(string(prettyJSON))
 	},
 }
+
+// GetInfraCmd returns the infrastructure command
+func GetInfraCmd() *cobra.Command {
+	return infraCmd
+}
