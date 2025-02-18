@@ -10,19 +10,20 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+// DigitalOceanProvider implements the ComputeProvider interface
 type DigitalOceanProvider struct{}
 
-// ValidateCredentials verifies that the required DigitalOcean credentials are present
-func (d *DigitalOceanProvider) ValidateCredentials() error {
-	doToken := os.Getenv("DIGITALOCEAN_TOKEN")
-	if doToken == "" {
+// ValidateCredentials validates the DigitalOcean credentials
+func (p *DigitalOceanProvider) ValidateCredentials() error {
+	token := os.Getenv("DIGITALOCEAN_TOKEN")
+	if token == "" {
 		return fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
 	}
 	return nil
 }
 
 // GetEnvironmentVars returns the environment variables needed for DigitalOcean
-func (d *DigitalOceanProvider) GetEnvironmentVars() map[string]string {
+func (p *DigitalOceanProvider) GetEnvironmentVars() map[string]string {
 	return map[string]string{
 		"DIGITALOCEAN_TOKEN": os.Getenv("DIGITALOCEAN_TOKEN"),
 	}
@@ -36,17 +37,10 @@ func (p *DigitalOceanProvider) ConfigureProvider(stack auto.Stack) error {
 	}
 
 	fmt.Println("🔑 Setting up DigitalOcean credentials...")
-	err := stack.SetConfig(context.Background(), "digitalocean:token", auto.ConfigValue{
+	return stack.SetConfig(context.Background(), "digitalocean:token", auto.ConfigValue{
 		Value:  doToken,
 		Secret: true,
 	})
-	if err != nil {
-		fmt.Printf("❌ Failed to configure DigitalOcean: %v\n", err)
-		return err
-	}
-
-	fmt.Println("✅ DigitalOcean credentials configured successfully")
-	return nil
 }
 
 // getSSHKeyID gets the ID of an SSH key by its name
@@ -78,34 +72,43 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx *pulumi.Context, keyName string) 
 }
 
 // CreateInstance creates a new DigitalOcean droplet
-func (p *DigitalOceanProvider) CreateInstance(
-	ctx *pulumi.Context,
-	name string,
-	config InstanceConfig,
-) (pulumi.Resource, error) {
+func (p *DigitalOceanProvider) CreateInstance(ctx *pulumi.Context, name string, config InstanceConfig) (InstanceInfo, error) {
 	fmt.Printf("🚀 Creating DigitalOcean droplet: %s\n", name)
 	fmt.Printf("  Region: %s\n", config.Region)
 	fmt.Printf("  Size: %s\n", config.Size)
 	fmt.Printf("  Image: %s\n", config.Image)
 
-	// Get SSH key ID first
+	// Si no se proporciona user_data, usar un script básico
+	userData := config.UserData
+	if userData == "" {
+		userData = `#!/bin/bash
+apt-get update
+apt-get install -y python3`
+	}
+
 	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get SSH key: %v", err)
+		return InstanceInfo{}, fmt.Errorf("failed to get SSH key: %v", err)
+	}
+
+	// Convert slice of tags to pulumi.StringArray
+	tags := make(pulumi.StringArray, len(config.Tags)+1)
+	tags[0] = pulumi.String(name)
+	for i, tag := range config.Tags {
+		tags[i+1] = pulumi.String(tag)
 	}
 
 	droplet, err := digitalocean.NewDroplet(ctx, name, &digitalocean.DropletArgs{
-		Image:  pulumi.String(config.Image),
-		Region: pulumi.String(config.Region),
-		Size:   pulumi.String(config.Size),
-		SshKeys: pulumi.StringArray{
-			pulumi.String(sshKeyID),
-		},
-		Tags: pulumi.ToStringArray(config.Tags),
+		Region:   pulumi.String(config.Region),
+		Size:     pulumi.String(config.Size),
+		Image:    pulumi.String(config.Image),
+		UserData: pulumi.String(userData),
+		SshKeys:  pulumi.StringArray{pulumi.String(sshKeyID)},
+		Tags:     tags,
 	})
 	if err != nil {
 		fmt.Printf("❌ Failed to create droplet: %v\n", err)
-		return nil, fmt.Errorf("failed to create droplet: %v", err)
+		return InstanceInfo{}, fmt.Errorf("failed to create droplet: %v", err)
 	}
 
 	// Export the IP address and ensure it's ready
@@ -117,7 +120,9 @@ func (p *DigitalOceanProvider) CreateInstance(
 	ctx.Export(fmt.Sprintf("%s_ip", name), ip)
 
 	fmt.Printf("✅ Droplet creation initiated: %s\n", name)
-	return droplet, nil
+	return InstanceInfo{
+		PublicIP: droplet.Ipv4Address,
+	}, nil
 }
 
 // GetNixOSConfig returns the provider-specific NixOS configuration

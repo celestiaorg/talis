@@ -112,10 +112,10 @@ func (h *InfrastructureHandler) CreateInfrastructure(c *fiber.Ctx) error {
 				return
 			}
 
-			if err := infra.RunNixProvisioning(instances); err != nil {
-				fmt.Printf("❌ Failed to run Nix provisioning: %v\n", err)
+			if err := infra.RunProvisioning(instances); err != nil {
+				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
 				h.jobService.UpdateJobStatus(context.Background(), j.ID, job.StatusFailed, instances,
-					fmt.Sprintf("infrastructure created but Nix provisioning failed: %v", err))
+					fmt.Sprintf("infrastructure created but provisioning failed: %v", err))
 				return
 			}
 		}

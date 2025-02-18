@@ -13,11 +13,11 @@ import (
 
 // Infrastructure represents the infrastructure management
 type Infrastructure struct {
-	request   InstanceRequest          // Request containing the infrastructure configuration
-	instances []Instance               // Instance configuration
-	stack     *auto.Stack              // Pulumi stack for managing the infrastructure
-	provider  compute.ComputeProvider  // Compute provider implementation
-	nixConfig *compute.NixConfigurator // Nix configuration manager
+	request     InstanceRequest         // Request containing the infrastructure configuration
+	instances   []Instance              // Instance configuration
+	stack       *auto.Stack             // Pulumi stack for managing the infrastructure
+	provider    compute.ComputeProvider // Compute provider implementation
+	provisioner compute.Provisioner
 }
 
 // NewInfrastructure creates a new infrastructure instance
@@ -32,10 +32,10 @@ func NewInfrastructure(req InstanceRequest, instance Instance) (*Infrastructure,
 	}
 
 	return &Infrastructure{
-		request:   req,
-		instances: req.Instances,
-		provider:  provider,
-		nixConfig: compute.NewNixConfigurator(),
+		request:     req,
+		instances:   req.Instances,
+		provider:    provider,
+		provisioner: compute.NewProvisioner(),
 	}, nil
 }
 
@@ -82,7 +82,7 @@ func (i *Infrastructure) handleCreate() (interface{}, error) {
 	time.Sleep(30 * time.Second)
 
 	// Run Nix provisioning if enabled
-	if err := i.RunNixProvisioning(instances); err != nil {
+	if err := i.RunProvisioning(instances); err != nil {
 		return nil, fmt.Errorf("failed to provision instances: %v", err)
 	}
 
@@ -169,7 +169,7 @@ func (i *Infrastructure) Update() (interface{}, error) {
 	}
 
 	// Apply new Nix configuration
-	if err := i.RunNixProvisioning(instances); err != nil {
+	if err := i.RunProvisioning(instances); err != nil {
 		return nil, fmt.Errorf("failed to update configuration: %v", err)
 	}
 
