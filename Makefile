@@ -16,6 +16,12 @@ LDFLAGS := -ldflags="-s -w"
 
 .PHONY: all build clean test fmt lint vet tidy run help check-env migrate migrate-down migrate-force migrate-version db-connect
 
+## help: Get more info on make commands.
+help: Makefile
+	@echo " Choose a command run in "$(PROJECTNAME)":"
+	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
+.PHONY: help
+
 # Default target
 all: check-env lint test build
 
@@ -88,27 +94,7 @@ dev-setup: check-env
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin; \
 	fi
 
-# Show help
-help:
-	@echo "Available targets:"
-	@echo "  all          - Run lint, test, and build"
-	@echo "  build        - Build the application"
-	@echo "  clean        - Remove build artifacts"
-	@echo "  test         - Run tests"
-	@echo "  fmt          - Format code"
-	@echo "  lint         - Run linters"
-	@echo "  vet          - Run go vet"
-	@echo "  tidy         - Tidy and verify dependencies"
-	@echo "  run          - Run the application"
-	@echo "  check-env    - Check required environment variables"
-	@echo "  nix-check    - Validate Nix configurations"
-	@echo "  dev-setup    - Set up development environment"
-	@echo "  help         - Show this help message"
-	@echo "  migrate      - Run migrations"
-	@echo "  migrate-down - Rollback a migration"
-	@echo "  migrate-force - Force a migration"
-	@echo "  migrate-version - Show migration version"
-	@echo "  db-connect   - Connect to the database"
+
 
 # Default target
 .DEFAULT_GOAL := help 
