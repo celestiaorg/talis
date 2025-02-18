@@ -11,26 +11,6 @@
         delay: 5
       register: wait_result
 
-    - name: Gather facts
-      setup:
-
-    - name: Wait for apt to be ready
-      shell: |
-        while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-          echo "Waiting for other package manager to finish..."
-          sleep 1
-        done
-        while ps aux | grep -i apt | grep -v grep > /dev/null; do
-          echo "Waiting for other apt processes to finish..."
-          ps aux | grep -i apt | grep -v grep
-          sleep 5
-        done
-      register: apt_wait
-      retries: 60
-      delay: 3
-      until: apt_wait.rc == 0
-      changed_when: false
-
     - name: Update apt cache
       apt:
         update_cache: yes
