@@ -15,7 +15,7 @@ GOBUILD := $(GO) build
 LDFLAGS := -ldflags="-s -w"
 
 # TODO: add them to the right place
-.PHONY: all build clean test fmt lint vet tidy run help check-env migrate migrate-down migrate-force migrate-version db-connect
+.PHONY: all build clean test fmt lint vet tidy run help check-env migrate migrate-down migrate-force migrate-version db-connect build-cli
 
 ## help: Get more info on make commands.
 help: Makefile
@@ -95,7 +95,10 @@ dev-setup: check-env
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin; \
 	fi
 
-
+# Build the Talis CLI tool
+build-cli:
+	@echo "Building Talis CLI..."
+	$(GOBUILD) $(LDFLAGS) -o bin/talis ./cmd/cli
 
 # Default target
 .DEFAULT_GOAL := help 
