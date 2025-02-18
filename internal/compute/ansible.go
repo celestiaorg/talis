@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 )
 
@@ -20,6 +21,8 @@ type AnsibleConfigurator struct {
 	instances map[string]string
 	// sshKeyPath stores the SSH key path for all instances
 	sshKeyPath string
+	// mutex protects the instances map
+	mutex sync.Mutex
 }
 
 // NewAnsibleConfigurator creates a new Ansible configurator
@@ -109,6 +112,13 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 
 // ConfigureHost implements the Provisioner interface
 func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) error {
+	// Store instance and SSH key path
+	a.mutex.Lock()
+	instanceName := fmt.Sprintf("talis-%d", len(a.instances))
+	a.instances[instanceName] = host
+	a.sshKeyPath = sshKeyPath
+	a.mutex.Unlock()
+
 	fmt.Printf("🔧 Configuring host %s with Ansible...\n", host)
 
 	// Wait for SSH to be available
@@ -134,10 +144,37 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 		time.Sleep(10 * time.Second)
 	}
 
-	// Store instance and SSH key path
-	instanceName := fmt.Sprintf("talis-%d", len(a.instances))
-	a.instances[instanceName] = host
-	a.sshKeyPath = sshKeyPath
+	return nil
+}
+
+// ConfigureHosts configures multiple hosts in parallel
+func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(hosts))
+
+	for _, host := range hosts {
+		wg.Add(1)
+		go func(h string) {
+			defer wg.Done()
+			if err := a.ConfigureHost(h, sshKeyPath); err != nil {
+				errChan <- fmt.Errorf("failed to configure host %s: %v", h, err)
+			}
+		}(host)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(errChan)
+
+	// Check for any errors
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to configure some hosts: %v", errors)
+	}
 
 	// Create/update inventory with all instances
 	if err := a.CreateInventory(a.instances, sshKeyPath); err != nil {
