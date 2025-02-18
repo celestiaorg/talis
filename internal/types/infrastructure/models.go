@@ -7,31 +7,51 @@ const (
 	retryDelay = 10  // Delay between retry attempts (seconds)
 )
 
-// InstanceRequest represents the API request structure
-type InstanceRequest struct {
-	Name        string     `json:"name"`                  // Name of the infrastructure
-	ProjectName string     `json:"project_name"`          // Name of the Pulumi project
-	Action      string     `json:"action"`                // Action to perform (create/delete)
-	Instances   []Instance `json:"instances"`             // List of instances to create
-	WebhookURL  string     `json:"webhook_url,omitempty"` // URL to notify when job completes
+// Request represents the infrastructure request
+type Request struct {
+	Name        string     `json:"name"`
+	ProjectName string     `json:"project_name"`
+	Provider    string     `json:"provider"`
+	Instances   []Instance `json:"instances"`
+	Action      string     `json:"action"` // "create" or "delete"
 }
 
-// Instance represents a single instance configuration
+// Instance represents a compute instance configuration
 type Instance struct {
-	Provider          string   `json:"provider"`            // Provider to use (digitalocean/aws)
-	NumberOfInstances int      `json:"number_of_instances"` // Number of instances to create
-	Region            string   `json:"region"`              // Region to create the instances in
-	Size              string   `json:"size"`                // Size of the instances to create
-	Image             string   `json:"image"`               // Image to use for the instances
-	Tags              []string `json:"tags"`                // Tags to add to the instances
-	SSHKeyName        string   `json:"ssh_key_name"`        // SSH key name to use for the instances
-	Provision         bool     `json:"provision"`           // Control Nix provisioning
+	Provider          string   `json:"provider"`
+	NumberOfInstances int      `json:"number_of_instances"`
+	Provision         bool     `json:"provision"`
+	Region            string   `json:"region"`
+	Size              string   `json:"size"`
+	Image             string   `json:"image"`
+	Tags              []string `json:"tags"`
+	SSHKeyName        string   `json:"ssh_key_name"`
 }
 
-// InstanceInfo represents a created instance
+// DeleteRequest represents a request to delete infrastructure
+type DeleteRequest struct {
+	Name        string           `json:"name"`
+	ProjectName string           `json:"project_name"`
+	WebhookURL  string           `json:"webhook_url"`
+	Provider    string           `json:"provider"`
+	Instances   []DeleteInstance `json:"instances"`
+}
+
+// DeleteInstance represents the configuration for deleting an instance
+type DeleteInstance struct {
+	Provider          string   `json:"provider"`
+	NumberOfInstances int      `json:"number_of_instances"`
+	Region            string   `json:"region"`
+	Size              string   `json:"size"`
+	Image             string   `json:"image"`
+	Tags              []string `json:"tags"`
+	SSHKeyName        string   `json:"ssh_key_name"`
+}
+
+// InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	Name string `json:"name"` // Name of the instance
-	IP   string `json:"ip"`   // IP address of the instance
+	Name string `json:"name"`
+	IP   string `json:"ip"`
 }
 
 // JobStatus represents the status of an infrastructure job
@@ -39,20 +59,4 @@ type JobStatus struct {
 	JobID     string `json:"job_id"`     // ID of the job
 	Status    string `json:"status"`     // Status of the job
 	CreatedAt string `json:"created_at"` // Timestamp when the job was created
-}
-
-// DeleteRequest represents the API request structure for deletion
-type DeleteRequest struct {
-	Name        string           `json:"name"`                  // Name of the infrastructure
-	ProjectName string           `json:"project_name"`          // Name of the Pulumi project
-	Instances   []DeleteInstance `json:"instances"`             // List of instances to delete
-	WebhookURL  string           `json:"webhook_url,omitempty"` // URL to notify when job completes
-}
-
-// DeleteInstance represents the minimal instance configuration needed for deletion
-type DeleteInstance struct {
-	Provider          string `json:"provider"`            // Provider to use (digitalocean/aws)
-	NumberOfInstances int    `json:"number_of_instances"` // Number of instances to delete
-	Region            string `json:"region"`              // Region to delete the instances in
-	Size              string `json:"size"`                // Size of the instances to delete
 }

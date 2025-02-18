@@ -30,9 +30,10 @@ type InstanceInfo struct {
 	PublicIP pulumi.StringOutput
 }
 
-// Provisioner defines the interface for system configuration
+// Provisioner is the interface for system configuration
 type Provisioner interface {
 	ConfigureHost(host string, sshKeyPath string) error
+	ConfigureHosts(hosts []string, sshKeyPath string) error
 	CreateInventory(instances map[string]string, keyPath string) error
 	RunAnsiblePlaybook(inventoryName string) error
 }
@@ -48,6 +49,6 @@ func NewComputeProvider(provider string) (ComputeProvider, error) {
 }
 
 // NewProvisioner creates a new system provisioner
-func NewProvisioner() Provisioner {
-	return NewAnsibleConfigurator()
+func NewProvisioner(jobID string) Provisioner {
+	return NewAnsibleConfigurator(jobID)
 }

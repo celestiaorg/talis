@@ -24,7 +24,7 @@ func (i *Infrastructure) setupInfrastructure() error {
 		return err
 	}
 
-	fmt.Printf("Starting Pulumi with stack: %s\n", i.request.ProjectName)
+	fmt.Printf("Starting Pulumi with stack: %s\n", i.projectName)
 	totalInstances := 0
 	for _, inst := range i.instances {
 		totalInstances += inst.NumberOfInstances
@@ -65,7 +65,7 @@ func (i *Infrastructure) createPulumiStack(pulumiToken string) (*auto.Stack, err
 
 	fmt.Println("📁 Creating Pulumi workspace...")
 	stack, err := auto.UpsertStackInlineSource(context.Background(),
-		i.request.ProjectName,
+		i.projectName,
 		"talis",
 		func(ctx *pulumi.Context) error {
 			fmt.Println("⚡ Running Pulumi program...")
@@ -98,7 +98,7 @@ func (i *Infrastructure) createInstances(ctx *pulumi.Context) error {
 			wg.Add(1)
 			go func(index int, instance Instance) {
 				defer wg.Done()
-				name := fmt.Sprintf("%s-%d", i.request.Name, index)
+				name := fmt.Sprintf("%s-%d", i.name, index)
 				_, err := i.provider.CreateInstance(ctx, name, compute.InstanceConfig{
 					Region:   instance.Region,
 					Size:     instance.Size,

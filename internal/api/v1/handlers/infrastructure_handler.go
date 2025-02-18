@@ -11,9 +11,9 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// Handler is the main handler for the API
+// InfrastructureHandler handles infrastructure-related requests
 type InfrastructureHandler struct {
-	jobService job.Service // Service to manage jobs
+	jobService job.Service
 }
 
 // NewHandler creates a new Handler
@@ -23,34 +23,45 @@ func NewInfrastructureHandler(jobService job.Service) *InfrastructureHandler {
 	}
 }
 
-// CreateInfrastructure creates a new infrastructure
+// CreateInfrastructure handles the creation of new infrastructure
 func (h *InfrastructureHandler) CreateInfrastructure(c *fiber.Ctx) error {
-	var req infrastructure.InstanceRequest
+	var req struct {
+		Name        string                    `json:"name"`
+		ProjectName string                    `json:"project_name"`
+		WebhookURL  string                    `json:"webhook_url"`
+		Instances   []infrastructure.Instance `json:"instances"`
+	}
+
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	// Set action based on HTTP method
-	req.Action = "create"
+	// Convert to Request and validate
+	infraReq := &infrastructure.Request{
+		Name:        req.Name,
+		ProjectName: req.ProjectName,
+		Provider:    req.Instances[0].Provider,
+		Instances:   req.Instances,
+		Action:      "create",
+	}
 
-	// Validate request
-	if err := req.Validate(); err != nil {
+	if err := infraReq.Validate(); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	// Create job first
-	j, err := h.jobService.CreateJob(c.Context(), req.WebhookURL)
+	// Create a new job
+	j, err := h.jobService.CreateJob(context.Background(), req.WebhookURL)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	// Start async infrastructure creation
+	// Create job first
 	go func() {
 		fmt.Println("🚀 Starting async infrastructure creation...")
 
@@ -60,7 +71,7 @@ func (h *InfrastructureHandler) CreateInfrastructure(c *fiber.Ctx) error {
 			return
 		}
 
-		infra, err := infrastructure.NewInfrastructure(req, req.Instances[0])
+		infra, err := infrastructure.NewInfrastructure(infraReq)
 		if err != nil {
 			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
 			h.jobService.UpdateJobStatus(context.Background(), j.ID, job.StatusFailed, nil, err.Error())
@@ -95,7 +106,7 @@ func (h *InfrastructureHandler) CreateInfrastructure(c *fiber.Ctx) error {
 		}
 
 		// Start Nix provisioning if creation was successful and provisioning is requested
-		if req.Action == "create" && req.Instances[0].Provision {
+		if req.Instances[0].Provision {
 			instances, ok := result.([]infrastructure.InstanceInfo)
 			if !ok {
 				fmt.Printf("❌ Invalid result type: %T\n", result)
@@ -141,30 +152,21 @@ func (h *InfrastructureHandler) DeleteInfrastructure(c *fiber.Ctx) error {
 		})
 	}
 
-	// Convert DeleteRequest to InstanceRequest for backwards compatibility
-	fullReq := infrastructure.InstanceRequest{
-		Name:        req.Name,
-		ProjectName: req.ProjectName,
-		Action:      "delete",
-		Instances:   make([]infrastructure.Instance, len(req.Instances)),
-	}
-
-	// Fill in only the required fields
-	for i, inst := range req.Instances {
-		fullReq.Instances[i] = infrastructure.Instance{
-			Provider:          inst.Provider,
-			NumberOfInstances: inst.NumberOfInstances,
-			Region:            inst.Region,
-			Size:              inst.Size,
-		}
-	}
-
 	// Create job first
-	j, err := h.jobService.CreateJob(c.Context(), req.WebhookURL)
+	j, err := h.jobService.CreateJob(context.Background(), req.WebhookURL)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	}
+
+	// Convert InstanceRequest to Request
+	infraReq := &infrastructure.Request{
+		Name:        req.Name,
+		ProjectName: req.ProjectName,
+		Provider:    req.Instances[0].Provider,
+		Instances:   convertToInstances(req.Instances),
+		Action:      "delete",
 	}
 
 	// Start async infrastructure deletion
@@ -177,7 +179,7 @@ func (h *InfrastructureHandler) DeleteInfrastructure(c *fiber.Ctx) error {
 			return
 		}
 
-		infra, err := infrastructure.NewInfrastructure(fullReq, fullReq.Instances[0])
+		infra, err := infrastructure.NewInfrastructure(infraReq)
 		if err != nil {
 			fmt.Printf("❌ Failed to create infrastructure client: %v\n", err)
 			h.jobService.UpdateJobStatus(context.Background(), j.ID, job.StatusFailed, nil, err.Error())
@@ -232,4 +234,21 @@ func (h *InfrastructureHandler) GetInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
 		"error": "get instance not implemented yet",
 	})
+}
+
+// convertToInstances convierte DeleteInstance a Instance
+func convertToInstances(deleteInstances []infrastructure.DeleteInstance) []infrastructure.Instance {
+	instances := make([]infrastructure.Instance, len(deleteInstances))
+	for i, di := range deleteInstances {
+		instances[i] = infrastructure.Instance{
+			Provider:          di.Provider,
+			NumberOfInstances: di.NumberOfInstances,
+			Region:            di.Region,
+			Size:              di.Size,
+			Image:             di.Image,
+			Tags:              di.Tags,
+			SSHKeyName:        di.SSHKeyName,
+		}
+	}
+	return instances
 }

@@ -13,29 +13,35 @@ import (
 
 // Infrastructure represents the infrastructure management
 type Infrastructure struct {
-	request     InstanceRequest         // Request containing the infrastructure configuration
+	name        string                  // Name of the infrastructure
+	projectName string                  // Name of the project
 	instances   []Instance              // Instance configuration
 	stack       *auto.Stack             // Pulumi stack for managing the infrastructure
 	provider    compute.ComputeProvider // Compute provider implementation
 	provisioner compute.Provisioner
+	jobID       string
+	action      string // Action to perform (create/delete)
 }
 
 // NewInfrastructure creates a new infrastructure instance
-func NewInfrastructure(req InstanceRequest, instance Instance) (*Infrastructure, error) {
-	if instance.Provider == "" {
-		return nil, fmt.Errorf("provider is required")
+func NewInfrastructure(req *Request) (*Infrastructure, error) {
+	provider, err := compute.NewComputeProvider(req.Provider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create compute provider: %v", err)
 	}
 
-	provider, err := compute.NewComputeProvider(instance.Provider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create provider: %v", err)
-	}
+	// Generate job ID using timestamp
+	timestamp := time.Now().Format("20060102-150405")
+	jobID := fmt.Sprintf("job-%s", timestamp)
 
 	return &Infrastructure{
-		request:     req,
+		name:        req.Name,
+		projectName: req.ProjectName,
 		instances:   req.Instances,
 		provider:    provider,
-		provisioner: compute.NewProvisioner(),
+		provisioner: compute.NewProvisioner(jobID),
+		jobID:       jobID,
+		action:      req.Action,
 	}, nil
 }
 
@@ -45,13 +51,13 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		return nil, fmt.Errorf("failed to setup infrastructure: %v", err)
 	}
 
-	switch i.request.Action {
+	switch i.action {
 	case "create":
 		return i.handleCreate()
 	case "delete":
 		return i.handleDelete()
 	default:
-		return nil, fmt.Errorf("invalid action: %s", i.request.Action)
+		return nil, fmt.Errorf("invalid action: %s", i.action)
 	}
 }
 
@@ -135,7 +141,7 @@ func (i *Infrastructure) Update() (interface{}, error) {
 	}
 
 	// Use the project name as the stack name since that's how it was created
-	stackName := i.request.ProjectName
+	stackName := i.projectName
 	fmt.Printf("Attempting to select stack: %s\n", stackName)
 
 	// Get existing stack

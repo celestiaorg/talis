@@ -6,15 +6,12 @@ import (
 )
 
 // Validate validates the infrastructure request
-func (r *InstanceRequest) Validate() error {
+func (r *Request) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("name is required")
 	}
 	if r.ProjectName == "" {
 		return fmt.Errorf("project_name is required")
-	}
-	if r.Action == "" {
-		return fmt.Errorf("action is required")
 	}
 	if len(r.Instances) == 0 {
 		return fmt.Errorf("at least one instance configuration is required")

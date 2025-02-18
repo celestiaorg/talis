@@ -22,6 +22,19 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 	}
 
 	fmt.Println("⚙️ Starting Ansible provisioning...")
+
+	// Create inventory file for all instances
+	instanceMap := make(map[string]string)
+	for _, instance := range instances {
+		instanceMap[instance.Name] = instance.IP
+	}
+
+	// Create inventory file
+	if err := i.provisioner.CreateInventory(instanceMap, "/root/.ssh/id_rsa"); err != nil {
+		return fmt.Errorf("failed to create inventory: %v", err)
+	}
+
+	// Configure hosts in parallel
 	errChan := make(chan error, len(instances))
 	var wg sync.WaitGroup
 
@@ -44,6 +57,13 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 		}
 	}
 
+	// Run Ansible playbook
+	fmt.Println("📝 Running Ansible playbook...")
+	if err := i.provisioner.RunAnsiblePlaybook(i.jobID); err != nil {
+		return fmt.Errorf("failed to run Ansible playbook: %v", err)
+	}
+
+	fmt.Println("✅ Ansible playbook completed successfully")
 	return nil
 }
 
@@ -51,7 +71,7 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 func (i *Infrastructure) provisionInstance(instance InstanceInfo) error {
 	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.IP)
 
-	if err := i.provisioner.ConfigureHost(instance.IP, "~/.ssh/id_rsa"); err != nil {
+	if err := i.provisioner.ConfigureHost(instance.IP, "/root/.ssh/id_rsa"); err != nil {
 		return fmt.Errorf("failed to configure host: %v", err)
 	}
 

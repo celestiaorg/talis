@@ -15,8 +15,8 @@ const (
 
 // AnsibleConfigurator implements the Provisioner interface
 type AnsibleConfigurator struct {
-	// inventoryID is the unique identifier for the current run
-	inventoryID string
+	// jobID is the unique identifier for the current job
+	jobID string
 	// instances keeps track of all instances to be configured
 	instances map[string]string
 	// sshKeyPath stores the SSH key path for all instances
@@ -26,21 +26,19 @@ type AnsibleConfigurator struct {
 }
 
 // NewAnsibleConfigurator creates a new Ansible configurator
-func NewAnsibleConfigurator() *AnsibleConfigurator {
-	timestamp := time.Now().Format("20060102-150405")
-	inventoryID := fmt.Sprintf("talis-%s", timestamp)
+func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	return &AnsibleConfigurator{
-		inventoryID: inventoryID,
-		instances:   make(map[string]string),
+		jobID:     jobID,
+		instances: make(map[string]string),
 	}
 }
 
 // CreateInventory creates the inventory file with all instances
 func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error {
-	fmt.Printf("🎭 Creating inventory %s...\n", a.inventoryID)
+	fmt.Printf("�� Creating inventory for job %s...\n", a.jobID)
 
 	// Create inventory path with base name
-	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.inventoryID)
+	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
 
 	// Ensure ansible directory exists
 	if err := os.MkdirAll("ansible", 0755); err != nil {
@@ -76,7 +74,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 	fmt.Println("🎭 Running Ansible playbook...")
 
 	// Create inventory path with name
-	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.inventoryID)
+	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
 
 	// Prepare command arguments
 	args := []string{
@@ -114,7 +112,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) error {
 	// Store instance and SSH key path
 	a.mutex.Lock()
-	instanceName := fmt.Sprintf("talis-%d", len(a.instances))
+	instanceName := fmt.Sprintf("%s-%d", a.jobID, len(a.instances))
 	a.instances[instanceName] = host
 	a.sshKeyPath = sshKeyPath
 	a.mutex.Unlock()
@@ -182,7 +180,7 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 	}
 
 	// Run Ansible playbook
-	if err := a.RunAnsiblePlaybook(a.inventoryID); err != nil {
+	if err := a.RunAnsiblePlaybook(a.jobID); err != nil {
 		return fmt.Errorf("failed to run Ansible playbook: %v", err)
 	}
 
