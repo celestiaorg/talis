@@ -14,6 +14,7 @@ GOBUILD := $(GO) build
 # Build flags
 LDFLAGS := -ldflags="-s -w"
 
+# TODO: add them to the right place
 .PHONY: all build clean test fmt lint vet tidy run help check-env migrate migrate-down migrate-force migrate-version db-connect
 
 ## help: Get more info on make commands.
