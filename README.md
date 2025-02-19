@@ -5,18 +5,19 @@
 Talis is a multi-cloud infrastructure provisioning and configuration project that uses:
 
 - Pulumi (in Go) to create cloud instances on AWS or DigitalOcean
-- NixOS for system configuration and package management
+- Ansible for initial system configuration and package installation
 
 ## Overview
 
 - **Multi-cloud**: With a single codebase, you can choose which cloud provider to use—AWS or DigitalOcean
 - **Pulumi**: Handles infrastructure creation (VM instances, security groups, etc.)
-- **NixOS**: Provides declarative system configuration, ensuring reproducible environments
+- **Ansible**: Provides initial system configuration and package installation
 
 ## Requirements
 
 - Go (1.20 or higher)
 - Pulumi CLI
+- Ansible (2.9 or higher)
 - SSH key pair for instance access
 - Cloud Credentials:
   - For DigitalOcean: Personal Access Token in `DIGITALOCEAN_TOKEN` environment variable
@@ -41,7 +42,7 @@ talis/
 │   ├── compute/                   # Cloud provider implementations
 │   │   ├── compute.go            # ComputeProvider interface and common types
 │   │   ├── digitalocean.go       # DigitalOcean implementation
-│   │   └── nix.go                # NixOS configuration and provisioning
+│   │   └── ansible.go            # Ansible configuration and provisioning
 │   ├── db/                        # Database layer
 │   │   ├── migrations/          # Database migrations
 │   │   └── job/                 # Job database models
@@ -56,10 +57,9 @@ talis/
 │           ├── validation.go     # Request validation
 │           ├── pulumi.go        # Pulumi logic
 │           └── infrastructure.go # Main infrastructure logic
-├── nix/                          # NixOS configurations
-│   ├── base.nix                  # Base system configuration
-│   └── cloud/                    # Cloud-specific configurations
-│       └── digitalocean.nix      # DigitalOcean configuration
+├── ansible/                      # Ansible configurations
+│   ├── playbook.yml             # Main Ansible playbook
+│   └── inventory_*_ansible.ini  # Generated inventory files
 ├── migrations/                    # SQL migration files
 │   └── *.sql                     # Migration SQL files
 ├── scripts/                      # Utility scripts
@@ -85,7 +85,7 @@ talis/
 ### internal/compute/
 - **compute.go**: Defines the `ComputeProvider` interface and common types
 - **digitalocean.go**: `ComputeProvider` implementation for DigitalOcean
-- **nix.go**: NixOS installation and configuration management
+- **ansible.go**: Ansible configuration and provisioning
 
 ### internal/db/
 - **migrations/**: Database migration management
@@ -102,6 +102,10 @@ talis/
 - **validation.go**: Request validation
 - **pulumi.go**: Pulumi stack management
 - **infrastructure.go**: Main infrastructure management logic
+
+### ansible/
+- **playbook.yml**: Main Ansible playbook
+- **inventory_*_ansible.ini**: Generated inventory files
 
 ### migrations/
 - SQL files for database schema and updates
@@ -123,10 +127,41 @@ DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 SSH_KEY_ID=your_key_id_here
 ```
 
+3. Ensure your SSH key is available:
+```bash
+# The default path is /root/.ssh/id_rsa
+# You can specify a different path in the request
+```
+
 ## Usage
 
-### Create Instances
+### Using the CLI
 
+Talis provides a command-line interface for managing infrastructure and jobs.
+
+```bash
+# Build the CLI
+make build-cli
+
+# Create infrastructure using a JSON file
+talis infra create -f create.json
+
+# Delete infrastructure using a JSON file
+talis infra delete -f delete.json
+
+# List all jobs
+talis jobs list
+
+# List jobs with filters
+talis jobs list --limit 10 --status running
+
+# Get job status
+talis jobs get --id job-20240315-123456
+```
+
+### API Usage
+
+### Create Instances
 ```json
 {
     "name": "talis",
@@ -136,16 +171,53 @@ SSH_KEY_ID=your_key_id_here
         {
             "provider": "digitalocean",
             "number_of_instances": 1,
+            "provision": true,
             "region": "nyc3",
             "size": "s-1vcpu-1gb",
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-do-instance"],
-            "ssh_key_name": "your-ssh-key-name",
-            "provision": true
+            "ssh_key_name": "your-ssh-key-name"
         }
     ]
 }
 ```
+
+### CLI Commands
+
+#### Infrastructure Management
+```bash
+# Create infrastructure
+talis infra create -f config.json
+
+# Delete infrastructure
+talis infra delete -f config.json
+```
+
+#### Job Management
+```bash
+# List all jobs
+talis jobs list
+
+# List with filters
+talis jobs list --limit 10 --status running
+
+# Get specific job
+talis jobs get --id <job-id>
+```
+
+### Ansible Provisioning
+
+When `provision: true` is set in the instance configuration, Talis will:
+
+1. Wait for the instance to be accessible via SSH
+2. Create an Ansible inventory file
+3. Run the Ansible playbook that:
+   - Updates system packages
+   - Installs required software (nginx, docker, etc.)
+   - Configures basic services
+   - Sets up firewall rules
+
+The Ansible playbook can be customized by modifying `ansible/playbook.yml`.
 
 ### Delete Instances
 
@@ -172,17 +244,16 @@ SSH_KEY_ID=your_key_id_here
 1. Create new file in `internal/compute/` (e.g., `aws.go`)
 2. Implement the `ComputeProvider` interface
 3. Add the provider in `NewComputeProvider` in `compute.go`
-4. Create NixOS configuration in `nix/cloud/`
 
-### Customizing NixOS
+### Customizing Ansible
 
-Modify files in `nix/`:
-- `base.nix`: Common configuration
-- `cloud/provider.nix`: Provider-specific configuration
+Modify files in `ansible/`:
+- `playbook.yml`: Main Ansible playbook
+- Add new roles in `ansible/roles/` for modular configurations
 
 ## Upcoming Features
 
-- More NixOS configuration options
+- More Ansible playbook options
 - AWS support
 - Webhook notification system
 - 100 Light Nodes deployment
