@@ -1,0 +1,181 @@
+package handlers
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+
+	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
+)
+
+type JobHandler struct {
+	service *services.JobService
+}
+
+func NewJobHandler(s *services.JobService) *JobHandler {
+	return &JobHandler{
+		service: s,
+	}
+}
+
+func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
+	jobID := c.Params("id")
+	if jobID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job id is required",
+		})
+	}
+
+	status, err := h.service.GetJobStatus(c.Context(), jobID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get job status: %v", err),
+		})
+	}
+
+	return c.JSON(status)
+}
+
+func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
+	var (
+		limit  = c.QueryInt("limit", 10)
+		offset = c.QueryInt("offset", 0)
+		status = models.JobStatus(c.Query("status"))
+	)
+
+	jobs, err := h.service.ListJobs(c.Context(), &models.ListOptions{
+		Limit:  limit,
+		Offset: offset,
+		Status: status,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to list jobs: %v", err),
+		})
+	}
+
+	return c.JSON(jobs)
+}
+
+func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
+	var req struct {
+		Name        string                           `json:"name"`
+		ProjectName string                           `json:"project_name"`
+		WebhookURL  string                           `json:"webhook_url"`
+		Instances   []infrastructure.InstanceRequest `json:"instances"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Convert to Request and validate
+	JobReq := &infrastructure.JobRequest{
+		Name:        req.Name,
+		ProjectName: req.ProjectName,
+		Provider:    req.Instances[0].Provider,
+		Instances:   req.Instances,
+		Action:      "create",
+	}
+
+	if err := JobReq.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	job, err := h.service.CreateJob(c.Context(), req.Name, req.WebhookURL)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to create job: %v", err),
+		})
+	}
+
+	// TODO: this logic should be moved to a service
+	// Create job first
+	go func() {
+		fmt.Println("🚀 Starting async infrastructure creation...")
+
+		// Update to initializing when starting Pulumi setup
+		if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusInitializing, nil, ""); err != nil {
+			fmt.Printf("❌ Failed to update job status to initializing: %v\n", err)
+			return
+		}
+
+		infra, err := infrastructure.NewInfrastructure(JobReq)
+		if err != nil {
+			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
+			h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+			return
+		}
+
+		// Update to provisioning when creating infrastructure
+		if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusProvisioning, nil, ""); err != nil {
+			fmt.Printf("❌ Failed to update job status to provisioning: %v\n", err)
+			return
+		}
+
+		result, err := infra.Execute()
+		if err != nil {
+			// Check if error is due to resource not found
+			if strings.Contains(err.Error(), "404") &&
+				strings.Contains(err.Error(), "could not be found") {
+				// Get Pulumi output result
+				outputs, outputErr := infra.GetOutputs()
+				if outputErr != nil {
+					fmt.Printf("❌ Failed to get outputs: %v\n", outputErr)
+					h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, outputErr.Error())
+					return
+				}
+				result = outputs
+				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
+			} else {
+				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
+				h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+				return
+			}
+		}
+
+		// Start Nix provisioning if creation was successful and provisioning is requested
+		if req.Instances[0].Provision {
+			instances, ok := result.([]infrastructure.InstanceInfo)
+			if !ok {
+				fmt.Printf("❌ Invalid result type: %T\n", result)
+				h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil,
+					fmt.Sprintf("invalid result type: %T, expected []infrastructure.InstanceInfo", result))
+				return
+			}
+
+			fmt.Printf("📝 Created instances: %+v\n", instances)
+
+			// Update to configuring when setting up Nix
+			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusConfiguring, instances, ""); err != nil {
+				fmt.Printf("❌ Failed to update job status to configuring: %v\n", err)
+				return
+			}
+
+			if err := infra.RunProvisioning(instances); err != nil {
+				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
+				h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, instances,
+					fmt.Sprintf("infrastructure created but provisioning failed: %v", err))
+				return
+			}
+		}
+
+		// Update final status with result
+		if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusCompleted, result, ""); err != nil {
+			fmt.Printf("❌ Failed to update final job status: %v\n", err)
+			return
+		}
+
+		fmt.Printf("✅ Infrastructure creation completed for job %s\n", job.ID)
+	}()
+
+	return c.Status(fiber.StatusCreated).JSON(job)
+}

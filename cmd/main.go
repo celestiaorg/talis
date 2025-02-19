@@ -1,9 +1,8 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
 	"os"
+	"strconv"
 
 	fiberlog "github.com/gofiber/fiber/v2/log"
 
@@ -14,9 +13,9 @@ import (
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 	"github.com/celestiaorg/talis/internal/api/v1/middleware"
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
-	"github.com/celestiaorg/talis/internal/application/job"
-	"github.com/celestiaorg/talis/internal/db/migrations"
-	"github.com/celestiaorg/talis/internal/infrastructure/persistence/postgres"
+	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/db"
+	"github.com/celestiaorg/talis/internal/db/repos"
 )
 
 func main() {
@@ -25,45 +24,40 @@ func main() {
 		fiberlog.Fatal("Error loading .env file")
 	}
 
-	// Build database URL from env vars
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_SSL_MODE"),
-	)
-
 	// Configure logger
 	fiberlog.SetLevel(fiberlog.LevelInfo)
 
+	// This is temporary, we will pass them through the CLI later
+	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
+	if err != nil {
+		fiberlog.Fatalf("Failed to convert DB_PORT to int: %v", err)
+	}
+
 	// Initialize database
-	db, err := sql.Open("postgres", dbURL)
+	DB, err := db.New(db.Options{
+		Host:     os.Getenv("DB_HOST"),
+		Port:     dbPort,
+		User:     os.Getenv("DB_USER"),
+		Password: os.Getenv("DB_PASSWORD"),
+		DBName:   os.Getenv("DB_NAME"),
+		// SSLEnabled: os.Getenv("DB_SSL_MODE") == "true",
+	})
 	if err != nil {
 		fiberlog.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
-
-	// Run migrations
-	config := migrations.DefaultConfig()
-	config.DatabaseURL = dbURL
-	migrationService, err := migrations.NewMigrationService(config)
-	if err != nil {
-		fiberlog.Fatalf("Failed to create migration service: %v", err)
-	}
-	if err := migrationService.Up(); err != nil {
-		fiberlog.Fatalf("Failed to run migrations: %v", err)
-	}
+	// We will use connection pooling later
+	// defer DB.Close()
 
 	// Initialize repositories
-	jobRepo := postgres.NewJobRepository(db)
+	jobRepo := repos.NewJobRepository(DB)
+	instanceRepo := repos.NewInstanceRepository(DB)
 
 	// Initialize services
-	jobService := job.NewService(jobRepo)
+	instanceService := services.NewInstanceService(instanceRepo)
+	jobService := services.NewJobService(jobRepo)
 
 	// Initialize handlers
-	infraHandler := handlers.NewInfrastructureHandler(jobService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService)
 
 	// Setup Fiber app
@@ -75,7 +69,7 @@ func main() {
 	app.Use(middleware.Logger())
 
 	// Register routes
-	routes.RegisterRoutes(app, infraHandler, jobHandler)
+	routes.RegisterRoutes(app, instanceHandler, jobHandler)
 
 	// Start server
 	fiberlog.Info("Server starting on :8080")

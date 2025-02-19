@@ -96,7 +96,7 @@ func (i *Infrastructure) createInstances(ctx *pulumi.Context) error {
 	for _, inst := range i.instances {
 		for idx := 0; idx < inst.NumberOfInstances; idx++ {
 			wg.Add(1)
-			go func(index int, instance Instance) {
+			go func(index int, instance InstanceRequest) {
 				defer wg.Done()
 				name := fmt.Sprintf("%s-%d", i.name, index)
 				_, err := i.provider.CreateInstance(ctx, name, compute.InstanceConfig{
