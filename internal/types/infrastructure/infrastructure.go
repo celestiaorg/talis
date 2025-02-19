@@ -15,7 +15,7 @@ import (
 type Infrastructure struct {
 	name        string                  // Name of the infrastructure
 	projectName string                  // Name of the project
-	instances   []Instance              // Instance configuration
+	instances   []InstanceRequest       // Instance configuration
 	stack       *auto.Stack             // Pulumi stack for managing the infrastructure
 	provider    compute.ComputeProvider // Compute provider implementation
 	provisioner compute.Provisioner
@@ -24,7 +24,7 @@ type Infrastructure struct {
 }
 
 // NewInfrastructure creates a new infrastructure instance
-func NewInfrastructure(req *Request) (*Infrastructure, error) {
+func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
 	provider, err := compute.NewComputeProvider(req.Provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute provider: %v", err)

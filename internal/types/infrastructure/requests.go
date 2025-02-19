@@ -1,23 +1,16 @@
 package infrastructure
 
-// Constants for configuration
-const (
-	nixTimeout = 120 // Timeout for Nix configuration (seconds)
-	maxRetries = 5   // Maximum number of connection attempts
-	retryDelay = 10  // Delay between retry attempts (seconds)
-)
-
-// Request represents the infrastructure request
-type Request struct {
-	Name        string     `json:"name"`
-	ProjectName string     `json:"project_name"`
-	Provider    string     `json:"provider"`
-	Instances   []Instance `json:"instances"`
-	Action      string     `json:"action"` // "create" or "delete"
+// JobRequest represents the infrastructure request
+type JobRequest struct {
+	Name        string            `json:"name"`
+	ProjectName string            `json:"project_name"`
+	Provider    string            `json:"provider"`
+	Instances   []InstanceRequest `json:"instances"`
+	Action      string            `json:"action"` // "create" or "delete"
 }
 
 // Instance represents a compute instance configuration
-type Instance struct {
+type InstanceRequest struct {
 	Provider          string   `json:"provider"`
 	NumberOfInstances int      `json:"number_of_instances"`
 	Provision         bool     `json:"provision"`

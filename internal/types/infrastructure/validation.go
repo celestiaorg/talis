@@ -6,7 +6,7 @@ import (
 )
 
 // Validate validates the infrastructure request
-func (r *Request) Validate() error {
+func (r *JobRequest) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("name is required")
 	}
@@ -27,7 +27,7 @@ func (r *Request) Validate() error {
 }
 
 // Validate validates the instance configuration
-func (i *Instance) Validate() error {
+func (i *InstanceRequest) Validate() error {
 	if i.Provider == "" {
 		return fmt.Errorf("provider is required")
 	}

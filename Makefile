@@ -71,8 +71,6 @@ tidy:
 
 ## run: Run the application
 run:
-	@echo "Launching Docker Compose..."
-	@docker compose up -d
 	@echo "Running $(APP_NAME)..."
 	@go run ./cmd/main.go
 .PHONY: run
@@ -137,3 +135,19 @@ migrate-version:
 db-connect:
 	psql postgres://talis:talis@localhost:5432/talis 
 .PHONY: db-connect
+
+# # # # # # # # # # # #
+# Docker
+# # # # # # # # # # # #
+
+## docker-up: Run the application
+docker-up:
+	@echo "Launching Docker Compose..."
+	@docker compose up -d
+.PHONY: docker-up
+
+## docker-down: Stop the application
+docker-down:
+	@echo "Stopping Docker Compose..."
+	@docker compose down
+.PHONY: docker-down

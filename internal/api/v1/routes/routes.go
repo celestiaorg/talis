@@ -9,21 +9,23 @@ import (
 // RegisterRoutes configures all the v1 routes
 func RegisterRoutes(
 	app *fiber.App,
-	infraHandler *handlers.InfrastructureHandler,
+	instanceHandler *handlers.InstanceHandler,
 	jobHandler *handlers.JobHandler,
 ) {
 	// API v1 routes
 	v1 := app.Group("/api/v1")
 
-	// Infrastructure endpoints
+	// Instances endpoints
 	instances := v1.Group("/instances")
-	instances.Post("/", infraHandler.CreateInfrastructure).Name("CreateInfrastructure")
-	instances.Delete("/", infraHandler.DeleteInfrastructure).Name("DeleteInfrastructure")
+	// instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
+	instances.Delete("/", instanceHandler.DeleteInstance).Name("DeleteInstance")
+	instances.Get("/:id", instanceHandler.GetInstance).Name("GetInstance")
 
 	// Jobs endpoints
 	jobs := v1.Group("/jobs")
 	jobs.Get("/", jobHandler.ListJobs).Name("ListJobs")
 	jobs.Get("/:id", jobHandler.GetJobStatus).Name("GetJobStatus")
+	jobs.Post("/", jobHandler.CreateJob).Name("CreateJob")
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
