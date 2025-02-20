@@ -33,13 +33,13 @@ type Job struct {
 	Name        string          `json:"name" gorm:"not null; index"`
 	ProjectName string          `json:"project_name" gorm:"not null; index"`
 	OwnerID     uint            `json:"owner_id" gorm:"not null;index"` // ID from the users table
+	SSHKeys     []string        `json:"ssh_keys" gorm:"type:jsonb"`
 	Status      JobStatus       `json:"status" gorm:"index"`
 	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`
 	Error       string          `json:"error,omitempty" gorm:"type:text"`
 	WebhookURL  string          `json:"webhook_url,omitempty" gorm:"type:text"`
 	WebhookSent bool            `json:"webhook_sent" gorm:"not null;default:false;index"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
-	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 func (s *JobStatus) UnmarshalJSON(data []byte) error {
