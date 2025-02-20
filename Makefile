@@ -111,26 +111,6 @@ build-cli:
 	$(GOBUILD) $(LDFLAGS) -o bin/talis ./cmd/cli
 .PHONY: build-cli
 
-## migrate: Run database migrations
-migrate:
-	go run cmd/migrate/main.go
-.PHONY: migrate
-
-## migrate-down: Rollback database migrations
-migrate-down:
-	go run cmd/migrate/main.go -down
-.PHONY: migrate-down
-
-## migrate-force: Force database migration version
-migrate-force:
-	go run cmd/migrate/main.go -force $(version)
-.PHONY: migrate-force
-
-## migrate-version: Show current database migration version
-migrate-version:
-	go run cmd/migrate/main.go -steps 0
-.PHONY: migrate-version
-
 ## db-connect: Connect to the database
 db-connect:
 	psql postgres://talis:talis@localhost:5432/talis 
