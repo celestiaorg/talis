@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -23,14 +24,22 @@ func NewJobHandler(s *services.JobService) *JobHandler {
 }
 
 func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
-	jobID := c.Params("id")
-	if jobID == "" {
+	jobIDStr := c.Params("id")
+	if jobIDStr == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "job id is required",
 		})
 	}
 
-	status, err := h.service.GetJobStatus(c.Context(), jobID)
+	ownerID := 0 // TODO: get owner id from the JWT token
+	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid job id",
+		})
+	}
+
+	status, err := h.service.GetJobStatus(c.Context(), uint(ownerID), uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get job status: %v", err),
@@ -44,13 +53,19 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	var (
 		limit  = c.QueryInt("limit", 10)
 		offset = c.QueryInt("offset", 0)
-		status = models.JobStatus(c.Query("status"))
 	)
+	status, err := models.ParseJobStatus(c.Query("status"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid job status",
+		})
+	}
 
-	jobs, err := h.service.ListJobs(c.Context(), &models.ListOptions{
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), &models.ListOptions{
 		Limit:  limit,
 		Offset: offset,
-		Status: status,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -90,7 +105,15 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 		})
 	}
 
-	job, err := h.service.CreateJob(c.Context(), req.Name, req.WebhookURL)
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	job, err := h.service.CreateJob(c.Context(), &models.Job{
+		Name:        req.Name,
+		OwnerID:     uint(ownerID),
+		ProjectName: req.ProjectName,
+		Status:      models.JobStatusPending,
+		WebhookURL:  req.WebhookURL,
+	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to create job: %v", err),
@@ -174,7 +197,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			return
 		}
 
-		fmt.Printf("✅ Infrastructure creation completed for job %s\n", job.ID)
+		fmt.Printf("✅ Infrastructure creation completed for job ID %d and job name %s\n", job.ID, job.Name)
 	}()
 
 	return c.Status(fiber.StatusCreated).JSON(job)

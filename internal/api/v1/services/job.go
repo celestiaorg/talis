@@ -17,32 +17,26 @@ func NewJobService(repo *repos.JobRepository) *JobService {
 	return &JobService{repo: repo}
 }
 
-func (s *JobService) ListJobs(ctx context.Context, opts *models.ListOptions) ([]models.Job, error) {
-	return s.repo.List(ctx, opts)
+func (s *JobService) ListJobs(ctx context.Context, status models.JobStatus, ownerID uint, opts *models.ListOptions) ([]models.Job, error) {
+	return s.repo.List(ctx, status, ownerID, opts)
 }
 
-func (s *JobService) CreateJob(ctx context.Context, ID, webhookURL string) (*models.Job, error) {
-	if ID == "" {
-		ID = fmt.Sprintf("job-%s", time.Now().Format("20060102-150405"))
+func (s *JobService) CreateJob(ctx context.Context, job *models.Job) (*models.Job, error) {
+	if job.Name == "" {
+		job.Name = fmt.Sprintf("job-%s", time.Now().Format("20060102-150405"))
 	}
 
-	j := &models.Job{
-		ID:         ID,
-		Status:     models.JobStatusPending,
-		CreatedAt:  time.Now(),
-		WebhookURL: webhookURL,
-	}
-	return j, s.repo.Create(ctx, j)
+	return job, s.repo.Create(ctx, job)
 }
 
-func (s *JobService) GetJobStatus(ctx context.Context, id string) (models.JobStatus, error) {
-	j, err := s.repo.GetByID(ctx, id)
+func (s *JobService) GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error) {
+	j, err := s.repo.GetByID(ctx, ownerID, id)
 	if err != nil {
-		return "", err
+		return models.JobStatusUnknown, err
 	}
 	return j.Status, nil
 }
 
-func (s *JobService) UpdateJobStatus(ctx context.Context, ID string, status models.JobStatus, result interface{}, errMsg string) error {
-	return s.repo.UpdateStatus(ctx, ID, status, result, errMsg)
+func (s *JobService) UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error {
+	return s.repo.UpdateStatus(ctx, id, status, result, errMsg)
 }

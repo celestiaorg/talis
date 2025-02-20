@@ -24,29 +24,36 @@ func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instan
 	return r.db.WithContext(ctx).Create(instance).Error
 }
 
-func (r *InstanceRepository) GetByID(ctx context.Context, ID string) (*models.Instance, error) {
+// GetByID retrieves an instance by its ID
+// if the jobID is 0, it will return the instance regardless of the job (Designed for admin)
+func (r *InstanceRepository) GetByID(ctx context.Context, JobID, ID uint) (*models.Instance, error) {
 	var instance models.Instance
-	err := r.db.WithContext(ctx).Where(&models.Instance{ID: ID}).First(&instance).Error
+	qry := &models.Instance{Model: gorm.Model{ID: ID}}
+	if JobID != 0 {
+		qry.JobID = JobID
+	}
+	err := r.db.WithContext(ctx).Where(qry).First(&instance).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %v", err)
 	}
 	return &instance, nil
 }
 
-func (r *InstanceRepository) Update(ctx context.Context, ID string, instance *models.Instance) error {
-	return r.db.WithContext(ctx).Where(&models.Instance{ID: ID}).Updates(instance).Error
+// Update updates an instance
+func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *models.Instance) error {
+	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: ID}}).Updates(instance).Error
 }
 
-func (r *InstanceRepository) Delete(ctx context.Context, ID string) error {
+// UpdateStatus updates the status of an instance
+func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status models.InstanceStatus) error {
 	return r.db.WithContext(ctx).
-		Where(&models.Instance{ID: ID}).
-		Update(models.InstanceDeletedField, true).Error
+		Where(&models.Instance{Model: gorm.Model{ID: ID}}).
+		Update("status", status).Error
 }
 
 func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	var instances []models.Instance
 	err := r.db.WithContext(ctx).
-		Where(&models.Instance{Deleted: false}).
 		Model(&models.Instance{}).
 		Limit(opts.Limit).Offset(opts.Offset).
 		Order(models.InstanceCreatedAtField + " DESC").
@@ -57,7 +64,6 @@ func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions)
 func (r *InstanceRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
-		Where(&models.Instance{Deleted: false}).
 		Model(&models.Instance{}).
 		Count(&count).Error
 	return count, err

@@ -2,7 +2,10 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -10,23 +13,27 @@ const (
 	JobUpdatedAtField = "updated_at"
 )
 
-// JobStatus represents the possible states of a job
-type JobStatus string
+type JobStatus int
 
 const (
-	JobStatusPending      JobStatus = "pending"
-	JobStatusInitializing JobStatus = "initializing"
-	JobStatusProvisioning JobStatus = "provisioning"
-	JobStatusConfiguring  JobStatus = "configuring"
-	JobStatusCompleted    JobStatus = "completed"
-	JobStatusFailed       JobStatus = "failed"
-	JobStatusDeleted      JobStatus = "deleted"
+	// we need unknown to be the first status to avoid conflicts with the default value
+	// Also allow us to search for all jobs no matter their status
+	JobStatusUnknown JobStatus = iota
+	JobStatusPending
+	JobStatusInitializing
+	JobStatusProvisioning
+	JobStatusConfiguring
+	JobStatusCompleted
+	JobStatusFailed
+	JobStatusTerminated
 )
 
 type Job struct {
-	ID          string          `json:"id" gorm:"primaryKey;varchar(50)"`
-	OwnerID     string          `json:"owner_id" gorm:"not null;varchar(50);index"` // TODO: For future use
-	Status      JobStatus       `json:"status" gorm:"not null;varchar(20);index"`
+	gorm.Model
+	Name        string          `json:"name" gorm:"not null; index"`
+	ProjectName string          `json:"project_name" gorm:"not null; index"`
+	OwnerID     uint            `json:"owner_id" gorm:"not null;index"` // ID from the users table
+	Status      JobStatus       `json:"status" gorm:"index"`
 	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`
 	Error       string          `json:"error,omitempty" gorm:"type:text"`
 	WebhookURL  string          `json:"webhook_url,omitempty" gorm:"type:text"`
@@ -35,8 +42,53 @@ type Job struct {
 	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
-type ListOptions struct {
-	Limit  int
-	Offset int
-	Status JobStatus
+func (s *JobStatus) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+
+	status, err := ParseJobStatus(str)
+	if err != nil {
+		return err
+	}
+
+	*s = status
+	return nil
+}
+
+func (s JobStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+func (s JobStatus) String() string {
+	return []string{
+		"unknown",
+		"pending",
+		"initializing",
+		"provisioning",
+		"configuring",
+		"completed",
+		"failed",
+		"terminated",
+	}[s]
+}
+
+func ParseJobStatus(str string) (JobStatus, error) {
+	for i, status := range []string{
+		"unknown",
+		"pending",
+		"initializing",
+		"provisioning",
+		"configuring",
+		"completed",
+		"failed",
+		"terminated",
+	} {
+		if status == str {
+			return JobStatus(i), nil
+		}
+	}
+
+	return JobStatus(0), fmt.Errorf("invalid job status: %s", str)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -26,48 +25,95 @@ func (r *JobRepository) Create(ctx context.Context, job *models.Job) error {
 	return r.db.WithContext(ctx).Create(job).Error
 }
 
-func (r *JobRepository) UpdateStatus(ctx context.Context, id string, status models.JobStatus, result interface{}, errMsg string) error {
+// This fucntion is not meant to be called by the API, but only by the worker
+func (r *JobRepository) UpdateStatus(ctx context.Context, ID uint, status models.JobStatus, result interface{}, errMsg string) error {
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("failed to marshal result: %v", err)
 	}
 
 	return r.db.WithContext(ctx).Model(&models.Job{}).
-		Where(&models.Job{ID: id}).
+		Where(&models.Job{Model: gorm.Model{ID: ID}}).
 		Updates(map[string]interface{}{
-			"status":     status,
-			"result":     resultJSON,
-			"error":      errMsg,
-			"updated_at": time.Now(),
+			"status": status,
+			"result": resultJSON,
+			"error":  errMsg,
 		}).Error
 }
 
 // GetByID retrieves a job by its ID
-func (r *JobRepository) GetByID(ctx context.Context, id string) (*models.Job, error) {
+// if the ownerID is 0, it will return the job regardless of the owner
+func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.Job, error) {
 	var job models.Job
-	err := r.db.WithContext(ctx).Where(&models.Job{ID: id}).First(&job).Error
+	qry := &models.Job{Model: gorm.Model{ID: ID}}
+	// Zero is an option when admin is fetching a job
+	if OwnerID != 0 {
+		qry.OwnerID = OwnerID
+	}
+	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %v", err)
 	}
 	return &job, nil
 }
 
-func (r *JobRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Job, error) {
-	var jobs []models.Job
-	query := r.db.WithContext(ctx).Model(&models.Job{})
-	if opts.Status != "" {
-		query = query.Where(&models.Job{Status: opts.Status})
+// GetByName retrieves a job by its name
+// if the ownerID is 0, it will return the job regardless of the owner
+func (r *JobRepository) GetByName(ctx context.Context, OwnerID uint, name string) (*models.Job, error) {
+	var job models.Job
+	qry := &models.Job{Name: name}
+	// Zero is an option when admin is fetching a job
+	if OwnerID != 0 {
+		qry.OwnerID = OwnerID
 	}
-	err := query.
+	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job: %v", err)
+	}
+	return &job, nil
+}
+
+// List returns a list of jobs
+// if the ownerID is 0, it will return the jobs regardless of the owner
+// if the status is unknown, it will return all jobs regardless of their status
+func (r *JobRepository) List(ctx context.Context, status models.JobStatus, OwnerID uint, opts *models.ListOptions) ([]models.Job, error) {
+	var jobs []models.Job
+	qry := &models.Job{}
+
+	// If status is unknown, we don't need to filter by status
+	if status != models.JobStatusUnknown {
+		qry.Status = status
+	}
+
+	// Zero is an option when admin is fetching a job
+	if OwnerID != 0 {
+		qry.OwnerID = OwnerID
+	}
+	err := r.db.WithContext(ctx).Model(&models.Job{}).
+		Where(qry).
 		Limit(opts.Limit).Offset(opts.Offset).
 		Order(models.JobCreatedAtField + " DESC").
 		Find(&jobs).Error
 	return jobs, err
 }
 
-func (r *JobRepository) Count(ctx context.Context) (int64, error) {
+// Count returns the number of jobs
+// if the ownerID is 0, it will return the number of jobs regardless of the owner
+// if the status is unknown, it will return the number of jobs regardless of their status
+func (r *JobRepository) Count(ctx context.Context, status models.JobStatus, OwnerID uint) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&models.Job{}).Count(&count).Error
+	qry := &models.Job{}
+
+	// If status is unknown, we don't need to filter by status
+	if status != models.JobStatusUnknown {
+		qry.Status = status
+	}
+
+	// Zero is an option when admin is fetching a job
+	if OwnerID != 0 {
+		qry.OwnerID = OwnerID
+	}
+	err := r.db.WithContext(ctx).Model(&models.Job{}).Where(qry).Count(&count).Error
 	return count, err
 }
 
