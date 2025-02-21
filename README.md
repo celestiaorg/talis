@@ -20,7 +20,6 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
   - For [Linode](https://www.linode.com/): Coming soon
   - For [Vultr](https://www.vultr.com/): Comming soon
   - For [DataPacket](https://www.datapacket.com/): Coming soon
-  - 
 
 ## Project Structure
 
