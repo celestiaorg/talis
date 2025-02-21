@@ -16,8 +16,11 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 - Ansible (2.9 or higher)
 - SSH key pair for instance access
 - Cloud Credentials:
-  - For DigitalOcean: Personal Access Token in `DIGITALOCEAN_TOKEN` environment variable
-  - For AWS: Coming soon
+  - For [DigitalOcean](https://www.digitalocean.com/): Personal Access Token in `DIGITALOCEAN_TOKEN` environment variable
+  - For [Linode](https://www.linode.com/): Coming soon
+  - For [Vultr](https://www.vultr.com/): Comming soon
+  - For [DataPacket](https://www.datapacket.com/): Coming soon
+  - 
 
 ## Project Structure
 
