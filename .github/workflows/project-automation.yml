@@ -1,0 +1,46 @@
+name: DevOps project automation
+
+on:
+  issues:
+    types:
+      - opened
+  # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request_target
+  # About security concerns: https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
+  pull_request_target:
+    types:
+      - opened
+
+jobs:
+  project-automation:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Set issue url and creator login
+        if: ${{ github.event.issue }}
+        run: |
+          echo "ISSUE=${{ github.event.issue.html_url }}" >> $GITHUB_ENV
+          echo "CREATOR=${{ github.event.issue.user.login }}" >> $GITHUB_ENV
+          echo "HAS_ASSIGNEE=${{ github.event.issue.assignees[0] != null }}" >> $GITHUB_ENV
+      - name: Set pull_request url and creator login
+        if: ${{ github.event.pull_request }}
+        run: |
+          echo "ISSUE=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
+          echo "CREATOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_ENV
+          echo "HAS_ASSIGNEE=${{ github.event.pull_request.assignees[0] != null }}" >> $GITHUB_ENV
+      - name: Add issue/PR to project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/orgs/celestiaorg/projects/38
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+      - name: Assign issue to creator (issue)
+        if: ${{ github.event.issue && env.HAS_ASSIGNEE == 'false' }}
+        run: gh issue edit ${{ env.ISSUE }} --add-assignee ${{ env.CREATOR }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Assign issue to creator (PR)
+        if: ${{ github.event.pull_request && env.HAS_ASSIGNEE == 'false' }}
+        run: gh pr edit ${{ env.ISSUE }} --add-assignee ${{ env.CREATOR }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
