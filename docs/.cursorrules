@@ -1,0 +1,95 @@
+# Cursor AI Rules
+
+## Code Style & Conventions
+
+- Follow Go standard naming conventions
+- Use meaningful variable and function names
+- Add comments for complex logic
+- Keep functions focused and small
+- Use proper error handling
+- Implement proper logging
+- Follow clean architecture principles
+
+## Documentation Requirements
+
+- Every package must have a package comment
+- Public functions must be documented
+- Complex algorithms need detailed explanations
+- Include examples for non-obvious usage
+- Document error cases and handling
+- Keep comments up to date with code changes
+
+## Testing Guidelines
+
+- Write unit tests for all public functions
+- Include integration tests for critical paths
+- Test error cases and edge conditions
+- Use table-driven tests when appropriate
+- Mock external dependencies
+- Maintain test coverage above 80%
+
+## Infrastructure Rules
+
+- Use infrastructure as code (Pulumi)
+- Document all environment variables
+- Keep sensitive data in environment variables
+- Use proper logging and monitoring
+- Implement proper error handling
+- Follow security best practices
+
+## API Design
+
+- Use RESTful conventions
+- Implement proper validation
+- Use consistent error responses
+- Document all endpoints
+- Version the API appropriately
+- Use proper HTTP methods and status codes
+
+## Database
+
+- Use Gorm for schema migrations
+- Document database schema
+- Use proper indexes
+- Implement proper error handling
+- Follow naming conventions
+- Use transactions when appropriate
+
+## Git Workflow
+
+- Use meaningful commit messages
+- Follow conventional commits
+- Keep PRs focused and small
+- Include tests with changes
+- Update documentation
+- Review code before merging
+
+## AI Assistant Configuration
+
+### Code Generation
+- Generate code following project structure
+- Include proper error handling
+- Add necessary comments
+- Follow naming conventions
+- Include tests
+
+### Code Review
+- Check for common issues
+- Verify error handling
+- Ensure proper logging
+- Check documentation
+- Verify test coverage
+
+### Documentation
+- Generate clear and concise docs
+- Include examples
+- Keep docs up to date
+- Follow markdown conventions
+- Include necessary details
+
+### Problem Solving
+- Understand the context
+- Consider edge cases
+- Propose multiple solutions
+- Explain trade-offs
+- Include examples 
