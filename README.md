@@ -29,8 +29,6 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 talis/
 ├── cmd/
 │   ├── main.go                    # Main entry point
-│   └── migrate/                   # Database migration tools
-│       └── main.go               # Migration entry point
 ├── internal/
 │   ├── api/                       # API related code
 │   │   └── v1/
@@ -44,7 +42,6 @@ talis/
 │   │   ├── digitalocean.go       # DigitalOcean implementation
 │   │   └── ansible.go            # Ansible configuration and provisioning
 │   ├── db/                        # Database layer
-│   │   ├── migrations/          # Database migrations
 │   │   └── job/                 # Job database models
 │   ├── domain/                    # Domain layer
 │   │   └── job/                 # Job domain models and interfaces
@@ -60,8 +57,6 @@ talis/
 ├── ansible/                      # Ansible configurations
 │   ├── playbook.yml             # Main Ansible playbook
 │   └── inventory_*_ansible.ini  # Generated inventory files
-├── migrations/                    # SQL migration files
-│   └── *.sql                     # Migration SQL files
 ├── scripts/                      # Utility scripts
 └── .env.example                  # Environment variables example
 ├── Makefile                      # Build and development commands
@@ -72,7 +67,6 @@ talis/
 
 ### cmd/
 - **main.go**: Application entry point with server setup
-- **migrate/main.go**: Database migration tool
 
 ### internal/api/v1/
 - **handlers/**: HTTP request handlers
@@ -88,7 +82,6 @@ talis/
 - **ansible.go**: Ansible configuration and provisioning
 
 ### internal/db/
-- **migrations/**: Database migration management
 - **job/**: Job database models and operations
 
 ### internal/domain/
@@ -106,9 +99,6 @@ talis/
 ### ansible/
 - **playbook.yml**: Main Ansible playbook
 - **inventory_*_ansible.ini**: Generated inventory files
-
-### migrations/
-- SQL files for database schema and updates
 
 ## Setup
 
