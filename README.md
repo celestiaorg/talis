@@ -149,7 +149,6 @@ talis jobs get --id job-20240315-123456
 {
     "name": "talis",
     "project_name": "talis-pulumi-ansible",
-    "action": "create",
     "instances": [
         {
             "provider": "digitalocean",
@@ -208,7 +207,6 @@ The Ansible playbook can be customized by modifying `ansible/playbook.yml`.
 {
     "name": "talis",
     "project_name": "talis-pulumi-ansible",
-    "action": "delete",
     "instances": [
         {
             "provider": "digitalocean",
