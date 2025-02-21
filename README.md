@@ -4,19 +4,17 @@
 
 Talis is a multi-cloud infrastructure provisioning and configuration project that uses:
 
-- Pulumi (in Go) to create cloud instances on AWS or DigitalOcean
+- API to create cloud instances on the desired cloud provider
 - Ansible for initial system configuration and package installation
 
 ## Overview
 
 - **Multi-cloud**: With a single codebase, you can choose which cloud provider to use—AWS or DigitalOcean
-- **Pulumi**: Handles infrastructure creation (VM instances, security groups, etc.)
 - **Ansible**: Provides initial system configuration and package installation
 
 ## Requirements
 
-- Go (1.20 or higher)
-- Pulumi CLI
+- Go (1.22 or higher)
 - Ansible (2.9 or higher)
 - SSH key pair for instance access
 - Cloud Credentials:
@@ -60,7 +58,6 @@ talis/
 ├── scripts/                      # Utility scripts
 └── .env.example                  # Environment variables example
 ├── Makefile                      # Build and development commands
-└── Pulumi.*.yaml                 # Pulumi stack configurations
 ```
 
 ## Key Files
@@ -93,7 +90,6 @@ talis/
 ### internal/types/infrastructure/
 - **models.go**: Main data structure definitions
 - **validation.go**: Request validation
-- **pulumi.go**: Pulumi stack management
 - **infrastructure.go**: Main infrastructure management logic
 
 ### ansible/
@@ -109,9 +105,6 @@ cp .env.example .env
 
 2. Configure environment variables:
 ```bash
-# Pulumi
-PULUMI_ACCESS_TOKEN=your_pulumi_token_here
-
 # DigitalOcean
 DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 SSH_KEY_ID=your_key_id_here
