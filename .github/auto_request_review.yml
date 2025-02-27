@@ -1,0 +1,15 @@
+reviewers:
+  defaults:
+    - devops
+  groups:
+    devops:
+      - team:devops
+files:
+  ".github/**":
+    - MSevey
+    - devops
+options:
+  ignore_draft: true
+  ignored_keywords:
+    - WIP
+  number_of_reviewers: 3
