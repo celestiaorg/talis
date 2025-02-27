@@ -39,7 +39,6 @@ jobs:
         run: make test
 
   build:
-    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,8 +54,7 @@ jobs:
       - name: Build CLI
         run: make build-cli
 
-  docker:
-    name: Docker Compose
+  docker-compose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
