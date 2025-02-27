@@ -62,6 +62,14 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 	}
 }
 
+// updateJobStatus updates the job status (this es un placeholder - implementar con una DB real)
+//
+//nolint:unused // Will be used in future implementation
+func (i *Infrastructure) updateJobStatus(jobID, status string, result interface{}) {
+	// TODO: Store in database and trigger webhook if configured
+	fmt.Printf("Job %s status updated to %s: %v\n", jobID, status, result)
+}
+
 // handleCreate handles the creation of infrastructure
 func (i *Infrastructure) handleCreate() (interface{}, error) {
 	fmt.Println("🚀 Creating infrastructure...")

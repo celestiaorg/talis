@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // InstanceHandler handles HTTP requests for instance operations
@@ -113,4 +114,23 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
 		"error": "get instance not implemented yet",
 	})
+}
+
+// convertToInstances converts DeleteInstance to InstanceRequest
+//
+//nolint:unused // Will be used in future implementation
+func convertToInstances(deleteInstances []infrastructure.DeleteInstance) []infrastructure.InstanceRequest {
+	instances := make([]infrastructure.InstanceRequest, len(deleteInstances))
+	for i, di := range deleteInstances {
+		instances[i] = infrastructure.InstanceRequest{
+			Provider:          di.Provider,
+			NumberOfInstances: di.NumberOfInstances,
+			Region:            di.Region,
+			Size:              di.Size,
+			Image:             di.Image,
+			Tags:              di.Tags,
+			SSHKeyName:        di.SSHKeyName,
+		}
+	}
+	return instances
 }

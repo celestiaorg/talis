@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+const (
+	// ansibleDebug is the verbose mode for ansible
+	//
+	//nolint:unused // Will be used in future implementation
+	ansibleDebug = false
+)
+
 // AnsibleConfigurator implements the Provisioner interface
 type AnsibleConfigurator struct {
 	// jobID is the unique identifier for the current job
