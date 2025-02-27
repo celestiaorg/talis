@@ -1,8 +1,12 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+    tags:
+      - v*
   pull_request:
   merge_group:
 
@@ -86,4 +90,4 @@ jobs:
         run: docker compose ps
 
       - name: Stop services
-        run: make docker-down 
+        run: make docker-down

@@ -59,6 +59,8 @@ lint: fmt vet
 	@golangci-lint run
 	@echo "--> Running actionlint"
 	@actionlint
+	@echo "--> Running yamllint"
+	@yamllint .
 .PHONY: lint
 
 ## vet: Run go vet
