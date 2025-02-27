@@ -99,8 +99,14 @@ nix-check:
 	done
 .PHONY: nix-check
 
+## install-hooks: Install git hooks
+install-hooks:
+	@echo "Installing git hooks..."
+	@git config core.hooksPath .githooks
+.PHONY: install-hooks
+
 ## dev-setup: Setup development environment
-dev-setup: check-env
+dev-setup: check-env install-hooks
 	@echo "Setting up development environment..."
 	$(GOMOD) download
 	$(GOMOD) verify
