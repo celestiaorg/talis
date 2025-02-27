@@ -28,7 +28,7 @@ all: check-env lint test build
 ## build: Build the application
 build: 
 	@echo "Building $(APP_NAME)..."
-	$(GOBUILD) $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/$(APP_NAME)
+	$(GOBUILD) $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/main.go
 .PHONY: build
 
 ## clean: Clean build artifacts
@@ -121,7 +121,7 @@ dev-setup: check-env install-hooks
 ## build-cli: Build the Talis CLI tool
 build-cli:
 	@echo "Building Talis CLI..."
-	$(GOBUILD) $(LDFLAGS) -o bin/talis ./cmd/cli
+	$(GOBUILD) $(LDFLAGS) -o bin/talis-cli ./cmd/cli
 .PHONY: build-cli
 
 ## db-connect: Connect to the database
