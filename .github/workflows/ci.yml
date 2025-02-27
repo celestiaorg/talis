@@ -15,22 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: celestiaorg/.github/.github/actions/yamllint@v0.4.5
-  
+      - uses: celestiaorg/.github/.github/actions/yamllint@v0.5.0
+
   golangci-lint:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-go@v5
-          with:
-            go-version-file: 'go.mod'
-        - uses: golangci/golangci-lint-action@v6.1.0
-        
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - uses: golangci/golangci-lint-action@v6.1.0
+
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'

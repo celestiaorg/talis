@@ -60,7 +60,7 @@ lint: fmt vet
 	@echo "--> Running actionlint"
 	@actionlint
 	@echo "--> Running yamllint"
-	@yamllint .
+	@yamllint --no-warnings .
 .PHONY: lint
 
 ## vet: Run go vet
