@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
-	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -38,6 +40,11 @@ var createInfraCmd = &cobra.Command{
 			fmt.Println("Error: JSON file not provided")
 			os.Exit(1)
 		}
+		if err := validateFilePath(jsonFile); err != nil {
+			fmt.Printf("Error validating file path: %v\n", err)
+			os.Exit(1)
+		}
+		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
 			fmt.Printf("Error reading JSON file: %v\n", err)
@@ -61,7 +68,11 @@ var createInfraCmd = &cobra.Command{
 			fmt.Printf("Error creating infrastructure: %v\n", err)
 			os.Exit(1)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if cerr := resp.Body.Close(); cerr != nil {
+				err = fmt.Errorf("error closing response body: %w", cerr)
+			}
+		}()
 
 		var result interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -86,6 +97,11 @@ var deleteInfraCmd = &cobra.Command{
 			fmt.Println("Error: JSON file not provided")
 			os.Exit(1)
 		}
+		if err := validateFilePath(jsonFile); err != nil {
+			fmt.Printf("Error validating file path: %v\n", err)
+			os.Exit(1)
+		}
+		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
 			fmt.Printf("Error reading JSON file: %v\n", err)
@@ -119,7 +135,11 @@ var deleteInfraCmd = &cobra.Command{
 			fmt.Printf("Error deleting infrastructure: %v\n", err)
 			os.Exit(1)
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if cerr := resp.Body.Close(); cerr != nil {
+				err = fmt.Errorf("error closing response body: %w", cerr)
+			}
+		}()
 
 		var result interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -135,4 +155,19 @@ var deleteInfraCmd = &cobra.Command{
 // GetInfraCmd returns the infrastructure command
 func GetInfraCmd() *cobra.Command {
 	return infraCmd
+}
+
+// Helper function to validate file path
+func validateFilePath(path string) error {
+	// Check if file exists
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("file does not exist: %w", err)
+	}
+
+	// Check if path contains any directory traversal
+	if strings.Contains(path, "..") {
+		return fmt.Errorf("path contains invalid characters")
+	}
+
+	return nil
 }

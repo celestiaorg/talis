@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Run make lint before committing
+echo "Running linters..."
+make lint
+
+# Check the exit status
+if [ $? -ne 0 ]; then
+    echo "❌ Linting failed. Please fix the issues before committing."
+    exit 1
+fi
+
+echo "✅ Linting passed."
+exit 0 

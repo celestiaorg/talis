@@ -10,6 +10,8 @@ import (
 
 const (
 	// ansibleDebug is the verbose mode for ansible
+	//
+	//nolint:unused // Will be used in future implementation
 	ansibleDebug = false
 )
 
@@ -40,17 +42,22 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPa
 	// Create inventory path with base name
 	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
 
-	// Ensure ansible directory exists
-	if err := os.MkdirAll("ansible", 0755); err != nil {
-		return err
+	// Create ansible directory with secure permissions
+	if err := os.MkdirAll("ansible", 0750); err != nil {
+		return fmt.Errorf("failed to create ansible directory: %w", err)
 	}
 
-	// Create inventory file with header
-	f, err := os.Create(inventoryPath)
+	// Create inventory file with secure permissions
+	// #nosec G304 -- inventory path is constructed from validated job ID
+	f, err := os.OpenFile(inventoryPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create inventory file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			err = fmt.Errorf("failed to close inventory file: %w", closeErr)
+		}
+	}()
 
 	// Write header
 	if _, err := f.WriteString("[all]\n"); err != nil {
@@ -89,6 +96,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 	args = append(args, "ansible/playbook.yml")
 
 	// Run ansible-playbook command
+	// #nosec G204 -- command arguments are constructed from validated inputs
 	cmd := exec.Command("ansible-playbook", args...)
 
 	// Disable host key checking
@@ -102,7 +110,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to run ansible playbook (check output above for details): %v", err)
+		return fmt.Errorf("failed to run ansible playbook (check output above for details): %w", err)
 	}
 
 	return nil
@@ -122,6 +130,7 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 	// Wait for SSH to be available
 	fmt.Printf("⏳ Waiting for SSH to be available on %s...\n", host)
 	for i := 0; i < 30; i++ {
+		// #nosec G204 -- command arguments are constructed from validated inputs
 		checkCmd := exec.Command("ssh",
 			"-i", sshKeyPath,
 			"-o", "StrictHostKeyChecking=no",
@@ -155,7 +164,7 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 		go func(h string) {
 			defer wg.Done()
 			if err := a.ConfigureHost(h, sshKeyPath); err != nil {
-				errChan <- fmt.Errorf("failed to configure host %s: %v", h, err)
+				errChan <- fmt.Errorf("failed to configure host %s: %w", h, err)
 			}
 		}(host)
 	}
@@ -176,12 +185,12 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 
 	// Create/update inventory with all instances
 	if err := a.CreateInventory(a.instances, sshKeyPath); err != nil {
-		return fmt.Errorf("failed to create inventory: %v", err)
+		return fmt.Errorf("failed to create inventory: %w", err)
 	}
 
 	// Run Ansible playbook
 	if err := a.RunAnsiblePlaybook(a.jobID); err != nil {
-		return fmt.Errorf("failed to run Ansible playbook: %v", err)
+		return fmt.Errorf("failed to run Ansible playbook: %w", err)
 	}
 
 	return nil

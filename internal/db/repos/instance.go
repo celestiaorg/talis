@@ -9,12 +9,12 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
-// Store handles job-related database operations
+// InstanceRepository provides access to instance-related database operations
 type InstanceRepository struct {
 	db *gorm.DB
 }
 
-// NewStore creates a new job store
+// NewInstanceRepository creates a new instance repository instance
 func NewInstanceRepository(db *gorm.DB) *InstanceRepository {
 	return &InstanceRepository{db: db}
 }
@@ -34,7 +34,7 @@ func (r *InstanceRepository) GetByID(ctx context.Context, JobID, ID uint) (*mode
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&instance).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to get job: %v", err)
+		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
 	return &instance, nil
 }
@@ -51,6 +51,7 @@ func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status m
 		Update("status", status).Error
 }
 
+// List retrieves a paginated list of instances
 func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	var instances []models.Instance
 	err := r.db.WithContext(ctx).
@@ -61,6 +62,7 @@ func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions)
 	return instances, err
 }
 
+// Count returns the total number of instances
 func (r *InstanceRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
@@ -69,8 +71,18 @@ func (r *InstanceRepository) Count(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+// Query executes a custom query against the instance table
 func (r *InstanceRepository) Query(ctx context.Context, query string, args ...interface{}) ([]models.Instance, error) {
 	var instances []models.Instance
 	err := r.db.Raw(query, args...).Scan(&instances).Error
 	return instances, err
+}
+
+// Get retrieves an instance by ID
+func (r *InstanceRepository) Get(ctx context.Context, id uint) (*models.Instance, error) {
+	var instance models.Instance
+	if err := r.db.First(&instance, id).Error; err != nil {
+		return nil, fmt.Errorf("failed to get instance: %w", err)
+	}
+	return &instance, nil
 }

@@ -11,15 +11,22 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
+// Database configuration constants
 const (
-	DefaultHost       = "localhost"
-	DefaultUser       = "postgres"
-	DefaultPassword   = "postgres"
+	// DefaultHost is the default database host
+	DefaultHost = "localhost"
+	// DefaultPort is the default database port
+	DefaultPort = 5432
+	// DefaultUser is the default database user
+	DefaultUser = "postgres"
+	// DefaultPassword is the default database password
+	DefaultPassword = "postgres"
+	// DefaultDBName is the default database name
 	DefaultDBName     = "postgres"
-	DefaultPort       = 5432
 	DefaultSSLEnabled = false
 )
 
+// Options represents database connection configuration options
 type Options struct {
 	Host       string
 	User       string
@@ -30,6 +37,7 @@ type Options struct {
 	LogLevel   logger.LogLevel
 }
 
+// New creates a new database connection with the given options
 func New(opts Options) (*gorm.DB, error) {
 	opts = setDefaults(opts)
 	sslMode := "disable"
@@ -50,8 +58,7 @@ func New(opts Options) (*gorm.DB, error) {
 	return db, nil
 }
 
-// Please note that this function works only with postgres.
-// For other databases, you need to implement your own function.
+// IsDuplicateKeyError checks if the given error is a PostgreSQL duplicate key error
 func IsDuplicateKeyError(err error) bool {
 	return errors.Is(postgres.Dialector{}.Translate(err), gorm.ErrDuplicatedKey)
 }

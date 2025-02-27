@@ -6,9 +6,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+
+	"github.com/celestiaorg/talis/internal/compute"
 )
 
 // setupInfrastructure initializes the cloud provider and Pulumi stack
@@ -34,11 +35,11 @@ func (i *Infrastructure) setupInfrastructure() error {
 
 	stack, err := i.createPulumiStack(pulumiToken)
 	if err != nil {
-		return fmt.Errorf("failed to create stack: %v", err)
+		return fmt.Errorf("failed to create stack: %w", err)
 	}
 
 	if err := i.provider.ConfigureProvider(*stack); err != nil {
-		return fmt.Errorf("failed to configure provider: %v", err)
+		return fmt.Errorf("failed to configure provider: %w", err)
 	}
 
 	i.stack = stack
@@ -75,7 +76,7 @@ func (i *Infrastructure) createPulumiStack(pulumiToken string) (*auto.Stack, err
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create/select stack: %v", err)
+		return nil, fmt.Errorf("failed to create/select stack: %w", err)
 	}
 
 	fmt.Println("✅ Pulumi stack created successfully")
@@ -107,7 +108,7 @@ func (i *Infrastructure) createInstances(ctx *pulumi.Context) error {
 					Tags:     instance.Tags,
 				})
 				if err != nil {
-					errChan <- fmt.Errorf("failed to create instance %s: %v", name, err)
+					errChan <- fmt.Errorf("failed to create instance %s: %w", name, err)
 				}
 			}(instanceIndex, inst)
 			instanceIndex++

@@ -51,7 +51,11 @@ var listJobsCmd = &cobra.Command{
 			fmt.Printf("Error fetching jobs: %v\n", err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if cerr := resp.Body.Close(); cerr != nil {
+				fmt.Printf("Error closing response body: %v\n", cerr)
+			}
+		}()
 
 		var result interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -75,7 +79,11 @@ var getJobCmd = &cobra.Command{
 			fmt.Printf("Error fetching job: %v\n", err)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if cerr := resp.Body.Close(); cerr != nil {
+				fmt.Printf("Error closing response body: %v\n", cerr)
+			}
+		}()
 
 		var result interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

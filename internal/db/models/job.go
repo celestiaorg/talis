@@ -8,26 +8,38 @@ import (
 	"gorm.io/gorm"
 )
 
+// JobCreatedAtField is the database field name for the job creation timestamp
 const (
+	// JobCreatedAtField is the database field name for the job creation timestamp
 	JobCreatedAtField = "created_at"
+	// JobUpdatedAtField is the database field name for the job update timestamp
 	JobUpdatedAtField = "updated_at"
 )
 
+// JobStatus represents the current state of a job in the system
 type JobStatus int
 
+// Job status constants
 const (
-	// we need unknown to be the first status to avoid conflicts with the default value
-	// Also allow us to search for all jobs no matter their status
+	// JobStatusUnknown represents an unknown or invalid job status
 	JobStatusUnknown JobStatus = iota
+	// JobStatusPending indicates the job is waiting to be processed
 	JobStatusPending
+	// JobStatusInitializing indicates the job is currently being processed
 	JobStatusInitializing
+	// JobStatusProvisioning indicates the job is currently being processed
 	JobStatusProvisioning
+	// JobStatusConfiguring indicates the job is currently being processed
 	JobStatusConfiguring
+	// JobStatusCompleted indicates the job has finished successfully
 	JobStatusCompleted
+	// JobStatusFailed indicates the job has failed to complete
 	JobStatusFailed
+	// JobStatusTerminated indicates the job has been terminated
 	JobStatusTerminated
 )
 
+// Job represents a task or operation in the system
 type Job struct {
 	gorm.Model
 	Name        string          `json:"name" gorm:"not null; index"`
@@ -42,38 +54,7 @@ type Job struct {
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
 }
 
-func (s *JobStatus) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err != nil {
-		return err
-	}
-
-	status, err := ParseJobStatus(str)
-	if err != nil {
-		return err
-	}
-
-	*s = status
-	return nil
-}
-
-func (s JobStatus) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
-}
-
-func (s JobStatus) String() string {
-	return []string{
-		"unknown",
-		"pending",
-		"initializing",
-		"provisioning",
-		"configuring",
-		"completed",
-		"failed",
-		"terminated",
-	}[s]
-}
-
+// ParseJobStatus converts a string representation of a job status to JobStatus type
 func ParseJobStatus(str string) (JobStatus, error) {
 	for i, status := range []string{
 		"unknown",
@@ -91,4 +72,38 @@ func ParseJobStatus(str string) (JobStatus, error) {
 	}
 
 	return JobStatus(0), fmt.Errorf("invalid job status: %s", str)
+}
+
+// MarshalJSON implements the json.Marshaler interface for JobStatus
+func (s JobStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for JobStatus
+func (s *JobStatus) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+
+	status, err := ParseJobStatus(str)
+	if err != nil {
+		return err
+	}
+
+	*s = status
+	return nil
+}
+
+func (s JobStatus) String() string {
+	return []string{
+		"unknown",
+		"pending",
+		"initializing",
+		"provisioning",
+		"configuring",
+		"completed",
+		"failed",
+		"terminated",
+	}[s]
 }

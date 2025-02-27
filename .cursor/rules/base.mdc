@@ -1,4 +1,10 @@
-# Cursor AI Rules
+---
+description: base rules for the repo
+globs: 
+alwaysApply: false
+---
+
+# Your rule content
 
 ## Code Style & Conventions
 

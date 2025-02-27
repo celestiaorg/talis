@@ -9,7 +9,7 @@ type JobRequest struct {
 	Action      string            `json:"action"` // "create" or "delete"
 }
 
-// Instance represents a compute instance configuration
+// InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
 	Provider          string   `json:"provider"`
 	NumberOfInstances int      `json:"number_of_instances"`
