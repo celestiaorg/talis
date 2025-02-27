@@ -4,20 +4,21 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
+// InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
 	service *services.InstanceService
 }
 
+// NewInstanceHandler creates a new instance handler instance
 func NewInstanceHandler(service *services.InstanceService) *InstanceHandler {
 	return &InstanceHandler{
 		service: service,
 	}
 }
 
-// DeleteInfrastructure deletes an infrastructure
+// DeleteInstance handles the request to delete an instance
 func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
 		"error": "delete instance not implemented yet",
@@ -112,21 +113,4 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
 		"error": "get instance not implemented yet",
 	})
-}
-
-// convertToInstances convierte DeleteInstance a Instance
-func convertToInstances(deleteInstances []infrastructure.DeleteInstance) []infrastructure.InstanceRequest {
-	instances := make([]infrastructure.InstanceRequest, len(deleteInstances))
-	for i, di := range deleteInstances {
-		instances[i] = infrastructure.InstanceRequest{
-			Provider:          di.Provider,
-			NumberOfInstances: di.NumberOfInstances,
-			Region:            di.Region,
-			Size:              di.Size,
-			Image:             di.Image,
-			Tags:              di.Tags,
-			SSHKeyName:        di.SSHKeyName,
-		}
-	}
-	return instances
 }

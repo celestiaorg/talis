@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -13,16 +14,17 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
+// JobHandler handles HTTP requests for job operations
 type JobHandler struct {
 	service *services.JobService
 }
 
+// NewJobHandler creates a new job handler instance
 func NewJobHandler(s *services.JobService) *JobHandler {
-	return &JobHandler{
-		service: s,
-	}
+	return &JobHandler{service: s}
 }
 
+// GetJobStatus handles the request to get a job's status
 func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 	jobIDStr := c.Params("id")
 	if jobIDStr == "" {
@@ -49,6 +51,7 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 	return c.JSON(status)
 }
 
+// ListJobs handles the request to list jobs
 func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	var (
 		limit  = c.QueryInt("limit", 10)
@@ -76,6 +79,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	return c.JSON(jobs)
 }
 
+// CreateJob handles the request to create a new job
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	var req struct {
 		Name        string                           `json:"name"`
@@ -134,7 +138,9 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 		infra, err := infrastructure.NewInfrastructure(JobReq)
 		if err != nil {
 			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
-			h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error()); err != nil {
+				log.Printf("Failed to update job status: %v", err)
+			}
 			return
 		}
 
@@ -153,14 +159,18 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 				outputs, outputErr := infra.GetOutputs()
 				if outputErr != nil {
 					fmt.Printf("❌ Failed to get outputs: %v\n", outputErr)
-					h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, outputErr.Error())
+					if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, outputErr.Error()); err != nil {
+						log.Printf("Failed to update job status: %v", err)
+					}
 					return
 				}
 				result = outputs
 				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
 			} else {
 				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
-				h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error()); err != nil {
+					log.Printf("Failed to update job status: %v", err)
+				}
 				return
 			}
 		}
@@ -170,8 +180,10 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			instances, ok := result.([]infrastructure.InstanceInfo)
 			if !ok {
 				fmt.Printf("❌ Invalid result type: %T\n", result)
-				h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil,
-					fmt.Sprintf("invalid result type: %T, expected []infrastructure.InstanceInfo", result))
+				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil,
+					fmt.Sprintf("invalid result type: %T, expected []infrastructure.InstanceInfo", result)); err != nil {
+					log.Printf("Failed to update job status: %v", err)
+				}
 				return
 			}
 
@@ -185,8 +197,9 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 			if err := infra.RunProvisioning(instances); err != nil {
 				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
-				h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, instances,
-					fmt.Sprintf("infrastructure created but provisioning failed: %v", err))
+				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, instances, fmt.Sprintf("infrastructure created but provisioning failed: %v", err)); err != nil {
+					log.Printf("Failed to update job status: %v", err)
+				}
 				return
 			}
 		}

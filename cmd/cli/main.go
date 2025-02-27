@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/celestiaorg/talis/cmd/cli/commands"
 	"github.com/spf13/cobra"
+
+	"github.com/celestiaorg/talis/cmd/cli/commands"
 )
 
 var rootCmd = &cobra.Command{

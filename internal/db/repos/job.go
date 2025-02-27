@@ -10,12 +10,12 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
-// Store handles job-related database operations
+// JobRepository provides access to job-related database operations
 type JobRepository struct {
 	db *gorm.DB
 }
 
-// NewStore creates a new job store
+// NewJobRepository creates a new job repository instance
 func NewJobRepository(db *gorm.DB) *JobRepository {
 	return &JobRepository{db: db}
 }
@@ -25,11 +25,11 @@ func (r *JobRepository) Create(ctx context.Context, job *models.Job) error {
 	return r.db.WithContext(ctx).Create(job).Error
 }
 
-// This fucntion is not meant to be called by the API, but only by the worker
+// UpdateStatus updates the status of a job in the database
 func (r *JobRepository) UpdateStatus(ctx context.Context, ID uint, status models.JobStatus, result interface{}, errMsg string) error {
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("failed to marshal result: %v", err)
+		return fmt.Errorf("failed to marshal result: %w", err)
 	}
 
 	return r.db.WithContext(ctx).Model(&models.Job{}).
@@ -52,7 +52,7 @@ func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to get job: %v", err)
+		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
 	return &job, nil
 }
@@ -68,7 +68,7 @@ func (r *JobRepository) GetByName(ctx context.Context, OwnerID uint, name string
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to get job: %v", err)
+		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
 	return &job, nil
 }
@@ -117,6 +117,7 @@ func (r *JobRepository) Count(ctx context.Context, status models.JobStatus, Owne
 	return count, err
 }
 
+// Query executes a custom query against the job table
 func (r *JobRepository) Query(ctx context.Context, query string, args ...interface{}) ([]models.Job, error) {
 	var jobs []models.Job
 	err := r.db.Raw(query, args...).Scan(&jobs).Error

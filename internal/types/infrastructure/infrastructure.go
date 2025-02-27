@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+
+	"github.com/celestiaorg/talis/internal/compute"
 )
 
 // Infrastructure represents the infrastructure management
@@ -27,7 +28,7 @@ type Infrastructure struct {
 func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
 	provider, err := compute.NewComputeProvider(req.Provider)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create compute provider: %v", err)
+		return nil, fmt.Errorf("failed to create compute provider: %w", err)
 	}
 
 	// Generate job ID using timestamp
@@ -48,7 +49,7 @@ func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
 // Execute executes the requested action (create/delete)
 func (i *Infrastructure) Execute() (interface{}, error) {
 	if err := i.setupInfrastructure(); err != nil {
-		return nil, fmt.Errorf("failed to setup infrastructure: %v", err)
+		return nil, fmt.Errorf("failed to setup infrastructure: %w", err)
 	}
 
 	switch i.action {
@@ -61,12 +62,6 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 	}
 }
 
-// updateJobStatus updates the job status (this es un placeholder - implementar con una DB real)
-func (i *Infrastructure) updateJobStatus(jobID, status string, result interface{}) {
-	// TODO: Store in database and trigger webhook if configured
-	fmt.Printf("Job %s status updated to %s: %v\n", jobID, status, result)
-}
-
 // handleCreate handles the creation of infrastructure
 func (i *Infrastructure) handleCreate() (interface{}, error) {
 	fmt.Println("🚀 Creating infrastructure...")
@@ -74,13 +69,13 @@ func (i *Infrastructure) handleCreate() (interface{}, error) {
 	// Create and configure the stack
 	_, err := i.stack.Up(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create infrastructure: %v", err)
+		return nil, fmt.Errorf("failed to create infrastructure: %w", err)
 	}
 
 	// Get the created instances information
 	instances, err := i.GetOutputs()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instance information: %v", err)
+		return nil, fmt.Errorf("failed to get instance information: %w", err)
 	}
 
 	// Give instances a moment to fully initialize
@@ -89,7 +84,7 @@ func (i *Infrastructure) handleCreate() (interface{}, error) {
 
 	// Run Nix provisioning if enabled
 	if err := i.RunProvisioning(instances); err != nil {
-		return nil, fmt.Errorf("failed to provision instances: %v", err)
+		return nil, fmt.Errorf("failed to provision instances: %w", err)
 	}
 
 	return instances, nil
@@ -101,7 +96,7 @@ func (i *Infrastructure) handleDelete() (interface{}, error) {
 
 	_, err := i.stack.Destroy(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete infrastructure: %v", err)
+		return nil, fmt.Errorf("failed to delete infrastructure: %w", err)
 	}
 
 	return map[string]string{"status": "deleted"}, nil
@@ -126,13 +121,13 @@ func (i *Infrastructure) Update() (interface{}, error) {
 
 	ws, err := auto.NewLocalWorkspace(context.Background(), workspaceOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create workspace: %v", err)
+		return nil, fmt.Errorf("failed to create workspace: %w", err)
 	}
 
 	// List all stacks to debug
 	stacks, err := ws.ListStacks(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to list stacks: %v", err)
+		return nil, fmt.Errorf("failed to list stacks: %w", err)
 	}
 
 	fmt.Println("Available stacks:")
@@ -147,13 +142,13 @@ func (i *Infrastructure) Update() (interface{}, error) {
 	// Get existing stack
 	stack, err := auto.SelectStack(context.Background(), stackName, ws)
 	if err != nil {
-		return nil, fmt.Errorf("failed to select stack %s: %v", stackName, err)
+		return nil, fmt.Errorf("failed to select stack %s: %w", stackName, err)
 	}
 
 	// Get instance IP from stack outputs
 	outputs, err := stack.Outputs(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stack outputs: %v", err)
+		return nil, fmt.Errorf("failed to get stack outputs: %w", err)
 	}
 
 	instances := make([]InstanceInfo, 0)
@@ -176,7 +171,7 @@ func (i *Infrastructure) Update() (interface{}, error) {
 
 	// Apply new Nix configuration
 	if err := i.RunProvisioning(instances); err != nil {
-		return nil, fmt.Errorf("failed to update configuration: %v", err)
+		return nil, fmt.Errorf("failed to update configuration: %w", err)
 	}
 
 	return instances, nil
@@ -190,7 +185,7 @@ func (i *Infrastructure) GetOutputs() ([]InstanceInfo, error) {
 
 	outputs, err := i.stack.Outputs(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stack outputs: %v", err)
+		return nil, fmt.Errorf("failed to get stack outputs: %w", err)
 	}
 
 	var instances []InstanceInfo

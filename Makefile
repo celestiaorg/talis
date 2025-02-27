@@ -46,14 +46,19 @@ test:
 
 ## fmt: Format code
 fmt:
-	@echo "Formatting code..."
+	@echo "Formatting go fmt..."
 	$(GOFMT) -w $(GO_FILES)
+	@echo "--> Formatting golangci-lint"
+	@golangci-lint run --fix
 .PHONY: fmt
 
 ## lint: Run all linters
-lint: vet fmt
+lint: fmt vet
 	@echo "Running linters..."
-	golangci-lint run
+	@echo "--> Running golangci-lint"
+	@golangci-lint run
+	@echo "--> Running actionlint"
+	@actionlint
 .PHONY: lint
 
 ## vet: Run go vet
