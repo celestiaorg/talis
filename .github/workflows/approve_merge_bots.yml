@@ -1,0 +1,22 @@
+---
+name: Approve and Merge Dependabot PRs
+on:
+  pull_request:
+
+jobs:
+  dependabot:
+    name: "Approve and Merge Dependabot PRs"
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: CelestiaBot Approval
+        run: |
+          gh auth login --with-token <<< "$PAT"
+          gh pr review --approve "$PR_URL"
+          gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          PAT: ${{secrets.PR_APPROVE_PAT_CB}}
