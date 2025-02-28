@@ -19,7 +19,7 @@ func (r *JobRequest) Validate() error {
 
 	for i, instance := range r.Instances {
 		if err := instance.Validate(); err != nil {
-			return fmt.Errorf("invalid instance configuration at index %d: %v", i, err)
+			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
 		}
 	}
 
@@ -65,7 +65,7 @@ func (r *DeleteRequest) Validate() error {
 
 	for i, instance := range r.Instances {
 		if err := instance.Validate(); err != nil {
-			return fmt.Errorf("invalid instance configuration at index %d: %v", i, err)
+			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
 		}
 	}
 

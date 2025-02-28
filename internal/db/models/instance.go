@@ -8,23 +8,31 @@ import (
 	"gorm.io/gorm"
 )
 
+// Field names for instance model
 const (
+	// InstanceCreatedAtField is the field name for instance creation timestamp
 	InstanceCreatedAtField = "created_at"
 	InstanceDeletedField   = "deleted"
 )
 
+// InstanceStatus represents the current state of an instance
 type InstanceStatus int
 
+// Instance status constants
 const (
-	// we need unknown to be the first status to avoid conflicts with the default value
-	// Also allow us to search for all instances no matter their status
+	// InstanceStatusUnknown represents an unknown or invalid instance status
 	InstanceStatusUnknown InstanceStatus = iota
+	// InstanceStatusPending indicates the instance is being created
 	InstanceStatusPending
+	// InstanceStatusProvisioning indicates the instance is being provisioned
 	InstanceStatusProvisioning
+	// InstanceStatusReady indicates the instance is operational
 	InstanceStatusReady
+	// InstanceStatusTerminated indicates the instance is terminated
 	InstanceStatusTerminated
 )
 
+// Instance represents a compute instance in the system
 type Instance struct {
 	gorm.Model
 	JobID      uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
@@ -49,6 +57,7 @@ func (s InstanceStatus) String() string {
 	}[s]
 }
 
+// ParseInstanceStatus converts a string representation of an instance status to InstanceStatus type
 func ParseInstanceStatus(str string) (InstanceStatus, error) {
 	for i, status := range []string{
 		"unknown",
@@ -65,10 +74,12 @@ func ParseInstanceStatus(str string) (InstanceStatus, error) {
 	return InstanceStatus(0), fmt.Errorf("invalid instance status: %s", str)
 }
 
+// MarshalJSON implements the json.Marshaler interface for InstanceStatus
 func (s InstanceStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface for InstanceStatus
 func (s *InstanceStatus) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {

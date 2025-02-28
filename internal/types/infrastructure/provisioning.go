@@ -31,7 +31,7 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 
 	// Create inventory file
 	if err := i.provisioner.CreateInventory(instanceMap, "/root/.ssh/id_rsa"); err != nil {
-		return fmt.Errorf("failed to create inventory: %v", err)
+		return fmt.Errorf("failed to create inventory: %w", err)
 	}
 
 	// Configure hosts in parallel
@@ -43,7 +43,7 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 		go func(inst InstanceInfo) {
 			defer wg.Done()
 			if err := i.provisionInstance(inst); err != nil {
-				errChan <- fmt.Errorf("failed to provision %s: %v", inst.Name, err)
+				errChan <- fmt.Errorf("failed to provision %s: %w", inst.Name, err)
 			}
 		}(instance)
 	}
@@ -60,7 +60,7 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 	// Run Ansible playbook
 	fmt.Println("📝 Running Ansible playbook...")
 	if err := i.provisioner.RunAnsiblePlaybook(i.jobID); err != nil {
-		return fmt.Errorf("failed to run Ansible playbook: %v", err)
+		return fmt.Errorf("failed to run Ansible playbook: %w", err)
 	}
 
 	fmt.Println("✅ Ansible playbook completed successfully")
@@ -72,7 +72,7 @@ func (i *Infrastructure) provisionInstance(instance InstanceInfo) error {
 	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.IP)
 
 	if err := i.provisioner.ConfigureHost(instance.IP, "/root/.ssh/id_rsa"); err != nil {
-		return fmt.Errorf("failed to configure host: %v", err)
+		return fmt.Errorf("failed to configure host: %w", err)
 	}
 
 	fmt.Printf("✅ Provisioning completed for %s\n", instance.Name)

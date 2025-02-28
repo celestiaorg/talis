@@ -20,3 +20,5 @@ Pulumi.*.yaml
 create.json
 delete.json
 ansible/*.ini
+
+.vscode/

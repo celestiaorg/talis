@@ -7,17 +7,19 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
+// InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
 	service *services.InstanceService
 }
 
+// NewInstanceHandler creates a new instance handler instance
 func NewInstanceHandler(service *services.InstanceService) *InstanceHandler {
 	return &InstanceHandler{
 		service: service,
 	}
 }
 
-// DeleteInfrastructure deletes an infrastructure
+// DeleteInstance handles the request to delete an instance
 func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
 		"error": "delete instance not implemented yet",
@@ -114,7 +116,9 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	})
 }
 
-// convertToInstances convierte DeleteInstance a Instance
+// convertToInstances converts DeleteInstance to InstanceRequest
+//
+//nolint:unused // Will be used in future implementation
 func convertToInstances(deleteInstances []infrastructure.DeleteInstance) []infrastructure.InstanceRequest {
 	instances := make([]infrastructure.InstanceRequest, len(deleteInstances))
 	for i, di := range deleteInstances {

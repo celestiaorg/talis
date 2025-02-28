@@ -64,7 +64,7 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx *pulumi.Context, keyName string) 
 				fmt.Printf("  - %s (ID: %s)\n", key.Name, key.Fingerprint)
 			}
 		}
-		return "", fmt.Errorf("failed to get SSH key '%s': %v", keyName, err)
+		return "", fmt.Errorf("failed to get SSH key '%s': %w", keyName, err)
 	}
 
 	fmt.Printf("✅ Found SSH key '%s' with ID: %s\n", keyName, sshKey.Fingerprint)
@@ -88,7 +88,7 @@ apt-get install -y python3`
 
 	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
 	if err != nil {
-		return InstanceInfo{}, fmt.Errorf("failed to get SSH key: %v", err)
+		return InstanceInfo{}, fmt.Errorf("failed to get SSH key: %w", err)
 	}
 
 	// Convert slice of tags to pulumi.StringArray
@@ -108,7 +108,7 @@ apt-get install -y python3`
 	})
 	if err != nil {
 		fmt.Printf("❌ Failed to create droplet: %v\n", err)
-		return InstanceInfo{}, fmt.Errorf("failed to create droplet: %v", err)
+		return InstanceInfo{}, fmt.Errorf("failed to create droplet: %w", err)
 	}
 
 	// Export the IP address and ensure it's ready

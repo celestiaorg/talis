@@ -1,16 +1,21 @@
 package models
 
-// we keep it like this for the moment, but we will put them all in the database with some auth details
+// ProviderID represents a unique identifier for a cloud provider
 type ProviderID string
 
+// Provider constants define the supported cloud providers
 const (
-	ProviderAWS          ProviderID = "aws"
-	ProviderGCP          ProviderID = "gcp"
-	ProviderAzure        ProviderID = "azure"
-	ProviderDigitalOcean ProviderID = "do"
-	ProviderScaleway     ProviderID = "scw"
-	ProviderVultr        ProviderID = "vultr"
-	ProviderLinode       ProviderID = "linode"
-	ProviderHetzner      ProviderID = "hetzner"
-	ProviderOVH          ProviderID = "ovh"
+	// ProviderAWS represents Amazon Web Services provider
+	ProviderAWS ProviderID = "aws"
+	// ProviderGCP represents Google Cloud Platform provider
+	ProviderGCP ProviderID = "gcp"
+	// ProviderAzure represents Microsoft Azure provider
+	ProviderAzure ProviderID = "azure"
+	// ProviderDO represents DigitalOcean provider
+	ProviderDO       ProviderID = "do"
+	ProviderScaleway ProviderID = "scw"
+	ProviderVultr    ProviderID = "vultr"
+	ProviderLinode   ProviderID = "linode"
+	ProviderHetzner  ProviderID = "hetzner"
+	ProviderOVH      ProviderID = "ovh"
 )

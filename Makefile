@@ -28,7 +28,7 @@ all: check-env lint test build
 ## build: Build the application
 build: 
 	@echo "Building $(APP_NAME)..."
-	$(GOBUILD) $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/$(APP_NAME)
+	$(GOBUILD) $(LDFLAGS) -o bin/$(APP_NAME) ./cmd/main.go
 .PHONY: build
 
 ## clean: Clean build artifacts
@@ -46,14 +46,21 @@ test:
 
 ## fmt: Format code
 fmt:
-	@echo "Formatting code..."
+	@echo "Formatting go fmt..."
 	$(GOFMT) -w $(GO_FILES)
+	@echo "--> Formatting golangci-lint"
+	@golangci-lint run --fix
 .PHONY: fmt
 
 ## lint: Run all linters
-lint: vet fmt
+lint: fmt vet
 	@echo "Running linters..."
-	golangci-lint run
+	@echo "--> Running golangci-lint"
+	@golangci-lint run
+	@echo "--> Running actionlint"
+	@actionlint
+	@echo "--> Running yamllint"
+	@yamllint --no-warnings .
 .PHONY: lint
 
 ## vet: Run go vet
@@ -94,8 +101,14 @@ nix-check:
 	done
 .PHONY: nix-check
 
+## install-hooks: Install git hooks
+install-hooks:
+	@echo "Installing git hooks..."
+	@git config core.hooksPath .githooks
+.PHONY: install-hooks
+
 ## dev-setup: Setup development environment
-dev-setup: check-env
+dev-setup: check-env install-hooks
 	@echo "Setting up development environment..."
 	$(GOMOD) download
 	$(GOMOD) verify
@@ -108,7 +121,7 @@ dev-setup: check-env
 ## build-cli: Build the Talis CLI tool
 build-cli:
 	@echo "Building Talis CLI..."
-	$(GOBUILD) $(LDFLAGS) -o bin/talis ./cmd/cli
+	$(GOBUILD) $(LDFLAGS) -o bin/talis-cli ./cmd/cli
 .PHONY: build-cli
 
 ## db-connect: Connect to the database
