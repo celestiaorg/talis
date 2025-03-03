@@ -1,7 +1,8 @@
 ---
 name: Approve and Merge Dependabot PRs
 on:
-  pull_request:
+  # Since these PRs are opened by dependabot, we need to run on _target to grant permissions for secrets
+  pull_request_target:
 
 jobs:
   dependabot:
