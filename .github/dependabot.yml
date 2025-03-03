@@ -15,7 +15,7 @@ updates:
           - "minor"
     commit-message:
       include: "scope"
-      prefix: "deps"
+      prefix: "build"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -31,4 +31,4 @@ updates:
           - "minor"
     commit-message:
       include: "scope"
-      prefix: "deps"
+      prefix: "build"
