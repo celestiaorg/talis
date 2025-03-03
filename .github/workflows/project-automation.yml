@@ -37,12 +37,12 @@ jobs:
           project-url: https://github.com/orgs/celestiaorg/projects/38
           github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
       - name: Assign issue to creator (issue)
-        if: ${{ github.event.issue && env.HAS_ASSIGNEE == 'false' }}
+        if: ${{ github.event.issue && env.HAS_ASSIGNEE == 'false' && env.CREATOR != 'dependabot[bot]' }}
         run: gh issue edit ${{ env.ISSUE }} --add-assignee ${{ env.CREATOR }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Assign issue to creator (PR)
-        if: ${{ github.event.pull_request && env.HAS_ASSIGNEE == 'false' }}
+        if: ${{ github.event.pull_request && env.HAS_ASSIGNEE == 'false' && env.CREATOR != 'dependabot[bot]' }}
         run: gh pr edit ${{ env.ISSUE }} --add-assignee ${{ env.CREATOR }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
