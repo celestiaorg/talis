@@ -36,7 +36,7 @@ alwaysApply: false
 
 ## Infrastructure Rules
 
-- Use infrastructure as code (Pulumi)
+- Use the provider's API or client libraries
 - Document all environment variables
 - Keep sensitive data in environment variables
 - Use proper logging and monitoring
