@@ -8,7 +8,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/joho/godotenv v1.5.1
 	github.com/pulumi/pulumi-digitalocean/sdk/v4 v4.40.1
-	github.com/pulumi/pulumi/sdk/v3 v3.148.0
+	github.com/pulumi/pulumi/sdk/v3 v3.153.1
 	github.com/spf13/cobra v1.9.1
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
