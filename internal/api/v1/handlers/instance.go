@@ -71,15 +71,40 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 
 // DeleteInstance handles the request to delete an instance
 func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
-	instanceID := c.Params("id")
-	if instanceID == "" {
+	var req infrastructure.DeleteInstanceRequest
+
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "instance id is required",
+			"error": fmt.Sprintf("invalid request body: %v", err),
+		})
+	}
+
+	if req.ID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job id is required",
+		})
+	}
+
+	if req.Name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "name is required",
+		})
+	}
+
+	if req.ProjectName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "project_name is required",
+		})
+	}
+
+	if len(req.Instances) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "at least one instance is required",
 		})
 	}
 
 	// Delete instance using the service
-	job, err := h.service.DeleteInstance(c.Context(), instanceID)
+	job, err := h.service.DeleteInstance(c.Context(), req.ID, req.Name, req.ProjectName, req.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

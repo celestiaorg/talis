@@ -8,6 +8,7 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"gorm.io/gorm"
 )
 
 // JobServiceInterface defines the interface for job operations.
@@ -86,33 +87,28 @@ func (s *InstanceService) CreateInstance(
 // DeleteInstance deletes an instance
 func (s *InstanceService) DeleteInstance(
 	ctx context.Context,
-	instanceID string,
+	jobID uint,
+	name,
+	projectName string,
+	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
 	// Create job for deletion
 	job := &models.Job{
-		Name:        fmt.Sprintf("delete-%s", instanceID),
-		ProjectName: "talis",
+		Model: gorm.Model{
+			ID: jobID,
+		},
+		Name:        name,
+		ProjectName: projectName,
 		Status:      models.JobStatusPending,
-	}
-
-	job, err := s.jobService.CreateJob(ctx, job)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
 
 	// Create infrastructure request
 	infraReq := &infrastructure.JobRequest{
-		Name:        instanceID,
-		ProjectName: "talis",
-		Provider:    "digitalocean",
-		Instances: []infrastructure.InstanceRequest{
-			{
-				Provider:          "digitalocean",
-				NumberOfInstances: 1,
-				Region:            "nyc3",
-			},
-		},
-		Action: "delete",
+		Name:        name,
+		ProjectName: projectName,
+		Provider:    instances[0].Provider,
+		Instances:   instances,
+		Action:      "delete",
 	}
 
 	// Start async infrastructure deletion
