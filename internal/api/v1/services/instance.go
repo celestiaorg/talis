@@ -161,6 +161,40 @@ func (s *InstanceService) handleInfrastructureCreation(
 		}
 	}
 
+	// Save instances to database
+	instanceInfos, ok := result.([]infrastructure.InstanceInfo)
+	if ok {
+		// Get the request configuration that applies to all instances
+		instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
+
+		for _, info := range instanceInfos {
+			// Create default tags if none provided
+			var tags []string
+			if instanceConfig.Tags != nil && len(instanceConfig.Tags) > 0 {
+				tags = instanceConfig.Tags
+			} else {
+				tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
+			}
+
+			instance := &models.Instance{
+				JobID:      job.ID,
+				ProviderID: models.ProviderID(jobReq.Provider),
+				Name:       info.Name,
+				PublicIP:   info.IP,
+				Region:     instanceConfig.Region,
+				Size:       instanceConfig.Size,
+				Image:      instanceConfig.Image,
+				Tags:       tags,
+				Status:     models.InstanceStatusReady,
+			}
+			if err := s.repo.Create(ctx, instance); err != nil {
+				fmt.Printf("❌ Failed to save instance to database: %v\n", err)
+			} else {
+				fmt.Printf("✅ Instance %s saved to database with ID %d\n", instance.Name, instance.ID)
+			}
+		}
+	}
+
 	// Handle provisioning if requested
 	if instances[0].Provision {
 		if err := s.handleProvisioning(ctx, job, infra, result); err != nil {
@@ -216,6 +250,28 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("failed to update job status to initializing: %w", err)
 	}
 
+	// Get instances from database for this job, ordered by creation date
+	instances, err := s.repo.GetByJobIDOrdered(ctx, job.ID)
+	if err != nil {
+		fmt.Printf("⚠️ Warning: Could not find instances in database: %v\n", err)
+	}
+
+	// Calculate how many instances to delete
+	totalToDelete := 0
+	for _, req := range infraReq.Instances {
+		totalToDelete += req.NumberOfInstances
+	}
+
+	// Ensure we don't try to delete more instances than exist
+	if totalToDelete > len(instances) {
+		totalToDelete = len(instances)
+		fmt.Printf("⚠️ Warning: Requested to delete more instances than exist. Will delete all %d instances.\n", totalToDelete)
+	}
+
+	// Get the instances to delete (oldest first)
+	instancesToDelete := instances[:totalToDelete]
+	fmt.Printf("🗑️ Will delete %d instances out of %d total instances\n", totalToDelete, len(instances))
+
 	infra, err := infrastructure.NewInfrastructure(infraReq)
 	if err != nil {
 		return fmt.Errorf("failed to create infrastructure client: %w", err)
@@ -238,6 +294,15 @@ func (s *InstanceService) handleInfrastructureDeletion(
 			err = nil // Clear the error since this is an acceptable condition
 		} else {
 			return fmt.Errorf("failed to delete infrastructure: %w", err)
+		}
+	}
+
+	// Delete instances from database
+	for _, instance := range instancesToDelete {
+		if err := s.repo.Delete(ctx, instance.ID); err != nil {
+			fmt.Printf("❌ Failed to delete instance from database: %v\n", err)
+		} else {
+			fmt.Printf("✅ Deleted instance %s (ID: %d) from database\n", instance.Name, instance.ID)
 		}
 	}
 
