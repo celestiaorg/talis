@@ -213,6 +213,38 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 				assert.Empty(t, info.PublicIP)
 			},
 		},
+		{
+			name: "invalid size",
+			config: InstanceConfig{
+				Region:            "nyc3",
+				Size:              "invalid-size",
+				Image:             "ubuntu-22-04-x64",
+				SSHKeyID:          "test-key",
+				Tags:              []string{"test"},
+				NumberOfInstances: 1,
+			},
+			wantErr: true,
+			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+				assert.Error(t, err)
+				assert.Empty(t, info.PublicIP)
+			},
+		},
+		{
+			name: "invalid image",
+			config: InstanceConfig{
+				Region:            "nyc3",
+				Size:              "s-1vcpu-1gb",
+				Image:             "invalid-image",
+				SSHKeyID:          "test-key",
+				Tags:              []string{"test"},
+				NumberOfInstances: 1,
+			},
+			wantErr: true,
+			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+				assert.Error(t, err)
+				assert.Empty(t, info.PublicIP)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -264,4 +296,9 @@ func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
 			}
 		})
 	}
+}
+func TestDigitalOceanProvider_ConfigureProvider(t *testing.T) {
+	provider := &DigitalOceanProvider{}
+	err := provider.ConfigureProvider(nil)
+	assert.NoError(t, err)
 }

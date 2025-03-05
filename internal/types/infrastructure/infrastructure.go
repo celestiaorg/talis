@@ -129,7 +129,7 @@ func (i *Infrastructure) handleCreate() (interface{}, error) {
 	fmt.Println("⏳ Waiting for instances to be fully ready...")
 	time.Sleep(30 * time.Second)
 
-	// Run Nix provisioning if enabled
+	// Run Ansible provisioning if enabled
 	if err := i.RunProvisioning(instances); err != nil {
 		return nil, fmt.Errorf("failed to provision instances: %w", err)
 	}

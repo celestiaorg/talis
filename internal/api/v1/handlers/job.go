@@ -165,7 +165,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			}
 		}
 
-		// Start Nix provisioning if creation was successful and provisioning is requested
+		// Start Ansible provisioning if creation was successful and provisioning is requested
 		if req.Instances[0].Provision {
 			instances, ok := result.([]infrastructure.InstanceInfo)
 			if !ok {
@@ -179,7 +179,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 			fmt.Printf("📝 Created instances: %+v\n", instances)
 
-			// Update to configuring when setting up Nix
+			// Update to configuring when setting up Ansible
 			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusConfiguring, instances, ""); err != nil {
 				fmt.Printf("❌ Failed to update job status to configuring: %v\n", err)
 				return

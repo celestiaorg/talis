@@ -53,11 +53,11 @@ func main() {
 	instanceRepo := repos.NewInstanceRepository(DB)
 
 	// Initialize services
-	instanceService := services.NewInstanceService(instanceRepo)
 	jobService := services.NewJobService(jobRepo)
+	instanceService := services.NewInstanceService(instanceRepo, jobService)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService)
 
 	// Setup Fiber app
