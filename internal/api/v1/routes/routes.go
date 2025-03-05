@@ -17,8 +17,8 @@ func RegisterRoutes(
 
 	// Instances endpoints
 	instances := v1.Group("/instances")
-	// instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
-	instances.Delete("/", instanceHandler.DeleteInstance).Name("DeleteInstance")
+	instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
+	instances.Delete("/:id", instanceHandler.DeleteInstance).Name("DeleteInstance")
 	instances.Get("/:id", instanceHandler.GetInstance).Name("GetInstance")
 
 	// Jobs endpoints

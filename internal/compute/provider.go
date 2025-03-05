@@ -1,33 +1,38 @@
 package compute
 
 import (
+	"context"
 	"fmt"
-
-	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 // ComputeProvider defines the interface for cloud providers
 type ComputeProvider interface {
-	ConfigureProvider(stack auto.Stack) error
-	CreateInstance(ctx *pulumi.Context, name string, config InstanceConfig) (InstanceInfo, error)
+	ConfigureProvider(stack interface{}) error
+	CreateInstance(ctx context.Context, name string, config InstanceConfig) (InstanceInfo, error)
+	DeleteInstance(ctx context.Context, name string) error
 	ValidateCredentials() error
 	GetEnvironmentVars() map[string]string
 }
 
 // InstanceConfig represents the configuration for a compute instance
 type InstanceConfig struct {
-	Region   string
-	Size     string
-	Image    string
-	UserData string
-	SSHKeyID string
-	Tags     []string
+	Region            string
+	Size              string
+	Image             string
+	UserData          string
+	SSHKeyID          string
+	Tags              []string
+	NumberOfInstances int
 }
 
-// InstanceInfo represents information about a created instance
+// InstanceInfo contains information about a created instance
 type InstanceInfo struct {
-	PublicIP pulumi.StringOutput
+	ID       string
+	Name     string
+	PublicIP string
+	Provider string
+	Region   string
+	Size     string
 }
 
 // Provisioner is the interface for system configuration
@@ -42,7 +47,7 @@ type Provisioner interface {
 func NewComputeProvider(provider string) (ComputeProvider, error) {
 	switch provider {
 	case "digitalocean":
-		return &DigitalOceanProvider{}, nil
+		return NewDigitalOceanProvider()
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}

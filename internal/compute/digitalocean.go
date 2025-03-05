@@ -4,20 +4,35 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
-	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
-	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"github.com/digitalocean/godo"
 )
 
 // DigitalOceanProvider implements the ComputeProvider interface
-type DigitalOceanProvider struct{}
+type DigitalOceanProvider struct {
+	doClient *godo.Client
+}
+
+// NewDigitalOceanProvider creates a new DigitalOcean provider instance
+func NewDigitalOceanProvider() (*DigitalOceanProvider, error) {
+	token := os.Getenv("DIGITALOCEAN_TOKEN")
+	if token == "" {
+		return nil, fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
+	}
+
+	// Create DigitalOcean API client
+	doClient := godo.NewFromToken(token)
+
+	return &DigitalOceanProvider{
+		doClient: doClient,
+	}, nil
+}
 
 // ValidateCredentials validates the DigitalOcean credentials
 func (p *DigitalOceanProvider) ValidateCredentials() error {
-	token := os.Getenv("DIGITALOCEAN_TOKEN")
-	if token == "" {
-		return fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
+	if p.doClient == nil {
+		return fmt.Errorf("client not initialized")
 	}
 	return nil
 }
@@ -29,100 +44,222 @@ func (p *DigitalOceanProvider) GetEnvironmentVars() map[string]string {
 	}
 }
 
-// ConfigureProvider configures the DigitalOcean provider with necessary credentials
-func (p *DigitalOceanProvider) ConfigureProvider(stack auto.Stack) error {
-	doToken := os.Getenv("DIGITALOCEAN_TOKEN")
-	if doToken == "" {
-		return fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
-	}
-
-	fmt.Println("🔑 Setting up DigitalOcean credentials...")
-	return stack.SetConfig(context.Background(), "digitalocean:token", auto.ConfigValue{
-		Value:  doToken,
-		Secret: true,
-	})
+// ConfigureProvider is a no-op since we're not using Pulumi anymore
+func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
+	return nil
 }
 
 // getSSHKeyID gets the ID of an SSH key by its name
-func (p *DigitalOceanProvider) getSSHKeyID(ctx *pulumi.Context, keyName string) (string, error) {
+func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
 	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
 
-	// Verify that we have the token configured
-	if os.Getenv("DIGITALOCEAN_TOKEN") == "" {
-		return "", fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
-	}
-
-	sshKey, err := digitalocean.LookupSshKey(ctx, &digitalocean.LookupSshKeyArgs{
-		Name: keyName,
-	})
+	// List all SSH keys
+	keys, _, err := p.doClient.Keys.List(ctx, &godo.ListOptions{})
 	if err != nil {
-		// Try listing available keys to help with diagnosis
-		keys, listErr := digitalocean.GetSshKeys(ctx, nil)
-		if listErr == nil && len(keys.SshKeys) > 0 {
-			fmt.Println("Available SSH keys:")
-			for _, key := range keys.SshKeys {
-				fmt.Printf("  - %s (ID: %s)\n", key.Name, key.Fingerprint)
-			}
-		}
-		return "", fmt.Errorf("failed to get SSH key '%s': %w", keyName, err)
+		return 0, fmt.Errorf("failed to list SSH keys: %w", err)
 	}
 
-	fmt.Printf("✅ Found SSH key '%s' with ID: %s\n", keyName, sshKey.Fingerprint)
-	return sshKey.Fingerprint, nil
+	// Find the key by name
+	for _, key := range keys {
+		if key.Name == keyName {
+			fmt.Printf("✅ Found SSH key '%s' with ID: %d\n", keyName, key.ID)
+			return key.ID, nil
+		}
+	}
+
+	// If we get here, print available keys to help with diagnosis
+	if len(keys) > 0 {
+		fmt.Println("Available SSH keys:")
+		for _, key := range keys {
+			fmt.Printf("  - %s (ID: %d)\n", key.Name, key.ID)
+		}
+	}
+
+	return 0, fmt.Errorf("SSH key '%s' not found", keyName)
 }
 
 // CreateInstance creates a new DigitalOcean droplet
-func (p *DigitalOceanProvider) CreateInstance(ctx *pulumi.Context, name string, config InstanceConfig) (InstanceInfo, error) {
-	fmt.Printf("🚀 Creating DigitalOcean droplet: %s\n", name)
+func (p *DigitalOceanProvider) CreateInstance(ctx context.Context, name string, config InstanceConfig) (InstanceInfo, error) {
+	fmt.Printf("🚀 Creating DigitalOcean droplet(s): %s\n", name)
 	fmt.Printf("  Region: %s\n", config.Region)
 	fmt.Printf("  Size: %s\n", config.Size)
 	fmt.Printf("  Image: %s\n", config.Image)
+	fmt.Printf("  Number of instances: %d\n", config.NumberOfInstances)
 
-	// Si no se proporciona user_data, usar un script básico
-	userData := config.UserData
-	if userData == "" {
-		userData = `#!/bin/bash
-apt-get update
-apt-get install -y python3`
-	}
-
+	// Get SSH key ID
 	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
 	if err != nil {
 		return InstanceInfo{}, fmt.Errorf("failed to get SSH key: %w", err)
 	}
 
-	// Convert slice of tags to pulumi.StringArray
-	tags := make(pulumi.StringArray, len(config.Tags)+1)
-	tags[0] = pulumi.String(name)
-	for i, tag := range config.Tags {
-		tags[i+1] = pulumi.String(tag)
+	// If we're creating multiple instances, use the CreateMultiple API
+	if config.NumberOfInstances > 1 {
+		names := make([]string, config.NumberOfInstances)
+		for i := 0; i < config.NumberOfInstances; i++ {
+			names[i] = fmt.Sprintf("%s-%d", name, i+1)
+		}
+
+		createRequest := &godo.DropletMultiCreateRequest{
+			Names:  names,
+			Region: config.Region,
+			Size:   config.Size,
+			Image: godo.DropletCreateImage{
+				Slug: config.Image,
+			},
+			SSHKeys: []godo.DropletCreateSSHKey{
+				{ID: sshKeyID},
+			},
+			Tags: append([]string{name}, config.Tags...),
+			UserData: `#!/bin/bash
+apt-get update
+apt-get install -y python3`,
+		}
+
+		droplets, _, err := p.doClient.Droplets.CreateMultiple(ctx, createRequest)
+		if err != nil {
+			fmt.Printf("❌ Failed to create droplets: %v\n", err)
+			return InstanceInfo{}, fmt.Errorf("failed to create droplets: %w", err)
+		}
+
+		// Wait for the first droplet to get an IP (we'll return this one as the primary)
+		fmt.Println("⏳ Waiting for droplets to get IP addresses...")
+		maxRetries := 10
+		var ip string
+		for i := 0; i < maxRetries; i++ {
+			d, _, err := p.doClient.Droplets.Get(ctx, droplets[0].ID)
+			if err != nil {
+				return InstanceInfo{}, fmt.Errorf("failed to get droplet details: %w", err)
+			}
+
+			// Get the public IPv4 address
+			for _, network := range d.Networks.V4 {
+				if network.Type == "public" {
+					ip = network.IPAddress
+					fmt.Printf("📍 Found public IP for primary droplet: %s\n", ip)
+					break
+				}
+			}
+
+			if ip != "" {
+				break
+			}
+
+			fmt.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...\n", i+1, maxRetries)
+			time.Sleep(10 * time.Second)
+		}
+
+		if ip == "" {
+			return InstanceInfo{}, fmt.Errorf("droplets created but no public IP found after %d retries", maxRetries)
+		}
+
+		fmt.Printf("✅ Created %d droplets with base name: %s\n", len(droplets), name)
+		return InstanceInfo{
+			ID:       fmt.Sprintf("%d", droplets[0].ID),
+			Name:     name,
+			PublicIP: ip,
+			Provider: "digitalocean",
+			Region:   config.Region,
+			Size:     config.Size,
+		}, nil
 	}
 
-	droplet, err := digitalocean.NewDroplet(ctx, name, &digitalocean.DropletArgs{
-		Region:   pulumi.String(config.Region),
-		Size:     pulumi.String(config.Size),
-		Image:    pulumi.String(config.Image),
-		UserData: pulumi.String(userData),
-		SshKeys:  pulumi.StringArray{pulumi.String(sshKeyID)},
-		Tags:     tags,
-	})
+	// Single instance creation (existing code)
+	createRequest := &godo.DropletCreateRequest{
+		Name:   name,
+		Region: config.Region,
+		Size:   config.Size,
+		Image: godo.DropletCreateImage{
+			Slug: config.Image,
+		},
+		SSHKeys: []godo.DropletCreateSSHKey{
+			{ID: sshKeyID},
+		},
+		Tags: append([]string{name}, config.Tags...),
+		UserData: `#!/bin/bash
+apt-get update
+apt-get install -y python3`,
+	}
+
+	// Create the droplet
+	droplet, _, err := p.doClient.Droplets.Create(ctx, createRequest)
 	if err != nil {
 		fmt.Printf("❌ Failed to create droplet: %v\n", err)
 		return InstanceInfo{}, fmt.Errorf("failed to create droplet: %w", err)
 	}
 
-	// Export the IP address and ensure it's ready
-	ip := droplet.Ipv4Address.ApplyT(func(ip string) string {
-		fmt.Printf("✅ Instance %s is ready with IP: %s\n", name, ip)
-		return ip
-	}).(pulumi.StringOutput)
+	// Wait for droplet to get an IP
+	fmt.Println("⏳ Waiting for droplet to get an IP address...")
+	maxRetries := 10
+	var ip string
+	for i := 0; i < maxRetries; i++ {
+		d, _, err := p.doClient.Droplets.Get(ctx, droplet.ID)
+		if err != nil {
+			return InstanceInfo{}, fmt.Errorf("failed to get droplet details: %w", err)
+		}
 
-	ctx.Export(fmt.Sprintf("%s_ip", name), ip)
+		// Get the public IPv4 address
+		for _, network := range d.Networks.V4 {
+			if network.Type == "public" {
+				ip = network.IPAddress
+				fmt.Printf("📍 Found public IP for droplet: %s\n", ip)
+				break
+			}
+		}
 
-	fmt.Printf("✅ Droplet creation initiated: %s\n", name)
+		if ip != "" {
+			break
+		}
+
+		fmt.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...\n", i+1, maxRetries)
+		time.Sleep(10 * time.Second)
+	}
+
+	if ip == "" {
+		return InstanceInfo{}, fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)
+	}
+
+	fmt.Printf("✅ Droplet creation completed: %s (IP: %s)\n", name, ip)
 	return InstanceInfo{
-		PublicIP: droplet.Ipv4Address,
+		ID:       fmt.Sprintf("%d", droplet.ID),
+		Name:     name,
+		PublicIP: ip,
+		Provider: "digitalocean",
+		Region:   config.Region,
+		Size:     config.Size,
 	}, nil
+}
+
+// DeleteInstance deletes a DigitalOcean droplet
+func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string) error {
+	fmt.Printf("🗑️ Deleting DigitalOcean droplet: %s\n", name)
+
+	// List all droplets to find the one with our name
+	droplets, _, err := p.doClient.Droplets.List(ctx, &godo.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list droplets: %w", err)
+	}
+
+	// Find the droplet by name
+	var dropletID int
+	for _, d := range droplets {
+		if d.Name == name {
+			dropletID = d.ID
+			break
+		}
+	}
+
+	if dropletID == 0 {
+		return fmt.Errorf("droplet with name %s not found", name)
+	}
+
+	// Delete the droplet using the DO API directly
+	_, err = p.doClient.Droplets.Delete(ctx, dropletID)
+	if err != nil {
+		return fmt.Errorf("failed to delete droplet: %w", err)
+	}
+
+	fmt.Printf("✅ Droplet deletion initiated: %s\n", name)
+	return nil
 }
 
 // GetNixOSConfig returns the provider-specific NixOS configuration

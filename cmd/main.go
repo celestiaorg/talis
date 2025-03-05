@@ -10,8 +10,6 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"errors"
-
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 	"github.com/celestiaorg/talis/internal/api/v1/middleware"
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
@@ -59,7 +57,7 @@ func main() {
 	jobService := services.NewJobService(jobRepo)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
 	jobHandler := handlers.NewJobHandler(jobService)
 
 	// Setup Fiber app
@@ -80,12 +78,11 @@ func main() {
 
 // customErrorHandler is a custom error handler for the Fiber app
 func customErrorHandler(c *fiber.Ctx, err error) error {
+	// Default error
 	code := fiber.StatusInternalServerError
-	var fiberErr *fiber.Error
-	if errors.As(err, &fiberErr) {
-		code = fiberErr.Code
+	if e, ok := err.(*fiber.Error); ok {
+		code = e.Code
 	}
-
 	return c.Status(code).JSON(fiber.Map{
 		"error": err.Error(),
 	})

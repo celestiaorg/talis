@@ -155,16 +155,6 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			// Check if error is due to resource not found
 			if strings.Contains(err.Error(), "404") &&
 				strings.Contains(err.Error(), "could not be found") {
-				// Get Pulumi output result
-				outputs, outputErr := infra.GetOutputs()
-				if outputErr != nil {
-					fmt.Printf("❌ Failed to get outputs: %v\n", outputErr)
-					if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, outputErr.Error()); err != nil {
-						log.Printf("Failed to update job status: %v", err)
-					}
-					return
-				}
-				result = outputs
 				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
 			} else {
 				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
