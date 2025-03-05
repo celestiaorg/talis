@@ -10,7 +10,10 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// JobServiceInterface defines the interface for job operations
+// JobServiceInterface defines the interface for job operations.
+// This interface is used by InstanceService to manage job states during infrastructure operations.
+// It provides a minimal set of methods needed to create and update job statuses,
+// following the Interface Segregation Principle by only exposing the methods that are actually used.
 type JobServiceInterface interface {
 	CreateJob(ctx context.Context, job *models.Job) (*models.Job, error)
 	UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error
@@ -35,38 +38,97 @@ func (s *InstanceService) ListInstances(ctx context.Context, opts *models.ListOp
 	return s.repo.List(ctx, opts)
 }
 
-// createJobRequest creates a new job request for instance operations
-func (s *InstanceService) createJobRequest(
-	name,
-	projectName string,
-	instances []infrastructure.InstanceRequest,
-	action string,
-) *infrastructure.JobRequest {
-	return &infrastructure.JobRequest{
-		Name:        name,
-		ProjectName: projectName,
-		Provider:    instances[0].Provider,
-		Instances:   instances,
-		Action:      action,
-	}
-}
-
-// createJob creates a new job in the database
-func (s *InstanceService) createJob(
+// CreateInstance creates a new instance
+func (s *InstanceService) CreateInstance(
 	ctx context.Context,
 	name,
 	projectName,
 	webhookURL string,
-	status models.JobStatus,
+	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
+	// Create job request
+	jobReq := &infrastructure.JobRequest{
+		Name:        name,
+		ProjectName: projectName,
+		Provider:    instances[0].Provider,
+		Instances:   instances,
+		Action:      "create",
+	}
+
+	if err := jobReq.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
+	}
+
+	// Create job first
 	job := &models.Job{
 		Name:        name,
 		ProjectName: projectName,
-		Status:      status,
+		Status:      models.JobStatusPending,
 		WebhookURL:  webhookURL,
 	}
 
-	return s.jobService.CreateJob(ctx, job)
+	job, err := s.jobService.CreateJob(ctx, job)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job: %w", err)
+	}
+
+	// Start async infrastructure creation
+	go func() {
+		if err := s.handleInfrastructureCreation(context.Background(), job, jobReq, instances); err != nil {
+			fmt.Printf("❌ Failed to handle infrastructure creation: %v\n", err)
+			s.jobService.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+		}
+	}()
+
+	return job, nil
+}
+
+// DeleteInstance deletes an instance
+func (s *InstanceService) DeleteInstance(
+	ctx context.Context,
+	instanceID string,
+) (*models.Job, error) {
+	// Create job for deletion
+	job := &models.Job{
+		Name:        fmt.Sprintf("delete-%s", instanceID),
+		ProjectName: "talis",
+		Status:      models.JobStatusPending,
+	}
+
+	job, err := s.jobService.CreateJob(ctx, job)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job: %w", err)
+	}
+
+	// Create infrastructure request
+	infraReq := &infrastructure.JobRequest{
+		Name:        instanceID,
+		ProjectName: "talis",
+		Provider:    "digitalocean",
+		Instances: []infrastructure.InstanceRequest{
+			{
+				Provider:          "digitalocean",
+				NumberOfInstances: 1,
+				Region:            "nyc3",
+			},
+		},
+		Action: "delete",
+	}
+
+	// Start async infrastructure deletion
+	go func() {
+		if err := s.handleInfrastructureDeletion(context.Background(), job, infraReq); err != nil {
+			fmt.Printf("❌ Failed to handle infrastructure deletion: %v\n", err)
+			s.jobService.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+		}
+	}()
+
+	return job, nil
+}
+
+// GetInstance retrieves an instance by ID
+func (s *InstanceService) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
+	return s.repo.Get(ctx, id)
 }
 
 // handleInfrastructureCreation handles the infrastructure creation process
@@ -190,71 +252,4 @@ func (s *InstanceService) handleInfrastructureDeletion(
 
 	fmt.Printf("✅ Infrastructure deletion completed for job %d\n", job.ID)
 	return nil
-}
-
-// CreateInstance creates a new instance
-func (s *InstanceService) CreateInstance(
-	ctx context.Context,
-	name,
-	projectName,
-	webhookURL string,
-	instances []infrastructure.InstanceRequest,
-) (*models.Job, error) {
-	// Create and validate job request
-	jobReq := s.createJobRequest(name, projectName, instances, "create")
-	if err := jobReq.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid request: %w", err)
-	}
-
-	// Create job first
-	job, err := s.createJob(ctx, name, projectName, webhookURL, models.JobStatusPending)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create job: %w", err)
-	}
-
-	// Start async infrastructure creation
-	go func() {
-		if err := s.handleInfrastructureCreation(context.Background(), job, jobReq, instances); err != nil {
-			fmt.Printf("❌ Failed to handle infrastructure creation: %v\n", err)
-			s.jobService.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
-		}
-	}()
-
-	return job, nil
-}
-
-// DeleteInstance deletes an instance
-func (s *InstanceService) DeleteInstance(
-	ctx context.Context,
-	instanceID string,
-) (*models.Job, error) {
-	// Create job for deletion
-	job, err := s.createJob(ctx, fmt.Sprintf("delete-%s", instanceID), "talis", "", models.JobStatusPending)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create job: %w", err)
-	}
-
-	// Create infrastructure request
-	infraReq := s.createJobRequest(instanceID, "talis", []infrastructure.InstanceRequest{
-		{
-			Provider:          "digitalocean",
-			NumberOfInstances: 1,
-			Region:            "nyc3",
-		},
-	}, "delete")
-
-	// Start async infrastructure deletion
-	go func() {
-		if err := s.handleInfrastructureDeletion(context.Background(), job, infraReq); err != nil {
-			fmt.Printf("❌ Failed to handle infrastructure deletion: %v\n", err)
-			s.jobService.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
-		}
-	}()
-
-	return job, nil
-}
-
-// GetInstance retrieves an instance by ID
-func (s *InstanceService) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
-	return s.repo.Get(ctx, id)
 }

@@ -2,8 +2,8 @@
 - name: Configure DigitalOcean droplet
   hosts: all
   become: yes
-  gather_facts: no
-  serial: 1
+  gather_facts: yes
+  # serial: 1
   tasks:
     - name: Wait for system to be ready
       wait_for_connection:
