@@ -111,9 +111,9 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		for _, instance := range i.instances {
 			// Always try both non-indexed and indexed names for robustness
 			// First try with base name (for single instances)
-			if err := i.provider.DeleteInstance(context.Background(), i.name); err != nil {
+			if err := i.provider.DeleteInstance(context.Background(), i.name, instance.Region); err != nil {
 				if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
-					return nil, fmt.Errorf("failed to delete instance %s: %w", i.name, err)
+					return nil, fmt.Errorf("failed to delete instance %s in region %s: %w", i.name, instance.Region, err)
 				}
 			} else {
 				deletedInstances = append(deletedInstances, i.name)
@@ -123,14 +123,14 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			// Then try with indexed names
 			for j := 0; j < instance.NumberOfInstances; j++ {
 				instanceName := fmt.Sprintf("%s-%d", i.name, j)
-				fmt.Printf("🗑️ Deleting %s droplet: %s\n", instance.Provider, instanceName)
+				fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, instanceName, instance.Region)
 
-				if err := i.provider.DeleteInstance(context.Background(), instanceName); err != nil {
+				if err := i.provider.DeleteInstance(context.Background(), instanceName, instance.Region); err != nil {
 					if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-						fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instanceName)
+						fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", instanceName, instance.Region)
 						continue
 					}
-					return nil, fmt.Errorf("failed to delete instance %s: %w", instanceName, err)
+					return nil, fmt.Errorf("failed to delete instance %s in region %s: %w", instanceName, instance.Region, err)
 				}
 				deletedInstances = append(deletedInstances, instanceName)
 			}

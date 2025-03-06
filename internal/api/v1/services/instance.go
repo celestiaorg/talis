@@ -357,20 +357,28 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		if err != nil {
 			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 				fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
+				// Instance doesn't exist in DO, safe to mark as deleted
+				if err := s.repo.Delete(ctx, instance.ID); err != nil {
+					fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
+				} else {
+					fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
+					if deleted, ok := deletionResult["deleted"].([]string); ok {
+						deletionResult["deleted"] = append(deleted, instance.Name)
+					}
+				}
 			} else {
 				fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
 				continue
 			}
-		}
-
-		// Mark instance as deleted in database
-		if err := s.repo.Delete(ctx, instance.ID); err != nil {
-			fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
 		} else {
-			fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
-			// Add to the list of deleted instances
-			if deleted, ok := deletionResult["deleted"].([]string); ok {
-				deletionResult["deleted"] = append(deleted, instance.Name)
+			// Deletion was successful, update database
+			if err := s.repo.Delete(ctx, instance.ID); err != nil {
+				fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
+			} else {
+				fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
+				if deleted, ok := deletionResult["deleted"].([]string); ok {
+					deletionResult["deleted"] = append(deleted, instance.Name)
+				}
 			}
 		}
 	}

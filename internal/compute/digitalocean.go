@@ -256,27 +256,59 @@ func (p *DigitalOceanProvider) CreateInstance(
 	return []InstanceInfo{instance}, nil
 }
 
-// DeleteInstance deletes a DigitalOcean droplet
-func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string) error {
-	fmt.Printf("🗑️ Deleting DigitalOcean droplet: %s\n", name)
+// waitForDeletion waits for a droplet to be fully deleted
+func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
+	fmt.Printf("⏳ Waiting for droplet %s in region %s to be deleted...\n", name, region)
+	for i := 0; i < maxRetries; i++ {
+		// Try to list the droplet
+		droplets, _, err := p.doClient.Droplets.List(ctx, &godo.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list droplets: %w", err)
+		}
 
-	// List all droplets to find the one with our name
+		// Check if the droplet still exists in the specific region
+		found := false
+		for _, d := range droplets {
+			if d.Name == name && d.Region.Slug == region {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			fmt.Printf("✅ Confirmed droplet %s in region %s has been deleted\n", name, region)
+			return nil
+		}
+
+		fmt.Printf("⏳ Droplet %s in region %s still exists, retrying in 5 seconds (attempt %d/%d)...\n",
+			name, region, i+1, maxRetries)
+		time.Sleep(5 * time.Second)
+	}
+
+	return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)
+}
+
+// DeleteInstance deletes a DigitalOcean droplet
+func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, region string) error {
+	fmt.Printf("🗑️ Deleting DigitalOcean droplet: %s in region %s\n", name, region)
+
+	// List all droplets to find the one with our name in the specific region
 	droplets, _, err := p.doClient.Droplets.List(ctx, &godo.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list droplets: %w", err)
 	}
 
-	// Find the droplet by name
+	// Find the droplet by name and region
 	var dropletID int
 	for _, d := range droplets {
-		if d.Name == name {
+		if d.Name == name && d.Region.Slug == region {
 			dropletID = d.ID
 			break
 		}
 	}
 
 	if dropletID == 0 {
-		return fmt.Errorf("droplet with name %s not found", name)
+		return fmt.Errorf("droplet with name %s in region %s not found", name, region)
 	}
 
 	// Delete the droplet using the DO API directly
@@ -285,6 +317,11 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string) 
 		return fmt.Errorf("failed to delete droplet: %w", err)
 	}
 
-	fmt.Printf("✅ Droplet deletion initiated: %s\n", name)
+	// Wait for the droplet to be fully deleted
+	if err := p.waitForDeletion(ctx, name, region, 12); err != nil { // 1 minute timeout (12 * 5 seconds)
+		return fmt.Errorf("failed while waiting for droplet deletion: %w", err)
+	}
+
+	fmt.Printf("✅ Droplet deletion confirmed: %s in region %s\n", name, region)
 	return nil
 }
