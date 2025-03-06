@@ -73,33 +73,28 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		fmt.Printf("🚀 Creating infrastructure...\n")
 		instances := make([]InstanceInfo, 0)
 		for _, instance := range i.instances {
-			for j := 0; j < instance.NumberOfInstances; j++ {
-				// Create instance name with index if multiple instances
-				instanceName := i.name
-				if instance.NumberOfInstances > 1 {
-					instanceName = fmt.Sprintf("%s-%d", i.name, j)
-				}
-
-				info, err := i.provider.CreateInstance(context.Background(), instanceName, compute.InstanceConfig{
-					Region:   instance.Region,
-					Size:     instance.Size,
-					Image:    instance.Image,
-					SSHKeyID: instance.SSHKeyName,
-					Tags:     instance.Tags,
+			// Create all instances for this configuration at once
+			instanceName := i.name
+			info, err := i.provider.CreateInstance(context.Background(), instanceName, compute.InstanceConfig{
+				Region:            instance.Region,
+				Size:              instance.Size,
+				Image:             instance.Image,
+				SSHKeyID:          instance.SSHKeyName,
+				Tags:              instance.Tags,
+				NumberOfInstances: instance.NumberOfInstances,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
+			}
+			// Convert compute.InstanceInfo to our InstanceInfo and add to result
+			for _, instanceInfo := range info {
+				instances = append(instances, InstanceInfo{
+					Name:     instanceInfo.Name,
+					IP:       instanceInfo.PublicIP,
+					Provider: instanceInfo.Provider,
+					Region:   instanceInfo.Region,
+					Size:     instanceInfo.Size,
 				})
-				if err != nil {
-					return nil, fmt.Errorf("failed to create instance %s: %w", instanceName, err)
-				}
-				// Convert compute.InstanceInfo to our InstanceInfo
-				for _, instanceInfo := range info {
-					instances = append(instances, InstanceInfo{
-						Name:     instanceInfo.Name,
-						IP:       instanceInfo.PublicIP,
-						Provider: instanceInfo.Provider,
-						Region:   instanceInfo.Region,
-						Size:     instanceInfo.Size,
-					})
-				}
 			}
 		}
 		result = instances
