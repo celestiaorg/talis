@@ -3,6 +3,8 @@ package db
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -46,7 +48,23 @@ func New(opts Options) (*gorm.DB, error) {
 	}
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
 		opts.Host, opts.User, opts.Password, opts.DBName, opts.Port, sslMode)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	// Configure custom logger to ignore record not found errors
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+			LogLevel:                  opts.LogLevel,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true,
+		},
+	)
+
+	// Configure GORM
+	config := &gorm.Config{
+		Logger: newLogger,
+	}
+
+	db, err := gorm.Open(postgres.Open(dsn), config)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +72,6 @@ func New(opts Options) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db.Logger = db.Logger.LogMode(opts.LogLevel)
 	return db, nil
 }
 

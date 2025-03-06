@@ -13,13 +13,15 @@ import (
 
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
-	service *services.InstanceService
+	service    *services.InstanceService
+	jobService *services.JobService
 }
 
 // NewInstanceHandler creates a new instance handler instance
-func NewInstanceHandler(service *services.InstanceService) *InstanceHandler {
+func NewInstanceHandler(service *services.InstanceService, jobService *services.JobService) *InstanceHandler {
 	return &InstanceHandler{
-		service: service,
+		service:    service,
+		jobService: jobService,
 	}
 }
 
@@ -55,6 +57,20 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
+		})
+	}
+
+	// Check if project name already exists
+	existingJob, err := h.jobService.GetByProjectName(c.Context(), req.ProjectName)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to check project name: %v", err),
+		})
+	}
+	if existingJob != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": fmt.Sprintf("project name '%s' is already in use", req.ProjectName),
+			"job":   existingJob,
 		})
 	}
 

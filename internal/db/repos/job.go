@@ -123,3 +123,16 @@ func (r *JobRepository) Query(ctx context.Context, query string, args ...interfa
 	err := r.db.Raw(query, args...).Scan(&jobs).Error
 	return jobs, err
 }
+
+// GetByProjectName retrieves a job by its project name
+func (r *JobRepository) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
+	var job models.Job
+	result := r.db.WithContext(ctx).Where(&models.Job{ProjectName: projectName}).First(&job)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil // Silently return nil when no record is found
+		}
+		return nil, fmt.Errorf("failed to get job by project name: %w", result.Error)
+	}
+	return &job, nil
+}
