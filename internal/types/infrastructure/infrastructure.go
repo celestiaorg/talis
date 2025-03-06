@@ -62,16 +62,15 @@ func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
 // Returns:
 //   - interface{}: The result of the operation
 //   - For creation: []InstanceInfo containing details of created instances
-//   - For deletion: map[string]string with operation status
+//   - For deletion: map[string]interface{} with operation status and deleted instances
 //   - error: Any error that occurred during execution
 func (i *Infrastructure) Execute() (interface{}, error) {
-	fmt.Printf("🚀 Creating infrastructure...\n")
-
 	var result interface{}
 	var err error
 
 	switch i.action {
 	case "create":
+		fmt.Printf("🚀 Creating infrastructure...\n")
 		instances := make([]InstanceInfo, 0)
 		for _, instance := range i.instances {
 			for j := 0; j < instance.NumberOfInstances; j++ {
@@ -101,27 +100,40 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 
 	case "delete":
 		fmt.Printf("🗑️ Deleting infrastructure...\n")
-		for _, instance := range i.instances {
-			for j := 0; j < instance.NumberOfInstances; j++ {
-				// Create instance name with index if multiple instances
-				instanceName := i.name
-				if instance.NumberOfInstances > 1 {
-					instanceName = fmt.Sprintf("%s-%d", i.name, j)
-				}
+		deletedInstances := make([]string, 0)
 
+		for _, instance := range i.instances {
+			// Always try both non-indexed and indexed names for robustness
+			// First try with base name (for single instances)
+			if err := i.provider.DeleteInstance(context.Background(), i.name); err != nil {
+				if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
+					return nil, fmt.Errorf("failed to delete instance %s: %w", i.name, err)
+				}
+			} else {
+				deletedInstances = append(deletedInstances, i.name)
+				continue
+			}
+
+			// Then try with indexed names
+			for j := 0; j < instance.NumberOfInstances; j++ {
+				instanceName := fmt.Sprintf("%s-%d", i.name, j)
 				fmt.Printf("🗑️ Deleting %s droplet: %s\n", instance.Provider, instanceName)
+
 				if err := i.provider.DeleteInstance(context.Background(), instanceName); err != nil {
-					// If the error is 404, just log and continue
 					if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 						fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instanceName)
 						continue
 					}
 					return nil, fmt.Errorf("failed to delete instance %s: %w", instanceName, err)
 				}
+				deletedInstances = append(deletedInstances, instanceName)
 			}
 		}
-		result = map[string]string{
-			"status": "deleted",
+
+		result = map[string]interface{}{
+			"status":  "deleted",
+			"deleted": deletedInstances,
+			"count":   len(deletedInstances),
 		}
 
 	default:
