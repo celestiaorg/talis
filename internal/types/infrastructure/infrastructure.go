@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
@@ -101,34 +102,68 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 
 	case "delete":
 		fmt.Printf("🗑️ Deleting infrastructure...\n")
-		deletedInstances := make([]string, 0)
+		var wg sync.WaitGroup
+		deletedInstancesChan := make(chan string, 100)
+		errorsChan := make(chan error, 100)
 
 		for _, instance := range i.instances {
-			// Always try both non-indexed and indexed names for robustness
-			// First try with base name (for single instances)
-			if err := i.provider.DeleteInstance(context.Background(), i.name, instance.Region); err != nil {
-				if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
-					return nil, fmt.Errorf("failed to delete instance %s in region %s: %w", i.name, instance.Region, err)
+			// Try base name first
+			wg.Add(1)
+			go func(name string, region string) {
+				defer wg.Done()
+				if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
+					if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
+						errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
+						return
+					}
+				} else {
+					deletedInstancesChan <- name
+					return
 				}
-			} else {
-				deletedInstances = append(deletedInstances, i.name)
-				continue
-			}
+			}(i.name, instance.Region)
 
-			// Then try with indexed names
+			// Try indexed names
 			for j := 0; j < instance.NumberOfInstances; j++ {
 				instanceName := fmt.Sprintf("%s-%d", i.name, j)
-				fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, instanceName, instance.Region)
+				wg.Add(1)
+				go func(name string, region string) {
+					defer wg.Done()
+					fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, name, region)
 
-				if err := i.provider.DeleteInstance(context.Background(), instanceName, instance.Region); err != nil {
-					if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-						fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", instanceName, instance.Region)
-						continue
+					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
+						if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+							fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", name, region)
+							return
+						}
+						errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
+						return
 					}
-					return nil, fmt.Errorf("failed to delete instance %s in region %s: %w", instanceName, instance.Region, err)
-				}
-				deletedInstances = append(deletedInstances, instanceName)
+					deletedInstancesChan <- name
+				}(instanceName, instance.Region)
 			}
+		}
+
+		// Create a goroutine to close channels after WaitGroup is done
+		go func() {
+			wg.Wait()
+			close(deletedInstancesChan)
+			close(errorsChan)
+		}()
+
+		// Collect results
+		var deletedInstances []string
+		for name := range deletedInstancesChan {
+			deletedInstances = append(deletedInstances, name)
+		}
+
+		// Check for errors
+		var errors []error
+		for err := range errorsChan {
+			errors = append(errors, err)
+		}
+
+		if len(errors) > 0 {
+			return nil, fmt.Errorf("errors during deletion: %v", errors)
 		}
 
 		result = map[string]interface{}{
