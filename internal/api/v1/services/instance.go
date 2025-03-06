@@ -286,8 +286,8 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("failed to update job status to initializing: %w", err)
 	}
 
-	// Get instances from database for this job
-	instances, err := s.repo.GetByJobID(ctx, job.ID)
+	// Get instances from database for this job, ordered by creation time
+	instances, err := s.repo.GetByJobIDOrdered(ctx, job.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get instances: %w", err)
 	}
@@ -296,19 +296,42 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("no instances found for job %d", job.ID)
 	}
 
+	// Calculate how many instances to delete
+	numberOfInstancesToDelete := 0
+	for _, instanceReq := range infraReq.Instances {
+		numberOfInstancesToDelete += instanceReq.NumberOfInstances
+	}
+
+	if numberOfInstancesToDelete <= 0 {
+		return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
+	}
+
+	// Limit the number of instances to delete to the available ones
+	if numberOfInstancesToDelete > len(instances) {
+		fmt.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available\n",
+			numberOfInstancesToDelete, len(instances))
+		numberOfInstancesToDelete = len(instances)
+	}
+
+	// Select only the oldest instances to delete
+	instancesToDelete := instances[:numberOfInstancesToDelete]
+
 	// Prepare deletion result
 	deletionResult := map[string]interface{}{
 		"status":  "deleting",
 		"deleted": []string{},
 	}
 
-	// Try to delete each instance
-	for _, instance := range instances {
+	fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
+		numberOfInstancesToDelete, len(instances))
+
+	// Try to delete each selected instance
+	for _, instance := range instancesToDelete {
 		fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
 
 		// Create a new infrastructure request for each instance
 		instanceInfraReq := &infrastructure.JobRequest{
-			Name:        instance.Name, // Use the actual instance name
+			Name:        instance.Name,
 			ProjectName: infraReq.ProjectName,
 			Provider:    infraReq.Provider,
 			Instances: []infrastructure.InstanceRequest{{
