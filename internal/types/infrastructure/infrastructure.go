@@ -90,10 +90,16 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to create instance %s: %w", instanceName, err)
 				}
-				instances = append(instances, InstanceInfo{
-					Name: instanceName,
-					IP:   info.PublicIP,
-				})
+				// Convert compute.InstanceInfo to our InstanceInfo
+				for _, instanceInfo := range info {
+					instances = append(instances, InstanceInfo{
+						Name:     instanceInfo.Name,
+						IP:       instanceInfo.PublicIP,
+						Provider: instanceInfo.Provider,
+						Region:   instanceInfo.Region,
+						Size:     instanceInfo.Size,
+					})
+				}
 			}
 		}
 		result = instances

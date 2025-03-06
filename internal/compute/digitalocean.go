@@ -136,10 +136,10 @@ func (p *DigitalOceanProvider) createMultipleDroplets(
 	name string,
 	config InstanceConfig,
 	sshKeyID int,
-) (InstanceInfo, error) {
+) ([]InstanceInfo, error) {
 	names := make([]string, config.NumberOfInstances)
 	for i := 0; i < config.NumberOfInstances; i++ {
-		names[i] = fmt.Sprintf("%s-%d", name, i+1)
+		names[i] = fmt.Sprintf("%s-%d", name, i) // Start indexing from 0 to be consistent
 	}
 
 	createRequest := &godo.DropletMultiCreateRequest{
@@ -161,24 +161,35 @@ apt-get install -y python3`,
 	droplets, _, err := p.doClient.Droplets.CreateMultiple(ctx, createRequest)
 	if err != nil {
 		fmt.Printf("❌ Failed to create droplets: %v\n", err)
-		return InstanceInfo{}, fmt.Errorf("failed to create droplets: %w", err)
+		return nil, fmt.Errorf("failed to create droplets: %w", err)
 	}
 
-	// Wait for the first droplet to get an IP
-	ip, err := p.waitForIP(ctx, droplets[0].ID, 10)
-	if err != nil {
-		return InstanceInfo{}, err
+	// Create a slice to store all instance information
+	instances := make([]InstanceInfo, len(droplets))
+
+	// Wait for all droplets to get their IPs and collect information
+	for i, droplet := range droplets {
+		fmt.Printf("⏳ Waiting for droplet %s to get an IP address...\n", droplet.Name)
+		ip, err := p.waitForIP(ctx, droplet.ID, 10)
+		if err != nil {
+			// Log the error but continue with other droplets
+			fmt.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v\n", droplet.Name, err)
+			continue
+		}
+
+		instances[i] = InstanceInfo{
+			ID:       fmt.Sprintf("%d", droplet.ID),
+			Name:     droplet.Name,
+			PublicIP: ip,
+			Provider: "digitalocean",
+			Region:   config.Region,
+			Size:     config.Size,
+		}
+		fmt.Printf("✅ Droplet %s is ready with IP: %s\n", droplet.Name, ip)
 	}
 
 	fmt.Printf("✅ Created %d droplets with base name: %s\n", len(droplets), name)
-	return InstanceInfo{
-		ID:       fmt.Sprintf("%d", droplets[0].ID),
-		Name:     name,
-		PublicIP: ip,
-		Provider: "digitalocean",
-		Region:   config.Region,
-		Size:     config.Size,
-	}, nil
+	return instances, nil
 }
 
 // createSingleDroplet creates a single droplet
@@ -219,7 +230,7 @@ func (p *DigitalOceanProvider) CreateInstance(
 	ctx context.Context,
 	name string,
 	config InstanceConfig,
-) (InstanceInfo, error) {
+) ([]InstanceInfo, error) {
 	fmt.Printf("🚀 Creating DigitalOcean droplet(s): %s\n", name)
 	fmt.Printf("  Region: %s\n", config.Region)
 	fmt.Printf("  Size: %s\n", config.Size)
@@ -229,7 +240,7 @@ func (p *DigitalOceanProvider) CreateInstance(
 	// Get SSH key ID
 	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
 	if err != nil {
-		return InstanceInfo{}, fmt.Errorf("failed to get SSH key: %w", err)
+		return nil, fmt.Errorf("failed to get SSH key: %w", err)
 	}
 
 	// Create single or multiple droplets based on configuration
@@ -237,7 +248,12 @@ func (p *DigitalOceanProvider) CreateInstance(
 		return p.createMultipleDroplets(ctx, name, config, sshKeyID)
 	}
 
-	return p.createSingleDroplet(ctx, name, config, sshKeyID)
+	// For single instance, wrap the result in a slice for consistent interface
+	instance, err := p.createSingleDroplet(ctx, name, config, sshKeyID)
+	if err != nil {
+		return nil, err
+	}
+	return []InstanceInfo{instance}, nil
 }
 
 // DeleteInstance deletes a DigitalOcean droplet

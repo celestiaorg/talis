@@ -46,8 +46,11 @@ type DeleteInstance struct {
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	Name string `json:"name"` // Name of the instance
-	IP   string `json:"ip"`   // IP address of the instance
+	Name     string `json:"name"`     // Name of the instance
+	IP       string `json:"ip"`       // IP address of the instance
+	Provider string `json:"provider"` // Provider of the compute service
+	Region   string `json:"region"`   // Region of the instance
+	Size     string `json:"size"`     // Size of the instance
 }
 
 // --------------------------------------------------

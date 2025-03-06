@@ -4,7 +4,6 @@
   become: yes
   gather_facts: yes
   strategy: free  # Don't wait for the previous task to finish
-  forks: 10      # Number of hosts in parallel (adjust as needed)
   tasks:
     - name: Wait for system to be ready
       wait_for_connection:

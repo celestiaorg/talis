@@ -163,47 +163,50 @@ func (s *InstanceService) handleInfrastructureCreation(
 
 	// Save instances to database
 	instanceInfos, ok := result.([]infrastructure.InstanceInfo)
-	if ok {
-		// Get the request configuration that applies to all instances
-		instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
+	if !ok {
+		return fmt.Errorf("invalid result type: expected []infrastructure.InstanceInfo, got %T", result)
+	}
 
-		for _, info := range instanceInfos {
-			// Create default tags if none provided
-			var tags []string
-			if len(instanceConfig.Tags) > 0 {
-				tags = instanceConfig.Tags
-			} else {
-				tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
-			}
+	// Get the request configuration that applies to all instances
+	instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
 
-			instance := &models.Instance{
-				JobID:      job.ID,
-				ProviderID: models.ProviderID(jobReq.Provider),
-				Name:       info.Name,
-				PublicIP:   info.IP,
-				Region:     instanceConfig.Region,
-				Size:       instanceConfig.Size,
-				Image:      instanceConfig.Image,
-				Tags:       tags,
-				Status:     models.InstanceStatusReady,
-			}
-			if err := s.repo.Create(ctx, instance); err != nil {
-				fmt.Printf("❌ Failed to save instance to database: %v\n", err)
-			} else {
-				fmt.Printf("✅ Instance %s saved to database with ID %d\n", instance.Name, instance.ID)
-			}
+	for _, info := range instanceInfos {
+		// Create default tags if none provided
+		var tags []string
+		if len(instanceConfig.Tags) > 0 {
+			tags = instanceConfig.Tags
+		} else {
+			tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
+		}
+
+		// Create instance in database
+		instance := &models.Instance{
+			JobID:      job.ID,
+			ProviderID: models.ProviderID(jobReq.Provider),
+			Name:       info.Name,
+			PublicIP:   info.IP,
+			Region:     info.Region,
+			Size:       info.Size,
+			Image:      instanceConfig.Image,
+			Tags:       tags,
+			Status:     models.InstanceStatusReady,
+		}
+		if err := s.repo.Create(ctx, instance); err != nil {
+			fmt.Printf("❌ Failed to save instance to database: %v\n", err)
+		} else {
+			fmt.Printf("✅ Instance %s saved to database with ID %d\n", instance.Name, instance.ID)
 		}
 	}
 
 	// Handle provisioning if requested
 	if instances[0].Provision {
-		if err := s.handleProvisioning(ctx, job, infra, result); err != nil {
+		if err := s.handleProvisioning(ctx, job, infra, instanceInfos); err != nil {
 			return err
 		}
 	}
 
 	// Update final status with result
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, result, ""); err != nil {
+	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, instanceInfos, ""); err != nil {
 		return fmt.Errorf("failed to update final job status: %w", err)
 	}
 
