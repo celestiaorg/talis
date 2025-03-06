@@ -1,8 +1,8 @@
 ---
 - name: Configure DigitalOcean droplet
   hosts: all
-  become: yes
-  gather_facts: yes
+  become: true
+  gather_facts: true
   strategy: free  # Don't wait for the previous task to finish
   tasks:
     - name: Wait for system to be ready
