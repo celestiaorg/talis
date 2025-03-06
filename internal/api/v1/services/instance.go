@@ -237,48 +237,122 @@ func (s *InstanceService) handleProvisioning(
 	return nil
 }
 
+// updateDeletedInstances updates the deleted_at field in the database for the given instances
+func (s *InstanceService) updateDeletedInstances(
+	ctx context.Context,
+	result interface{},
+	instances []models.Instance,
+) error {
+	deleteResult, ok := result.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid result type: expected map[string]interface{}, got %T", result)
+	}
+
+	deletedNames, ok := deleteResult["deleted"].([]string)
+	if !ok {
+		return fmt.Errorf("invalid deleted instances type: expected []string, got %T", deleteResult["deleted"])
+	}
+
+	// Create a map for O(1) lookup of deleted instance names
+	deletedMap := make(map[string]struct{}, len(deletedNames))
+	for _, name := range deletedNames {
+		deletedMap[name] = struct{}{}
+	}
+
+	// Update instances in database
+	for _, instance := range instances {
+		if _, wasDeleted := deletedMap[instance.Name]; wasDeleted {
+			if err := s.repo.Delete(ctx, instance.ID); err != nil {
+				fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
+			} else {
+				fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
 // handleInfrastructureDeletion handles the infrastructure deletion process
 func (s *InstanceService) handleInfrastructureDeletion(
 	ctx context.Context,
 	job *models.Job,
 	infraReq *infrastructure.JobRequest,
 ) error {
-	fmt.Printf("🗑️ Starting async deletion of instance: %s\n", infraReq.Name)
+	fmt.Printf("🗑️ Starting async deletion for job %d\n", job.ID)
 
 	// Update to initializing when starting setup
 	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusInitializing, nil, ""); err != nil {
 		return fmt.Errorf("failed to update job status to initializing: %w", err)
 	}
 
-	// Create infrastructure client first to ensure we can connect to the provider
-	infra, err := infrastructure.NewInfrastructure(infraReq)
+	// Get instances from database for this job
+	instances, err := s.repo.GetByJobID(ctx, job.ID)
 	if err != nil {
-		return fmt.Errorf("failed to create infrastructure client: %w", err)
+		return fmt.Errorf("failed to get instances: %w", err)
 	}
 
-	// Update to deleting status
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusDeleting, nil, ""); err != nil {
-		return fmt.Errorf("failed to update job status to deleting: %w", err)
+	if len(instances) == 0 {
+		return fmt.Errorf("no instances found for job %d", job.ID)
 	}
 
-	// Execute the deletion on the provider
-	result, err := infra.Execute()
-	if err != nil {
-		// Check if the error is due to resources already being deleted
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-			fmt.Printf("⚠️ Warning: Resources were already deleted\n")
-			result = map[string]string{
-				"status": "deleted",
-				"note":   "resources were already deleted",
+	// Prepare deletion result
+	deletionResult := map[string]interface{}{
+		"status":  "deleting",
+		"deleted": []string{},
+	}
+
+	// Try to delete each instance
+	for _, instance := range instances {
+		fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
+
+		// Create a new infrastructure request for each instance
+		instanceInfraReq := &infrastructure.JobRequest{
+			Name:        instance.Name, // Use the actual instance name
+			ProjectName: infraReq.ProjectName,
+			Provider:    infraReq.Provider,
+			Instances: []infrastructure.InstanceRequest{{
+				Provider: string(instance.ProviderID),
+				Region:   instance.Region,
+				Size:     instance.Size,
+			}},
+			Action: "delete",
+		}
+
+		// Create infrastructure client for this specific instance
+		infra, err := infrastructure.NewInfrastructure(instanceInfraReq)
+		if err != nil {
+			fmt.Printf("❌ Failed to create infrastructure client for instance %s: %v\n", instance.Name, err)
+			continue
+		}
+
+		// Execute the deletion for this specific instance
+		_, err = infra.Execute()
+		if err != nil {
+			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+				fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
+			} else {
+				fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
+				continue
 			}
-			err = nil // Clear the error since this is an acceptable condition
+		}
+
+		// Mark instance as deleted in database
+		if err := s.repo.Delete(ctx, instance.ID); err != nil {
+			fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
 		} else {
-			return fmt.Errorf("failed to delete infrastructure: %w", err)
+			fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
+			// Add to the list of deleted instances
+			if deleted, ok := deletionResult["deleted"].([]string); ok {
+				deletionResult["deleted"] = append(deleted, instance.Name)
+			}
 		}
 	}
 
+	deletionResult["status"] = "completed"
+
 	// Update final status with result
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, result, ""); err != nil {
+	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, deletionResult, ""); err != nil {
 		return fmt.Errorf("failed to update final job status: %w", err)
 	}
 
