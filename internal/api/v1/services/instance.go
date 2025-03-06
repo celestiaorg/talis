@@ -170,7 +170,7 @@ func (s *InstanceService) handleInfrastructureCreation(
 		for _, info := range instanceInfos {
 			// Create default tags if none provided
 			var tags []string
-			if instanceConfig.Tags != nil && len(instanceConfig.Tags) > 0 {
+			if len(instanceConfig.Tags) > 0 {
 				tags = instanceConfig.Tags
 			} else {
 				tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
@@ -250,28 +250,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("failed to update job status to initializing: %w", err)
 	}
 
-	// Get instances from database for this job, ordered by creation date
-	instances, err := s.repo.GetByJobIDOrdered(ctx, job.ID)
-	if err != nil {
-		fmt.Printf("⚠️ Warning: Could not find instances in database: %v\n", err)
-	}
-
-	// Calculate how many instances to delete
-	totalToDelete := 0
-	for _, req := range infraReq.Instances {
-		totalToDelete += req.NumberOfInstances
-	}
-
-	// Ensure we don't try to delete more instances than exist
-	if totalToDelete > len(instances) {
-		totalToDelete = len(instances)
-		fmt.Printf("⚠️ Warning: Requested to delete more instances than exist. Will delete all %d instances.\n", totalToDelete)
-	}
-
-	// Get the instances to delete (oldest first)
-	instancesToDelete := instances[:totalToDelete]
-	fmt.Printf("🗑️ Will delete %d instances out of %d total instances\n", totalToDelete, len(instances))
-
+	// Create infrastructure client first to ensure we can connect to the provider
 	infra, err := infrastructure.NewInfrastructure(infraReq)
 	if err != nil {
 		return fmt.Errorf("failed to create infrastructure client: %w", err)
@@ -282,6 +261,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("failed to update job status to deleting: %w", err)
 	}
 
+	// Execute the deletion on the provider
 	result, err := infra.Execute()
 	if err != nil {
 		// Check if the error is due to resources already being deleted
@@ -294,15 +274,6 @@ func (s *InstanceService) handleInfrastructureDeletion(
 			err = nil // Clear the error since this is an acceptable condition
 		} else {
 			return fmt.Errorf("failed to delete infrastructure: %w", err)
-		}
-	}
-
-	// Delete instances from database
-	for _, instance := range instancesToDelete {
-		if err := s.repo.Delete(ctx, instance.ID); err != nil {
-			fmt.Printf("❌ Failed to delete instance from database: %v\n", err)
-		} else {
-			fmt.Printf("✅ Deleted instance %s (ID: %d) from database\n", instance.Name, instance.ID)
 		}
 	}
 
