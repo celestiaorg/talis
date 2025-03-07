@@ -99,8 +99,9 @@ func main() {
 func customErrorHandler(c *fiber.Ctx, err error) error {
 	// Default error
 	code := fiber.StatusInternalServerError
-	if e, ok := err.(*fiber.Error); ok {
-		code = e.Code
+	var fiberErr *fiber.Error
+	if errors.As(err, &fiberErr) {
+		code = fiberErr.Code
 	}
 	return c.Status(code).JSON(fiber.Map{
 		"error": err.Error(),
