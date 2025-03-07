@@ -133,7 +133,7 @@ func (r *JobRepository) GetByProjectName(ctx context.Context, projectName string
 	var job models.Job
 	result := r.db.WithContext(ctx).Where(&models.Job{ProjectName: projectName}).First(&job)
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, nil // Silently return nil when no record is found
 		}
 		return nil, fmt.Errorf("failed to get job by project name: %w", result.Error)

@@ -77,10 +77,10 @@ func main() {
 	app.Use(func(c *fiber.Ctx) error {
 		err := c.Next()
 		if err != nil {
-			var e *fiber.Error
-			if errors.As(err, &e) {
-				return c.Status(e.Code).JSON(fiber.Map{
-					"error": e.Message,
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				return c.Status(fiberErr.Code).JSON(fiber.Map{
+					"error": fiberErr.Message,
 				})
 			}
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
