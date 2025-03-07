@@ -210,7 +210,7 @@ func (s *InstanceService) handleInfrastructureCreation(
 		return fmt.Errorf("failed to update final job status: %w", err)
 	}
 
-	fmt.Printf("✅ Infrastructure creation completed for job %s\n", job.ID)
+	fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", job.ID)
 	return nil
 }
 
