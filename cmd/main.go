@@ -55,11 +55,11 @@ func main() {
 	instanceRepo := repos.NewInstanceRepository(DB)
 
 	// Initialize services
-	instanceService := services.NewInstanceService(instanceRepo)
 	jobService := services.NewJobService(jobRepo)
+	instanceService := services.NewInstanceService(instanceRepo, jobService)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
 	jobHandler := handlers.NewJobHandler(jobService)
 
 	// Setup Fiber app
@@ -73,6 +73,23 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(app, instanceHandler, jobHandler)
 
+	// Error handler
+	app.Use(func(c *fiber.Ctx) error {
+		err := c.Next()
+		if err != nil {
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				return c.Status(fiberErr.Code).JSON(fiber.Map{
+					"error": fiberErr.Message,
+				})
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		return nil
+	})
+
 	// Start server
 	fiberlog.Info("Server starting on :8080")
 	fiberlog.Fatal(app.Listen(":8080"))
@@ -80,12 +97,12 @@ func main() {
 
 // customErrorHandler is a custom error handler for the Fiber app
 func customErrorHandler(c *fiber.Ctx, err error) error {
+	// Default error
 	code := fiber.StatusInternalServerError
 	var fiberErr *fiber.Error
 	if errors.As(err, &fiberErr) {
 		code = fiberErr.Code
 	}
-
 	return c.Status(code).JSON(fiber.Map{
 		"error": err.Error(),
 	})

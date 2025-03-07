@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
+	"os"
 	"sync"
 )
 
@@ -29,8 +30,9 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 		instanceMap[instance.Name] = instance.IP
 	}
 
-	// Create inventory file
-	if err := i.provisioner.CreateInventory(instanceMap, "/root/.ssh/id_rsa"); err != nil {
+	// Create inventory file with the user's SSH key
+	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+	if err := i.provisioner.CreateInventory(instanceMap, sshKeyPath); err != nil {
 		return fmt.Errorf("failed to create inventory: %w", err)
 	}
 
@@ -71,7 +73,9 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 func (i *Infrastructure) provisionInstance(instance InstanceInfo) error {
 	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.IP)
 
-	if err := i.provisioner.ConfigureHost(instance.IP, "/root/.ssh/id_rsa"); err != nil {
+	// Use the user's SSH key path
+	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+	if err := i.provisioner.ConfigureHost(instance.IP, sshKeyPath); err != nil {
 		return fmt.Errorf("failed to configure host: %w", err)
 	}
 

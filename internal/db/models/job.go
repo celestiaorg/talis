@@ -16,27 +16,26 @@ const (
 	JobUpdatedAtField = "updated_at"
 )
 
-// JobStatus represents the current state of a job in the system
-type JobStatus int
+// JobStatus represents the status of a job
+type JobStatus string
 
-// Job status constants
 const (
-	// JobStatusUnknown represents an unknown or invalid job status
-	JobStatusUnknown JobStatus = iota
-	// JobStatusPending indicates the job is waiting to be processed
-	JobStatusPending
-	// JobStatusInitializing indicates the job is currently being processed
-	JobStatusInitializing
-	// JobStatusProvisioning indicates the job is currently being processed
-	JobStatusProvisioning
-	// JobStatusConfiguring indicates the job is currently being processed
-	JobStatusConfiguring
-	// JobStatusCompleted indicates the job has finished successfully
-	JobStatusCompleted
-	// JobStatusFailed indicates the job has failed to complete
-	JobStatusFailed
-	// JobStatusTerminated indicates the job has been terminated
-	JobStatusTerminated
+	// JobStatusUnknown represents an unknown job status
+	JobStatusUnknown JobStatus = "unknown"
+	// JobStatusPending represents a pending job
+	JobStatusPending JobStatus = "pending"
+	// JobStatusInitializing represents a job that is being initialized
+	JobStatusInitializing JobStatus = "initializing"
+	// JobStatusProvisioning represents a job that is provisioning infrastructure
+	JobStatusProvisioning JobStatus = "provisioning"
+	// JobStatusConfiguring represents a job that is configuring the infrastructure
+	JobStatusConfiguring JobStatus = "configuring"
+	// JobStatusDeleting represents a job that is deleting infrastructure
+	JobStatusDeleting JobStatus = "deleting"
+	// JobStatusCompleted represents a completed job
+	JobStatusCompleted JobStatus = "completed"
+	// JobStatusFailed represents a failed job
+	JobStatusFailed JobStatus = "failed"
 )
 
 // Job represents a task or operation in the system
@@ -54,24 +53,33 @@ type Job struct {
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
 }
 
+// String returns the string representation of the job status
+func (s JobStatus) String() string {
+	return string(s)
+}
+
 // ParseJobStatus converts a string representation of a job status to JobStatus type
 func ParseJobStatus(str string) (JobStatus, error) {
-	for i, status := range []string{
-		"unknown",
-		"pending",
-		"initializing",
-		"provisioning",
-		"configuring",
-		"completed",
-		"failed",
-		"terminated",
-	} {
-		if status == str {
-			return JobStatus(i), nil
-		}
+	switch str {
+	case string(JobStatusUnknown):
+		return JobStatusUnknown, nil
+	case string(JobStatusPending):
+		return JobStatusPending, nil
+	case string(JobStatusInitializing):
+		return JobStatusInitializing, nil
+	case string(JobStatusProvisioning):
+		return JobStatusProvisioning, nil
+	case string(JobStatusConfiguring):
+		return JobStatusConfiguring, nil
+	case string(JobStatusDeleting):
+		return JobStatusDeleting, nil
+	case string(JobStatusCompleted):
+		return JobStatusCompleted, nil
+	case string(JobStatusFailed):
+		return JobStatusFailed, nil
+	default:
+		return JobStatusUnknown, fmt.Errorf("invalid job status: %s", str)
 	}
-
-	return JobStatus(0), fmt.Errorf("invalid job status: %s", str)
 }
 
 // MarshalJSON implements the json.Marshaler interface for JobStatus
@@ -93,17 +101,4 @@ func (s *JobStatus) UnmarshalJSON(data []byte) error {
 
 	*s = status
 	return nil
-}
-
-func (s JobStatus) String() string {
-	return []string{
-		"unknown",
-		"pending",
-		"initializing",
-		"provisioning",
-		"configuring",
-		"completed",
-		"failed",
-		"terminated",
-	}[s]
 }
