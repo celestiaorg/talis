@@ -1,13 +1,13 @@
 {
-   "id": 28,
-   "name": "talis",
-   "project_name": "talis-pulumi-ansible",
-   "instances": [
-       {
-           "provider": "digitalocean",
-           "number_of_instances": 1,
-           "region": "nyc3",
-           "size": "s-1vcpu-1gb"
-       }
-   ]
+    "id": <job-id-ref>,
+    "name": "talis",
+    "project_name": "<project-name-ref>",
+    "instances": [
+        {
+            "provider": "digitalocean",
+            "number_of_instances": 10,
+            "region": "nyc3",
+            "size": "s-1vcpu-1gb"
+        }
+    ]
 }
