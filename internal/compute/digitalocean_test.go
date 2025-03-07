@@ -31,9 +31,11 @@ func TestNewDigitalOceanProvider(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment variable
 			if tt.token != "" {
-				os.Setenv("DIGITALOCEAN_TOKEN", tt.token)
+				err := os.Setenv("DIGITALOCEAN_TOKEN", tt.token)
+				require.NoError(t, err)
 			} else {
-				os.Unsetenv("DIGITALOCEAN_TOKEN")
+				err := os.Unsetenv("DIGITALOCEAN_TOKEN")
+				require.NoError(t, err)
 			}
 
 			// Create provider
@@ -76,9 +78,11 @@ func TestDigitalOceanProvider_ValidateCredentials(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment variable
 			if tt.token != "" {
-				os.Setenv("DIGITALOCEAN_TOKEN", tt.token)
+				err := os.Setenv("DIGITALOCEAN_TOKEN", tt.token)
+				require.NoError(t, err)
 			} else {
-				os.Unsetenv("DIGITALOCEAN_TOKEN")
+				err := os.Unsetenv("DIGITALOCEAN_TOKEN")
+				require.NoError(t, err)
 			}
 
 			// Create provider
@@ -127,9 +131,11 @@ func TestDigitalOceanProvider_GetEnvironmentVars(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment variable
 			if tt.token != "" {
-				os.Setenv("DIGITALOCEAN_TOKEN", tt.token)
+				err := os.Setenv("DIGITALOCEAN_TOKEN", tt.token)
+				require.NoError(t, err)
 			} else {
-				os.Unsetenv("DIGITALOCEAN_TOKEN")
+				err := os.Unsetenv("DIGITALOCEAN_TOKEN")
+				require.NoError(t, err)
 			}
 
 			// Create provider

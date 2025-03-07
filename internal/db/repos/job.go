@@ -3,6 +3,7 @@ package repos
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -51,6 +52,9 @@ func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.
 		qry.OwnerID = OwnerID
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("job not found: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
 	}

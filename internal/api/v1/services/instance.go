@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/celestiaorg/talis/internal/db/models"
@@ -77,7 +78,7 @@ func (s *InstanceService) CreateInstance(
 	go func() {
 		if err := s.handleInfrastructureCreation(context.Background(), job, jobReq, instances); err != nil {
 			fmt.Printf("❌ Failed to handle infrastructure creation: %v\n", err)
-			s.jobService.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+			s.updateJobStatusWithError(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
 		}
 	}()
 
@@ -115,7 +116,7 @@ func (s *InstanceService) DeleteInstance(
 	go func() {
 		if err := s.handleInfrastructureDeletion(context.Background(), job, infraReq); err != nil {
 			fmt.Printf("❌ Failed to handle infrastructure deletion: %v\n", err)
-			s.jobService.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
+			s.updateJobStatusWithError(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
 		}
 	}()
 
@@ -137,9 +138,7 @@ func (s *InstanceService) handleInfrastructureCreation(
 	fmt.Println("🚀 Starting async infrastructure creation...")
 
 	// Update to initializing when starting setup
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusInitializing, nil, ""); err != nil {
-		return fmt.Errorf("failed to update job status to initializing: %w", err)
-	}
+	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusInitializing, nil, "")
 
 	infra, err := infrastructure.NewInfrastructure(jobReq)
 	if err != nil {
@@ -147,9 +146,7 @@ func (s *InstanceService) handleInfrastructureCreation(
 	}
 
 	// Update to provisioning when creating infrastructure
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusProvisioning, nil, ""); err != nil {
-		return fmt.Errorf("failed to update job status to provisioning: %w", err)
-	}
+	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusProvisioning, nil, "")
 
 	result, err := infra.Execute()
 	if err != nil {
@@ -206,9 +203,7 @@ func (s *InstanceService) handleInfrastructureCreation(
 	}
 
 	// Update final status with result
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, instanceInfos, ""); err != nil {
-		return fmt.Errorf("failed to update final job status: %w", err)
-	}
+	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusCompleted, instanceInfos, "")
 
 	fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", job.ID)
 	return nil
@@ -229,48 +224,10 @@ func (s *InstanceService) handleProvisioning(
 	fmt.Printf("📝 Created instances: %+v\n", instances)
 
 	// Update to configuring when setting up Ansible
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusConfiguring, instances, ""); err != nil {
-		return fmt.Errorf("failed to update job status to configuring: %w", err)
-	}
+	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusConfiguring, instances, "")
 
 	if err := infra.RunProvisioning(instances); err != nil {
 		return fmt.Errorf("infrastructure created but provisioning failed: %w", err)
-	}
-
-	return nil
-}
-
-// updateDeletedInstances updates the deleted_at field in the database for the given instances
-func (s *InstanceService) updateDeletedInstances(
-	ctx context.Context,
-	result interface{},
-	instances []models.Instance,
-) error {
-	deleteResult, ok := result.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid result type: expected map[string]interface{}, got %T", result)
-	}
-
-	deletedNames, ok := deleteResult["deleted"].([]string)
-	if !ok {
-		return fmt.Errorf("invalid deleted instances type: expected []string, got %T", deleteResult["deleted"])
-	}
-
-	// Create a map for O(1) lookup of deleted instance names
-	deletedMap := make(map[string]struct{}, len(deletedNames))
-	for _, name := range deletedNames {
-		deletedMap[name] = struct{}{}
-	}
-
-	// Update instances in database
-	for _, instance := range instances {
-		if _, wasDeleted := deletedMap[instance.Name]; wasDeleted {
-			if err := s.repo.Delete(ctx, instance.ID); err != nil {
-				fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
-			} else {
-				fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
-			}
-		}
 	}
 
 	return nil
@@ -285,9 +242,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	fmt.Printf("🗑️ Starting async deletion for job %d\n", job.ID)
 
 	// Update to initializing when starting setup
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusInitializing, nil, ""); err != nil {
-		return fmt.Errorf("failed to update job status to initializing: %w", err)
-	}
+	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusInitializing, nil, "")
 
 	// Get instances from database for this job, ordered by creation time
 	instances, err := s.repo.GetByJobIDOrdered(ctx, job.ID)
@@ -386,10 +341,21 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	deletionResult["status"] = "completed"
 
 	// Update final status with result
-	if err := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, deletionResult, ""); err != nil {
-		return fmt.Errorf("failed to update final job status: %w", err)
-	}
+	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusCompleted, deletionResult, "")
 
 	fmt.Printf("✅ Infrastructure deletion completed for job %d\n", job.ID)
 	return nil
+}
+
+// Update job status with error handling
+func (s *InstanceService) updateJobStatusWithError(
+	ctx context.Context,
+	jobID uint,
+	status models.JobStatus,
+	result interface{},
+	errMsg string,
+) {
+	if err := s.jobService.UpdateJobStatus(ctx, jobID, status, result, errMsg); err != nil {
+		log.Printf("Failed to update job status: %v", err)
+	}
 }

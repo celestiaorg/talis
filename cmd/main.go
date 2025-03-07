@@ -10,6 +10,8 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"errors"
+
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 	"github.com/celestiaorg/talis/internal/api/v1/middleware"
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
@@ -70,6 +72,23 @@ func main() {
 
 	// Register routes
 	routes.RegisterRoutes(app, instanceHandler, jobHandler)
+
+	// Error handler
+	app.Use(func(c *fiber.Ctx) error {
+		err := c.Next()
+		if err != nil {
+			var e *fiber.Error
+			if errors.As(err, &e) {
+				return c.Status(e.Code).JSON(fiber.Map{
+					"error": e.Message,
+				})
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+		return nil
+	})
 
 	// Start server
 	fiberlog.Info("Server starting on :8080")
