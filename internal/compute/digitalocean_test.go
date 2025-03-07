@@ -163,7 +163,7 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 		name           string
 		config         InstanceConfig
 		wantErr        bool
-		validateResult func(*testing.T, InstanceInfo, error)
+		validateResult func(*testing.T, []InstanceInfo, error)
 	}{
 		{
 			name: "single instance with invalid key",
@@ -176,9 +176,9 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 				NumberOfInstances: 1,
 			},
 			wantErr: true,
-			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+			validateResult: func(t *testing.T, info []InstanceInfo, err error) {
 				assert.Error(t, err)
-				assert.Empty(t, info.PublicIP)
+				assert.Empty(t, info)
 			},
 		},
 		{
@@ -192,9 +192,9 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 				NumberOfInstances: 2,
 			},
 			wantErr: true,
-			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+			validateResult: func(t *testing.T, info []InstanceInfo, err error) {
 				assert.Error(t, err)
-				assert.Empty(t, info.PublicIP)
+				assert.Empty(t, info)
 			},
 		},
 		{
@@ -208,9 +208,9 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 				NumberOfInstances: 1,
 			},
 			wantErr: true,
-			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+			validateResult: func(t *testing.T, info []InstanceInfo, err error) {
 				assert.Error(t, err)
-				assert.Empty(t, info.PublicIP)
+				assert.Empty(t, info)
 			},
 		},
 		{
@@ -224,9 +224,9 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 				NumberOfInstances: 1,
 			},
 			wantErr: true,
-			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+			validateResult: func(t *testing.T, info []InstanceInfo, err error) {
 				assert.Error(t, err)
-				assert.Empty(t, info.PublicIP)
+				assert.Empty(t, info)
 			},
 		},
 		{
@@ -240,9 +240,25 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 				NumberOfInstances: 1,
 			},
 			wantErr: true,
-			validateResult: func(t *testing.T, info InstanceInfo, err error) {
+			validateResult: func(t *testing.T, info []InstanceInfo, err error) {
 				assert.Error(t, err)
-				assert.Empty(t, info.PublicIP)
+				assert.Empty(t, info)
+			},
+		},
+		{
+			name: "zero instances",
+			config: InstanceConfig{
+				Region:            "nyc3",
+				Size:              "s-1vcpu-1gb",
+				Image:             "ubuntu-22-04-x64",
+				SSHKeyID:          "test-key",
+				Tags:              []string{"test"},
+				NumberOfInstances: 0,
+			},
+			wantErr: true,
+			validateResult: func(t *testing.T, info []InstanceInfo, err error) {
+				assert.Error(t, err)
+				assert.Empty(t, info)
 			},
 		},
 	}
@@ -271,16 +287,31 @@ func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
 	tests := []struct {
 		name         string
 		instanceName string
+		region       string
 		wantErr      bool
 	}{
 		{
 			name:         "non-existent instance",
 			instanceName: "test-instance",
+			region:       "nyc3",
 			wantErr:      true,
 		},
 		{
 			name:         "empty instance name",
 			instanceName: "",
+			region:       "nyc3",
+			wantErr:      true,
+		},
+		{
+			name:         "empty region",
+			instanceName: "test-instance",
+			region:       "",
+			wantErr:      true,
+		},
+		{
+			name:         "invalid region",
+			instanceName: "test-instance",
+			region:       "invalid-region",
 			wantErr:      true,
 		},
 	}
@@ -288,7 +319,7 @@ func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			err := provider.DeleteInstance(ctx, tt.instanceName)
+			err := provider.DeleteInstance(ctx, tt.instanceName, tt.region)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -297,8 +328,95 @@ func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
 		})
 	}
 }
+
+// TestDigitalOceanProvider_WaitForIP tests the waitForIP functionality
+func TestDigitalOceanProvider_WaitForIP(t *testing.T) {
+	// Test with nil client
+	provider := &DigitalOceanProvider{
+		doClient: nil,
+	}
+
+	ctx := context.Background()
+	_, err := provider.waitForIP(ctx, 123, 1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "client not initialized")
+}
+
+// TestDigitalOceanProvider_GetSSHKeyID tests the getSSHKeyID functionality
+func TestDigitalOceanProvider_GetSSHKeyID(t *testing.T) {
+	// Test with nil client
+	provider := &DigitalOceanProvider{
+		doClient: nil,
+	}
+
+	ctx := context.Background()
+	_, err := provider.getSSHKeyID(ctx, "test-key")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "client not initialized")
+}
+
+// TestDigitalOceanProvider_WaitForDeletion tests the waitForDeletion functionality
+func TestDigitalOceanProvider_WaitForDeletion(t *testing.T) {
+	// Test with nil client
+	provider := &DigitalOceanProvider{
+		doClient: nil,
+	}
+
+	ctx := context.Background()
+	err := provider.waitForDeletion(ctx, "test-instance", "nyc3", 1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "client not initialized")
+}
+
+// TestDigitalOceanProvider_CreateDropletRequest tests the createDropletRequest functionality
+func TestDigitalOceanProvider_CreateDropletRequest(t *testing.T) {
+	provider := &DigitalOceanProvider{}
+
+	config := InstanceConfig{
+		Region:   "nyc3",
+		Size:     "s-1vcpu-1gb",
+		Image:    "ubuntu-22-04-x64",
+		SSHKeyID: "test-key",
+		Tags:     []string{"test"},
+	}
+
+	request := provider.createDropletRequest("test-instance", config, 123)
+	assert.NotNil(t, request)
+	assert.Equal(t, "test-instance", request.Name)
+	assert.Equal(t, "nyc3", request.Region)
+	assert.Equal(t, "s-1vcpu-1gb", request.Size)
+	assert.Equal(t, "ubuntu-22-04-x64", request.Image.Slug)
+	assert.Equal(t, 123, request.SSHKeys[0].ID)
+	assert.Contains(t, request.Tags, "test-instance")
+	assert.Contains(t, request.Tags, "test")
+	assert.Contains(t, request.UserData, "apt-get update")
+}
+
 func TestDigitalOceanProvider_ConfigureProvider(t *testing.T) {
 	provider := &DigitalOceanProvider{}
 	err := provider.ConfigureProvider(nil)
 	assert.NoError(t, err)
+}
+
+// TestDigitalOceanProvider_CreateMultipleDroplets tests the createMultipleDroplets functionality
+func TestDigitalOceanProvider_CreateMultipleDroplets(t *testing.T) {
+	// Test with nil client
+	provider := &DigitalOceanProvider{
+		doClient: nil,
+	}
+
+	ctx := context.Background()
+	config := InstanceConfig{
+		Region:            "nyc3",
+		Size:              "s-1vcpu-1gb",
+		Image:             "ubuntu-22-04-x64",
+		SSHKeyID:          "test-key",
+		Tags:              []string{"test"},
+		NumberOfInstances: 2,
+	}
+
+	instances, err := provider.createMultipleDroplets(ctx, "test-instance", config, 123)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "client not initialized")
+	assert.Empty(t, instances)
 }

@@ -1,3 +1,5 @@
+// DigitalOcean provider for creating and managing DigitalOcean droplets
+// https://github.com/digitalocean/godo/blob/main/droplets.go#L18
 package compute
 
 import (
@@ -51,6 +53,10 @@ func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
 
 // getSSHKeyID gets the ID of an SSH key by its name
 func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
+	if p.doClient == nil {
+		return 0, fmt.Errorf("client not initialized")
+	}
+
 	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
 
 	// List all SSH keys
@@ -84,6 +90,10 @@ func (p *DigitalOceanProvider) waitForIP(
 	dropletID int,
 	maxRetries int,
 ) (string, error) {
+	if p.doClient == nil {
+		return "", fmt.Errorf("client not initialized")
+	}
+
 	fmt.Println("⏳ Waiting for droplet to get an IP address...")
 	for i := 0; i < maxRetries; i++ {
 		d, _, err := p.doClient.Droplets.Get(ctx, dropletID)
@@ -137,6 +147,10 @@ func (p *DigitalOceanProvider) createMultipleDroplets(
 	config InstanceConfig,
 	sshKeyID int,
 ) ([]InstanceInfo, error) {
+	if p.doClient == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
 	names := make([]string, config.NumberOfInstances)
 	for i := 0; i < config.NumberOfInstances; i++ {
 		names[i] = fmt.Sprintf("%s-%d", name, i) // Start indexing from 0 to be consistent
@@ -199,6 +213,10 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 	config InstanceConfig,
 	sshKeyID int,
 ) (InstanceInfo, error) {
+	if p.doClient == nil {
+		return InstanceInfo{}, fmt.Errorf("client not initialized")
+	}
+
 	createRequest := p.createDropletRequest(name, config, sshKeyID)
 
 	// Create the droplet
@@ -231,6 +249,10 @@ func (p *DigitalOceanProvider) CreateInstance(
 	name string,
 	config InstanceConfig,
 ) ([]InstanceInfo, error) {
+	if p.doClient == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
 	fmt.Printf("🚀 Creating DigitalOcean droplet(s): %s\n", name)
 	fmt.Printf("  Region: %s\n", config.Region)
 	fmt.Printf("  Size: %s\n", config.Size)
@@ -258,6 +280,10 @@ func (p *DigitalOceanProvider) CreateInstance(
 
 // waitForDeletion waits for a droplet to be fully deleted
 func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
+	if p.doClient == nil {
+		return fmt.Errorf("client not initialized")
+	}
+
 	fmt.Printf("⏳ Waiting for droplet %s in region %s to be deleted...\n", name, region)
 	for i := 0; i < maxRetries; i++ {
 		// Try to list the droplet
@@ -290,6 +316,10 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 
 // DeleteInstance deletes a DigitalOcean droplet
 func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, region string) error {
+	if p.doClient == nil {
+		return fmt.Errorf("client not initialized")
+	}
+
 	fmt.Printf("🗑️ Deleting DigitalOcean droplet: %s in region %s\n", name, region)
 
 	// List all droplets to find the one with our name in the specific region
