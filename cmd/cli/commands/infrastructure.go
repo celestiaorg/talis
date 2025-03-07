@@ -33,7 +33,15 @@ var createInfraCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new infrastructure",
 	Run: func(cmd *cobra.Command, args []string) {
-		var req infrastructure.InstanceRequest
+		// Define a struct that matches the JSON structure
+		type CreateRequest struct {
+			Name        string                         `json:"name"`
+			ProjectName string                         `json:"project_name"`
+			WebhookURL  string                         `json:"webhook_url,omitempty"`
+			Instances   []infrastructure.InstanceRequest `json:"instances"`
+		}
+		
+		var req CreateRequest
 
 		jsonFile, _ := cmd.Flags().GetString("file")
 		if jsonFile == "" {
@@ -53,6 +61,12 @@ var createInfraCmd = &cobra.Command{
 
 		if err := json.Unmarshal(data, &req); err != nil {
 			fmt.Printf("Error parsing JSON file: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Validate that instances array is not empty
+		if len(req.Instances) == 0 {
+			fmt.Println("Error: No instances specified in the JSON file")
 			os.Exit(1)
 		}
 
@@ -89,7 +103,15 @@ var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
 	Run: func(cmd *cobra.Command, args []string) {
-		var req infrastructure.DeleteRequest
+		// Define a struct that matches the JSON structure for delete
+		type DeleteRequest struct {
+			ID          uint                            `json:"id"`
+			Name        string                          `json:"name"`
+			ProjectName string                          `json:"project_name"`
+			Instances   []infrastructure.InstanceRequest `json:"instances"`
+		}
+		
+		var req DeleteRequest
 
 		// Check if JSON file is provided
 		jsonFile, _ := cmd.Flags().GetString("file")
@@ -110,6 +132,12 @@ var deleteInfraCmd = &cobra.Command{
 
 		if err := json.Unmarshal(data, &req); err != nil {
 			fmt.Printf("Error parsing JSON file: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Validate that instances array is not empty
+		if len(req.Instances) == 0 {
+			fmt.Println("Error: No instances specified in the JSON file")
 			os.Exit(1)
 		}
 
