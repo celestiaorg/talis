@@ -6,10 +6,11 @@ import (
 	"log"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
-	"gorm.io/gorm"
 )
 
 // JobServiceInterface defines the interface for job operations.
