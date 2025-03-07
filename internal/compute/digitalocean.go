@@ -151,59 +151,82 @@ func (p *DigitalOceanProvider) createMultipleDroplets(
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	names := make([]string, config.NumberOfInstances)
-	for i := 0; i < config.NumberOfInstances; i++ {
-		names[i] = fmt.Sprintf("%s-%d", name, i) // Start indexing from 0 to be consistent
-	}
+	const maxDropletsPerBatch = 10
+	var allInstances []InstanceInfo
+	remainingInstances := config.NumberOfInstances
+	batchNumber := 0
 
-	createRequest := &godo.DropletMultiCreateRequest{
-		Names:  names,
-		Region: config.Region,
-		Size:   config.Size,
-		Image: godo.DropletCreateImage{
-			Slug: config.Image,
-		},
-		SSHKeys: []godo.DropletCreateSSHKey{
-			{ID: sshKeyID},
-		},
-		Tags: append([]string{name}, config.Tags...),
-		UserData: `#!/bin/bash
+	for remainingInstances > 0 {
+		// Calculate how many instances to create in this batch
+		batchSize := remainingInstances
+		if batchSize > maxDropletsPerBatch {
+			batchSize = maxDropletsPerBatch
+		}
+
+		// Create names for this batch
+		names := make([]string, batchSize)
+		startIndex := batchNumber * maxDropletsPerBatch
+		for i := 0; i < batchSize; i++ {
+			names[i] = fmt.Sprintf("%s-%d", name, startIndex+i)
+		}
+
+		createRequest := &godo.DropletMultiCreateRequest{
+			Names:  names,
+			Region: config.Region,
+			Size:   config.Size,
+			Image: godo.DropletCreateImage{
+				Slug: config.Image,
+			},
+			SSHKeys: []godo.DropletCreateSSHKey{
+				{ID: sshKeyID},
+			},
+			Tags: append([]string{name}, config.Tags...),
+			UserData: `#!/bin/bash
 apt-get update
 apt-get install -y python3`,
-	}
+		}
 
-	droplets, _, err := p.doClient.Droplets.CreateMultiple(ctx, createRequest)
-	if err != nil {
-		fmt.Printf("❌ Failed to create droplets: %v\n", err)
-		return nil, fmt.Errorf("failed to create droplets: %w", err)
-	}
-
-	// Create a slice to store all instance information
-	instances := make([]InstanceInfo, len(droplets))
-
-	// Wait for all droplets to get their IPs and collect information
-	for i, droplet := range droplets {
-		fmt.Printf("⏳ Waiting for droplet %s to get an IP address...\n", droplet.Name)
-		ip, err := p.waitForIP(ctx, droplet.ID, 10)
+		fmt.Printf("🚀 Creating batch %d of droplets (%d instances)...\n", batchNumber+1, batchSize)
+		droplets, _, err := p.doClient.Droplets.CreateMultiple(ctx, createRequest)
 		if err != nil {
-			// Log the error but continue with other droplets
-			fmt.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v\n", droplet.Name, err)
-			continue
+			fmt.Printf("❌ Failed to create droplets in batch %d: %v\n", batchNumber+1, err)
+			return nil, fmt.Errorf("failed to create droplets: %w", err)
 		}
 
-		instances[i] = InstanceInfo{
-			ID:       fmt.Sprintf("%d", droplet.ID),
-			Name:     droplet.Name,
-			PublicIP: ip,
-			Provider: "digitalocean",
-			Region:   config.Region,
-			Size:     config.Size,
+		// Wait for all droplets in this batch to get their IPs and collect information
+		for _, droplet := range droplets {
+			fmt.Printf("⏳ Waiting for droplet %s to get an IP address...\n", droplet.Name)
+			ip, err := p.waitForIP(ctx, droplet.ID, 10)
+			if err != nil {
+				// Log the error but continue with other droplets
+				fmt.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v\n", droplet.Name, err)
+				continue
+			}
+
+			instance := InstanceInfo{
+				ID:       fmt.Sprintf("%d", droplet.ID),
+				Name:     droplet.Name,
+				PublicIP: ip,
+				Provider: "digitalocean",
+				Region:   config.Region,
+				Size:     config.Size,
+			}
+			allInstances = append(allInstances, instance)
+			fmt.Printf("✅ Droplet %s is ready with IP: %s\n", droplet.Name, ip)
 		}
-		fmt.Printf("✅ Droplet %s is ready with IP: %s\n", droplet.Name, ip)
+
+		remainingInstances -= batchSize
+		batchNumber++
+
+		// If we have more instances to create, add a small delay between batches
+		if remainingInstances > 0 {
+			fmt.Printf("⏳ Waiting before creating next batch... (%d instances remaining)\n", remainingInstances)
+			time.Sleep(5 * time.Second)
+		}
 	}
 
-	fmt.Printf("✅ Created %d droplets with base name: %s\n", len(droplets), name)
-	return instances, nil
+	fmt.Printf("✅ Created all %d droplets with base name: %s\n", len(allInstances), name)
+	return allInstances, nil
 }
 
 // createSingleDroplet creates a single droplet
