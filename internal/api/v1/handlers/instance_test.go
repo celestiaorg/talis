@@ -4,48 +4,71 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
-
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// MockInstanceService is a mock implementation of the InstanceServiceInterface
+// MockInstanceService is a mock implementation of InstanceServiceInterface
 type MockInstanceService struct {
 	mock.Mock
 }
 
-func (m *MockInstanceService) ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
-	args := m.Called(ctx, opts)
-	return args.Get(0).([]models.Instance), args.Error(1)
-}
-
-func (m *MockInstanceService) CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
-	args := m.Called(ctx, name, projectName, webhookURL, instances)
-	return args.Get(0).(*models.Job), args.Error(1)
-}
-
-func (m *MockInstanceService) DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
-	args := m.Called(ctx, jobID, name, projectName, instances)
-	return args.Get(0).(*models.Job), args.Error(1)
-}
-
 func (m *MockInstanceService) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
 	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*models.Instance), args.Error(1)
 }
 
 func (m *MockInstanceService) GetPublicIPs(ctx context.Context) ([]models.Instance, error) {
 	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]models.Instance), args.Error(1)
+}
+
+func (m *MockInstanceService) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
+	args := m.Called(ctx, jobID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Instance), args.Error(1)
+}
+
+func (m *MockInstanceService) ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+	args := m.Called(ctx, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Instance), args.Error(1)
+}
+
+func (m *MockInstanceService) CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
+	args := m.Called(ctx, name, projectName, webhookURL, instances)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Job), args.Error(1)
+}
+
+func (m *MockInstanceService) DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
+	args := m.Called(ctx, jobID, name, projectName, instances)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Job), args.Error(1)
 }
 
 // MockJobService is a mock implementation of the JobServiceInterface
@@ -66,6 +89,45 @@ func (m *MockJobService) UpdateJobStatus(ctx context.Context, id uint, status mo
 func (m *MockJobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
 	args := m.Called(ctx, projectName)
 	return args.Get(0).(*models.Job), args.Error(1)
+}
+
+type mockInstanceService struct {
+	instances []models.Instance
+}
+
+func (m *mockInstanceService) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
+	for _, instance := range m.instances {
+		if instance.ID == id {
+			return &instance, nil
+		}
+	}
+	return nil, fmt.Errorf("instance not found")
+}
+
+func (m *mockInstanceService) GetPublicIPs(ctx context.Context) ([]models.Instance, error) {
+	return m.instances, nil
+}
+
+func (m *mockInstanceService) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
+	var jobInstances []models.Instance
+	for _, instance := range m.instances {
+		if instance.JobID == jobID {
+			jobInstances = append(jobInstances, instance)
+		}
+	}
+	return jobInstances, nil
+}
+
+func (m *mockInstanceService) ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+	return m.instances, nil
+}
+
+func (m *mockInstanceService) CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
+	return nil, nil
+}
+
+func (m *mockInstanceService) DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
+	return nil, nil
 }
 
 func TestGetPublicIPs(t *testing.T) {
@@ -187,4 +249,88 @@ func TestGetPublicIPsError(t *testing.T) {
 
 	// Verify mock expectations
 	mockInstanceService.AssertExpectations(t)
+}
+
+func TestGetInstancesByJobID(t *testing.T) {
+	// Create a mock service
+	mockService := new(MockInstanceService)
+	mockJobService := new(MockJobService)
+
+	// Create test instance
+	testInstance := models.Instance{
+		Model: gorm.Model{
+			ID: 1,
+		},
+		JobID:      123,
+		ProviderID: models.ProviderID("digitalocean"),
+		Name:       "test-instance",
+		PublicIP:   "1.2.3.4",
+		Region:     "nyc1",
+		Size:       "s-1vcpu-1gb",
+		Image:      "ubuntu-20-04-x64",
+		Tags:       []string{"test"},
+		Status:     models.InstanceStatusReady,
+		CreatedAt:  time.Now(),
+	}
+
+	// Set up expectations
+	mockService.On("GetInstancesByJobID", mock.Anything, uint(123)).Return([]models.Instance{testInstance}, nil)
+
+	// Create the handler with the mock service
+	handler := NewInstanceHandler(mockService, mockJobService)
+
+	// Create a test request
+	app := fiber.New()
+	app.Get("/job/:jobId", handler.GetInstancesByJobID)
+
+	// Test successful case
+	t.Run("success", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/job/123", nil)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+
+		var result map[string]interface{}
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
+
+		instances, ok := result["instances"].([]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, 1, len(instances))
+
+		instance := instances[0].(map[string]interface{})
+		assert.Equal(t, float64(1), instance["id"])
+		assert.Equal(t, "1.2.3.4", instance["public_ip"])
+		assert.Equal(t, float64(123), instance["job_id"])
+		assert.Equal(t, "test-instance", instance["name"])
+		assert.Equal(t, "nyc1", instance["region"])
+		assert.Equal(t, "s-1vcpu-1gb", instance["size"])
+		assert.Equal(t, "ubuntu-20-04-x64", instance["image"])
+		assert.Equal(t, []interface{}{"test"}, instance["tags"])
+		assert.Equal(t, "ready", instance["status"])
+	})
+
+	// Test invalid job ID
+	t.Run("invalid job id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/job/invalid", nil)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 400, resp.StatusCode)
+
+		var result map[string]interface{}
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
+		assert.Contains(t, result["error"], "invalid job id")
+	})
+
+	// Test missing job ID
+	t.Run("missing job id", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/job", nil)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 404, resp.StatusCode)
+	})
+
+	// Verify expectations
+	mockService.AssertExpectations(t)
 }

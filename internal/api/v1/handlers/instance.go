@@ -178,3 +178,57 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 		"total":     len(instances),
 	})
 }
+
+// GetInstancesByJobID returns a list of instances for a specific job
+func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
+	jobIDStr := c.Params("jobId")
+	if jobIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job id is required",
+		})
+	}
+
+	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid job id",
+		})
+	}
+
+	fmt.Printf("🔍 Getting instances for job ID %d...\n", jobID)
+
+	// Get instances using the service
+	instances, err := h.service.GetInstancesByJobID(c.Context(), uint(jobID))
+	if err != nil {
+		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get instances for job %d: %v", jobID, err),
+		})
+	}
+
+	fmt.Printf("✅ Found %d instances for job %d\n", len(instances), jobID)
+
+	// Convert instances to a slice of maps to ensure proper serialization
+	instanceMaps := make([]map[string]interface{}, len(instances))
+	for i, instance := range instances {
+		instanceMaps[i] = map[string]interface{}{
+			"id":         instance.ID,
+			"job_id":     instance.JobID,
+			"name":       instance.Name,
+			"public_ip":  instance.PublicIP,
+			"region":     instance.Region,
+			"size":       instance.Size,
+			"image":      instance.Image,
+			"tags":       instance.Tags,
+			"status":     instance.Status.String(),
+			"created_at": instance.CreatedAt,
+		}
+	}
+
+	// Return the instances with their details
+	return c.JSON(fiber.Map{
+		"instances": instanceMaps,
+		"total":     len(instances),
+		"job_id":    jobID,
+	})
+}

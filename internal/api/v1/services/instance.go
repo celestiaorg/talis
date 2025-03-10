@@ -20,6 +20,7 @@ type InstanceServiceInterface interface {
 	DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error)
 	GetInstance(ctx context.Context, id uint) (*models.Instance, error)
 	GetPublicIPs(ctx context.Context) ([]models.Instance, error)
+	GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error)
 }
 
 // JobServiceInterface defines the interface for job operations
@@ -383,5 +384,20 @@ func (s *InstanceService) GetPublicIPs(ctx context.Context) ([]models.Instance, 
 	}
 
 	fmt.Printf("✅ Retrieved %d instances from database\n", len(instances))
+	return instances, nil
+}
+
+// GetInstancesByJobID retrieves all instances for a specific job
+func (s *InstanceService) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
+	fmt.Printf("📥 Getting instances for job ID %d from database...\n", jobID)
+
+	// Get instances for the specific job
+	instances, err := s.repo.GetByJobID(ctx, jobID)
+	if err != nil {
+		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
+		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+	}
+
+	fmt.Printf("✅ Retrieved %d instances for job %d from database\n", len(instances), jobID)
 	return instances, nil
 }
