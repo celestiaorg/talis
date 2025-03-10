@@ -13,12 +13,12 @@ import (
 
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
-	service    *services.InstanceService
-	jobService *services.JobService
+	service    services.InstanceServiceInterface
+	jobService services.JobServiceInterface
 }
 
 // NewInstanceHandler creates a new instance handler instance
-func NewInstanceHandler(service *services.InstanceService, jobService *services.JobService) *InstanceHandler {
+func NewInstanceHandler(service services.InstanceServiceInterface, jobService services.JobServiceInterface) *InstanceHandler {
 	return &InstanceHandler{
 		service:    service,
 		jobService: jobService,
@@ -155,4 +155,26 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(instance)
+}
+
+// GetPublicIPs returns a list of all public IPs and instance details
+func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
+	fmt.Println("🔍 Getting public IPs...")
+
+	// Get instances with their public IPs using the service
+	instances, err := h.service.GetPublicIPs(c.Context())
+	if err != nil {
+		fmt.Printf("❌ Error getting public IPs: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get public IPs: %v", err),
+		})
+	}
+
+	fmt.Printf("✅ Found %d instances\n", len(instances))
+
+	// Return the instances with their details
+	return c.JSON(fiber.Map{
+		"instances": instances,
+		"total":     len(instances),
+	})
 }

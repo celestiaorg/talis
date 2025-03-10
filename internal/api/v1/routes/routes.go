@@ -17,6 +17,11 @@ func RegisterRoutes(
 
 	// Instances endpoints
 	instances := v1.Group("/instances")
+
+	// Public IPs endpoint (specific route)
+	instances.Get("/public-ips", instanceHandler.GetPublicIPs).Name("GetPublicIPs")
+
+	// CRUD endpoints
 	instances.Get("/", instanceHandler.ListInstances).Name("ListInstances")
 	instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
 	instances.Delete("/", instanceHandler.DeleteInstance).Name("DeleteInstance")
