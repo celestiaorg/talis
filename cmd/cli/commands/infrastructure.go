@@ -153,7 +153,7 @@ var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
 	Run: func(cmd *cobra.Command, args []string) {
-		var req infrastructure.DeleteRequest
+		var req infrastructure.DeleteInstanceRequest
 
 		// Check if JSON file is provided
 		jsonFile, _ := cmd.Flags().GetString("file")
