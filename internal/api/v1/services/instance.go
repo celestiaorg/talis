@@ -269,7 +269,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	// If specific names are provided, find those instances
 	if len(specificNamesToDelete) > 0 {
 		fmt.Printf("ℹ️ Deleting specific instances by name: %v\n", specificNamesToDelete)
-		
+
 		// Find instances with the specified names
 		for _, name := range specificNamesToDelete {
 			found := false
@@ -284,7 +284,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 				fmt.Printf("⚠️ Warning: Instance with name '%s' not found\n", name)
 			}
 		}
-		
+
 		if len(instancesToDelete) == 0 {
 			return fmt.Errorf("none of the specified instances were found")
 		}
@@ -309,7 +309,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 
 		// Select only the oldest instances to delete
 		instancesToDelete = instances[:numberOfInstancesToDelete]
-		
+
 		fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
 			numberOfInstancesToDelete, len(instances))
 	}

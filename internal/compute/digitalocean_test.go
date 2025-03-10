@@ -448,7 +448,7 @@ func TestDigitalOceanProvider_CreateMultipleDroplets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Skip actual API calls in unit tests
 			t.Skip("Skipping test that would make actual API calls")
-			
+
 			// In a real test, we would mock the DigitalOcean API client
 			// and verify that the correct names are used in the request
 		})
