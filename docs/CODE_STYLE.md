@@ -41,6 +41,22 @@ if err != nil {
 }
 ```
 
+### Functions and Methods structure
+```go
+// Preferred
+func (s *Service) MethodName(
+    arg1 string,
+    arg2 int,
+) (string, error) {
+    // Implementation
+}
+
+// Avoid
+func (s *Service) MethodName(arg1 string, arg2 int) (string, error) {
+    // Implementation
+}
+```
+
 ### Comments and Documentation
 - Package comments explain package purpose
 - Function comments describe behavior

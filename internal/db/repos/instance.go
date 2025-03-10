@@ -86,3 +86,31 @@ func (r *InstanceRepository) Get(ctx context.Context, id uint) (*models.Instance
 	}
 	return &instance, nil
 }
+
+// GetByJobID retrieves all instances for a given job ID
+func (r *InstanceRepository) GetByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
+	var instances []models.Instance
+	err := r.db.WithContext(ctx).Where(&models.Instance{JobID: jobID}).Find(&instances).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+	}
+	return instances, nil
+}
+
+// GetByJobIDOrdered retrieves all instances for a given job ID, ordered by creation date (oldest first)
+func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) ([]models.Instance, error) {
+	var instances []models.Instance
+	err := r.db.WithContext(ctx).
+		Where(&models.Instance{JobID: jobID}).
+		Order(models.InstanceCreatedAtField + " ASC"). // ASC order to get oldest first
+		Find(&instances).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+	}
+	return instances, nil
+}
+
+// Delete deletes an instance by ID
+func (r *InstanceRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&models.Instance{Model: gorm.Model{ID: id}}).Error
+}

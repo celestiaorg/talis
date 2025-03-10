@@ -95,16 +95,6 @@ func (s *JobService) provisionJob(ctx context.Context, jobID uint, jobReq *infra
 			// Check if error is due to resource not found
 			if strings.Contains(err.Error(), "404") &&
 				strings.Contains(err.Error(), "could not be found") {
-				// Get Pulumi output result
-				outputs, outputErr := infra.GetOutputs()
-				if outputErr != nil {
-					fmt.Printf("❌ Failed to get outputs: %v\n", outputErr)
-					if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusFailed, nil, outputErr.Error()); err != nil {
-						log.Printf("Failed to update job status: %v", err)
-					}
-					return
-				}
-				result = outputs
 				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
 			} else {
 				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
@@ -115,7 +105,7 @@ func (s *JobService) provisionJob(ctx context.Context, jobID uint, jobReq *infra
 			}
 		}
 
-		// Start Nix provisioning if creation was successful and provisioning is requested
+		// Start Ansible provisioning if creation was successful and provisioning is requested
 		if jobReq.Instances[0].Provision {
 			instances, ok := result.([]infrastructure.InstanceInfo)
 			if !ok {
@@ -129,7 +119,7 @@ func (s *JobService) provisionJob(ctx context.Context, jobID uint, jobReq *infra
 
 			fmt.Printf("📝 Created instances: %+v\n", instances)
 
-			// Update to configuring when setting up Nix
+			// Update to configuring when setting up Ansible
 			if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusConfiguring, instances, ""); err != nil {
 				fmt.Printf("❌ Failed to update job status to configuring: %v\n", err)
 				return
@@ -152,4 +142,9 @@ func (s *JobService) provisionJob(ctx context.Context, jobID uint, jobReq *infra
 
 		fmt.Printf("✅ Infrastructure creation completed for job ID %d and job name %s\n", jobID, jobReq.Name)
 	}()
+}
+
+// GetByProjectName retrieves a job by its project name
+func (s *JobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
+	return s.repo.GetByProjectName(ctx, projectName)
 }

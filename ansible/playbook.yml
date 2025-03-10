@@ -1,9 +1,9 @@
 ---
 - name: Configure DigitalOcean droplet
   hosts: all
-  become: yes
-  gather_facts: no
-  serial: 1
+  become: true
+  gather_facts: true
+  strategy: free  # Don't wait for the previous task to finish
   tasks:
     - name: Wait for system to be ready
       wait_for_connection:
@@ -11,45 +11,51 @@
         delay: 5
       register: wait_result
 
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-        cache_valid_time: 3600
-        force_apt_get: yes
+    - name: Update apt cache and install required packages
+      block:
+        - name: Update apt cache
+          apt:
+            update_cache: yes
+            cache_valid_time: 3600
+            force_apt_get: yes
 
-    - name: Install required packages
-      apt:
-        name: "{{ item }}"
-        state: present
-        force_apt_get: yes
-        update_cache: yes
-      loop:
-        - nginx
-        - docker.io
-        - docker-compose
-        - curl
-        - git
-      retries: 3
-      delay: 5
-      register: pkg_install
-      until: pkg_install is success
+        - name: Install required packages
+          apt:
+            name: "{{ packages }}"
+            state: present
+            force_apt_get: yes
+          vars:
+            packages:
+              # - nginx
+              # - docker.io
+              # - docker-compose
+              - curl
+              - git
+          retries: 3
+          delay: 5
+          register: pkg_install
+          until: pkg_install is success
 
-    - name: Start and enable services
-      service:
-        name: "{{ item }}"
-        state: started
-        enabled: yes
-      loop:
-        - nginx
-        - docker
-      ignore_errors: yes
+    # - name: Configure services
+    #   async: 300  # Timeout de 5 minutos
+    #   poll: 0     # No esperar a que termine (fire and forget)
+    #   block:
+    #     - name: Start and enable services
+    #       service:
+    #         name: "{{ item }}"
+    #         state: started
+    #         enabled: yes
+    #       loop:
+    #         - nginx
+    #         - docker
+    #       ignore_errors: yes
 
-    - name: Allow HTTP on firewall
-      ufw:
-        rule: allow
-        port: '80'
-        proto: tcp
-      ignore_errors: yes
+    #     - name: Allow HTTP on firewall
+    #       ufw:
+    #         rule: allow
+    #         port: '80'
+    #         proto: tcp
+    #       ignore_errors: yes
 
     - name: Create a new file
       copy:
