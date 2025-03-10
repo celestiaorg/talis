@@ -168,7 +168,7 @@ func (p *DigitalOceanProvider) createMultipleDroplets(
 		startIndex := batchNumber * maxDropletsPerBatch
 		for i := 0; i < batchSize; i++ {
 			// Use custom name if provided, otherwise use base name with index
-			if config.CustomName != "" && i == 0 {
+			if config.CustomName != "" {
 				names[i] = config.CustomName
 			} else {
 				names[i] = fmt.Sprintf("%s-%d", name, startIndex+i)
