@@ -33,7 +33,12 @@ var createInfraCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new infrastructure",
 	Run: func(cmd *cobra.Command, args []string) {
-		var req infrastructure.InstanceRequest
+		var req struct {
+			InstanceName string                           `json:"instance_name"`
+			ProjectName  string                           `json:"project_name"`
+			WebhookURL   string                           `json:"webhook_url"`
+			Instances    []infrastructure.InstanceRequest `json:"instances"`
+		}
 
 		jsonFile, _ := cmd.Flags().GetString("file")
 		if jsonFile == "" {
