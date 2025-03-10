@@ -44,18 +44,18 @@ func (s *InstanceService) ListInstances(ctx context.Context, opts *models.ListOp
 // CreateInstance creates a new instance
 func (s *InstanceService) CreateInstance(
 	ctx context.Context,
-	name,
+	instanceName,
 	projectName,
 	webhookURL string,
 	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
 	// Create job request
 	jobReq := &infrastructure.JobRequest{
-		Name:        name,
-		ProjectName: projectName,
-		Provider:    instances[0].Provider,
-		Instances:   instances,
-		Action:      "create",
+		InstanceName: instanceName,
+		ProjectName:  projectName,
+		Provider:     instances[0].Provider,
+		Instances:    instances,
+		Action:       "create",
 	}
 
 	if err := jobReq.Validate(); err != nil {
@@ -64,7 +64,7 @@ func (s *InstanceService) CreateInstance(
 
 	// Create job first
 	job := &models.Job{
-		Name:        name,
+		Name:        instanceName,
 		ProjectName: projectName,
 		Status:      models.JobStatusPending,
 		WebhookURL:  webhookURL,
@@ -90,7 +90,7 @@ func (s *InstanceService) CreateInstance(
 func (s *InstanceService) DeleteInstance(
 	ctx context.Context,
 	jobID uint,
-	name,
+	instanceName,
 	projectName string,
 	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
@@ -99,18 +99,18 @@ func (s *InstanceService) DeleteInstance(
 		Model: gorm.Model{
 			ID: jobID,
 		},
-		Name:        name,
+		Name:        instanceName,
 		ProjectName: projectName,
 		Status:      models.JobStatusPending,
 	}
 
 	// Create infrastructure request
 	infraReq := &infrastructure.JobRequest{
-		Name:        name,
-		ProjectName: projectName,
-		Provider:    instances[0].Provider,
-		Instances:   instances,
-		Action:      "delete",
+		InstanceName: instanceName,
+		ProjectName:  projectName,
+		Provider:     instances[0].Provider,
+		Instances:    instances,
+		Action:       "delete",
 	}
 
 	// Start async infrastructure deletion
@@ -290,9 +290,9 @@ func (s *InstanceService) handleInfrastructureDeletion(
 
 		// Create a new infrastructure request for each instance
 		instanceInfraReq := &infrastructure.JobRequest{
-			Name:        instance.Name,
-			ProjectName: infraReq.ProjectName,
-			Provider:    infraReq.Provider,
+			InstanceName: instance.Name,
+			ProjectName:  infraReq.ProjectName,
+			Provider:     infraReq.Provider,
 			Instances: []infrastructure.InstanceRequest{{
 				Provider: string(instance.ProviderID),
 				Region:   instance.Region,

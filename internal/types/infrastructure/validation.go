@@ -7,8 +7,8 @@ import (
 
 // Validate validates the infrastructure request
 func (r *JobRequest) Validate() error {
-	if r.Name == "" {
-		return fmt.Errorf("name is required")
+	if r.InstanceName == "" {
+		return fmt.Errorf("instance_name is required")
 	}
 	if r.ProjectName == "" {
 		return fmt.Errorf("project_name is required")
@@ -53,8 +53,8 @@ func (i *InstanceRequest) Validate() error {
 
 // Validate validates the delete request
 func (r *DeleteRequest) Validate() error {
-	if r.Name == "" {
-		return fmt.Errorf("name is required")
+	if r.InstanceName == "" {
+		return fmt.Errorf("instance_name is required")
 	}
 	if r.ProjectName == "" {
 		return fmt.Errorf("project_name is required")

@@ -46,7 +46,7 @@ func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
 	jobID := fmt.Sprintf("job-%s", timestamp)
 
 	return &Infrastructure{
-		name:        req.Name,
+		name:        req.InstanceName,
 		projectName: req.ProjectName,
 		instances:   req.Instances,
 		provider:    provider,
