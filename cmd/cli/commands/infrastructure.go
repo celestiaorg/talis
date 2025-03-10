@@ -15,22 +15,6 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// CreateRequest represents the JSON structure for creating infrastructure
-type CreateRequest struct {
-	InstanceName string                           `json:"instance_name"`
-	ProjectName  string                           `json:"project_name"`
-	WebhookURL   string                           `json:"webhook_url,omitempty"`
-	Instances    []infrastructure.InstanceRequest `json:"instances"`
-}
-
-// DeleteRequest represents the JSON structure for deleting infrastructure
-type DeleteRequest struct {
-	ID           uint                             `json:"id"`
-	InstanceName string                           `json:"instance_name"`
-	ProjectName  string                           `json:"project_name"`
-	Instances    []infrastructure.InstanceRequest `json:"instances"`
-}
-
 func init() {
 	infraCmd.AddCommand(createInfraCmd)
 	infraCmd.AddCommand(deleteInfraCmd)
@@ -51,7 +35,7 @@ var createInfraCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new infrastructure",
 	Run: func(cmd *cobra.Command, args []string) {
-		var req CreateRequest
+		var req infrastructure.InstanceCreateRequest
 
 		jsonFile, _ := cmd.Flags().GetString("file")
 		if jsonFile == "" {
@@ -120,7 +104,7 @@ var createInfraCmd = &cobra.Command{
 
 		// The request was successful, generate a delete.json file
 		// Create a delete request based on the create request
-		deleteReq := DeleteRequest{
+		deleteReq := infrastructure.DeleteInstanceRequest{
 			InstanceName: req.InstanceName,
 			ProjectName:  req.ProjectName,
 			Instances:    req.Instances,
@@ -169,7 +153,7 @@ var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
 	Run: func(cmd *cobra.Command, args []string) {
-		var req DeleteRequest
+		var req infrastructure.DeleteRequest
 
 		// Check if JSON file is provided
 		jsonFile, _ := cmd.Flags().GetString("file")
