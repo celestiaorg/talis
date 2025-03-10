@@ -83,6 +83,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				SSHKeyID:          instance.SSHKeyName,
 				Tags:              instance.Tags,
 				NumberOfInstances: instance.NumberOfInstances,
+				CustomName:        instance.Name,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)

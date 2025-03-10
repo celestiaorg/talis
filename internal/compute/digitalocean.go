@@ -167,7 +167,12 @@ func (p *DigitalOceanProvider) createMultipleDroplets(
 		names := make([]string, batchSize)
 		startIndex := batchNumber * maxDropletsPerBatch
 		for i := 0; i < batchSize; i++ {
-			names[i] = fmt.Sprintf("%s-%d", name, startIndex+i)
+			// Use custom name if provided, otherwise use base name with index
+			if config.CustomName != "" && i == 0 {
+				names[i] = config.CustomName
+			} else {
+				names[i] = fmt.Sprintf("%s-%d", name, startIndex+i)
+			}
 		}
 
 		createRequest := &godo.DropletMultiCreateRequest{
