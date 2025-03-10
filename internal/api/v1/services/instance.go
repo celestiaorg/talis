@@ -255,34 +255,70 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("no instances found for job %d", job.ID)
 	}
 
-	// Calculate how many instances to delete
-	numberOfInstancesToDelete := 0
+	// Check if we have specific instance names to delete
+	var instancesToDelete []models.Instance
+	var specificNamesToDelete []string
+
+	// Collect specific instance names to delete
 	for _, instanceReq := range infraReq.Instances {
-		numberOfInstancesToDelete += instanceReq.NumberOfInstances
+		if instanceReq.Name != "" {
+			specificNamesToDelete = append(specificNamesToDelete, instanceReq.Name)
+		}
 	}
 
-	if numberOfInstancesToDelete <= 0 {
-		return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
-	}
+	// If specific names are provided, find those instances
+	if len(specificNamesToDelete) > 0 {
+		fmt.Printf("ℹ️ Deleting specific instances by name: %v\n", specificNamesToDelete)
+		
+		// Find instances with the specified names
+		for _, name := range specificNamesToDelete {
+			found := false
+			for _, instance := range instances {
+				if instance.Name == name {
+					instancesToDelete = append(instancesToDelete, instance)
+					found = true
+					break
+				}
+			}
+			if !found {
+				fmt.Printf("⚠️ Warning: Instance with name '%s' not found\n", name)
+			}
+		}
+		
+		if len(instancesToDelete) == 0 {
+			return fmt.Errorf("none of the specified instances were found")
+		}
+	} else {
+		// No specific names provided, use FIFO order (oldest first)
+		// Calculate how many instances to delete
+		numberOfInstancesToDelete := 0
+		for _, instanceReq := range infraReq.Instances {
+			numberOfInstancesToDelete += instanceReq.NumberOfInstances
+		}
 
-	// Limit the number of instances to delete to the available ones
-	if numberOfInstancesToDelete > len(instances) {
-		fmt.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available\n",
+		if numberOfInstancesToDelete <= 0 {
+			return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
+		}
+
+		// Limit the number of instances to delete to the available ones
+		if numberOfInstancesToDelete > len(instances) {
+			fmt.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available\n",
+				numberOfInstancesToDelete, len(instances))
+			numberOfInstancesToDelete = len(instances)
+		}
+
+		// Select only the oldest instances to delete
+		instancesToDelete = instances[:numberOfInstancesToDelete]
+		
+		fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
 			numberOfInstancesToDelete, len(instances))
-		numberOfInstancesToDelete = len(instances)
 	}
-
-	// Select only the oldest instances to delete
-	instancesToDelete := instances[:numberOfInstancesToDelete]
 
 	// Prepare deletion result
 	deletionResult := map[string]interface{}{
 		"status":  "deleting",
 		"deleted": []string{},
 	}
-
-	fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
-		numberOfInstancesToDelete, len(instances))
 
 	// Try to delete each selected instance
 	for _, instance := range instancesToDelete {
