@@ -50,7 +50,9 @@ func (s *InstanceService) CreateInstance(
 	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
 	// Create job request
+	jobName := fmt.Sprintf("%s-%s-creation", projectName, instanceName)
 	jobReq := &infrastructure.JobRequest{
+		JobName:      jobName,
 		InstanceName: instanceName,
 		ProjectName:  projectName,
 		Provider:     instances[0].Provider,
@@ -64,10 +66,11 @@ func (s *InstanceService) CreateInstance(
 
 	// Create job first
 	job := &models.Job{
-		Name:        instanceName,
-		ProjectName: projectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  webhookURL,
+		Name:         jobName,
+		InstanceName: jobReq.InstanceName,
+		ProjectName:  projectName,
+		Status:       models.JobStatusPending,
+		WebhookURL:   webhookURL,
 	}
 
 	job, err := s.jobService.CreateJob(ctx, job)

@@ -7,9 +7,12 @@ import (
 
 // Validate validates the infrastructure request
 func (r *JobRequest) Validate() error {
-	if r.InstanceName == "" {
-		return fmt.Errorf("instance_name is required")
+	if r.JobName == "" {
+		return fmt.Errorf("job_name is required")
 	}
+
+	instanceNamePresent := r.InstanceName != ""
+
 	if r.ProjectName == "" {
 		return fmt.Errorf("project_name is required")
 	}
@@ -18,6 +21,10 @@ func (r *JobRequest) Validate() error {
 	}
 
 	for i, instance := range r.Instances {
+		if instance.Name == "" && !instanceNamePresent {
+			return fmt.Errorf("instance_name or instance.nameis required")
+		}
+
 		if err := instance.Validate(); err != nil {
 			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
 		}

@@ -61,6 +61,7 @@ type InstanceInfo struct {
 
 // JobRequest represents the infrastructure request
 type JobRequest struct {
+	JobName      string            `json:"job_name"`      // Name of the job
 	InstanceName string            `json:"instance_name"` // Base name for instances
 	ProjectName  string            `json:"project_name"`  // Project name of the job
 	Provider     string            `json:"provider"`      // Provider of the compute service
