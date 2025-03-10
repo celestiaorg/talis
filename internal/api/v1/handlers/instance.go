@@ -105,15 +105,13 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	instanceID := c.Params("id")
 	if instanceID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "instance id is required",
-		})
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput("instance id is required"))
 	}
 
 	// TODO: Implement instance retrieval
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error": "get instance not implemented yet",
-	})
+	return c.Status(fiber.StatusNotImplemented).
+		JSON(errGeneral("get instance not implemented yet"))
 }
 
 // convertToInstances converts DeleteInstance to InstanceRequest

@@ -1,5 +1,7 @@
 package infrastructure
 
+// TODO: update these types and make them more reusable also use the db types defined in models pkg
+
 // JobRequest represents the infrastructure request
 type JobRequest struct {
 	Name        string            `json:"name"`
@@ -7,6 +9,7 @@ type JobRequest struct {
 	Provider    string            `json:"provider"`
 	Instances   []InstanceRequest `json:"instances"`
 	Action      string            `json:"action"` // "create" or "delete"
+	WebhookURL  string            `json:"webhook_url"`
 }
 
 // InstanceRequest represents a request to create or modify a compute instance
