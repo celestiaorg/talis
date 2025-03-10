@@ -85,7 +85,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusAccepted).JSON(job)
 }
 
-// DeleteInstance handles the request to delete an instance
+// DeleteInstance handles the request to delete instance(s) from a job in FIFO order
 func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 	var req infrastructure.DeleteInstanceRequest
 
@@ -113,6 +113,7 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 		})
 	}
 
+	// TODO: I think if no instances are provided it should just delete all instances for the job
 	if len(req.Instances) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "at least one instance is required",
