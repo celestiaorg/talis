@@ -20,6 +20,7 @@ func RegisterRoutes(
 
 	// Public IPs endpoint (specific route)
 	instances.Get("/public-ips", instanceHandler.GetPublicIPs).Name("GetPublicIPs")
+	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name("GetAllMetadata")
 	instances.Get("/job/:jobId", instanceHandler.GetInstancesByJobID).Name("GetInstancesByJobID")
 
 	// CRUD endpoints

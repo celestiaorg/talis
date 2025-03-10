@@ -157,7 +157,7 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	return c.JSON(instance)
 }
 
-// GetPublicIPs returns a list of all public IPs and instance details
+// GetPublicIPs returns a list of public IPs and their associated job IDs
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting public IPs...")
 
@@ -172,9 +172,57 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
-	// Return the instances with their details
+	// Convert instances to a slice of maps with only IP and job ID
+	ipMaps := make([]map[string]interface{}, len(instances))
+	for i, instance := range instances {
+		ipMaps[i] = map[string]interface{}{
+			"public_ip": instance.PublicIP,
+			"job_id":    instance.JobID,
+		}
+	}
+
+	// Return only the public IPs and job IDs
 	return c.JSON(fiber.Map{
-		"instances": instances,
+		"instances": ipMaps,
+		"total":     len(instances),
+	})
+}
+
+// GetAllMetadata returns a list of all instance details
+func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
+	fmt.Println("🔍 Getting all instance metadata...")
+
+	// Get instances with their details using the service
+	instances, err := h.service.GetPublicIPs(c.Context())
+	if err != nil {
+		fmt.Printf("❌ Error getting instance metadata: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get instance metadata: %v", err),
+		})
+	}
+
+	fmt.Printf("✅ Found %d instances\n", len(instances))
+
+	// Convert instances to a slice of maps with all metadata
+	instanceMaps := make([]map[string]interface{}, len(instances))
+	for i, instance := range instances {
+		instanceMaps[i] = map[string]interface{}{
+			"id":         instance.ID,
+			"job_id":     instance.JobID,
+			"name":       instance.Name,
+			"public_ip":  instance.PublicIP,
+			"region":     instance.Region,
+			"size":       instance.Size,
+			"image":      instance.Image,
+			"tags":       instance.Tags,
+			"status":     instance.Status.String(),
+			"created_at": instance.CreatedAt,
+		}
+	}
+
+	// Return all instance metadata
+	return c.JSON(fiber.Map{
+		"instances": instanceMaps,
 		"total":     len(instances),
 	})
 }

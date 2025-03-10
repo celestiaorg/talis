@@ -202,13 +202,13 @@ func TestGetPublicIPs(t *testing.T) {
 
 	// Verify first instance
 	instance1 := instances[0].(map[string]interface{})
-	assert.Equal(t, "test-instance-1", instance1["name"])
 	assert.Equal(t, "192.168.1.1", instance1["public_ip"])
+	assert.Equal(t, float64(1), instance1["job_id"])
 
 	// Verify second instance
 	instance2 := instances[1].(map[string]interface{})
-	assert.Equal(t, "test-instance-2", instance2["name"])
 	assert.Equal(t, "192.168.1.2", instance2["public_ip"])
+	assert.Equal(t, float64(2), instance2["job_id"])
 
 	// Verify mock expectations
 	mockInstanceService.AssertExpectations(t)
@@ -333,4 +333,139 @@ func TestGetInstancesByJobID(t *testing.T) {
 
 	// Verify expectations
 	mockService.AssertExpectations(t)
+}
+
+func TestGetAllMetadata(t *testing.T) {
+	// Create mock services
+	mockInstanceService := new(MockInstanceService)
+	mockJobService := new(MockJobService)
+
+	// Create handler with mock services
+	handler := NewInstanceHandler(mockInstanceService, mockJobService)
+
+	// Create test app
+	app := fiber.New()
+	app.Get("/all-metadata", handler.GetAllMetadata)
+
+	// Create test instances
+	testInstances := []models.Instance{
+		{
+			Model: gorm.Model{
+				ID:        1,
+				CreatedAt: time.Now(),
+			},
+			JobID:      1,
+			ProviderID: "digitalocean",
+			Name:       "test-instance-1",
+			PublicIP:   "192.168.1.1",
+			Region:     "nyc1",
+			Size:       "s-1vcpu-1gb",
+			Image:      "ubuntu-20-04-x64",
+			Tags:       []string{"test"},
+			Status:     models.InstanceStatusReady,
+		},
+		{
+			Model: gorm.Model{
+				ID:        2,
+				CreatedAt: time.Now(),
+			},
+			JobID:      2,
+			ProviderID: "digitalocean",
+			Name:       "test-instance-2",
+			PublicIP:   "192.168.1.2",
+			Region:     "nyc1",
+			Size:       "s-1vcpu-1gb",
+			Image:      "ubuntu-20-04-x64",
+			Tags:       []string{"test"},
+			Status:     models.InstanceStatusReady,
+		},
+	}
+
+	// Set up expectations
+	mockInstanceService.On("GetPublicIPs", mock.Anything).Return(testInstances, nil)
+
+	// Create test request
+	req := httptest.NewRequest("GET", "/all-metadata", nil)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+
+	// Parse response
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	assert.NoError(t, err)
+
+	// Verify response
+	assert.Equal(t, float64(2), result["total"])
+	instances, ok := result["instances"].([]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, 2, len(instances))
+
+	// Verify first instance
+	instance1 := instances[0].(map[string]interface{})
+	assert.Equal(t, float64(1), instance1["id"])
+	assert.Equal(t, float64(1), instance1["job_id"])
+	assert.Equal(t, "test-instance-1", instance1["name"])
+	assert.Equal(t, "192.168.1.1", instance1["public_ip"])
+	assert.Equal(t, "nyc1", instance1["region"])
+	assert.Equal(t, "s-1vcpu-1gb", instance1["size"])
+	assert.Equal(t, "ubuntu-20-04-x64", instance1["image"])
+	assert.Equal(t, []interface{}{"test"}, instance1["tags"])
+	assert.Equal(t, "ready", instance1["status"])
+
+	// Verify second instance
+	instance2 := instances[1].(map[string]interface{})
+	assert.Equal(t, float64(2), instance2["id"])
+	assert.Equal(t, float64(2), instance2["job_id"])
+	assert.Equal(t, "test-instance-2", instance2["name"])
+	assert.Equal(t, "192.168.1.2", instance2["public_ip"])
+	assert.Equal(t, "nyc1", instance2["region"])
+	assert.Equal(t, "s-1vcpu-1gb", instance2["size"])
+	assert.Equal(t, "ubuntu-20-04-x64", instance2["image"])
+	assert.Equal(t, []interface{}{"test"}, instance2["tags"])
+	assert.Equal(t, "ready", instance2["status"])
+
+	// Verify mock expectations
+	mockInstanceService.AssertExpectations(t)
+}
+
+func TestGetAllMetadataError(t *testing.T) {
+	// Create mock services
+	mockInstanceService := new(MockInstanceService)
+	mockJobService := new(MockJobService)
+
+	// Create handler with mock services
+	handler := NewInstanceHandler(mockInstanceService, mockJobService)
+
+	// Create test app
+	app := fiber.New()
+	app.Get("/all-metadata", handler.GetAllMetadata)
+
+	// Set up expectations for error case
+	mockInstanceService.On("GetPublicIPs", mock.Anything).Return([]models.Instance{}, errors.New("database error"))
+
+	// Create test request
+	req := httptest.NewRequest("GET", "/all-metadata", nil)
+	resp, err := app.Test(req)
+	assert.NoError(t, err)
+	assert.Equal(t, 500, resp.StatusCode)
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+
+	// Parse response
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	assert.NoError(t, err)
+
+	// Verify error message
+	assert.Contains(t, result["error"], "failed to get instance metadata")
+
+	// Verify mock expectations
+	mockInstanceService.AssertExpectations(t)
 }
