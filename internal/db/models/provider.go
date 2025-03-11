@@ -1,5 +1,7 @@
 package models
 
+import "encoding/json"
+
 // ProviderID represents a unique identifier for a cloud provider
 type ProviderID string
 
@@ -12,10 +14,28 @@ const (
 	// ProviderAzure represents Microsoft Azure provider
 	ProviderAzure ProviderID = "azure"
 	// ProviderDO represents DigitalOcean provider
-	ProviderDO       ProviderID = "do"
+	ProviderDO       ProviderID = "digitalocean"
 	ProviderScaleway ProviderID = "scw"
 	ProviderVultr    ProviderID = "vultr"
 	ProviderLinode   ProviderID = "linode"
 	ProviderHetzner  ProviderID = "hetzner"
 	ProviderOVH      ProviderID = "ovh"
 )
+
+func (p ProviderID) String() string {
+	return string(p)
+}
+
+func (p ProviderID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.String())
+}
+
+func (p *ProviderID) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+
+	*p = ProviderID(str)
+	return nil
+}

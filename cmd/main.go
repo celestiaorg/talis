@@ -55,7 +55,7 @@ func main() {
 	instanceRepo := repos.NewInstanceRepository(DB)
 
 	// Initialize services
-	jobService := services.NewJobService(jobRepo)
+	jobService := services.NewJobService(jobRepo, instanceRepo)
 	instanceService := services.NewInstanceService(instanceRepo, jobService)
 
 	// Initialize handlers

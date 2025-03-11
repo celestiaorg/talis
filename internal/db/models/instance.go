@@ -14,6 +14,7 @@ const (
 	// InstanceCreatedAtField is the field name for instance creation timestamp
 	InstanceCreatedAtField = "created_at"
 	InstanceDeletedField   = "deleted"
+	InstanceStatusField    = "status"
 )
 
 // InstanceStatus represents the current state of an instance

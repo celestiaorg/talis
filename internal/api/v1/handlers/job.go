@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -102,5 +103,28 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 		JSON(Response{
 			Slug: SuccessSlug,
 			Data: job,
+		})
+}
+
+// TerminateJob handles the request to terminate a job
+func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
+	jobID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(fmt.Sprintf("invalid job id: %v", err)))
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	err = h.service.TerminateJob(c.Context(), uint(ownerID), uint(jobID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(errServer(err.Error()))
+	}
+
+	return c.Status(fiber.StatusOK).
+		JSON(Response{
+			Slug: SuccessSlug,
+			Data: "Job terminated successfully",
 		})
 }

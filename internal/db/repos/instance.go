@@ -51,6 +51,13 @@ func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status m
 		Update("status", status).Error
 }
 
+// UpdateStatus updates the status of an instance
+func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string, status models.InstanceStatus) error {
+	return r.db.WithContext(ctx).
+		Where(&models.Instance{Name: name}).
+		Update("status", status).Error
+}
+
 // List retrieves a paginated list of instances
 func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	var instances []models.Instance
@@ -110,7 +117,7 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 	return instances, nil
 }
 
-// Delete deletes an instance by ID
-func (r *InstanceRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&models.Instance{Model: gorm.Model{ID: id}}).Error
+func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: id}}).
+		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error
 }

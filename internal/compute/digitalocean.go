@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/digitalocean/godo"
 )
 
@@ -260,7 +261,7 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 		ID:       fmt.Sprintf("%d", droplet.ID),
 		Name:     name,
 		PublicIP: ip,
-		Provider: "digitalocean",
+		Provider: models.ProviderDO,
 		Region:   config.Region,
 		Size:     config.Size,
 	}, nil
