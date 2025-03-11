@@ -161,8 +161,22 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting public IPs...")
 
+	// Get pagination parameters
+	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
+	limit := c.QueryInt("limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
 	// Get instances with their public IPs using the service
-	instances, err := h.service.GetPublicIPs(c.Context())
+	instances, err := h.service.GetPublicIPs(c.Context(), &models.ListOptions{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		fmt.Printf("❌ Error getting public IPs: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -181,10 +195,13 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 		}
 	}
 
-	// Return only the public IPs and job IDs
+	// Return only the public IPs and job IDs with pagination info
 	return c.JSON(fiber.Map{
 		"instances": ipMaps,
 		"total":     len(instances),
+		"page":      page,
+		"limit":     limit,
+		"offset":    offset,
 	})
 }
 
@@ -192,8 +209,22 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all instance metadata...")
 
+	// Get pagination parameters
+	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
+	limit := c.QueryInt("limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
 	// Get instances with their details using the service
-	instances, err := h.service.GetPublicIPs(c.Context())
+	instances, err := h.service.GetPublicIPs(c.Context(), &models.ListOptions{
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		fmt.Printf("❌ Error getting instance metadata: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -220,10 +251,13 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 		}
 	}
 
-	// Return all instance metadata
+	// Return all instance metadata with pagination info
 	return c.JSON(fiber.Map{
 		"instances": instanceMaps,
 		"total":     len(instances),
+		"page":      page,
+		"limit":     limit,
+		"offset":    offset,
 	})
 }
 

@@ -31,8 +31,8 @@ func (m *MockInstanceService) GetInstance(ctx context.Context, id uint) (*models
 	return args.Get(0).(*models.Instance), args.Error(1)
 }
 
-func (m *MockInstanceService) GetPublicIPs(ctx context.Context) ([]models.Instance, error) {
-	args := m.Called(ctx)
+func (m *MockInstanceService) GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+	args := m.Called(ctx, opts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -137,8 +137,11 @@ func TestGetPublicIPs(t *testing.T) {
 		},
 	}
 
-	// Set up expectations
-	mockInstanceService.On("GetPublicIPs", mock.Anything).Return(testInstances, nil)
+	// Set up expectations with pagination
+	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
+		Limit:  10,
+		Offset: 0,
+	}).Return(testInstances, nil)
 
 	// Create test request
 	req := httptest.NewRequest("GET", "/public-ips", nil)
@@ -171,6 +174,11 @@ func TestGetPublicIPs(t *testing.T) {
 	assert.Equal(t, "192.168.1.2", instance2["public_ip"])
 	assert.Equal(t, float64(2), instance2["job_id"])
 
+	// Verify pagination info
+	assert.Equal(t, float64(1), result["page"])
+	assert.Equal(t, float64(10), result["limit"])
+	assert.Equal(t, float64(0), result["offset"])
+
 	// Verify mock expectations
 	mockInstanceService.AssertExpectations(t)
 }
@@ -187,8 +195,11 @@ func TestGetPublicIPsError(t *testing.T) {
 	app := fiber.New()
 	app.Get("/public-ips", handler.GetPublicIPs)
 
-	// Set up expectations for error case
-	mockInstanceService.On("GetPublicIPs", mock.Anything).Return([]models.Instance{}, errors.New("database error"))
+	// Set up expectations for error case with pagination
+	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
+		Limit:  10,
+		Offset: 0,
+	}).Return([]models.Instance{}, errors.New("database error"))
 
 	// Create test request
 	req := httptest.NewRequest("GET", "/public-ips", nil)
@@ -342,8 +353,11 @@ func TestGetAllMetadata(t *testing.T) {
 		},
 	}
 
-	// Set up expectations
-	mockInstanceService.On("GetPublicIPs", mock.Anything).Return(testInstances, nil)
+	// Set up expectations with pagination
+	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
+		Limit:  10,
+		Offset: 0,
+	}).Return(testInstances, nil)
 
 	// Create test request
 	req := httptest.NewRequest("GET", "/all-metadata", nil)
@@ -390,6 +404,11 @@ func TestGetAllMetadata(t *testing.T) {
 	assert.Equal(t, []interface{}{"test"}, instance2["tags"])
 	assert.Equal(t, "ready", instance2["status"])
 
+	// Verify pagination info
+	assert.Equal(t, float64(1), result["page"])
+	assert.Equal(t, float64(10), result["limit"])
+	assert.Equal(t, float64(0), result["offset"])
+
 	// Verify mock expectations
 	mockInstanceService.AssertExpectations(t)
 }
@@ -406,8 +425,11 @@ func TestGetAllMetadataError(t *testing.T) {
 	app := fiber.New()
 	app.Get("/all-metadata", handler.GetAllMetadata)
 
-	// Set up expectations for error case
-	mockInstanceService.On("GetPublicIPs", mock.Anything).Return([]models.Instance{}, errors.New("database error"))
+	// Set up expectations for error case with pagination
+	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
+		Limit:  10,
+		Offset: 0,
+	}).Return([]models.Instance{}, errors.New("database error"))
 
 	// Create test request
 	req := httptest.NewRequest("GET", "/all-metadata", nil)
