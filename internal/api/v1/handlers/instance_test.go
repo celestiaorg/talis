@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http/httptest"
 	"testing"
@@ -90,45 +89,6 @@ func (m *MockJobService) UpdateJobStatus(ctx context.Context, id uint, status mo
 func (m *MockJobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
 	args := m.Called(ctx, projectName)
 	return args.Get(0).(*models.Job), args.Error(1)
-}
-
-type mockInstanceService struct {
-	instances []models.Instance
-}
-
-func (m *mockInstanceService) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
-	for _, instance := range m.instances {
-		if instance.ID == id {
-			return &instance, nil
-		}
-	}
-	return nil, fmt.Errorf("instance not found")
-}
-
-func (m *mockInstanceService) GetPublicIPs(ctx context.Context) ([]models.Instance, error) {
-	return m.instances, nil
-}
-
-func (m *mockInstanceService) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
-	var jobInstances []models.Instance
-	for _, instance := range m.instances {
-		if instance.JobID == jobID {
-			jobInstances = append(jobInstances, instance)
-		}
-	}
-	return jobInstances, nil
-}
-
-func (m *mockInstanceService) ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
-	return m.instances, nil
-}
-
-func (m *mockInstanceService) CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
-	return nil, nil
-}
-
-func (m *mockInstanceService) DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
-	return nil, nil
 }
 
 func TestGetPublicIPs(t *testing.T) {
