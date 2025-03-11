@@ -186,18 +186,9 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
-	// Convert instances to a slice of maps with only IP and job ID
-	ipMaps := make([]map[string]interface{}, len(instances))
-	for i, instance := range instances {
-		ipMaps[i] = map[string]interface{}{
-			"public_ip": instance.PublicIP,
-			"job_id":    instance.JobID,
-		}
-	}
-
-	// Return only the public IPs and job IDs with pagination info
+	// Return instances with pagination info
 	return c.JSON(fiber.Map{
-		"instances": ipMaps,
+		"instances": instances,
 		"total":     len(instances),
 		"page":      page,
 		"limit":     limit,
@@ -234,26 +225,9 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
-	// Convert instances to a slice of maps with all metadata
-	instanceMaps := make([]map[string]interface{}, len(instances))
-	for i, instance := range instances {
-		instanceMaps[i] = map[string]interface{}{
-			"id":         instance.ID,
-			"job_id":     instance.JobID,
-			"name":       instance.Name,
-			"public_ip":  instance.PublicIP,
-			"region":     instance.Region,
-			"size":       instance.Size,
-			"image":      instance.Image,
-			"tags":       instance.Tags,
-			"status":     instance.Status.String(),
-			"created_at": instance.CreatedAt,
-		}
-	}
-
-	// Return all instance metadata with pagination info
+	// Return instances with pagination info
 	return c.JSON(fiber.Map{
-		"instances": instanceMaps,
+		"instances": instances,
 		"total":     len(instances),
 		"page":      page,
 		"limit":     limit,
