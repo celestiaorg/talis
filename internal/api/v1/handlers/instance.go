@@ -234,9 +234,26 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
+	// Convert instances to the format expected by the test
+	result := make([]map[string]interface{}, len(instances))
+	for i, instance := range instances {
+		result[i] = map[string]interface{}{
+			"id":         instance.ID,
+			"job_id":     instance.JobID,
+			"public_ip":  instance.PublicIP,
+			"name":       instance.Name,
+			"region":     instance.Region,
+			"size":       instance.Size,
+			"image":      instance.Image,
+			"tags":       instance.Tags,
+			"status":     instance.Status,
+			"created_at": instance.CreatedAt,
+		}
+	}
+
 	// Return instances with pagination info
 	return c.JSON(fiber.Map{
-		"instances": instances,
+		"instances": result,
 		"total":     len(instances),
 		"page":      page,
 		"limit":     limit,
@@ -271,16 +288,27 @@ func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances for job %d\n", len(instances), jobID)
 
-	// Convert instances to simplified format with only public IPs
-	publicIPs := make([]string, len(instances))
+	// Convert instances to the format expected by the test
+	result := make([]map[string]interface{}, len(instances))
 	for i, instance := range instances {
-		publicIPs[i] = instance.PublicIP
+		result[i] = map[string]interface{}{
+			"id":         instance.ID,
+			"job_id":     instance.JobID,
+			"public_ip":  instance.PublicIP,
+			"name":       instance.Name,
+			"region":     instance.Region,
+			"size":       instance.Size,
+			"image":      instance.Image,
+			"tags":       instance.Tags,
+			"status":     instance.Status,
+			"created_at": instance.CreatedAt,
+		}
 	}
 
-	// Return the public IPs
+	// Return all instance details
 	return c.JSON(fiber.Map{
-		"public_ips": publicIPs,
-		"total":      len(instances),
-		"job_id":     jobID,
+		"instances": result,
+		"total":     len(instances),
+		"job_id":    jobID,
 	})
 }
