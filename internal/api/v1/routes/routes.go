@@ -16,28 +16,24 @@ func RegisterRoutes(
 	v1 := app.Group("/api/v1")
 
 	// ---------------------------
-	// Instances endpoints
-	// ---------------------------
-	instances := v1.Group("/instances")
-
-	// Public IPs endpoint (specific route)
-	instances.Get("/public-ips", instanceHandler.GetPublicIPs).Name("GetPublicIPs")
-	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name("GetAllMetadata")
-	instances.Get("/job/:jobId", instanceHandler.GetInstancesByJobID).Name("GetInstancesByJobID")
-
-	// CRUD endpoints
-	instances.Get("/", instanceHandler.ListInstances).Name("ListInstances")
-	instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
-	instances.Delete("/", instanceHandler.DeleteInstance).Name("DeleteInstance")
-	instances.Get("/:id", instanceHandler.GetInstance).Name("GetInstance")
-
-	// ---------------------------
 	// Jobs endpoints
 	// ---------------------------
 	jobs := v1.Group("/jobs")
-	jobs.Get("/", jobHandler.ListJobs).Name("ListJobs")
 	jobs.Get("/:id", jobHandler.GetJobStatus).Name("GetJobStatus")
 	jobs.Post("/", jobHandler.CreateJob).Name("CreateJob")
+
+	// Job instances endpoints
+	jobInstances := jobs.Group("/:jobId/instances")
+	jobInstances.Get("/", instanceHandler.GetInstancesByJobID).Name("GetInstancesByJobID")
+	jobInstances.Get("/public-ips", instanceHandler.GetPublicIPs).Name("GetPublicIPs")
+	jobInstances.Get("/:instanceId", instanceHandler.GetInstance).Name("GetInstance")
+	jobInstances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
+	jobInstances.Delete("/", instanceHandler.DeleteInstance).Name("DeleteInstance")
+
+	// Admin endpoints for instances (all jobs)
+	instances := v1.Group("/instances")
+	instances.Get("/", instanceHandler.ListInstances).Name("ListInstances")
+	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name("GetAllMetadata")
 
 	// ---------------------------
 	// Health check

@@ -56,12 +56,18 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	var (
 		limit  = c.QueryInt("limit", 10)
 		offset = c.QueryInt("offset", 0)
+		status = models.JobStatusUnknown
 	)
-	status, err := models.ParseJobStatus(c.Query("status"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid job status",
-		})
+
+	// Parse status if provided
+	if statusStr := c.Query("status"); statusStr != "" {
+		var err error
+		status, err = models.ParseJobStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid job status",
+			})
+		}
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
