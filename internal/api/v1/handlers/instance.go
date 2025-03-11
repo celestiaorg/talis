@@ -246,17 +246,15 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 
 // GetInstancesByJobID returns a list of instances for a specific job
 func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
-	jobIDStr := c.Params("jobId")
-	if jobIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "job id is required",
-		})
-	}
-
-	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
+	jobID, err := c.ParamsInt("jobId")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "invalid job id",
+		})
+	}
+	if jobID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job id is required",
 		})
 	}
 
