@@ -13,8 +13,8 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// InstanceServiceInterface defines the interface for instance operations
-type InstanceServiceInterface interface {
+// Instance defines the interface for instance operations
+type Instance interface {
 	ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
 	CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error)
 	DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error)
@@ -23,8 +23,8 @@ type InstanceServiceInterface interface {
 	GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error)
 }
 
-// JobServiceInterface defines the interface for job operations
-type JobServiceInterface interface {
+// Job defines the interface for job operations
+type Job interface {
 	CreateJob(ctx context.Context, job *models.Job) (*models.Job, error)
 	UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error
 	GetByProjectName(ctx context.Context, projectName string) (*models.Job, error)
@@ -33,11 +33,11 @@ type JobServiceInterface interface {
 // InstanceService provides business logic for instance operations
 type InstanceService struct {
 	repo       *repos.InstanceRepository
-	jobService JobServiceInterface
+	jobService Job
 }
 
 // NewInstanceService creates a new instance service instance
-func NewInstanceService(repo *repos.InstanceRepository, jobService JobServiceInterface) *InstanceService {
+func NewInstanceService(repo *repos.InstanceRepository, jobService Job) *InstanceService {
 	return &InstanceService{
 		repo:       repo,
 		jobService: jobService,

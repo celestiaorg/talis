@@ -13,12 +13,12 @@ import (
 
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
-	service    services.InstanceServiceInterface
-	jobService services.JobServiceInterface
+	service    services.Instance
+	jobService services.Job
 }
 
 // NewInstanceHandler creates a new instance handler instance
-func NewInstanceHandler(service services.InstanceServiceInterface, jobService services.JobServiceInterface) *InstanceHandler {
+func NewInstanceHandler(service services.Instance, jobService services.Job) *InstanceHandler {
 	return &InstanceHandler{
 		service:    service,
 		jobService: jobService,
