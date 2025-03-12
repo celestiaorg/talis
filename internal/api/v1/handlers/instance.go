@@ -113,7 +113,8 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: I think if no instances are provided it should just delete all instances for the job
+	// TODO: I think if no instances are provided it should just delete all instances for the job.
+	// In order to do this we need the provider info which will be a DB request from DeleteInstance.
 	if len(req.Instances) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "at least one instance is required",
