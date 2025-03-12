@@ -1,14 +1,12 @@
-package mocks
+package compute
 
 import (
 	"context"
 
 	"github.com/digitalocean/godo"
-
-	"github.com/celestiaorg/talis/internal/compute"
 )
 
-// MockDOClient implements compute.DOClient for testing
+// MockDOClient implements DOClient for testing
 type MockDOClient struct {
 	MockDropletService *MockDropletService
 	MockKeyService     *MockKeyService
@@ -23,16 +21,16 @@ func NewMockDOClient() *MockDOClient {
 }
 
 // Droplets returns the mock droplet service
-func (c *MockDOClient) Droplets() compute.DropletService {
+func (c *MockDOClient) Droplets() DropletService {
 	return c.MockDropletService
 }
 
 // Keys returns the mock key service
-func (c *MockDOClient) Keys() compute.KeyService {
+func (c *MockDOClient) Keys() KeyService {
 	return c.MockKeyService
 }
 
-// MockDropletService implements compute.DropletService for testing
+// MockDropletService implements DropletService for testing
 type MockDropletService struct {
 	CreateFunc         func(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
 	CreateMultipleFunc func(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
@@ -86,7 +84,7 @@ func (s *MockDropletService) List(ctx context.Context, opt *godo.ListOptions) ([
 	return nil, nil, nil
 }
 
-// MockKeyService implements compute.KeyService for testing
+// MockKeyService implements KeyService for testing
 type MockKeyService struct {
 	ListFunc func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error)
 }

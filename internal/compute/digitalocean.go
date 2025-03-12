@@ -95,7 +95,7 @@ func (s *DefaultKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]
 
 // DigitalOceanProvider implements the ComputeProvider interface
 type DigitalOceanProvider struct {
-	DOClient DOClient // Exported for testing
+	doClient DOClient
 }
 
 // NewDigitalOceanProvider creates a new DigitalOcean provider instance
@@ -109,13 +109,18 @@ func NewDigitalOceanProvider() (*DigitalOceanProvider, error) {
 	doClient := NewDOClient(token)
 
 	return &DigitalOceanProvider{
-		DOClient: doClient,
+		doClient: doClient,
 	}, nil
+}
+
+// SetClient sets the DOClient for testing purposes
+func (p *DigitalOceanProvider) SetClient(client DOClient) {
+	p.doClient = client
 }
 
 // ValidateCredentials validates the DigitalOcean credentials
 func (p *DigitalOceanProvider) ValidateCredentials() error {
-	if p.DOClient == nil {
+	if p.doClient == nil {
 		return fmt.Errorf("client not initialized")
 	}
 	return nil
@@ -135,14 +140,14 @@ func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
 
 // getSSHKeyID gets the ID of an SSH key by its name
 func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
-	if p.DOClient == nil {
+	if p.doClient == nil {
 		return 0, fmt.Errorf("client not initialized")
 	}
 
 	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
 
 	// List all SSH keys
-	keys, _, err := p.DOClient.Keys().List(ctx, &godo.ListOptions{})
+	keys, _, err := p.doClient.Keys().List(ctx, &godo.ListOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to list SSH keys: %w", err)
 	}
@@ -173,13 +178,13 @@ func (p *DigitalOceanProvider) waitForIP(
 	dropletID int,
 	maxRetries int,
 ) (string, error) {
-	if p.DOClient == nil {
+	if p.doClient == nil {
 		return "", fmt.Errorf("client not initialized")
 	}
 
 	fmt.Println("⏳ Waiting for droplet to get an IP address...")
 	for i := 0; i < maxRetries; i++ {
-		d, _, err := p.DOClient.Droplets().Get(ctx, dropletID)
+		d, _, err := p.doClient.Droplets().Get(ctx, dropletID)
 		if err != nil {
 			return "", fmt.Errorf("failed to get droplet details: %w", err)
 		}
@@ -208,7 +213,7 @@ func (p *DigitalOceanProvider) CreateInstance(
 	name string,
 	config InstanceConfig,
 ) ([]InstanceInfo, error) {
-	if p.DOClient == nil {
+	if p.doClient == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
@@ -262,7 +267,7 @@ apt-get install -y python3`,
 			}
 
 			fmt.Printf("🚀 Creating batch %d of droplets (%d instances)...\n", batchNumber+1, batchSize)
-			droplets, _, err := p.DOClient.Droplets().CreateMultiple(ctx, createRequest)
+			droplets, _, err := p.doClient.Droplets().CreateMultiple(ctx, createRequest)
 			if err != nil {
 				fmt.Printf("❌ Failed to create droplets in batch %d: %v\n", batchNumber+1, err)
 				return nil, fmt.Errorf("failed to create droplets: %w", err)
@@ -316,7 +321,7 @@ apt-get install -y python3`,
 	}
 
 	// Create the droplet
-	droplet, _, err := p.DOClient.Droplets().Create(ctx, createRequest)
+	droplet, _, err := p.doClient.Droplets().Create(ctx, createRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create droplet: %w", err)
 	}
@@ -343,14 +348,14 @@ apt-get install -y python3`,
 
 // DeleteInstance deletes a DigitalOcean droplet
 func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, region string) error {
-	if p.DOClient == nil {
+	if p.doClient == nil {
 		return fmt.Errorf("client not initialized")
 	}
 
 	fmt.Printf("🗑️ Deleting DigitalOcean droplet: %s in region %s\n", name, region)
 
 	// List all droplets to find the one with our name in the specific region
-	droplets, _, err := p.DOClient.Droplets().List(ctx, &godo.ListOptions{})
+	droplets, _, err := p.doClient.Droplets().List(ctx, &godo.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list droplets: %w", err)
 	}
@@ -373,7 +378,7 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 
 	// Delete the droplet
 	fmt.Printf("🗑️ Deleting droplet with ID: %d\n", dropletID)
-	_, err = p.DOClient.Droplets().Delete(ctx, dropletID)
+	_, err = p.doClient.Droplets().Delete(ctx, dropletID)
 	if err != nil {
 		return fmt.Errorf("failed to delete droplet: %w", err)
 	}
@@ -384,14 +389,14 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 
 // waitForDeletion waits for a droplet to be fully deleted
 func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
-	if p.DOClient == nil {
+	if p.doClient == nil {
 		return fmt.Errorf("client not initialized")
 	}
 
 	fmt.Printf("⏳ Waiting for droplet %s in region %s to be deleted...\n", name, region)
 	for i := 0; i < maxRetries; i++ {
 		// Try to list the droplet
-		droplets, _, err := p.DOClient.Droplets().List(ctx, &godo.ListOptions{})
+		droplets, _, err := p.doClient.Droplets().List(ctx, &godo.ListOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to list droplets: %w", err)
 		}
