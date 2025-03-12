@@ -1,0 +1,909 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>compute: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/celestiaorg/talis/internal/compute/ansible.go (0.0%)</option>
+				
+				<option value="file1">github.com/celestiaorg/talis/internal/compute/digitalocean.go (49.7%)</option>
+				
+				<option value="file2">github.com/celestiaorg/talis/internal/compute/provider.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package compute
+
+import (
+        "fmt"
+        "os"
+        "os/exec"
+        "sync"
+        "time"
+)
+
+const (
+        // ansibleDebug is the verbose mode for ansible
+        //
+        //nolint:unused // Will be used in future implementation
+        ansibleDebug = false
+)
+
+// AnsibleConfigurator implements the Provisioner interface
+type AnsibleConfigurator struct {
+        // jobID is the unique identifier for the current job
+        jobID string
+        // instances keeps track of all instances to be configured
+        instances map[string]string
+        // sshKeyPath stores the SSH key path for all instances
+        sshKeyPath string
+        // mutex protects the instances map
+        mutex sync.Mutex
+}
+
+// NewAnsibleConfigurator creates a new Ansible configurator
+func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator <span class="cov0" title="0">{
+        return &amp;AnsibleConfigurator{
+                jobID:     jobID,
+                instances: make(map[string]string),
+        }
+}</span>
+
+// CreateInventory creates the inventory file with all instances
+func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error <span class="cov0" title="0">{
+        fmt.Printf("📝 Creating inventory for job %s...\n", a.jobID)
+
+        // Create inventory path with base name
+        inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
+
+        // Create ansible directory with secure permissions
+        if err := os.MkdirAll("ansible", 0750); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create ansible directory: %w", err)
+        }</span>
+
+        // Create inventory file with secure permissions
+        // #nosec G304 -- inventory path is constructed from validated job ID
+        <span class="cov0" title="0">f, err := os.OpenFile(inventoryPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create inventory file: %w", err)
+        }</span>
+        <span class="cov0" title="0">defer func() </span><span class="cov0" title="0">{
+                if closeErr := f.Close(); closeErr != nil </span><span class="cov0" title="0">{
+                        err = fmt.Errorf("failed to close inventory file: %w", closeErr)
+                }</span>
+        }()
+
+        // Write header with SSH settings and variables first
+        <span class="cov0" title="0">header := "[all:vars]\nansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'\n\n[all]\n"
+        if _, err := f.WriteString(header); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to write inventory header: %w", err)
+        }</span>
+
+        // Write all instances
+        <span class="cov0" title="0">for name, ip := range instances </span><span class="cov0" title="0">{
+                // Always use the provided key path and root user for SSH
+                expandedKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+                line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s", name, ip, expandedKeyPath)
+                line += "\n"
+
+                if _, err := f.WriteString(line); err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to write instance to inventory: %w", err)
+                }</span>
+        }
+
+        <span class="cov0" title="0">fmt.Printf("✅ Created inventory file at %s\n", inventoryPath)
+        return nil</span>
+}
+
+// RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
+func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error <span class="cov0" title="0">{
+        fmt.Println("🎭 Running Ansible playbook...")
+
+        // Create inventory path with name
+        inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
+
+        // Prepare command arguments
+        args := []string{
+                "-i", inventoryPath,
+                // Run serially
+                "--forks", "1",
+                // // Add extra verbosity
+                // "-vvv",
+        }
+
+        // Add playbook path
+        args = append(args, "ansible/playbook.yml")
+
+        // Run ansible-playbook command
+        // #nosec G204 -- command arguments are constructed from validated inputs
+        cmd := exec.Command("ansible-playbook", args...)
+
+        // Disable host key checking and known hosts file
+        env := os.Environ()
+        env = append(env, "ANSIBLE_HOST_KEY_CHECKING=false")
+        env = append(env, "ANSIBLE_RETRY_FILES_ENABLED=false")
+        cmd.Env = env
+
+        // Redirect output to stdout
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+
+        if err := cmd.Run(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to run ansible playbook (check output above for details): %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// ConfigureHost implements the Provisioner interface
+func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) error <span class="cov0" title="0">{
+        // Store instance and SSH key path
+        a.mutex.Lock()
+        instanceName := fmt.Sprintf("%s-%d", a.jobID, len(a.instances))
+        a.instances[instanceName] = host
+        a.sshKeyPath = sshKeyPath
+        a.mutex.Unlock()
+
+        fmt.Printf("🔧 Configuring host %s (instance: %s)...\n", host, instanceName)
+
+        // Wait for SSH to be available
+        fmt.Printf("⏳ Waiting for SSH to be available on %s...\n", host)
+        for i := 0; i &lt; 30; i++ </span><span class="cov0" title="0">{
+                args := []string{
+                        "-i", sshKeyPath,
+                        "-o", "StrictHostKeyChecking=no",
+                        "-o", "UserKnownHostsFile=/dev/null",
+                        "-o", "ConnectTimeout=5",
+                        fmt.Sprintf("root@%s", host),
+                        "echo 'SSH is ready'",
+                }
+
+                // #nosec G204 -- command arguments are constructed from validated inputs
+                checkCmd := exec.Command("ssh", args...)
+
+                if err := checkCmd.Run(); err == nil </span><span class="cov0" title="0">{
+                        fmt.Printf("✅ SSH connection established to %s\n", host)
+                        break</span>
+                }
+
+                <span class="cov0" title="0">if i == 29 </span><span class="cov0" title="0">{
+                        return fmt.Errorf("timeout waiting for SSH to be ready on %s after 5 minutes", host)
+                }</span>
+
+                <span class="cov0" title="0">fmt.Printf("  Retrying SSH connection to %s in 10 seconds... (%d/30)\n", host, i+1)
+                time.Sleep(10 * time.Second)</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// ConfigureHosts configures multiple hosts in parallel
+func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) error <span class="cov0" title="0">{
+        var wg sync.WaitGroup
+        errChan := make(chan error, len(hosts))
+
+        for _, host := range hosts </span><span class="cov0" title="0">{
+                wg.Add(1)
+                go func(h string) </span><span class="cov0" title="0">{
+                        defer wg.Done()
+                        if err := a.ConfigureHost(h, sshKeyPath); err != nil </span><span class="cov0" title="0">{
+                                errChan &lt;- fmt.Errorf("failed to configure host %s: %w", h, err)
+                        }</span>
+                }(host)
+        }
+
+        // Wait for all goroutines to finish
+        <span class="cov0" title="0">wg.Wait()
+        close(errChan)
+
+        // Check for any errors
+        var errors []error
+        for err := range errChan </span><span class="cov0" title="0">{
+                errors = append(errors, err)
+        }</span>
+
+        <span class="cov0" title="0">if len(errors) &gt; 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to configure some hosts: %v", errors)
+        }</span>
+
+        // Create/update inventory with all instances
+        <span class="cov0" title="0">if err := a.CreateInventory(a.instances, sshKeyPath); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to create inventory: %w", err)
+        }</span>
+
+        // Run Ansible playbook
+        <span class="cov0" title="0">if err := a.RunAnsiblePlaybook(a.jobID); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to run Ansible playbook: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">// DigitalOcean provider for creating and managing DigitalOcean droplets
+// https://github.com/digitalocean/godo/blob/main/droplets.go#L18
+package compute
+
+import (
+        "context"
+        "fmt"
+        "os"
+        "time"
+
+        "github.com/digitalocean/godo"
+)
+
+// DOClient defines the interface for interacting with DigitalOcean API
+type DOClient interface {
+        Droplets() DropletService
+        Keys() KeyService
+}
+
+// DropletService defines the interface for DigitalOcean droplet operations
+type DropletService interface {
+        Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
+        CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
+        Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
+        Delete(ctx context.Context, id int) (*godo.Response, error)
+        List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+}
+
+// KeyService defines the interface for DigitalOcean SSH key operations
+type KeyService interface {
+        List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error)
+}
+
+// DefaultDOClient is the standard implementation of DOClient using godo
+type DefaultDOClient struct {
+        client *godo.Client
+}
+
+// NewDOClient creates a new DefaultDOClient
+func NewDOClient(token string) DOClient <span class="cov8" title="1">{
+        return &amp;DefaultDOClient{
+                client: godo.NewFromToken(token),
+        }
+}</span>
+
+// Droplets returns the droplet service
+func (c *DefaultDOClient) Droplets() DropletService <span class="cov0" title="0">{
+        return &amp;DefaultDropletService{service: c.client.Droplets}
+}</span>
+
+// Keys returns the key service
+func (c *DefaultDOClient) Keys() KeyService <span class="cov0" title="0">{
+        return &amp;DefaultKeyService{service: c.client.Keys}
+}</span>
+
+// DefaultDropletService implements DropletService using godo
+type DefaultDropletService struct {
+        service godo.DropletsService
+}
+
+// Create creates a new droplet
+func (s *DefaultDropletService) Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) <span class="cov0" title="0">{
+        return s.service.Create(ctx, createRequest)
+}</span>
+
+// CreateMultiple creates multiple droplets
+func (s *DefaultDropletService) CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) <span class="cov0" title="0">{
+        return s.service.CreateMultiple(ctx, createRequest)
+}</span>
+
+// Get retrieves a droplet by ID
+func (s *DefaultDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) <span class="cov0" title="0">{
+        return s.service.Get(ctx, id)
+}</span>
+
+// Delete deletes a droplet
+func (s *DefaultDropletService) Delete(ctx context.Context, id int) (*godo.Response, error) <span class="cov0" title="0">{
+        return s.service.Delete(ctx, id)
+}</span>
+
+// List lists all droplets
+func (s *DefaultDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) <span class="cov0" title="0">{
+        return s.service.List(ctx, opt)
+}</span>
+
+// DefaultKeyService implements KeyService using godo
+type DefaultKeyService struct {
+        service godo.KeysService
+}
+
+// List lists all SSH keys
+func (s *DefaultKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) <span class="cov0" title="0">{
+        return s.service.List(ctx, opt)
+}</span>
+
+// DigitalOceanProvider implements the ComputeProvider interface
+type DigitalOceanProvider struct {
+        DOClient DOClient // Exported for testing
+}
+
+// NewDigitalOceanProvider creates a new DigitalOcean provider instance
+func NewDigitalOceanProvider() (*DigitalOceanProvider, error) <span class="cov8" title="1">{
+        token := os.Getenv("DIGITALOCEAN_TOKEN")
+        if token == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
+        }</span>
+
+        // Create DigitalOcean API client
+        <span class="cov8" title="1">doClient := NewDOClient(token)
+
+        return &amp;DigitalOceanProvider{
+                DOClient: doClient,
+        }, nil</span>
+}
+
+// ValidateCredentials validates the DigitalOcean credentials
+func (p *DigitalOceanProvider) ValidateCredentials() error <span class="cov8" title="1">{
+        if p.DOClient == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("client not initialized")
+        }</span>
+        <span class="cov8" title="1">return nil</span>
+}
+
+// GetEnvironmentVars returns the environment variables needed for DigitalOcean
+func (p *DigitalOceanProvider) GetEnvironmentVars() map[string]string <span class="cov8" title="1">{
+        return map[string]string{
+                "DIGITALOCEAN_TOKEN": os.Getenv("DIGITALOCEAN_TOKEN"),
+        }
+}</span>
+
+// ConfigureProvider is a no-op since we're not using Pulumi anymore
+func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error <span class="cov8" title="1">{
+        return nil
+}</span>
+
+// findSSHKeyByName finds an SSH key by name from a list of keys
+func findSSHKeyByName(keys []godo.Key, keyName string) (int, bool) <span class="cov8" title="1">{
+        for _, key := range keys </span><span class="cov8" title="1">{
+                if key.Name == keyName </span><span class="cov8" title="1">{
+                        return key.ID, true
+                }</span>
+        }
+        <span class="cov0" title="0">return 0, false</span>
+}
+
+// printAvailableKeys prints available SSH keys for diagnostic purposes
+func printAvailableKeys(keys []godo.Key) <span class="cov0" title="0">{
+        if len(keys) &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Println("Available SSH keys:")
+                for _, key := range keys </span><span class="cov0" title="0">{
+                        fmt.Printf("  - %s (ID: %d)\n", key.Name, key.ID)
+                }</span>
+        }
+}
+
+// getSSHKeyID gets the ID of an SSH key by its name
+func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) <span class="cov8" title="1">{
+        if p.DOClient == nil </span><span class="cov8" title="1">{
+                return 0, fmt.Errorf("client not initialized")
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
+
+        // List all SSH keys
+        keys, _, err := p.DOClient.Keys().List(ctx, &amp;godo.ListOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to list SSH keys: %w", err)
+        }</span>
+
+        // Find the key by name
+        <span class="cov8" title="1">keyID, found := findSSHKeyByName(keys, keyName)
+        if found </span><span class="cov8" title="1">{
+                fmt.Printf("✅ Found SSH key '%s' with ID: %d\n", keyName, keyID)
+                return keyID, nil
+        }</span>
+
+        // If we get here, print available keys to help with diagnosis
+        <span class="cov0" title="0">printAvailableKeys(keys)
+
+        return 0, fmt.Errorf("SSH key '%s' not found", keyName)</span>
+}
+
+// getPublicIPFromDroplet extracts the public IP address from droplet networks
+func getPublicIPFromDroplet(droplet *godo.Droplet) (string, bool) <span class="cov8" title="1">{
+        if droplet == nil || droplet.Networks == nil </span><span class="cov0" title="0">{
+                return "", false
+        }</span>
+
+        <span class="cov8" title="1">for _, network := range droplet.Networks.V4 </span><span class="cov8" title="1">{
+                if network.Type == "public" </span><span class="cov8" title="1">{
+                        return network.IPAddress, true
+                }</span>
+        }
+        <span class="cov0" title="0">return "", false</span>
+}
+
+// waitForIP waits for a droplet to get an IP address
+func (p *DigitalOceanProvider) waitForIP(
+        ctx context.Context,
+        dropletID int,
+        maxRetries int,
+) (string, error) <span class="cov8" title="1">{
+        if p.DOClient == nil </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("client not initialized")
+        }</span>
+
+        <span class="cov8" title="1">fmt.Println("⏳ Waiting for droplet to get an IP address...")
+        for i := 0; i &lt; maxRetries; i++ </span><span class="cov8" title="1">{
+                d, _, err := p.DOClient.Droplets().Get(ctx, dropletID)
+                if err != nil </span><span class="cov0" title="0">{
+                        return "", fmt.Errorf("failed to get droplet details: %w", err)
+                }</span>
+
+                // Get the public IPv4 address
+                <span class="cov8" title="1">ip, found := getPublicIPFromDroplet(d)
+                if found </span><span class="cov8" title="1">{
+                        fmt.Printf("📍 Found public IP for droplet: %s\n", ip)
+                        return ip, nil
+                }</span>
+
+                <span class="cov0" title="0">fmt.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...\n", i+1, maxRetries)
+                time.Sleep(10 * time.Second)</span>
+        }
+
+        <span class="cov0" title="0">return "", fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)</span>
+}
+
+// createDropletRequest creates a DropletCreateRequest with common configuration
+func (p *DigitalOceanProvider) createDropletRequest(
+        name string,
+        config InstanceConfig,
+        sshKeyID int,
+) *godo.DropletCreateRequest <span class="cov8" title="1">{
+        return &amp;godo.DropletCreateRequest{
+                Name:   name,
+                Region: config.Region,
+                Size:   config.Size,
+                Image: godo.DropletCreateImage{
+                        Slug: config.Image,
+                },
+                SSHKeys: []godo.DropletCreateSSHKey{
+                        {ID: sshKeyID},
+                },
+                Tags: append([]string{name}, config.Tags...),
+                UserData: `#!/bin/bash
+apt-get update
+apt-get install -y python3`,
+        }
+}</span>
+
+// createMultiDropletRequest creates a DropletMultiCreateRequest with common configuration
+func (p *DigitalOceanProvider) createMultiDropletRequest(
+        names []string,
+        config InstanceConfig,
+        sshKeyID int,
+) *godo.DropletMultiCreateRequest <span class="cov0" title="0">{
+        return &amp;godo.DropletMultiCreateRequest{
+                Names:  names,
+                Region: config.Region,
+                Size:   config.Size,
+                Image: godo.DropletCreateImage{
+                        Slug: config.Image,
+                },
+                SSHKeys: []godo.DropletCreateSSHKey{
+                        {ID: sshKeyID},
+                },
+                Tags: append([]string{names[0]}, config.Tags...),
+                UserData: `#!/bin/bash
+apt-get update
+apt-get install -y python3`,
+        }
+}</span>
+
+// generateBatchNames generates names for a batch of droplets
+func generateBatchNames(baseName string, startIndex int, count int) []string <span class="cov0" title="0">{
+        names := make([]string, count)
+        for i := 0; i &lt; count; i++ </span><span class="cov0" title="0">{
+                names[i] = fmt.Sprintf("%s-%d", baseName, startIndex+i)
+        }</span>
+        <span class="cov0" title="0">return names</span>
+}
+
+// createDropletInfo creates an InstanceInfo from a droplet and IP
+func createDropletInfo(droplet godo.Droplet, ip string, region string, size string) InstanceInfo <span class="cov8" title="1">{
+        return InstanceInfo{
+                ID:       fmt.Sprintf("%d", droplet.ID),
+                Name:     droplet.Name,
+                PublicIP: ip,
+                Provider: "digitalocean",
+                Region:   region,
+                Size:     size,
+        }
+}</span>
+
+// createMultipleDroplets creates multiple droplets using the CreateMultiple API
+func (p *DigitalOceanProvider) createMultipleDroplets(
+        ctx context.Context,
+        name string,
+        config InstanceConfig,
+        sshKeyID int,
+) ([]InstanceInfo, error) <span class="cov0" title="0">{
+        if p.DOClient == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("client not initialized")
+        }</span>
+
+        <span class="cov0" title="0">const maxDropletsPerBatch = 10
+        var allInstances []InstanceInfo
+        remainingInstances := config.NumberOfInstances
+        batchNumber := 0
+
+        for remainingInstances &gt; 0 </span><span class="cov0" title="0">{
+                // Calculate how many instances to create in this batch
+                batchSize := remainingInstances
+                if batchSize &gt; maxDropletsPerBatch </span><span class="cov0" title="0">{
+                        batchSize = maxDropletsPerBatch
+                }</span>
+
+                // Create names for this batch
+                <span class="cov0" title="0">startIndex := batchNumber * maxDropletsPerBatch
+                names := generateBatchNames(name, startIndex, batchSize)
+
+                // Create the request
+                createRequest := p.createMultiDropletRequest(names, config, sshKeyID)
+
+                fmt.Printf("🚀 Creating batch %d of droplets (%d instances)...\n", batchNumber+1, batchSize)
+                droplets, _, err := p.DOClient.Droplets().CreateMultiple(ctx, createRequest)
+                if err != nil </span><span class="cov0" title="0">{
+                        fmt.Printf("❌ Failed to create droplets in batch %d: %v\n", batchNumber+1, err)
+                        return nil, fmt.Errorf("failed to create droplets: %w", err)
+                }</span>
+
+                // Wait for all droplets in this batch to get their IPs and collect information
+                <span class="cov0" title="0">batchInstances, err := p.processCreatedDroplets(ctx, droplets, config)
+                if err != nil </span><span class="cov0" title="0">{
+                        fmt.Printf("⚠️ Warning: Some droplets in batch %d may not have been processed correctly: %v\n", batchNumber+1, err)
+                }</span>
+
+                <span class="cov0" title="0">allInstances = append(allInstances, batchInstances...)
+                remainingInstances -= batchSize
+                batchNumber++</span>
+        }
+
+        <span class="cov0" title="0">return allInstances, nil</span>
+}
+
+// processCreatedDroplets waits for IPs and creates instance info for created droplets
+func (p *DigitalOceanProvider) processCreatedDroplets(
+        ctx context.Context,
+        droplets []godo.Droplet,
+        config InstanceConfig,
+) ([]InstanceInfo, error) <span class="cov0" title="0">{
+        var instances []InstanceInfo
+        var errors []error
+
+        for _, droplet := range droplets </span><span class="cov0" title="0">{
+                fmt.Printf("⏳ Waiting for droplet %s to get an IP address...\n", droplet.Name)
+                ip, err := p.waitForIP(ctx, droplet.ID, 10)
+                if err != nil </span><span class="cov0" title="0">{
+                        fmt.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v\n", droplet.Name, err)
+                        errors = append(errors, err)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">instance := createDropletInfo(droplet, ip, config.Region, config.Size)
+                instances = append(instances, instance)</span>
+        }
+
+        <span class="cov0" title="0">if len(errors) &gt; 0 </span><span class="cov0" title="0">{
+                return instances, fmt.Errorf("failed to process %d droplets", len(errors))
+        }</span>
+
+        <span class="cov0" title="0">return instances, nil</span>
+}
+
+// createSingleDroplet creates a single droplet
+func (p *DigitalOceanProvider) createSingleDroplet(
+        ctx context.Context,
+        name string,
+        config InstanceConfig,
+        sshKeyID int,
+) (InstanceInfo, error) <span class="cov8" title="1">{
+        // Create the request
+        createRequest := p.createDropletRequest(name, config, sshKeyID)
+
+        // Create the droplet
+        droplet, _, err := p.DOClient.Droplets().Create(ctx, createRequest)
+        if err != nil </span><span class="cov0" title="0">{
+                return InstanceInfo{}, fmt.Errorf("failed to create droplet: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("✅ Droplet created with ID: %d\n", droplet.ID)
+
+        // Wait for the droplet to get an IP address
+        ip, err := p.waitForIP(ctx, droplet.ID, 10)
+        if err != nil </span><span class="cov0" title="0">{
+                return InstanceInfo{}, fmt.Errorf("failed to get droplet IP: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return createDropletInfo(*droplet, ip, config.Region, config.Size), nil</span>
+}
+
+// CreateInstance creates a new DigitalOcean droplet
+func (p *DigitalOceanProvider) CreateInstance(
+        ctx context.Context,
+        name string,
+        config InstanceConfig,
+) ([]InstanceInfo, error) <span class="cov8" title="1">{
+        if p.DOClient == nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("client not initialized")
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("🚀 Creating DigitalOcean droplet: %s\n", name)
+        fmt.Printf("   Region: %s, Size: %s, Image: %s\n", config.Region, config.Size, config.Image)
+
+        // Get SSH key ID
+        sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to get SSH key ID: %w", err)
+        }</span>
+
+        // If creating multiple instances, use the batch API
+        <span class="cov8" title="1">if config.NumberOfInstances &gt; 1 </span><span class="cov0" title="0">{
+                fmt.Printf("🔢 Creating %d instances...\n", config.NumberOfInstances)
+                return p.createMultipleDroplets(ctx, name, config, sshKeyID)
+        }</span>
+
+        // Create a single droplet
+        <span class="cov8" title="1">instance, err := p.createSingleDroplet(ctx, name, config, sshKeyID)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">return []InstanceInfo{instance}, nil</span>
+}
+
+// findDropletByNameAndRegion finds a droplet by name and region
+func findDropletByNameAndRegion(droplets []godo.Droplet, name string, region string) (int, bool) <span class="cov8" title="1">{
+        for _, d := range droplets </span><span class="cov8" title="1">{
+                if d.Name == name &amp;&amp; d.Region.Slug == region </span><span class="cov8" title="1">{
+                        return d.ID, true
+                }</span>
+        }
+        <span class="cov8" title="1">return 0, false</span>
+}
+
+// waitForDeletion waits for a droplet to be fully deleted
+func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int) error <span class="cov8" title="1">{
+        if p.DOClient == nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("client not initialized")
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("⏳ Waiting for droplet %s in region %s to be deleted...\n", name, region)
+        for i := 0; i &lt; maxRetries; i++ </span><span class="cov8" title="1">{
+                // Try to list the droplet
+                droplets, _, err := p.DOClient.Droplets().List(ctx, &amp;godo.ListOptions{})
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to list droplets: %w", err)
+                }</span>
+
+                // Check if the droplet still exists in the specific region
+                <span class="cov8" title="1">_, found := findDropletByNameAndRegion(droplets, name, region)
+                if !found </span><span class="cov8" title="1">{
+                        fmt.Printf("✅ Confirmed droplet %s in region %s has been deleted\n", name, region)
+                        return nil
+                }</span>
+
+                <span class="cov0" title="0">fmt.Printf("⏳ Droplet %s in region %s still exists, retrying in 5 seconds (attempt %d/%d)...\n",
+                        name, region, i+1, maxRetries)
+                time.Sleep(5 * time.Second)</span>
+        }
+
+        <span class="cov0" title="0">return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)</span>
+}
+
+// DeleteInstance deletes a DigitalOcean droplet
+func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, region string) error <span class="cov8" title="1">{
+        if p.DOClient == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("client not initialized")
+        }</span>
+
+        <span class="cov8" title="1">fmt.Printf("🗑️ Deleting DigitalOcean droplet: %s in region %s\n", name, region)
+
+        // List all droplets to find the one with our name in the specific region
+        droplets, _, err := p.DOClient.Droplets().List(ctx, &amp;godo.ListOptions{})
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to list droplets: %w", err)
+        }</span>
+
+        // Find the droplet by name and region
+        <span class="cov8" title="1">dropletID, found := findDropletByNameAndRegion(droplets, name, region)
+        if !found </span><span class="cov0" title="0">{
+                fmt.Printf("⚠️ Droplet %s in region %s not found, nothing to delete\n", name, region)
+                return nil
+        }</span>
+
+        // Delete the droplet
+        <span class="cov8" title="1">fmt.Printf("🗑️ Deleting droplet with ID: %d\n", dropletID)
+        _, err = p.DOClient.Droplets().Delete(ctx, dropletID)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to delete droplet: %w", err)
+        }</span>
+
+        // Wait for the droplet to be fully deleted
+        <span class="cov8" title="1">return p.waitForDeletion(ctx, name, region, 10)</span>
+}
+
+// GetSSHKeyID gets the ID of an SSH key by its name (exported for testing)
+func (p *DigitalOceanProvider) GetSSHKeyID(ctx context.Context, keyName string) (int, error) <span class="cov8" title="1">{
+        return p.getSSHKeyID(ctx, keyName)
+}</span>
+
+// WaitForIP waits for a droplet to get an IP address (exported for testing)
+func (p *DigitalOceanProvider) WaitForIP(ctx context.Context, dropletID int, maxRetries int) (string, error) <span class="cov8" title="1">{
+        return p.waitForIP(ctx, dropletID, maxRetries)
+}</span>
+
+// WaitForDeletion waits for a droplet to be fully deleted (exported for testing)
+func (p *DigitalOceanProvider) WaitForDeletion(ctx context.Context, name string, region string, maxRetries int) error <span class="cov8" title="1">{
+        return p.waitForDeletion(ctx, name, region, maxRetries)
+}</span>
+
+// CreateDropletRequest creates a DropletCreateRequest with common configuration (exported for testing)
+func (p *DigitalOceanProvider) CreateDropletRequest(name string, config InstanceConfig, sshKeyID int) *godo.DropletCreateRequest <span class="cov8" title="1">{
+        return p.createDropletRequest(name, config, sshKeyID)
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package compute
+
+import (
+        "context"
+        "fmt"
+)
+
+// ComputeProvider defines the interface for cloud providers
+type ComputeProvider interface {
+        // ValidateCredentials validates the provider credentials
+        ValidateCredentials() error
+
+        // GetEnvironmentVars returns the environment variables needed for the provider
+        GetEnvironmentVars() map[string]string
+
+        // ConfigureProvider configures the provider with the given stack
+        ConfigureProvider(stack interface{}) error
+
+        // CreateInstance creates a new instance
+        CreateInstance(ctx context.Context, name string, config InstanceConfig) ([]InstanceInfo, error)
+
+        // DeleteInstance deletes an instance
+        DeleteInstance(ctx context.Context, name string, region string) error
+}
+
+// InstanceConfig represents the configuration for creating an instance
+type InstanceConfig struct {
+        Region            string   // Region where to create the instance
+        Size              string   // Size/type of the instance
+        Image             string   // OS image to use
+        SSHKeyID          string   // SSH key name to use
+        Tags              []string // Tags to apply to the instance
+        NumberOfInstances int      // Number of instances to create
+}
+
+// InstanceInfo represents information about a created instance
+type InstanceInfo struct {
+        ID       string // Provider-specific instance ID
+        Name     string // Instance name
+        PublicIP string // Public IP address
+        Provider string // Provider name (e.g., "digitalocean")
+        Region   string // Region where instance was created
+        Size     string // Instance size/type
+}
+
+// Provisioner is the interface for system configuration
+type Provisioner interface {
+        ConfigureHost(host string, sshKeyPath string) error
+        ConfigureHosts(hosts []string, sshKeyPath string) error
+        CreateInventory(instances map[string]string, keyPath string) error
+        RunAnsiblePlaybook(inventoryName string) error
+}
+
+// NewComputeProvider creates a new compute provider based on the provider name
+func NewComputeProvider(provider string) (ComputeProvider, error) <span class="cov0" title="0">{
+        switch provider </span>{
+        case "digitalocean":<span class="cov0" title="0">
+                return NewDigitalOceanProvider()</span>
+        default:<span class="cov0" title="0">
+                return nil, fmt.Errorf("unsupported provider: %s", provider)</span>
+        }
+}
+
+// NewProvisioner creates a new system provisioner
+func NewProvisioner(jobID string) Provisioner <span class="cov0" title="0">{
+        return NewAnsibleConfigurator(jobID)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
