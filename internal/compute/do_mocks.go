@@ -6,32 +6,32 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-// MockDOClient implements DOClient for testing
-type MockDOClient struct {
-	MockDropletService *MockDropletService
-	MockKeyService     *MockKeyService
+// mockDOClient implements DOClient for testing
+type mockDOClient struct {
+	mockDropletService *mockDropletService
+	mockKeyService     *mockKeyService
 }
 
-// NewMockDOClient creates a new MockDOClient
-func NewMockDOClient() *MockDOClient {
-	return &MockDOClient{
-		MockDropletService: NewMockDropletService(),
-		MockKeyService:     NewMockKeyService(),
+// newMockDOClient creates a new mockDOClient
+func newMockDOClient() *mockDOClient {
+	return &mockDOClient{
+		mockDropletService: newMockDropletService(),
+		mockKeyService:     newMockKeyService(),
 	}
 }
 
 // Droplets returns the mock droplet service
-func (c *MockDOClient) Droplets() DropletService {
-	return c.MockDropletService
+func (c *mockDOClient) Droplets() DropletService {
+	return c.mockDropletService
 }
 
 // Keys returns the mock key service
-func (c *MockDOClient) Keys() KeyService {
-	return c.MockKeyService
+func (c *mockDOClient) Keys() KeyService {
+	return c.mockKeyService
 }
 
-// MockDropletService implements DropletService for testing
-type MockDropletService struct {
+// mockDropletService implements DropletService for testing
+type mockDropletService struct {
 	CreateFunc         func(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
 	CreateMultipleFunc func(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
 	GetFunc            func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
@@ -39,13 +39,13 @@ type MockDropletService struct {
 	ListFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 }
 
-// NewMockDropletService creates a new MockDropletService
-func NewMockDropletService() *MockDropletService {
-	return &MockDropletService{}
+// newMockDropletService creates a new mockDropletService
+func newMockDropletService() *mockDropletService {
+	return &mockDropletService{}
 }
 
 // Create calls the mocked Create function
-func (s *MockDropletService) Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
+func (s *mockDropletService) Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
 	if s.CreateFunc != nil {
 		return s.CreateFunc(ctx, createRequest)
 	}
@@ -53,7 +53,7 @@ func (s *MockDropletService) Create(ctx context.Context, createRequest *godo.Dro
 }
 
 // CreateMultiple calls the mocked CreateMultiple function
-func (s *MockDropletService) CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
+func (s *mockDropletService) CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
 	if s.CreateMultipleFunc != nil {
 		return s.CreateMultipleFunc(ctx, createRequest)
 	}
@@ -61,7 +61,7 @@ func (s *MockDropletService) CreateMultiple(ctx context.Context, createRequest *
 }
 
 // Get calls the mocked Get function
-func (s *MockDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+func (s *mockDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 	if s.GetFunc != nil {
 		return s.GetFunc(ctx, id)
 	}
@@ -69,7 +69,7 @@ func (s *MockDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *g
 }
 
 // Delete calls the mocked Delete function
-func (s *MockDropletService) Delete(ctx context.Context, id int) (*godo.Response, error) {
+func (s *mockDropletService) Delete(ctx context.Context, id int) (*godo.Response, error) {
 	if s.DeleteFunc != nil {
 		return s.DeleteFunc(ctx, id)
 	}
@@ -77,25 +77,25 @@ func (s *MockDropletService) Delete(ctx context.Context, id int) (*godo.Response
 }
 
 // List calls the mocked List function
-func (s *MockDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+func (s *mockDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	if s.ListFunc != nil {
 		return s.ListFunc(ctx, opt)
 	}
 	return nil, nil, nil
 }
 
-// MockKeyService implements KeyService for testing
-type MockKeyService struct {
+// mockKeyService implements KeyService for testing
+type mockKeyService struct {
 	ListFunc func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error)
 }
 
-// NewMockKeyService creates a new MockKeyService
-func NewMockKeyService() *MockKeyService {
-	return &MockKeyService{}
+// newMockKeyService creates a new mockKeyService
+func newMockKeyService() *mockKeyService {
+	return &mockKeyService{}
 }
 
 // List calls the mocked List function
-func (s *MockKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
+func (s *mockKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
 	if s.ListFunc != nil {
 		return s.ListFunc(ctx, opt)
 	}
