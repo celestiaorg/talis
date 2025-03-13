@@ -14,6 +14,10 @@ import (
 const (
 	// DefaultPageSize is the default number of items per page
 	DefaultPageSize = 100
+	// MinPageSize is the minimum allowed page size
+	MinPageSize = 1
+	// MaxPageSize is the maximum allowed page size
+	MaxPageSize = 1000
 )
 
 // InstanceHandler handles HTTP requests for instance operations
@@ -30,24 +34,47 @@ func NewInstanceHandler(service services.Instance, jobService services.Job) *Ins
 	}
 }
 
-// ListInstances handles the request to list all instances
-func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
-	var (
-		limit  = c.QueryInt("limit", 10)
-		offset = c.QueryInt("offset", 0)
-	)
+// getPaginationOptions returns a ListOptions struct with validated pagination parameters
+func getPaginationOptions(page, limit int) *models.ListOptions {
+	// Validate and set defaults for limit
+	if limit < MinPageSize {
+		limit = DefaultPageSize
+	}
+	if limit > MaxPageSize {
+		limit = MaxPageSize
+	}
 
-	instances, err := h.service.ListInstances(c.Context(), &models.ListOptions{
+	// Validate and set defaults for page
+	if page < 1 {
+		page = 1
+	}
+
+	// Calculate offset
+	offset := (page - 1) * limit
+
+	return &models.ListOptions{
 		Limit:  limit,
 		Offset: offset,
-	})
+	}
+}
+
+// ListInstances handles the request to list all instances
+func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+
+	instances, err := h.service.ListInstances(c.Context(), getPaginationOptions(page, limit))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list instances: %v", err),
 		})
 	}
 
-	return c.JSON(instances)
+	return c.JSON(fiber.Map{
+		"instances": instances,
+		"page":      page,
+		"limit":     limit,
+	})
 }
 
 // CreateInstance handles the request to create a new instance
@@ -166,18 +193,12 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting public IPs...")
 
-	// Get pagination parameters
 	page := c.QueryInt("page", 1)
-	if page < 1 {
-		page = 1
-	}
-	offset := (page - 1) * DefaultPageSize
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
 
 	// Get instances with their public IPs using the service
-	instances, err := h.service.GetPublicIPs(c.Context(), &models.ListOptions{
-		Limit:  DefaultPageSize,
-		Offset: offset,
-	})
+	instances, err := h.service.GetPublicIPs(c.Context(), paginationOpts)
 	if err != nil {
 		fmt.Printf("❌ Error getting public IPs: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -201,8 +222,8 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 		"instances": publicIPs,
 		"total":     len(instances),
 		"page":      page,
-		"limit":     DefaultPageSize,
-		"offset":    offset,
+		"limit":     limit,
+		"offset":    paginationOpts.Offset,
 	})
 }
 
@@ -210,18 +231,12 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all instance metadata...")
 
-	// Get pagination parameters
 	page := c.QueryInt("page", 1)
-	if page < 1 {
-		page = 1
-	}
-	offset := (page - 1) * DefaultPageSize
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
 
 	// Get instances with their details using the service
-	instances, err := h.service.GetPublicIPs(c.Context(), &models.ListOptions{
-		Limit:  DefaultPageSize,
-		Offset: offset,
-	})
+	instances, err := h.service.GetPublicIPs(c.Context(), paginationOpts)
 	if err != nil {
 		fmt.Printf("❌ Error getting instance metadata: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -236,8 +251,8 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 		"instances": instances,
 		"total":     len(instances),
 		"page":      page,
-		"limit":     DefaultPageSize,
-		"offset":    offset,
+		"limit":     limit,
+		"offset":    paginationOpts.Offset,
 	})
 }
 
