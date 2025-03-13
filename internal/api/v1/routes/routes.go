@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 )
 
 // RegisterRoutes configures all the v1 routes

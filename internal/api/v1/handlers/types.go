@@ -1,7 +1,10 @@
 package handlers
 
+// Slug is a type for the slug field in the response
+// It is mainly used for the client to understand the type of the response
 type Slug string
 
+// nolint:gochecknoglobals
 const (
 	SuccessSlug      Slug = "success"
 	ErrorSlug        Slug = "error"
@@ -9,6 +12,7 @@ const (
 	ServerErrorSlug  Slug = "server-error"
 )
 
+// Response is the response type for the API
 type Response struct {
 	Slug  Slug        `json:"slug"`
 	Error string      `json:"error"`
@@ -25,13 +29,6 @@ func errInvalidInput(msg string) Response {
 func errServer(msg string) Response {
 	return Response{
 		Slug:  ServerErrorSlug,
-		Error: msg,
-	}
-}
-
-func errGeneral(msg string) Response {
-	return Response{
-		Slug:  ErrorSlug,
 		Error: msg,
 	}
 }

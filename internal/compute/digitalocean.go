@@ -8,8 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/digitalocean/godo"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // DigitalOceanProvider implements the ComputeProvider interface

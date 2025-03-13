@@ -6,7 +6,7 @@ import (
 
 	fiberlog "github.com/gofiber/fiber/v2/log"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/joho/godotenv"
 

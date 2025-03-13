@@ -51,7 +51,7 @@ func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status m
 		Update("status", status).Error
 }
 
-// UpdateStatus updates the status of an instance
+// UpdateStatusByName updates the status of an instance by its name
 func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string, status models.InstanceStatus) error {
 	return r.db.WithContext(ctx).
 		Where(&models.Instance{Name: name}).
@@ -117,6 +117,7 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 	return instances, nil
 }
 
+// Terminate updates the status of an instance to terminated
 func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: id}}).
 		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error

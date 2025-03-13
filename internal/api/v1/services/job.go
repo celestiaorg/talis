@@ -32,7 +32,7 @@ func (s *JobService) ListJobs(ctx context.Context, status models.JobStatus, owne
 func (s *JobService) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructure.JobRequest) (*models.Job, error) {
 	job := &models.Job{
 		Name:        jobReq.Name,
-		OwnerID:     uint(ownerID),
+		OwnerID:     ownerID,
 		ProjectName: jobReq.ProjectName,
 		Status:      models.JobStatusPending,
 		WebhookURL:  jobReq.WebhookURL,
@@ -64,6 +64,7 @@ func (s *JobService) UpdateJobStatus(ctx context.Context, id uint, status models
 	return s.jobRepo.UpdateStatus(ctx, id, status, result, errMsg)
 }
 
+// TerminateJob terminates a job and all its instances
 func (s *JobService) TerminateJob(ctx context.Context, ownerID uint, jobID uint) error {
 	job, err := s.jobRepo.GetByID(ctx, ownerID, jobID)
 	if err != nil {
@@ -267,7 +268,11 @@ func (s *JobService) terminateJob(ctx context.Context, job *models.Job) {
 		deletionResult["status"] = "completed"
 
 		// Update final status with result
-		s.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, deletionResult, "")
+		err = s.UpdateJobStatus(ctx, job.ID, models.JobStatusCompleted, deletionResult, "")
+		if err != nil {
+			fmt.Printf("❌ Failed to update final job status: %v\n", err)
+			return
+		}
 
 		fmt.Printf("✅ Infrastructure deletion completed for job %d\n", job.ID)
 	}()
