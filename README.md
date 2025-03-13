@@ -14,7 +14,7 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 
 ## Requirements
 
-- Go (1.22 or higher)
+- Go (1.24 or higher)
 - Ansible (2.9 or higher)
 - SSH key pair for instance access
 - Cloud Credentials:
@@ -32,15 +32,18 @@ talis/
 ├── internal/
 │   ├── api/                       # API related code
 │   │   └── v1/
-│   │       ├── handlers/         # Request handlers
+│   │       ├── handlers/         # Request handlers (instances, jobs)
 │   │       ├── middleware/       # API middleware
-│   │       └── routes/           # Route definitions
+│   │       ├── routes/          # Route definitions
+│   │       └── services/        # Business logic services
 │   ├── compute/                   # Cloud provider implementations
 │   │   ├── provider.go           # ComputeProvider interface and common types
 │   │   ├── digitalocean.go       # DigitalOcean implementation
 │   │   └── ansible.go            # Ansible configuration and provisioning
 │   ├── db/                        # Database layer
-│   │   └── job/                  # Job database models
+│   │   ├── db.go                 # Database connection and configuration
+│   │   ├── models/              # Database models (instances, jobs)
+│   │   └── repos/               # Database repositories
 │   └── types/                     # Common types and models
 │       └── infrastructure/        # Infrastructure types and logic
 ├── ansible/                       # Ansible configurations
@@ -52,15 +55,21 @@ talis/
 
 ## Key Components
 
+### internal/api/v1/
+- **handlers/**: HTTP request handlers for instances and jobs
+- **middleware/**: API middleware (logging, auth, etc.)
+- **routes/**: API route definitions
+- **services/**: Business logic services
+
+### internal/db/
+- **models/**: Database models for instances and jobs
+- **repos/**: Database repositories with CRUD operations
+- **db.go**: Database connection and configuration
+
 ### internal/compute/
 - **provider.go**: Defines the `ComputeProvider` interface and common types
 - **digitalocean.go**: Implementation for DigitalOcean with comprehensive test coverage
 - **ansible.go**: Ansible configuration and provisioning
-
-### internal/api/v1/
-- **handlers/**: HTTP request handlers
-- **middleware/**: API middleware (logging, auth, etc.)
-- **routes/**: API route definitions
 
 ### ansible/
 - **playbook.yml**: Main Ansible playbook
@@ -77,7 +86,6 @@ cp .env.example .env
 ```bash
 # DigitalOcean
 DIGITALOCEAN_TOKEN=your_digitalocean_token_here
-SSH_KEY_NAME=your_ssh_key_name_here
 ```
 
 3. Ensure your SSH key is available:
@@ -95,10 +103,10 @@ SSH_KEY_NAME=your_ssh_key_name_here
 make build-cli
 
 # Create infrastructure using a JSON file
-talis infra create -f create.json
+talis infra create -f create.json_example
 
 # Delete infrastructure using a JSON file
-talis infra delete -f delete.json
+talis infra delete -f delete.json_example
 
 # List all jobs
 talis jobs list
