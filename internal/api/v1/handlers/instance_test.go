@@ -137,9 +137,9 @@ func TestGetPublicIPs(t *testing.T) {
 		},
 	}
 
-	// Set up expectations with pagination
+	// Set up expectations with pagination using DefaultPageSize
 	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
-		Limit:  10,
+		Limit:  DefaultPageSize,
 		Offset: 0,
 	}).Return(testInstances, nil)
 
@@ -174,9 +174,9 @@ func TestGetPublicIPs(t *testing.T) {
 	assert.Equal(t, "192.168.1.2", instance2["public_ip"])
 	assert.Equal(t, float64(2), instance2["job_id"])
 
-	// Verify pagination info
+	// Verify pagination info uses DefaultPageSize
 	assert.Equal(t, float64(1), result["page"])
-	assert.Equal(t, float64(10), result["limit"])
+	assert.Equal(t, float64(DefaultPageSize), result["limit"])
 	assert.Equal(t, float64(0), result["offset"])
 
 	// Verify mock expectations
@@ -195,9 +195,9 @@ func TestGetPublicIPsError(t *testing.T) {
 	app := fiber.New()
 	app.Get("/public-ips", handler.GetPublicIPs)
 
-	// Set up expectations for error case with pagination
+	// Set up expectations for error case with pagination using DefaultPageSize
 	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
-		Limit:  10,
+		Limit:  DefaultPageSize,
 		Offset: 0,
 	}).Return([]models.Instance{}, errors.New("database error"))
 
@@ -353,9 +353,9 @@ func TestGetAllMetadata(t *testing.T) {
 		},
 	}
 
-	// Set up expectations with pagination
+	// Set up expectations with pagination using DefaultPageSize
 	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
-		Limit:  10,
+		Limit:  DefaultPageSize,
 		Offset: 0,
 	}).Return(testInstances, nil)
 
@@ -404,9 +404,9 @@ func TestGetAllMetadata(t *testing.T) {
 	assert.Equal(t, []interface{}{"test"}, instance2["tags"])
 	assert.Equal(t, "ready", instance2["status"])
 
-	// Verify pagination info
+	// Verify pagination info uses DefaultPageSize
 	assert.Equal(t, float64(1), result["page"])
-	assert.Equal(t, float64(10), result["limit"])
+	assert.Equal(t, float64(DefaultPageSize), result["limit"])
 	assert.Equal(t, float64(0), result["offset"])
 
 	// Verify mock expectations
@@ -425,9 +425,9 @@ func TestGetAllMetadataError(t *testing.T) {
 	app := fiber.New()
 	app.Get("/all-metadata", handler.GetAllMetadata)
 
-	// Set up expectations for error case with pagination
+	// Set up expectations for error case with pagination using DefaultPageSize
 	mockInstanceService.On("GetPublicIPs", mock.Anything, &models.ListOptions{
-		Limit:  10,
+		Limit:  DefaultPageSize,
 		Offset: 0,
 	}).Return([]models.Instance{}, errors.New("database error"))
 

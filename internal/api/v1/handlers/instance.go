@@ -11,6 +11,11 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
+const (
+	// DefaultPageSize is the default number of items per page
+	DefaultPageSize = 100
+)
+
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
 	service    services.Instance
@@ -166,15 +171,11 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	if page < 1 {
 		page = 1
 	}
-	limit := c.QueryInt("limit", 10)
-	if limit < 1 {
-		limit = 10
-	}
-	offset := (page - 1) * limit
+	offset := (page - 1) * DefaultPageSize
 
 	// Get instances with their public IPs using the service
 	instances, err := h.service.GetPublicIPs(c.Context(), &models.ListOptions{
-		Limit:  limit,
+		Limit:  DefaultPageSize,
 		Offset: offset,
 	})
 	if err != nil {
@@ -200,7 +201,7 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 		"instances": publicIPs,
 		"total":     len(instances),
 		"page":      page,
-		"limit":     limit,
+		"limit":     DefaultPageSize,
 		"offset":    offset,
 	})
 }
@@ -214,15 +215,11 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	if page < 1 {
 		page = 1
 	}
-	limit := c.QueryInt("limit", 10)
-	if limit < 1 {
-		limit = 10
-	}
-	offset := (page - 1) * limit
+	offset := (page - 1) * DefaultPageSize
 
 	// Get instances with their details using the service
 	instances, err := h.service.GetPublicIPs(c.Context(), &models.ListOptions{
-		Limit:  limit,
+		Limit:  DefaultPageSize,
 		Offset: offset,
 	})
 	if err != nil {
@@ -256,7 +253,7 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 		"instances": result,
 		"total":     len(instances),
 		"page":      page,
-		"limit":     limit,
+		"limit":     DefaultPageSize,
 		"offset":    offset,
 	})
 }
