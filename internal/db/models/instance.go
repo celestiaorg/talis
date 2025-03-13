@@ -15,6 +15,7 @@ const (
 	InstanceCreatedAtField = "created_at"
 	InstanceDeletedField   = "deleted"
 	InstanceStatusField    = "status"
+	InstancePublicIPField  = "public_ip"
 )
 
 // InstanceStatus represents the current state of an instance

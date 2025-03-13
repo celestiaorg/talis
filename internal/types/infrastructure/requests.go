@@ -8,6 +8,7 @@ import "github.com/celestiaorg/talis/internal/db/models"
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
+	Name              string            `json:"name"`                // Name of the instance
 	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
 	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
 	Provision         bool              `json:"provision"`           // Whether to provision the instance

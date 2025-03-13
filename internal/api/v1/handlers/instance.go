@@ -62,3 +62,9 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 
 	return c.JSON(instance)
 }
+
+// CreateInstance handles the request to create instances
+func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
+	// Implementation for creating instances
+	return nil
+}

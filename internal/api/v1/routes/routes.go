@@ -18,9 +18,7 @@ func RegisterRoutes(
 	// Instances endpoints
 	instances := v1.Group("/instances")
 	instances.Get("/", instanceHandler.ListInstances).Name("ListInstances")
-	// TODO: Will add CreateInstance and DeleteInstance endpoints to modify an existing job
-	// instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
-	// instances.Delete("/", instanceHandler.DeleteInstance).Name("DeleteInstance")
+	instances.Post("/", instanceHandler.CreateInstance).Name("CreateInstance")
 	instances.Get("/:id", instanceHandler.GetInstance).Name("GetInstance")
 
 	// Jobs endpoints
@@ -29,6 +27,8 @@ func RegisterRoutes(
 	jobs.Get("/:id", jobHandler.GetJobStatus).Name("GetJobStatus")
 	jobs.Post("/", jobHandler.CreateJob).Name("CreateJob")
 	jobs.Delete("/:id", jobHandler.TerminateJob).Name("TerminateJob")
+	jobs.Put("/:id", jobHandler.UpdateJob).Name("UpdateJob")
+	jobs.Get("/search", jobHandler.SearchJobs).Name("SearchJobs")
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {

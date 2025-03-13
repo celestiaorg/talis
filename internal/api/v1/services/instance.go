@@ -3,10 +3,12 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/google/uuid"
 )
 
 // InstanceService provides business logic for instance operations
@@ -29,18 +31,108 @@ func (s *InstanceService) ListInstances(ctx context.Context, opts *models.ListOp
 }
 
 // CreateInstance creates a new instance
-func (s *InstanceService) CreateInstance(
-	ctx context.Context,
-	name,
-	projectName,
-	webhookURL string,
-	instances []infrastructure.InstanceRequest,
-) error {
-	// Start async infrastructure creation
-	return fmt.Errorf("not implemented")
+func (s *InstanceService) CreateInstance(ctx context.Context, ownerID uint, jobName string, instances []infrastructure.InstanceRequest) error {
+	job, err := s.jobService.jobRepo.GetByName(ctx, ownerID, jobName)
+	if err != nil {
+		return fmt.Errorf("failed to get job: %w", err)
+	}
+
+	for _, i := range instances {
+		if i.Name == "" {
+			i.Name = fmt.Sprintf("instance-%s", uuid.New().String())
+		}
+
+		instance := &models.Instance{
+			Name:       i.Name,
+			JobID:      job.ID,
+			ProviderID: i.Provider,
+			Status:     models.InstanceStatusPending,
+			Region:     i.Region,
+			Size:       i.Size,
+		}
+
+		if err := s.repo.Create(ctx, instance); err != nil {
+			return fmt.Errorf("failed to create instance: %w", err)
+		}
+	}
+
+	s.provisionInstances(ctx, job.ID, instances)
+
+	return nil
 }
 
 // GetInstance retrieves an instance by ID
 func (s *InstanceService) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
 	return s.repo.Get(ctx, id)
+}
+
+// provisionInstances provisions the job asynchronously
+func (s *InstanceService) provisionInstances(ctx context.Context, jobID uint, instances []infrastructure.InstanceRequest) {
+	// TODO: do something with the logs as now it makes the server logs messy
+	go func() {
+		fmt.Println("🚀 Starting async infrastructure creation...")
+
+		// TODO: need to update the instance status to provisioning
+
+		infra, err := infrastructure.NewInfrastructure(&infrastructure.JobRequest{
+			Instances: instances,
+			Provider:  instances[0].Provider, // TODO: this is not the best way to do this each instance can have a different provider
+			Action:    "create",
+		})
+		if err != nil {
+			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
+			return
+		}
+
+		result, err := infra.Execute()
+		if err != nil {
+			// Check if error is due to resource not found
+			if strings.Contains(err.Error(), "404") &&
+				strings.Contains(err.Error(), "could not be found") {
+				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
+			} else {
+				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
+				return
+			}
+		}
+
+		// Start Ansible provisioning if creation was successful and provisioning is requested
+		if instances[0].Provision {
+			pInstances, ok := result.([]infrastructure.InstanceInfo)
+			if !ok {
+				fmt.Printf("❌ Invalid result type: %T\n", result)
+				return
+			}
+
+			fmt.Printf("📝 Created instances: %+v\n", pInstances)
+
+			for _, instance := range pInstances {
+				err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP)
+				if err != nil {
+					fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
+				}
+
+				err = s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusProvisioning)
+				if err != nil {
+					fmt.Printf("❌ Failed to update instance %s status to provisioning: %v\n", instance.Name, err)
+				}
+			}
+
+			// TODO: instance provisioning should be done in a way that is async and updates the instance status one by one in the db
+			if err := infra.RunProvisioning(pInstances); err != nil {
+				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
+				return
+			}
+
+			for _, instance := range pInstances {
+				// TODO:Consider passing OwnerID to update the status as well
+				// Not sure if Ready is the best status to set here
+				if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
+					fmt.Printf("❌ Failed to update instance status to provisioning: %v\n", err)
+				}
+			}
+		}
+
+		fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", jobID)
+	}()
 }

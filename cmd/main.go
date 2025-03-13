@@ -1,16 +1,13 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"strconv"
 
-	fiberlog "github.com/gofiber/fiber/v2/log"
-
 	fiber "github.com/gofiber/fiber/v2"
-
+	fiberlog "github.com/gofiber/fiber/v2/log"
 	"github.com/joho/godotenv"
-
-	"errors"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 	"github.com/celestiaorg/talis/internal/api/v1/middleware"

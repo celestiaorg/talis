@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -46,7 +45,6 @@ func (s *JobService) CreateJob(ctx context.Context, ownerID uint, jobReq *infras
 		return nil, err
 	}
 
-	s.provisionJob(ctx, job.ID, jobReq)
 	return job, nil
 }
 
@@ -73,113 +71,6 @@ func (s *JobService) TerminateJob(ctx context.Context, ownerID uint, jobID uint)
 
 	s.terminateJob(ctx, job)
 	return nil
-}
-
-// provisionJob provisions the job asynchronously
-func (s *JobService) provisionJob(ctx context.Context, jobID uint, jobReq *infrastructure.JobRequest) {
-	// TODO: do something with the logs as now it makes the server logs messy
-	go func() {
-		fmt.Println("🚀 Starting async infrastructure creation...")
-
-		// Update to initializing when starting Pulumi setup
-		if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusInitializing, nil, ""); err != nil {
-			fmt.Printf("❌ Failed to update job status to initializing: %v\n", err)
-			return
-		}
-
-		if jobReq.Provider == "" {
-			jobReq.Provider = jobReq.Instances[0].Provider
-		}
-
-		infra, err := infrastructure.NewInfrastructure(jobReq)
-		if err != nil {
-			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
-			if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusFailed, nil, err.Error()); err != nil {
-				log.Printf("Failed to update job status: %v", err)
-			}
-			return
-		}
-
-		// Update to provisioning when creating infrastructure
-		if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusProvisioning, nil, ""); err != nil {
-			fmt.Printf("❌ Failed to update job status to provisioning: %v\n", err)
-			return
-		}
-
-		result, err := infra.Execute()
-		if err != nil {
-			// Check if error is due to resource not found
-			if strings.Contains(err.Error(), "404") &&
-				strings.Contains(err.Error(), "could not be found") {
-				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
-			} else {
-				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
-				if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusFailed, nil, err.Error()); err != nil {
-					log.Printf("Failed to update job status: %v", err)
-				}
-				return
-			}
-		}
-
-		// Start Ansible provisioning if creation was successful and provisioning is requested
-		if jobReq.Instances[0].Provision {
-			instances, ok := result.([]infrastructure.InstanceInfo)
-			if !ok {
-				fmt.Printf("❌ Invalid result type: %T\n", result)
-				if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusFailed, nil,
-					fmt.Sprintf("invalid result type: %T, expected []infrastructure.InstanceInfo", result)); err != nil {
-					log.Printf("Failed to update job status: %v", err)
-				}
-				return
-			}
-
-			fmt.Printf("📝 Created instances: %+v\n", instances)
-			for _, instance := range instances {
-				err := s.instanceRepo.Create(ctx, &models.Instance{
-					JobID:      jobID,
-					Name:       instance.Name,
-					ProviderID: instance.Provider,
-					Status:     models.InstanceStatusProvisioning,
-					Region:     instance.Region,
-					Size:       instance.Size,
-				})
-				if err != nil {
-					fmt.Printf("❌ Failed to create instance: %v\n", err)
-				}
-			}
-
-			// Update to configuring when setting up Ansible
-			if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusConfiguring, instances, ""); err != nil {
-				fmt.Printf("❌ Failed to update job status to configuring: %v\n", err)
-				return
-			}
-
-			// TODO: instance provisioning should be done in a way that is async and updates the instance status one by one in the db
-			if err := infra.RunProvisioning(instances); err != nil {
-				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
-				if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusFailed, instances, fmt.Sprintf("infrastructure created but provisioning failed: %v", err)); err != nil {
-					log.Printf("Failed to update job status: %v", err)
-				}
-				return
-			}
-
-			for _, instance := range instances {
-				// TODO:Consider passing JobID and OwnerID to update the status as well
-				// Not sure if Ready is the best status to set here
-				if err := s.instanceRepo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
-					fmt.Printf("❌ Failed to update instance status to provisioning: %v\n", err)
-				}
-			}
-		}
-
-		// Update final status with result
-		if err := s.UpdateJobStatus(ctx, jobID, models.JobStatusCompleted, result, ""); err != nil {
-			fmt.Printf("❌ Failed to update final job status: %v\n", err)
-			return
-		}
-
-		fmt.Printf("✅ Infrastructure creation completed for job ID %d and job name %s\n", jobID, jobReq.Name)
-	}()
 }
 
 // GetByProjectName retrieves a job by its project name

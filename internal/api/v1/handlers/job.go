@@ -128,3 +128,15 @@ func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 			Data: "Job terminated successfully",
 		})
 }
+
+// UpdateJob handles the request to update a job
+func (h *JobHandler) UpdateJob(c *fiber.Ctx) error {
+	// Implementation for updating a job
+	return nil
+}
+
+// SearchJobs handles the request to search jobs
+func (h *JobHandler) SearchJobs(c *fiber.Ctx) error {
+	// Implementation for searching jobs
+	return nil
+}

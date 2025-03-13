@@ -44,6 +44,11 @@ func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *mode
 	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: ID}}).Updates(instance).Error
 }
 
+// UpdateIPByName updates the public IP of an instance by its name
+func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
+	return r.db.WithContext(ctx).Where(&models.Instance{Name: name}).Update(models.InstancePublicIPField, ip).Error
+}
+
 // UpdateStatus updates the status of an instance
 func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status models.InstanceStatus) error {
 	return r.db.WithContext(ctx).
