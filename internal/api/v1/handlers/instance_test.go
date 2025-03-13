@@ -166,13 +166,13 @@ func TestGetPublicIPs(t *testing.T) {
 
 	// Verify first instance
 	instance1 := instances[0].(map[string]interface{})
-	assert.Equal(t, "192.168.1.1", instance1["public_ip"])
 	assert.Equal(t, float64(1), instance1["job_id"])
+	assert.Equal(t, "192.168.1.1", instance1["public_ip"])
 
 	// Verify second instance
 	instance2 := instances[1].(map[string]interface{})
-	assert.Equal(t, "192.168.1.2", instance2["public_ip"])
 	assert.Equal(t, float64(2), instance2["job_id"])
+	assert.Equal(t, "192.168.1.2", instance2["public_ip"])
 
 	// Verify pagination info uses DefaultPageSize
 	assert.Equal(t, float64(1), result["page"])
