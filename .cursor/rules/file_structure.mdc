@@ -1,0 +1,6 @@
+---
+description: Rules to govern how file contents is organized. 
+globs: 
+alwaysApply: false
+---
+ 

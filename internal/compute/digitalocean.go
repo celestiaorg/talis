@@ -11,36 +11,17 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+// DOClient interface and implementations
+
 // DOClient defines the interface for interacting with DigitalOcean API
 type DOClient interface {
 	Droplets() DropletService
 	Keys() KeyService
 }
 
-// DropletService defines the interface for DigitalOcean droplet operations
-type DropletService interface {
-	Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
-	CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
-	Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
-	Delete(ctx context.Context, id int) (*godo.Response, error)
-	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
-}
-
-// KeyService defines the interface for DigitalOcean SSH key operations
-type KeyService interface {
-	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error)
-}
-
 // DefaultDOClient is the standard implementation of DOClient using godo
 type DefaultDOClient struct {
 	client *godo.Client
-}
-
-// NewDOClient creates a new DefaultDOClient
-func NewDOClient(token string) DOClient {
-	return &DefaultDOClient{
-		client: godo.NewFromToken(token),
-	}
 }
 
 // Droplets returns the droplet service
@@ -51,6 +32,24 @@ func (c *DefaultDOClient) Droplets() DropletService {
 // Keys returns the key service
 func (c *DefaultDOClient) Keys() KeyService {
 	return &DefaultKeyService{service: c.client.Keys}
+}
+
+// NewDOClient creates a new DefaultDOClient
+func NewDOClient(token string) DOClient {
+	return &DefaultDOClient{
+		client: godo.NewFromToken(token),
+	}
+}
+
+// DropletService interface and implementations
+
+// DropletService defines the interface for DigitalOcean droplet operations
+type DropletService interface {
+	Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
+	CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
+	Delete(ctx context.Context, id int) (*godo.Response, error)
+	Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
+	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 }
 
 // DefaultDropletService implements DropletService using godo
@@ -68,19 +67,26 @@ func (s *DefaultDropletService) CreateMultiple(ctx context.Context, createReques
 	return s.service.CreateMultiple(ctx, createRequest)
 }
 
-// Get retrieves a droplet by ID
-func (s *DefaultDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
-	return s.service.Get(ctx, id)
-}
-
 // Delete deletes a droplet
 func (s *DefaultDropletService) Delete(ctx context.Context, id int) (*godo.Response, error) {
 	return s.service.Delete(ctx, id)
 }
 
+// Get retrieves a droplet by ID
+func (s *DefaultDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+	return s.service.Get(ctx, id)
+}
+
 // List lists all droplets
 func (s *DefaultDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	return s.service.List(ctx, opt)
+}
+
+// KeyService interface and implementations
+
+// KeyService defines the interface for DigitalOcean SSH key operations
+type KeyService interface {
+	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error)
 }
 
 // DefaultKeyService implements KeyService using godo
@@ -93,118 +99,37 @@ func (s *DefaultKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]
 	return s.service.List(ctx, opt)
 }
 
+// DigitalOceanProvider struct and methods
+
 // DigitalOceanProvider implements the ComputeProvider interface
 type DigitalOceanProvider struct {
 	doClient DOClient
 }
 
-// NewDigitalOceanProvider creates a new DigitalOcean provider instance
-func NewDigitalOceanProvider() (*DigitalOceanProvider, error) {
-	token := os.Getenv("DIGITALOCEAN_TOKEN")
-	if token == "" {
-		return nil, fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
-	}
-
-	// Create DigitalOcean API client
-	doClient := NewDOClient(token)
-
-	return &DigitalOceanProvider{
-		doClient: doClient,
-	}, nil
-}
-
-// SetClient sets the DOClient for testing purposes
-func (p *DigitalOceanProvider) SetClient(client DOClient) {
-	p.doClient = client
-}
-
-// ValidateCredentials validates the DigitalOcean credentials
-func (p *DigitalOceanProvider) ValidateCredentials() error {
-	if p.doClient == nil {
-		return fmt.Errorf("client not initialized")
-	}
-	return nil
-}
-
-// GetEnvironmentVars returns the environment variables needed for DigitalOcean
-func (p *DigitalOceanProvider) GetEnvironmentVars() map[string]string {
-	return map[string]string{
-		"DIGITALOCEAN_TOKEN": os.Getenv("DIGITALOCEAN_TOKEN"),
-	}
-}
+// Exported methods with their unexported helpers
 
 // ConfigureProvider is a no-op since we're not using Pulumi anymore
 func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
 	return nil
 }
 
-// getSSHKeyID gets the ID of an SSH key by its name
-func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
-	if p.doClient == nil {
-		return 0, fmt.Errorf("client not initialized")
+// CreateDropletRequest creates a DropletCreateRequest with common configuration (exported for testing)
+func (p *DigitalOceanProvider) CreateDropletRequest(name string, config InstanceConfig, sshKeyID int) *godo.DropletCreateRequest {
+	return &godo.DropletCreateRequest{
+		Name:   name,
+		Region: config.Region,
+		Size:   config.Size,
+		Image: godo.DropletCreateImage{
+			Slug: config.Image,
+		},
+		SSHKeys: []godo.DropletCreateSSHKey{
+			{ID: sshKeyID},
+		},
+		Tags: append([]string{name}, config.Tags...),
+		UserData: `#!/bin/bash
+apt-get update
+apt-get install -y python3`,
 	}
-
-	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
-
-	// List all SSH keys
-	keys, _, err := p.doClient.Keys().List(ctx, &godo.ListOptions{})
-	if err != nil {
-		return 0, fmt.Errorf("failed to list SSH keys: %w", err)
-	}
-	if len(keys) == 0 {
-		return 0, fmt.Errorf("no SSH keys found")
-	}
-
-	// Find the key by name
-	for _, key := range keys {
-		if key.Name == keyName {
-			fmt.Printf("✅ Found SSH key '%s' with ID: %d\n", keyName, key.ID)
-			return key.ID, nil
-		}
-	}
-
-	// If we get here, print available keys to help with diagnosis
-	fmt.Println("Available SSH keys:")
-	for _, key := range keys {
-		fmt.Printf("  - %s (ID: %d)\n", key.Name, key.ID)
-	}
-
-	return 0, fmt.Errorf("SSH key '%s' not found", keyName)
-}
-
-// waitForIP waits for a droplet to get an IP address
-func (p *DigitalOceanProvider) waitForIP(
-	ctx context.Context,
-	dropletID int,
-	maxRetries int,
-) (string, error) {
-	if p.doClient == nil {
-		return "", fmt.Errorf("client not initialized")
-	}
-
-	fmt.Println("⏳ Waiting for droplet to get an IP address...")
-	for i := 0; i < maxRetries; i++ {
-		d, _, err := p.doClient.Droplets().Get(ctx, dropletID)
-		if err != nil {
-			return "", fmt.Errorf("failed to get droplet details: %w", err)
-		}
-
-		// Get the public IPv4 address
-		if d != nil && d.Networks != nil {
-			for _, network := range d.Networks.V4 {
-				if network.Type == "public" {
-					ip := network.IPAddress
-					fmt.Printf("📍 Found public IP for droplet: %s\n", ip)
-					return ip, nil
-				}
-			}
-		}
-
-		fmt.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...\n", i+1, maxRetries)
-		time.Sleep(10 * time.Second)
-	}
-
-	return "", fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)
 }
 
 // CreateInstance creates a new DigitalOcean droplet
@@ -387,6 +312,70 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 	return p.waitForDeletion(ctx, name, region, 10)
 }
 
+// GetEnvironmentVars returns the environment variables needed for DigitalOcean
+func (p *DigitalOceanProvider) GetEnvironmentVars() map[string]string {
+	return map[string]string{
+		"DIGITALOCEAN_TOKEN": os.Getenv("DIGITALOCEAN_TOKEN"),
+	}
+}
+
+// GetSSHKeyID gets the ID of an SSH key by its name (exported for testing)
+func (p *DigitalOceanProvider) GetSSHKeyID(ctx context.Context, keyName string) (int, error) {
+	return p.getSSHKeyID(ctx, keyName)
+}
+
+// getSSHKeyID gets the ID of an SSH key by its name
+func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
+	if p.doClient == nil {
+		return 0, fmt.Errorf("client not initialized")
+	}
+
+	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
+
+	// List all SSH keys
+	keys, _, err := p.doClient.Keys().List(ctx, &godo.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list SSH keys: %w", err)
+	}
+	if len(keys) == 0 {
+		return 0, fmt.Errorf("no SSH keys found")
+	}
+
+	// Find the key by name
+	for _, key := range keys {
+		if key.Name == keyName {
+			fmt.Printf("✅ Found SSH key '%s' with ID: %d\n", keyName, key.ID)
+			return key.ID, nil
+		}
+	}
+
+	// If we get here, print available keys to help with diagnosis
+	fmt.Println("Available SSH keys:")
+	for _, key := range keys {
+		fmt.Printf("  - %s (ID: %d)\n", key.Name, key.ID)
+	}
+
+	return 0, fmt.Errorf("SSH key '%s' not found", keyName)
+}
+
+// SetClient sets the DOClient for testing purposes
+func (p *DigitalOceanProvider) SetClient(client DOClient) {
+	p.doClient = client
+}
+
+// ValidateCredentials validates the DigitalOcean credentials
+func (p *DigitalOceanProvider) ValidateCredentials() error {
+	if p.doClient == nil {
+		return fmt.Errorf("client not initialized")
+	}
+	return nil
+}
+
+// WaitForDeletion waits for a droplet to be fully deleted (exported for testing)
+func (p *DigitalOceanProvider) WaitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
+	return p.waitForDeletion(ctx, name, region, maxRetries)
+}
+
 // waitForDeletion waits for a droplet to be fully deleted
 func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
 	if p.doClient == nil {
@@ -423,36 +412,59 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 	return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)
 }
 
-// GetSSHKeyID gets the ID of an SSH key by its name (exported for testing)
-func (p *DigitalOceanProvider) GetSSHKeyID(ctx context.Context, keyName string) (int, error) {
-	return p.getSSHKeyID(ctx, keyName)
-}
-
 // WaitForIP waits for a droplet to get an IP address (exported for testing)
 func (p *DigitalOceanProvider) WaitForIP(ctx context.Context, dropletID int, maxRetries int) (string, error) {
 	return p.waitForIP(ctx, dropletID, maxRetries)
 }
 
-// WaitForDeletion waits for a droplet to be fully deleted (exported for testing)
-func (p *DigitalOceanProvider) WaitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
-	return p.waitForDeletion(ctx, name, region, maxRetries)
+// waitForIP waits for a droplet to get an IP address
+func (p *DigitalOceanProvider) waitForIP(
+	ctx context.Context,
+	dropletID int,
+	maxRetries int,
+) (string, error) {
+	if p.doClient == nil {
+		return "", fmt.Errorf("client not initialized")
+	}
+
+	fmt.Println("⏳ Waiting for droplet to get an IP address...")
+	for i := 0; i < maxRetries; i++ {
+		d, _, err := p.doClient.Droplets().Get(ctx, dropletID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get droplet details: %w", err)
+		}
+
+		// Get the public IPv4 address
+		if d != nil && d.Networks != nil {
+			for _, network := range d.Networks.V4 {
+				if network.Type == "public" {
+					ip := network.IPAddress
+					fmt.Printf("📍 Found public IP for droplet: %s\n", ip)
+					return ip, nil
+				}
+			}
+		}
+
+		fmt.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...\n", i+1, maxRetries)
+		time.Sleep(10 * time.Second)
+	}
+
+	return "", fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)
 }
 
-// CreateDropletRequest creates a DropletCreateRequest with common configuration (exported for testing)
-func (p *DigitalOceanProvider) CreateDropletRequest(name string, config InstanceConfig, sshKeyID int) *godo.DropletCreateRequest {
-	return &godo.DropletCreateRequest{
-		Name:   name,
-		Region: config.Region,
-		Size:   config.Size,
-		Image: godo.DropletCreateImage{
-			Slug: config.Image,
-		},
-		SSHKeys: []godo.DropletCreateSSHKey{
-			{ID: sshKeyID},
-		},
-		Tags: append([]string{name}, config.Tags...),
-		UserData: `#!/bin/bash
-apt-get update
-apt-get install -y python3`,
+// Functions related to DigitalOceanProvider
+
+// NewDigitalOceanProvider creates a new DigitalOcean provider instance
+func NewDigitalOceanProvider() (*DigitalOceanProvider, error) {
+	token := os.Getenv("DIGITALOCEAN_TOKEN")
+	if token == "" {
+		return nil, fmt.Errorf("DIGITALOCEAN_TOKEN environment variable is not set")
 	}
+
+	// Create DigitalOcean API client
+	doClient := NewDOClient(token)
+
+	return &DigitalOceanProvider{
+		doClient: doClient,
+	}, nil
 }
