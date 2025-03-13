@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/digitalocean/godo"
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,28 @@ func setupMockDropletCreate(mockClient *mockDOClient, dropletID int, dropletName
 				Slug: req.Region,
 			},
 		}, nil, nil
+	}
+
+	// Also set up the Get function to return the same droplet with IP
+	mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		if id == dropletID {
+			return &godo.Droplet{
+				ID:   dropletID,
+				Name: dropletName,
+				Networks: &godo.Networks{
+					V4: []godo.NetworkV4{
+						{
+							Type:      "public",
+							IPAddress: "192.0.2.1",
+						},
+					},
+				},
+				Region: &godo.Region{
+					Slug: "nyc1",
+				},
+			}, nil, nil
+		}
+		return nil, nil, fmt.Errorf("droplet not found")
 	}
 }
 
@@ -433,6 +456,30 @@ func TestDigitalOceanProvider(t *testing.T) {
 			return droplets, nil, nil
 		}
 
+		// Setup the Get function to return droplets with IPs
+		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+			// Calculate the index based on the ID (10000, 10001, 10002)
+			index := id - 10000
+			if index >= 0 && index < 3 {
+				return &godo.Droplet{
+					ID:   id,
+					Name: fmt.Sprintf("test-instance-%d", index),
+					Networks: &godo.Networks{
+						V4: []godo.NetworkV4{
+							{
+								Type:      "public",
+								IPAddress: fmt.Sprintf("192.0.2.%d", index+1),
+							},
+						},
+					},
+					Region: &godo.Region{
+						Slug: "nyc1",
+					},
+				}, nil, nil
+			}
+			return nil, nil, fmt.Errorf("droplet not found")
+		}
+
 		// Create multiple instances
 		config := InstanceConfig{
 			Region:            "nyc1",
@@ -588,8 +635,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			return []godo.Droplet{}, nil, nil
 		}
 
-		// Call the method
-		err := provider.WaitForDeletion(context.Background(), "test-instance", "nyc1", 1)
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", 1, 100*time.Millisecond)
 
 		// Verify results
 		assert.NoError(t, err)
@@ -611,8 +658,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			}, nil, nil
 		}
 
-		// Call the method
-		err := provider.WaitForDeletion(context.Background(), "test-instance", "nyc1", 1)
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", 1, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)
@@ -627,8 +674,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			return nil, nil, errors.New("API error")
 		}
 
-		// Call the method
-		err := provider.WaitForDeletion(context.Background(), "test-instance", "nyc1", 1)
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", 1, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)
@@ -652,8 +699,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			}, nil, nil
 		}
 
-		// Call the method
-		ip, err := provider.WaitForIP(context.Background(), 12345, 1)
+		// Call the unexported method directly with a short interval
+		ip, err := provider.waitForIP(context.Background(), 12345, 1, 100*time.Millisecond)
 
 		// Verify results
 		assert.NoError(t, err)
@@ -677,12 +724,12 @@ func TestDigitalOceanProvider(t *testing.T) {
 			}, nil, nil
 		}
 
-		// Call the method
-		_, err := provider.WaitForIP(context.Background(), 12345, 1)
+		// Call the unexported method directly with a short interval
+		_, err := provider.waitForIP(context.Background(), 12345, 1, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no public IP found")
+		assert.Contains(t, err.Error(), "no public IP found after")
 	})
 
 	t.Run("WaitForIP_Error", func(t *testing.T) {
@@ -693,8 +740,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			return nil, nil, errors.New("API error")
 		}
 
-		// Call the method
-		_, err := provider.WaitForIP(context.Background(), 12345, 1)
+		// Call the unexported method directly with a short interval
+		_, err := provider.waitForIP(context.Background(), 12345, 1, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)

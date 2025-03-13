@@ -11,6 +11,11 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+const (
+	defaultMaxRetries   = 10
+	defaultWaitInterval = 10 * time.Second
+)
+
 // DOClient interface and implementations
 
 // DOClient defines the interface for interacting with DigitalOcean API
@@ -203,7 +208,7 @@ apt-get install -y python3`,
 
 			for _, droplet := range droplets {
 				fmt.Printf("⏳ Waiting for droplet %s to get an IP address...\n", droplet.Name)
-				ip, err := p.waitForIP(ctx, droplet.ID, 10)
+				ip, err := p.waitForIP(ctx, droplet.ID, defaultMaxRetries, defaultWaitInterval)
 				if err != nil {
 					fmt.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v\n", droplet.Name, err)
 					continue
@@ -254,7 +259,7 @@ apt-get install -y python3`,
 	fmt.Printf("✅ Droplet created with ID: %d\n", droplet.ID)
 
 	// Wait for the droplet to get an IP address
-	ip, err := p.waitForIP(ctx, droplet.ID, 10)
+	ip, err := p.waitForIP(ctx, droplet.ID, defaultMaxRetries, defaultWaitInterval)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get droplet IP: %w", err)
 	}
@@ -309,7 +314,7 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 	}
 
 	// Wait for the droplet to be fully deleted
-	return p.waitForDeletion(ctx, name, region, 10)
+	return p.waitForDeletion(ctx, name, region, defaultMaxRetries, defaultWaitInterval)
 }
 
 // GetEnvironmentVars returns the environment variables needed for DigitalOcean
@@ -373,11 +378,11 @@ func (p *DigitalOceanProvider) ValidateCredentials() error {
 
 // WaitForDeletion waits for a droplet to be fully deleted (exported for testing)
 func (p *DigitalOceanProvider) WaitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
-	return p.waitForDeletion(ctx, name, region, maxRetries)
+	return p.waitForDeletion(ctx, name, region, maxRetries, defaultWaitInterval)
 }
 
 // waitForDeletion waits for a droplet to be fully deleted
-func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
+func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int, interval time.Duration) error {
 	if p.doClient == nil {
 		return fmt.Errorf("client not initialized")
 	}
@@ -404,9 +409,9 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 			return nil
 		}
 
-		fmt.Printf("⏳ Droplet %s in region %s still exists, retrying in 5 seconds (attempt %d/%d)...\n",
-			name, region, i+1, maxRetries)
-		time.Sleep(5 * time.Second)
+		fmt.Printf("⏳ Droplet %s in region %s still exists, retrying in %v (attempt %d/%d)...\n",
+			name, region, interval, i+1, maxRetries)
+		time.Sleep(interval)
 	}
 
 	return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)
@@ -414,7 +419,7 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 
 // WaitForIP waits for a droplet to get an IP address (exported for testing)
 func (p *DigitalOceanProvider) WaitForIP(ctx context.Context, dropletID int, maxRetries int) (string, error) {
-	return p.waitForIP(ctx, dropletID, maxRetries)
+	return p.waitForIP(ctx, dropletID, maxRetries, defaultWaitInterval)
 }
 
 // waitForIP waits for a droplet to get an IP address
@@ -422,6 +427,7 @@ func (p *DigitalOceanProvider) waitForIP(
 	ctx context.Context,
 	dropletID int,
 	maxRetries int,
+	interval time.Duration,
 ) (string, error) {
 	if p.doClient == nil {
 		return "", fmt.Errorf("client not initialized")
@@ -445,11 +451,11 @@ func (p *DigitalOceanProvider) waitForIP(
 			}
 		}
 
-		fmt.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...\n", i+1, maxRetries)
-		time.Sleep(10 * time.Second)
+		fmt.Printf("⏳ IP not assigned yet, retrying in %v (attempt %d/%d)...\n", interval, i+1, maxRetries)
+		time.Sleep(interval)
 	}
 
-	return "", fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)
+	return "", fmt.Errorf("no public IP found after %d attempts", maxRetries)
 }
 
 // Functions related to DigitalOceanProvider
