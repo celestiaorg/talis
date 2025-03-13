@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
-	"github.com/google/uuid"
 )
 
 // InstanceService provides business logic for instance operations
