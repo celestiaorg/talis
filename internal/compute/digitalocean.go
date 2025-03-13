@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // DigitalOceanProvider implements the ComputeProvider interface
@@ -260,7 +262,7 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 		ID:       fmt.Sprintf("%d", droplet.ID),
 		Name:     name,
 		PublicIP: ip,
-		Provider: "digitalocean",
+		Provider: models.ProviderDO,
 		Region:   config.Region,
 		Size:     config.Size,
 	}, nil

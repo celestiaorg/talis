@@ -3,6 +3,8 @@ package compute
 import (
 	"context"
 	"fmt"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // ComputeProvider defines the interface for cloud providers
@@ -35,12 +37,12 @@ type InstanceConfig struct {
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	ID       string // Provider-specific instance ID
-	Name     string // Instance name
-	PublicIP string // Public IP address
-	Provider string // Provider name (e.g., "digitalocean")
-	Region   string // Region where instance was created
-	Size     string // Instance size/type
+	ID       string            // Provider-specific instance ID
+	Name     string            // Instance name
+	PublicIP string            // Public IP address
+	Provider models.ProviderID // Provider name (e.g., "digitalocean")
+	Region   string            // Region where instance was created
+	Size     string            // Instance size/type
 }
 
 // Provisioner is the interface for system configuration
@@ -52,9 +54,9 @@ type Provisioner interface {
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
-func NewComputeProvider(provider string) (ComputeProvider, error) {
+func NewComputeProvider(provider models.ProviderID) (ComputeProvider, error) {
 	switch provider {
-	case "digitalocean":
+	case models.ProviderDO:
 		return NewDigitalOceanProvider()
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)

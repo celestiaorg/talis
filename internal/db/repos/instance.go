@@ -44,10 +44,22 @@ func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *mode
 	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: ID}}).Updates(instance).Error
 }
 
+// UpdateIPByName updates the public IP of an instance by its name
+func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
+	return r.db.WithContext(ctx).Where(&models.Instance{Name: name}).Update(models.InstancePublicIPField, ip).Error
+}
+
 // UpdateStatus updates the status of an instance
 func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status models.InstanceStatus) error {
 	return r.db.WithContext(ctx).
 		Where(&models.Instance{Model: gorm.Model{ID: ID}}).
+		Update("status", status).Error
+}
+
+// UpdateStatusByName updates the status of an instance by its name
+func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string, status models.InstanceStatus) error {
+	return r.db.WithContext(ctx).
+		Where(&models.Instance{Name: name}).
 		Update("status", status).Error
 }
 
@@ -110,7 +122,8 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 	return instances, nil
 }
 
-// Delete deletes an instance by ID
-func (r *InstanceRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Delete(&models.Instance{Model: gorm.Model{ID: id}}).Error
+// Terminate updates the status of an instance to terminated
+func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: id}}).
+		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error
 }
