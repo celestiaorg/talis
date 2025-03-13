@@ -90,12 +90,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 
 // CreateJob handles the request to create a new job
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
-	var req struct {
-		Name        string                           `json:"name"`
-		ProjectName string                           `json:"project_name"`
-		WebhookURL  string                           `json:"webhook_url"`
-		Instances   []infrastructure.InstanceRequest `json:"instances"`
-	}
+	var req infrastructure.CreateJobRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -105,11 +100,12 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 	// Convert to Request and validate
 	JobReq := &infrastructure.JobRequest{
-		Name:        req.Name,
-		ProjectName: req.ProjectName,
-		Provider:    req.Instances[0].Provider,
-		Instances:   req.Instances,
-		Action:      "create",
+		JobName:      req.JobName,
+		InstanceName: req.InstanceName,
+		ProjectName:  req.ProjectName,
+		Provider:     req.Instances[0].Provider,
+		Instances:    req.Instances,
+		Action:       "create",
 	}
 
 	if err := JobReq.Validate(); err != nil {
@@ -121,11 +117,12 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	ownerID := 0 // TODO: get owner id from the JWT token
 
 	job, err := h.service.CreateJob(c.Context(), &models.Job{
-		Name:        req.Name,
-		OwnerID:     uint(ownerID),
-		ProjectName: req.ProjectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  req.WebhookURL,
+		Name:         req.JobName,
+		InstanceName: req.InstanceName,
+		OwnerID:      uint(ownerID),
+		ProjectName:  req.ProjectName,
+		Status:       models.JobStatusPending,
+		WebhookURL:   req.WebhookURL,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

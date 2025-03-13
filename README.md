@@ -112,7 +112,7 @@ talis jobs get --id job-20240315-123456
 Example configuration (create.json):
 ```json
 {
-    "name": "talis",
+    "instance_name": "talis",
     "project_name": "talis-test",
     "instances": [
         {
@@ -124,10 +124,23 @@ Example configuration (create.json):
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-do-instance"],
             "ssh_key_name": "your-ssh-key-name"
+        },
+        {
+            "provider": "digitalocean",
+            "name": "talis-validator",
+            "number_of_instances": 1,
+            "provision": true,
+            "region": "nyc3",
+            "size": "s-2vcpu-2gb",
+            "image": "ubuntu-22-04-x64",
+            "tags": ["talis-validator"],
+            "ssh_key_name": "your-ssh-key-name"
         }
     ]
 }
 ```
+
+The `instance_name` field is used as a base name for instances. Each instance gets a suffix that is incremented starting from 0 (e.g., "talis-0"). Individual instances can have custom names by specifying the `name` field in the instance object, as shown in the example above with "talis-validator".
 
 ### Delete Instances
 
@@ -135,17 +148,24 @@ Example configuration (delete.json):
 ```json
 {
     "id": 10,
-    "name": "talis",
+    "instance_name": "talis",
     "project_name": "talis-test",
     "instances": [
         {
             "provider": "digitalocean",
             "number_of_instances": 1,
             "region": "nyc3"
+        },
+        {
+            "provider": "digitalocean",
+            "name": "talis-validator",
+            "region": "nyc3"
         }
     ]
 }
 ```
+
+When deleting instances, you can specify which instances to delete by providing the `name` field in the instance object. If no specific names are provided, instances are deleted in FIFO order (oldest first).
 
 ## Extensibility
 

@@ -26,6 +26,7 @@ func (s *JobService) ListJobs(ctx context.Context, status models.JobStatus, owne
 
 // CreateJob creates a new job
 func (s *JobService) CreateJob(ctx context.Context, job *models.Job) (*models.Job, error) {
+	// TODO: this should be removed since job.Name is required. This code is never hit?
 	if job.Name == "" {
 		job.Name = fmt.Sprintf("job-%s", time.Now().Format("20060102-150405"))
 	}

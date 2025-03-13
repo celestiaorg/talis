@@ -31,6 +31,7 @@ type InstanceConfig struct {
 	SSHKeyID          string   // SSH key name to use
 	Tags              []string // Tags to apply to the instance
 	NumberOfInstances int      // Number of instances to create
+	CustomName        string   // Optional custom name for this specific instance
 }
 
 // InstanceInfo represents information about a created instance
