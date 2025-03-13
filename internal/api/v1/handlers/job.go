@@ -53,11 +53,7 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 
 // ListJobs handles the request to list jobs
 func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
-	var (
-		limit  = c.QueryInt("limit", 10)
-		offset = c.QueryInt("offset", 0)
-		status = models.JobStatusUnknown
-	)
+	var status = models.JobStatusUnknown
 
 	// Parse status if provided
 	if statusStr := c.Query("status"); statusStr != "" {
@@ -70,19 +66,26 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 		}
 	}
 
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
+
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), &models.ListOptions{
-		Limit:  limit,
-		Offset: offset,
-	})
+	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list jobs: %v", err),
 		})
 	}
 
-	return c.JSON(jobs)
+	return c.JSON(fiber.Map{
+		"jobs":   jobs,
+		"total":  len(jobs),
+		"page":   page,
+		"limit":  limit,
+		"offset": paginationOpts.Offset,
+	})
 }
 
 // CreateJob handles the request to create a new job

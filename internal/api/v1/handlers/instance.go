@@ -7,17 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
-)
-
-const (
-	// DefaultPageSize is the default number of items per page
-	DefaultPageSize = 100
-	// MinPageSize is the minimum allowed page size
-	MinPageSize = 1
-	// MaxPageSize is the maximum allowed page size
-	MaxPageSize = 1000
 )
 
 // InstanceHandler handles HTTP requests for instance operations
@@ -31,30 +21,6 @@ func NewInstanceHandler(service services.Instance, jobService services.Job) *Ins
 	return &InstanceHandler{
 		service:    service,
 		jobService: jobService,
-	}
-}
-
-// getPaginationOptions returns a ListOptions struct with validated pagination parameters
-func getPaginationOptions(page, limit int) *models.ListOptions {
-	// Validate and set defaults for limit
-	if limit < MinPageSize {
-		limit = DefaultPageSize
-	}
-	if limit > MaxPageSize {
-		limit = MaxPageSize
-	}
-
-	// Validate and set defaults for page
-	if page < 1 {
-		page = 1
-	}
-
-	// Calculate offset
-	offset := (page - 1) * limit
-
-	return &models.ListOptions{
-		Limit:  limit,
-		Offset: offset,
 	}
 }
 
