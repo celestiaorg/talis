@@ -81,13 +81,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 
 // CreateJob handles the request to create a new job
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
-	var req struct {
-		JobName      string                           `json:"job_name"`
-		InstanceName string                           `json:"instance_name"`
-		ProjectName  string                           `json:"project_name"`
-		WebhookURL   string                           `json:"webhook_url"`
-		Instances    []infrastructure.InstanceRequest `json:"instances"`
-	}
+	var req infrastructure.CreateJobRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

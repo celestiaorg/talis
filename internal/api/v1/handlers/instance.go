@@ -47,12 +47,7 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 
 // CreateInstance handles the request to create a new instance
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var req struct {
-		InstanceName string                           `json:"instance_name"`
-		ProjectName  string                           `json:"project_name"`
-		WebhookURL   string                           `json:"webhook_url"`
-		Instances    []infrastructure.InstanceRequest `json:"instances"`
-	}
+	var req infrastructure.InstanceCreateRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

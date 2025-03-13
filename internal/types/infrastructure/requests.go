@@ -77,6 +77,15 @@ type JobRequest struct {
 	Action       string            `json:"action"`        // "create" or "delete"
 }
 
+// CreateJobRequest represents the request body for creating a new job
+type CreateJobRequest struct {
+	JobName      string            `json:"job_name"`      // Name of the job
+	InstanceName string            `json:"instance_name"` // Base name for instances
+	ProjectName  string            `json:"project_name"`  // Project name of the job
+	WebhookURL   string            `json:"webhook_url"`   // Webhook URL for job status updates
+	Instances    []InstanceRequest `json:"instances"`     // Instances to create
+}
+
 // JobStatus represents the status of an infrastructure job
 type JobStatus struct {
 	JobID     string `json:"job_id"`     // ID of the job
