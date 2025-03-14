@@ -166,3 +166,13 @@ func GetInstanceURL(id string) string {
 func ListInstancesURL() string {
 	return BuildURL(RouteListInstances, nil)
 }
+
+// CreateInstanceURL returns the URL for creating an instance
+func CreateInstanceURL() string {
+	return BuildURL(RouteListInstances, nil) // Uses the same endpoint as list but with POST
+}
+
+// DeleteInstanceURL returns the URL for deleting an instance
+func DeleteInstanceURL() string {
+	return BuildURL(RouteListInstances, nil) // Uses the same endpoint as list but with DELETE
+}

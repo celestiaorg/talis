@@ -17,7 +17,7 @@ func (c *APIClient) CreateInfrastructure(ctx context.Context, req interface{}) (
 	}
 
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodPost, routes.ListInstancesURL(), req)
+	agent, err := c.createAgent(ctx, http.MethodPost, routes.CreateInstanceURL(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (c *APIClient) DeleteInfrastructure(ctx context.Context, req interface{}) (
 	}
 
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodDelete, routes.ListInstancesURL(), req)
+	agent, err := c.createAgent(ctx, http.MethodDelete, routes.DeleteInstanceURL(), req)
 	if err != nil {
 		return nil, err
 	}
