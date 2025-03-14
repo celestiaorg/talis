@@ -35,7 +35,7 @@ type Infrastructure struct {
 // Returns:
 //   - *Infrastructure: A configured infrastructure manager
 //   - error: Any error that occurred during initialization
-func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
+func NewInfrastructure(req *InstancesRequest) (*Infrastructure, error) {
 	provider, err := compute.NewComputeProvider(req.Provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute provider: %w", err)
@@ -46,7 +46,7 @@ func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
 	jobID := fmt.Sprintf("job-%s", timestamp)
 
 	return &Infrastructure{
-		name:        req.Name,
+		name:        req.JobName,
 		projectName: req.ProjectName,
 		instances:   req.Instances,
 		provider:    provider,

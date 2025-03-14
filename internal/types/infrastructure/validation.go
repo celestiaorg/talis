@@ -10,8 +10,13 @@ func (r *JobRequest) Validate() error {
 	if r.Name == "" {
 		return fmt.Errorf("name is required")
 	}
-	if r.ProjectName == "" {
-		return fmt.Errorf("project_name is required")
+	return nil
+}
+
+// Validate validates the infrastructure request
+func (r *InstancesRequest) Validate() error {
+	if r.JobName == "" {
+		return fmt.Errorf("job_name is required")
 	}
 	if len(r.Instances) == 0 {
 		return fmt.Errorf("at least one instance configuration is required")

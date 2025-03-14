@@ -6,6 +6,16 @@ import "github.com/celestiaorg/talis/internal/db/models"
 // Instance
 // --------------------------------------------------
 
+// InstancesRequest represents a request to manage instances, including creation and deletion.
+type InstancesRequest struct {
+	JobName     string            `json:"job_name"`
+	Instances   []InstanceRequest `json:"instances"`
+	WebhookURL  string            `json:"webhook_url"`
+	Action      string            `json:"action"`
+	ProjectName string            `json:"project_name"`
+	Provider    models.ProviderID `json:"provider"`
+}
+
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
 	Name              string            `json:"name"`                // Name of the instance
@@ -62,12 +72,7 @@ type InstanceInfo struct {
 
 // JobRequest represents the infrastructure request
 type JobRequest struct {
-	Name        string            `json:"name"`
-	ProjectName string            `json:"project_name"`
-	Provider    models.ProviderID `json:"provider"`
-	Instances   []InstanceRequest `json:"instances"`
-	Action      string            `json:"action"` // "create" or "delete"
-	WebhookURL  string            `json:"webhook_url"`
+	Name string `json:"name"`
 }
 
 // JobStatus represents the status of an infrastructure job

@@ -7,6 +7,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // InstanceHandler handles HTTP requests for instance operations
@@ -65,6 +66,28 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 
 // CreateInstance handles the request to create instances
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	// Implementation for creating instances
-	return nil
+	var instancesReq infrastructure.InstancesRequest
+	if err := c.BodyParser(&instancesReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(err.Error()))
+	}
+	instancesReq.Action = "create"
+
+	if err := instancesReq.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(err.Error()))
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	err := h.service.CreateInstance(c.Context(), uint(ownerID), instancesReq.JobName, instancesReq.Instances)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(errServer(err.Error()))
+	}
+
+	return c.Status(fiber.StatusCreated).
+		JSON(Response{
+			Slug: SuccessSlug,
+		})
 }

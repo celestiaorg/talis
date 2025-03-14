@@ -30,11 +30,9 @@ func (s *JobService) ListJobs(ctx context.Context, status models.JobStatus, owne
 // CreateJob creates a new job
 func (s *JobService) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructure.JobRequest) (*models.Job, error) {
 	job := &models.Job{
-		Name:        jobReq.Name,
-		OwnerID:     ownerID,
-		ProjectName: jobReq.ProjectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  jobReq.WebhookURL,
+		Name:    jobReq.Name,
+		OwnerID: ownerID,
+		Status:  models.JobStatusPending,
 	}
 
 	if job.Name == "" {
@@ -102,19 +100,21 @@ func (s *JobService) terminateJob(ctx context.Context, job *models.Job) {
 		}
 
 		// Try to delete each selected instance
+		// TODO: Consider async deletion in multiple goroutines
 		for _, instance := range instances {
 			fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
 
 			// Create a new infrastructure request for each instance
-			instanceInfraReq := &infrastructure.JobRequest{
-				Name:        instance.Name,
-				ProjectName: job.ProjectName,
-				Provider:    instance.ProviderID,
-				Instances: []infrastructure.InstanceRequest{{
-					Provider: instance.ProviderID,
-					Region:   instance.Region,
-					Size:     instance.Size,
-				}},
+			instanceInfraReq := &infrastructure.InstancesRequest{
+				JobName: job.Name,
+				Instances: []infrastructure.InstanceRequest{
+					{
+						Name:     instance.Name,
+						Provider: instance.ProviderID,
+						Region:   instance.Region,
+						Size:     instance.Size,
+					},
+				},
 				Action: "delete",
 			}
 

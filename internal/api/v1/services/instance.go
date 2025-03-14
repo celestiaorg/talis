@@ -75,10 +75,12 @@ func (s *InstanceService) provisionInstances(ctx context.Context, jobID uint, in
 
 		// TODO: need to update the instance status to provisioning
 
-		infra, err := infrastructure.NewInfrastructure(&infrastructure.JobRequest{
-			Instances: instances,
-			Provider:  instances[0].Provider, // TODO: this is not the best way to do this each instance can have a different provider
-			Action:    "create",
+		// Create a JobRequest for provisioning
+		infra, err := infrastructure.NewInfrastructure(&infrastructure.InstancesRequest{
+			JobName:     "example-job", // Replace with actual job name
+			Instances:   instances,
+			ProjectName: "example-project", // TODO: replace it with the actual project name in another PR
+			Action:      "create",
 		})
 		if err != nil {
 			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)

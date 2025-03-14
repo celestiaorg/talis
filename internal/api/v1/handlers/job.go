@@ -84,7 +84,6 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(errInvalidInput(err.Error()))
 	}
-	jobReq.Action = "create"
 
 	if err := jobReq.Validate(); err != nil {
 		return c.Status(fiber.StatusBadRequest).
