@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/celestiaorg/talis/internal/api/v1/routes"
 )
 
 // GetJob gets a specific job by ID
 func (c *APIClient) GetJob(ctx context.Context, id string) (interface{}, error) {
-	endpoint := fmt.Sprintf("/api/v1/jobs/%s", id)
-
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
+	agent, err := c.createAgent(ctx, http.MethodGet, routes.GetJobURL(id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (c *APIClient) GetJob(ctx context.Context, id string) (interface{}, error) 
 
 // ListJobs lists all jobs with optional filtering
 func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) (interface{}, error) {
-	endpoint := "/api/v1/jobs"
+	endpoint := routes.ListJobsURL()
 
 	// Add query parameters if provided
 	query := url.Values{}

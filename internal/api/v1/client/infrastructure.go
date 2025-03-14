@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/celestiaorg/talis/internal/api/v1/routes"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -15,10 +16,8 @@ func (c *APIClient) CreateInfrastructure(ctx context.Context, req interface{}) (
 		return nil, fmt.Errorf("request cannot be nil")
 	}
 
-	endpoint := "/api/v1/instances"
-
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodPost, endpoint, req)
+	agent, err := c.createAgent(ctx, http.MethodPost, routes.ListInstancesURL(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -38,10 +37,8 @@ func (c *APIClient) DeleteInfrastructure(ctx context.Context, req interface{}) (
 		return nil, fmt.Errorf("request cannot be nil")
 	}
 
-	endpoint := "/api/v1/instances"
-
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodDelete, endpoint, req)
+	agent, err := c.createAgent(ctx, http.MethodDelete, routes.ListInstancesURL(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +53,8 @@ func (c *APIClient) DeleteInfrastructure(ctx context.Context, req interface{}) (
 
 // GetInfrastructure gets information about infrastructure
 func (c *APIClient) GetInfrastructure(ctx context.Context, id string) (interface{}, error) {
-	endpoint := fmt.Sprintf("/api/v1/instances/%s", id)
-
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
+	agent, err := c.createAgent(ctx, http.MethodGet, routes.GetInstanceURL(id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +69,8 @@ func (c *APIClient) GetInfrastructure(ctx context.Context, id string) (interface
 
 // ListInfrastructure lists all infrastructure
 func (c *APIClient) ListInfrastructure(ctx context.Context) (interface{}, error) {
-	endpoint := "/api/v1/instances"
-
 	// Create agent for the request
-	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
+	agent, err := c.createAgent(ctx, http.MethodGet, routes.ListInstancesURL(), nil)
 	if err != nil {
 		return nil, err
 	}
