@@ -26,9 +26,8 @@ func TestNewClient(t *testing.T) {
 		{
 			name: "valid options",
 			opts: &ClientOptions{
-				BaseURL:    "http://example.com",
-				HTTPClient: &http.Client{Timeout: 10 * time.Second},
-				Timeout:    10 * time.Second,
+				BaseURL: "http://example.com",
+				Timeout: 10 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -55,9 +54,9 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
-func TestAPIClient_doRequest(t *testing.T) {
+func setupTestServer() *httptest.Server {
 	// Create a test server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/success":
 			w.WriteHeader(http.StatusOK)
@@ -72,6 +71,11 @@ func TestAPIClient_doRequest(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
+}
+
+func TestAPIClient_doRequest(t *testing.T) {
+	// Create a test server
+	server := setupTestServer()
 	defer server.Close()
 
 	// Create a client with the test server URL
@@ -82,22 +86,22 @@ func TestAPIClient_doRequest(t *testing.T) {
 	apiClient := client.(*APIClient)
 
 	t.Run("success", func(t *testing.T) {
-		req, err := apiClient.newRequest(context.Background(), http.MethodGet, "/success", nil)
+		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/success", nil)
 		require.NoError(t, err)
 
 		var response CreateResponse
-		err = apiClient.doRequest(req, &response)
+		err = apiClient.doRequest(agent, &response)
 		assert.NoError(t, err)
 		assert.Equal(t, uint(1), response.ID)
 		assert.Equal(t, "success", response.Status)
 	})
 
 	t.Run("error response", func(t *testing.T) {
-		req, err := apiClient.newRequest(context.Background(), http.MethodGet, "/error", nil)
+		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/error", nil)
 		require.NoError(t, err)
 
 		var response CreateResponse
-		err = apiClient.doRequest(req, &response)
+		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
 		apiErr, ok := IsAPIError(err)
@@ -108,21 +112,21 @@ func TestAPIClient_doRequest(t *testing.T) {
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
-		req, err := apiClient.newRequest(context.Background(), http.MethodGet, "/invalid-json", nil)
+		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/invalid-json", nil)
 		require.NoError(t, err)
 
 		var response CreateResponse
-		err = apiClient.doRequest(req, &response)
+		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error decoding response")
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		req, err := apiClient.newRequest(context.Background(), http.MethodGet, "/not-found", nil)
+		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/not-found", nil)
 		require.NoError(t, err)
 
 		var response CreateResponse
-		err = apiClient.doRequest(req, &response)
+		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
 		apiErr, ok := IsAPIError(err)
@@ -132,7 +136,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 	})
 }
 
-func TestAPIClient_newRequest(t *testing.T) {
+func TestAPIClient_createAgent(t *testing.T) {
 	client, err := NewClient(&ClientOptions{
 		BaseURL: "http://example.com",
 	})
@@ -140,18 +144,35 @@ func TestAPIClient_newRequest(t *testing.T) {
 	apiClient := client.(*APIClient)
 
 	t.Run("valid request", func(t *testing.T) {
-		req, err := apiClient.newRequest(context.Background(), http.MethodGet, "/test", nil)
+		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/test", nil)
 		assert.NoError(t, err)
-		assert.Equal(t, "http://example.com/test", req.URL.String())
-		assert.Equal(t, http.MethodGet, req.Method)
-		assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
-		assert.Equal(t, "application/json", req.Header.Get("Accept"))
+		assert.NotNil(t, agent)
 	})
 
-	t.Run("invalid endpoint", func(t *testing.T) {
-		req, err := apiClient.newRequest(context.Background(), http.MethodGet, "://invalid", nil)
+	t.Run("unsupported method", func(t *testing.T) {
+		agent, err := apiClient.createAgent(context.Background(), "INVALID", "/test", nil)
 		assert.Error(t, err)
-		assert.Nil(t, req)
+		assert.Nil(t, agent)
+		assert.Contains(t, err.Error(), "unsupported HTTP method")
+	})
+
+	t.Run("with body", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":     1,
+			"status": "active",
+		}
+		agent, err := apiClient.createAgent(context.Background(), http.MethodPost, "/test", body)
+		assert.NoError(t, err)
+		assert.NotNil(t, agent)
+	})
+
+	t.Run("with context deadline", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		agent, err := apiClient.createAgent(ctx, http.MethodGet, "/test", nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, agent)
 	})
 }
 

@@ -12,13 +12,14 @@ import (
 func (c *APIClient) GetJob(ctx context.Context, id string) (interface{}, error) {
 	endpoint := fmt.Sprintf("/api/v1/jobs/%s", id)
 
-	httpReq, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+	// Create agent for the request
+	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var response map[string]interface{}
-	if err := c.doRequest(httpReq, &response); err != nil {
+	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
 
@@ -42,13 +43,14 @@ func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) (int
 		endpoint = fmt.Sprintf("%s?%s", endpoint, query.Encode())
 	}
 
-	httpReq, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+	// Create agent for the request
+	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var response []map[string]interface{}
-	if err := c.doRequest(httpReq, &response); err != nil {
+	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
 

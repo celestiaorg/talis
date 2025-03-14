@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
+
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
 )
 
@@ -31,9 +33,6 @@ type ClientOptions struct {
 	// BaseURL is the base URL of the API
 	BaseURL string
 
-	// HTTPClient is the HTTP client to use for requests
-	HTTPClient *http.Client
-
 	// Timeout is the request timeout
 	Timeout time.Duration
 }
@@ -42,18 +41,14 @@ type ClientOptions struct {
 func DefaultOptions() *ClientOptions {
 	return &ClientOptions{
 		BaseURL: routes.DefaultBaseURL,
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
 		Timeout: 30 * time.Second,
 	}
 }
 
 // APIClient implements the Client interface
 type APIClient struct {
-	baseURL    *url.URL
-	httpClient *http.Client
-	timeout    time.Duration
+	baseURL string
+	timeout time.Duration
 }
 
 // NewClient creates a new API client with the given options
@@ -62,77 +57,81 @@ func NewClient(opts *ClientOptions) (Client, error) {
 		opts = DefaultOptions()
 	}
 
-	baseURL, err := url.Parse(opts.BaseURL)
+	// Validate the base URL
+	_, err := url.Parse(opts.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL: %w", err)
 	}
 
-	httpClient := opts.HTTPClient
-	if httpClient == nil {
-		httpClient = &http.Client{
-			Timeout: opts.Timeout,
-		}
-	}
-
 	return &APIClient{
-		baseURL:    baseURL,
-		httpClient: httpClient,
-		timeout:    opts.Timeout,
+		baseURL: opts.BaseURL,
+		timeout: opts.Timeout,
 	}, nil
 }
 
-// newRequest creates a new HTTP request with the given method, endpoint, and body
-func (c *APIClient) newRequest(ctx context.Context, method, endpoint string, body io.Reader) (*http.Request, error) {
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("invalid endpoint: %w", err)
+// createAgent creates a new Fiber Agent for the given method and endpoint
+func (c *APIClient) createAgent(ctx context.Context, method, endpoint string, body interface{}) (*fiber.Agent, error) {
+	// Resolve the endpoint URL
+	fullURL := c.baseURL + endpoint
+
+	// Create a new agent based on the HTTP method
+	var agent *fiber.Agent
+	switch method {
+	case http.MethodGet:
+		agent = fiber.Get(fullURL)
+	case http.MethodPost:
+		agent = fiber.Post(fullURL)
+	case http.MethodPut:
+		agent = fiber.Put(fullURL)
+	case http.MethodDelete:
+		agent = fiber.Delete(fullURL)
+	case http.MethodPatch:
+		agent = fiber.Patch(fullURL)
+	default:
+		return nil, fmt.Errorf("unsupported HTTP method: %s", method)
 	}
 
-	// Resolve the endpoint against the base URL
-	resolvedURL := c.baseURL.ResolveReference(u)
-
-	req, err := http.NewRequestWithContext(ctx, method, resolvedURL.String(), body)
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+	// Set timeout from context or client default
+	if deadline, ok := ctx.Deadline(); ok {
+		agent.Timeout(time.Until(deadline))
+	} else {
+		agent.Timeout(c.timeout)
 	}
 
 	// Set common headers
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	agent.Set("Content-Type", "application/json")
+	agent.Set("Accept", "application/json")
 
-	return req, nil
+	// Add body if provided
+	if body != nil {
+		agent.JSON(body)
+	}
+
+	return agent, nil
 }
 
-// doRequest sends the HTTP request and decodes the response
-func (c *APIClient) doRequest(req *http.Request, v interface{}) error {
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("error sending request: %w", err)
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("error reading response body: %w", err)
+// doRequest sends the HTTP request and processes the response
+func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
+	// Execute the request
+	statusCode, body, errs := agent.Bytes()
+	if len(errs) > 0 {
+		return fmt.Errorf("error sending request: %w", errs[0])
 	}
 
 	// Check for non-success status codes
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if statusCode < 200 || statusCode >= 300 {
 		// Try to decode the error response
 		var errResp ErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Message != "" {
-			return NewAPIError(resp.StatusCode, errResp.Message, string(body))
+			return NewAPIError(statusCode, errResp.Message, string(body))
 		}
 
 		// If we can't decode the error response, return a generic error
-		return NewAPIError(resp.StatusCode, "unknown error", string(body))
+		return NewAPIError(statusCode, "unknown error", string(body))
 	}
 
 	// Decode the response body if a target is provided
-	if v != nil {
+	if v != nil && len(body) > 0 {
 		if err := json.Unmarshal(body, v); err != nil {
 			return fmt.Errorf("error decoding response: %w", err)
 		}

@@ -15,18 +15,14 @@ func (c *APIClient) CreateInfrastructure(ctx context.Context, req interface{}) (
 
 	endpoint := "/api/v1/instances"
 
-	body, err := marshalRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.newRequest(ctx, http.MethodPost, endpoint, body)
+	// Create agent for the request
+	agent, err := c.createAgent(ctx, http.MethodPost, endpoint, req)
 	if err != nil {
 		return nil, err
 	}
 
 	var response CreateResponse
-	if err := c.doRequest(httpReq, &response); err != nil {
+	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
 
@@ -42,18 +38,14 @@ func (c *APIClient) DeleteInfrastructure(ctx context.Context, req interface{}) (
 
 	endpoint := "/api/v1/instances"
 
-	body, err := marshalRequest(req)
-	if err != nil {
-		return nil, err
-	}
-
-	httpReq, err := c.newRequest(ctx, http.MethodDelete, endpoint, body)
+	// Create agent for the request
+	agent, err := c.createAgent(ctx, http.MethodDelete, endpoint, req)
 	if err != nil {
 		return nil, err
 	}
 
 	var response DeleteResponse
-	if err := c.doRequest(httpReq, &response); err != nil {
+	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
 
@@ -64,13 +56,14 @@ func (c *APIClient) DeleteInfrastructure(ctx context.Context, req interface{}) (
 func (c *APIClient) GetInfrastructure(ctx context.Context, id string) (interface{}, error) {
 	endpoint := fmt.Sprintf("/api/v1/instances/%s", id)
 
-	httpReq, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+	// Create agent for the request
+	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var response CreateResponse
-	if err := c.doRequest(httpReq, &response); err != nil {
+	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
 
@@ -81,13 +74,14 @@ func (c *APIClient) GetInfrastructure(ctx context.Context, id string) (interface
 func (c *APIClient) ListInfrastructure(ctx context.Context) (interface{}, error) {
 	endpoint := "/api/v1/instances"
 
-	httpReq, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+	// Create agent for the request
+	agent, err := c.createAgent(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	var response []CreateResponse
-	if err := c.doRequest(httpReq, &response); err != nil {
+	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
 
