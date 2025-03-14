@@ -1,9 +1,19 @@
 package routes
 
 import (
+	"fmt"
+
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 
 	"github.com/gofiber/fiber/v2"
+)
+
+var (
+	// DefaultPort is the default port for the API
+	DefaultPort = "8080"
+
+	// DefaultBaseURL is the default base URL for the API
+	DefaultBaseURL = fmt.Sprintf("http://localhost:%s", DefaultPort)
 )
 
 // RegisterRoutes configures all the v1 routes

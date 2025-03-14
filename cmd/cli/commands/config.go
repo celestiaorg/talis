@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/celestiaorg/talis/internal/api/v1/client"
+	"github.com/celestiaorg/talis/internal/api/v1/routes"
 )
 
 // clientInstance is a singleton instance of the API client
@@ -24,7 +25,7 @@ func getAPIClient(cmd *cobra.Command) client.Client {
 	if baseURL == "" {
 		baseURL = os.Getenv("TALIS_API_URL")
 		if baseURL == "" {
-			baseURL = "http://localhost:8080" // Default
+			baseURL = routes.DefaultBaseURL // Default
 		}
 	}
 

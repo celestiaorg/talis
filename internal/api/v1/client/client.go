@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/celestiaorg/talis/internal/api/v1/routes"
 )
 
 // Client defines the interface for interacting with the Talis API
@@ -39,7 +41,7 @@ type ClientOptions struct {
 // DefaultOptions returns the default client options
 func DefaultOptions() *ClientOptions {
 	return &ClientOptions{
-		BaseURL: "http://localhost:8080",
+		BaseURL: routes.DefaultBaseURL,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
