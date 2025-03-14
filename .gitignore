@@ -23,3 +23,8 @@ ansible/*.ini
 
 .vscode/
 TODO*
+
+# Test coverage files
+coverage.out
+coverage.html
+*.coverprofile
