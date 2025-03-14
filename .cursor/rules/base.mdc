@@ -73,6 +73,7 @@ alwaysApply: false
 ## AI Assistant Configuration
 
 ### Code Generation
+- Explain plan of action and get confirmation before executing
 - Generate code following project structure
 - Include proper error handling
 - Add necessary comments
