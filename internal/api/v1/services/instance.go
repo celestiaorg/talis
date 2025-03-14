@@ -81,6 +81,7 @@ func (s *InstanceService) provisionInstances(ctx context.Context, jobID uint, in
 			Instances:   instances,
 			ProjectName: "example-project", // TODO: replace it with the actual project name in another PR
 			Action:      "create",
+			Provider:    instances[0].Provider, // Use the provider directly from the instance
 		})
 		if err != nil {
 			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
