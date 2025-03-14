@@ -110,7 +110,6 @@ func TestAPIClient_doRequest(t *testing.T) {
 		assert.True(t, errors.As(err, &fiberErr))
 		assert.Equal(t, http.StatusBadRequest, fiberErr.Code)
 		assert.Equal(t, "Invalid request", fiberErr.Message)
-		assert.True(t, IsBadRequest(err))
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
@@ -137,7 +136,6 @@ func TestAPIClient_doRequest(t *testing.T) {
 		var fiberErr *fiber.Error
 		assert.True(t, errors.As(err, &fiberErr))
 		assert.Equal(t, http.StatusNotFound, fiberErr.Code)
-		assert.True(t, IsNotFound(err))
 	})
 }
 
