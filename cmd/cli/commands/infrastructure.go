@@ -55,29 +55,29 @@ var createInfraCmd = &cobra.Command{
 		// Parse input file
 		jsonFile, _ := cmd.Flags().GetString("file")
 		if jsonFile == "" {
-			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Error: JSON file not provided")
+			fmt.Println("Error: JSON file not provided")
 			os.Exit(1)
 		}
 		if err := validateFilePath(jsonFile); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error validating file path: %v\n", err)
+			fmt.Printf("Error validating file path: %v\n", err)
 			os.Exit(1)
 		}
 		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error reading JSON file: %v\n", err)
+			fmt.Printf("Error reading JSON file: %v\n", err)
 			os.Exit(1)
 		}
 
 		var req CreateRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error parsing JSON file: %v\n", err)
+			fmt.Printf("Error parsing JSON file: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Validate that instances array is not empty
 		if len(req.Instances) == 0 {
-			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Error: No instances specified in the JSON file")
+			fmt.Println("Error: No instances specified in the JSON file")
 			os.Exit(1)
 		}
 
@@ -85,13 +85,13 @@ var createInfraCmd = &cobra.Command{
 		ctx := context.Background()
 		resp, err := client.CreateInfrastructure(ctx, req)
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error creating infrastructure: %v\n", err)
+			fmt.Printf("Error creating infrastructure: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		fmt.Println(string(prettyJSON))
 
 		// Generate delete file
 		baseFileName := filepath.Base(jsonFile)
@@ -123,17 +123,17 @@ var createInfraCmd = &cobra.Command{
 		// Marshal the delete request to JSON
 		deleteJSON, err := json.MarshalIndent(deleteReq, "", "    ")
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Failed to generate delete file: %v\n", err)
+			fmt.Printf("Warning: Failed to generate delete file: %v\n", err)
 			return
 		}
 
 		// Write the delete file
 		if err := os.WriteFile(deleteFilePath, deleteJSON, 0600); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: Failed to write delete file: %v\n", err)
+			fmt.Printf("Warning: Failed to write delete file: %v\n", err)
 			return
 		}
 
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete file generated: %s (with job ID: %d)\n", deleteFilePath, deleteReq.ID)
+		fmt.Printf("Delete file generated: %s (with job ID: %d)\n", deleteFilePath, deleteReq.ID)
 	},
 }
 
@@ -147,29 +147,29 @@ var deleteInfraCmd = &cobra.Command{
 		// Parse input file
 		jsonFile, _ := cmd.Flags().GetString("file")
 		if jsonFile == "" {
-			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Error: JSON file not provided")
+			fmt.Println("Error: JSON file not provided")
 			os.Exit(1)
 		}
 		if err := validateFilePath(jsonFile); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error validating file path: %v\n", err)
+			fmt.Printf("Error validating file path: %v\n", err)
 			os.Exit(1)
 		}
 		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error reading JSON file: %v\n", err)
+			fmt.Printf("Error reading JSON file: %v\n", err)
 			os.Exit(1)
 		}
 
 		var req DeleteRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error parsing JSON file: %v\n", err)
+			fmt.Printf("Error parsing JSON file: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Validate that instances array is not empty
 		if len(req.Instances) == 0 {
-			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Error: No instances specified in the JSON file")
+			fmt.Println("Error: No instances specified in the JSON file")
 			os.Exit(1)
 		}
 
@@ -177,13 +177,13 @@ var deleteInfraCmd = &cobra.Command{
 		ctx := context.Background()
 		resp, err := client.DeleteInfrastructure(ctx, req)
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error deleting infrastructure: %v\n", err)
+			fmt.Printf("Error deleting infrastructure: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		fmt.Println(string(prettyJSON))
 	},
 }
 

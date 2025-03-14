@@ -41,7 +41,7 @@ var listJobsCmd = &cobra.Command{
 		var limit int
 		if limitStr != "" {
 			if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error parsing limit: %v\n", err)
+				fmt.Printf("Error parsing limit: %v\n", err)
 				os.Exit(1)
 			}
 		}
@@ -50,13 +50,13 @@ var listJobsCmd = &cobra.Command{
 		ctx := context.Background()
 		resp, err := client.ListJobs(ctx, limit, status)
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error fetching jobs: %v\n", err)
+			fmt.Printf("Error fetching jobs: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		fmt.Println(string(prettyJSON))
 	},
 }
 
@@ -74,13 +74,13 @@ var getJobCmd = &cobra.Command{
 		ctx := context.Background()
 		resp, err := client.GetJob(ctx, jobID)
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Error fetching job: %v\n", err)
+			fmt.Printf("Error fetching job: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		fmt.Println(string(prettyJSON))
 	},
 }
 
