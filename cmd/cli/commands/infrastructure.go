@@ -38,9 +38,6 @@ func init() {
 
 	// Add flags for delete command
 	deleteInfraCmd.Flags().StringP("file", "f", "", "JSON file containing infrastructure configuration")
-
-	// Add client flags
-	AddClientFlags(infraCmd)
 }
 
 var infraCmd = &cobra.Command{

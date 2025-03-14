@@ -19,9 +19,6 @@ func init() {
 
 	getJobCmd.Flags().StringP("id", "i", "", "Job ID to fetch")
 	_ = getJobCmd.MarkFlagRequired("id")
-
-	// Add client flags
-	AddClientFlags(jobsCmd)
 }
 
 var jobsCmd = &cobra.Command{
