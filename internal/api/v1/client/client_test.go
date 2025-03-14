@@ -3,11 +3,13 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,11 +106,11 @@ func TestAPIClient_doRequest(t *testing.T) {
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
-		apiErr, ok := IsAPIError(err)
-		assert.True(t, ok)
-		assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
-		assert.Equal(t, "Invalid request", apiErr.Message)
-		assert.True(t, apiErr.IsBadRequest())
+		var fiberErr *fiber.Error
+		assert.True(t, errors.As(err, &fiberErr))
+		assert.Equal(t, http.StatusBadRequest, fiberErr.Code)
+		assert.Equal(t, "Invalid request", fiberErr.Message)
+		assert.True(t, IsBadRequest(err))
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
@@ -118,6 +120,9 @@ func TestAPIClient_doRequest(t *testing.T) {
 		var response CreateResponse
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
+
+		var fiberErr *fiber.Error
+		assert.False(t, errors.As(err, &fiberErr))
 		assert.Contains(t, err.Error(), "error decoding response")
 	})
 
@@ -129,10 +134,10 @@ func TestAPIClient_doRequest(t *testing.T) {
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
-		apiErr, ok := IsAPIError(err)
-		assert.True(t, ok)
-		assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
-		assert.True(t, apiErr.IsNotFound())
+		var fiberErr *fiber.Error
+		assert.True(t, errors.As(err, &fiberErr))
+		assert.Equal(t, http.StatusNotFound, fiberErr.Code)
+		assert.True(t, IsNotFound(err))
 	})
 }
 

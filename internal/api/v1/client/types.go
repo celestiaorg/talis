@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // APIError represents an error returned by the API
@@ -87,4 +89,22 @@ type CreateResponse struct {
 type DeleteResponse struct {
 	ID     uint   `json:"id"`
 	Status string `json:"status"`
+}
+
+// IsNotFound returns true if the error is a 404 Not Found error
+func IsNotFound(err error) bool {
+	var fiberErr *fiber.Error
+	if errors.As(err, &fiberErr) {
+		return fiberErr.Code == http.StatusNotFound
+	}
+	return false
+}
+
+// IsBadRequest returns true if the error is a 400 Bad Request error
+func IsBadRequest(err error) bool {
+	var fiberErr *fiber.Error
+	if errors.As(err, &fiberErr) {
+		return fiberErr.Code == http.StatusBadRequest
+	}
+	return false
 }

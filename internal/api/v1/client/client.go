@@ -123,11 +123,17 @@ func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
 		// Try to decode the error response
 		var errResp ErrorResponse
 		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Message != "" {
-			return NewAPIError(statusCode, errResp.Message, string(body))
+			return &fiber.Error{
+				Code:    statusCode,
+				Message: errResp.Message,
+			}
 		}
 
 		// If we can't decode the error response, return a generic error
-		return NewAPIError(statusCode, "unknown error", string(body))
+		return &fiber.Error{
+			Code:    statusCode,
+			Message: "unknown error",
+		}
 	}
 
 	// Decode the response body if a target is provided
