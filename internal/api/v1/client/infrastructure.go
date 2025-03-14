@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // CreateInfrastructure creates new infrastructure
@@ -21,7 +23,7 @@ func (c *APIClient) CreateInfrastructure(ctx context.Context, req interface{}) (
 		return nil, err
 	}
 
-	var response CreateResponse
+	var response infrastructure.Response
 	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
@@ -44,7 +46,7 @@ func (c *APIClient) DeleteInfrastructure(ctx context.Context, req interface{}) (
 		return nil, err
 	}
 
-	var response DeleteResponse
+	var response infrastructure.Response
 	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
@@ -62,7 +64,7 @@ func (c *APIClient) GetInfrastructure(ctx context.Context, id string) (interface
 		return nil, err
 	}
 
-	var response CreateResponse
+	var response infrastructure.Response
 	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func (c *APIClient) ListInfrastructure(ctx context.Context) (interface{}, error)
 		return nil, err
 	}
 
-	var response []CreateResponse
+	var response []infrastructure.Response
 	if err := c.doRequest(agent, &response); err != nil {
 		return nil, err
 	}

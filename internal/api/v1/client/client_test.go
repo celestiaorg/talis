@@ -12,6 +12,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 func TestNewClient(t *testing.T) {
@@ -91,7 +93,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/success", nil)
 		require.NoError(t, err)
 
-		var response CreateResponse
+		var response infrastructure.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.NoError(t, err)
 		assert.Equal(t, uint(1), response.ID)
@@ -102,7 +104,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/error", nil)
 		require.NoError(t, err)
 
-		var response CreateResponse
+		var response infrastructure.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -116,7 +118,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/invalid-json", nil)
 		require.NoError(t, err)
 
-		var response CreateResponse
+		var response infrastructure.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -129,7 +131,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/not-found", nil)
 		require.NoError(t, err)
 
-		var response CreateResponse
+		var response infrastructure.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 

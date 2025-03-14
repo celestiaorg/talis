@@ -6,15 +6,3 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 	Status  int    `json:"status"`
 }
-
-// CreateResponse represents the response from creating infrastructure
-type CreateResponse struct {
-	ID     uint   `json:"id"`
-	Status string `json:"status"`
-}
-
-// DeleteResponse represents the response from deleting infrastructure
-type DeleteResponse struct {
-	ID     uint   `json:"id"`
-	Status string `json:"status"`
-}

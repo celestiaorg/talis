@@ -9,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 func TestAPIClient_CreateInfrastructure(t *testing.T) {
@@ -55,7 +57,7 @@ func TestAPIClient_CreateInfrastructure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check the response
-	createResp, ok := resp.(*CreateResponse)
+	createResp, ok := resp.(*infrastructure.Response)
 	require.True(t, ok)
 	assert.Equal(t, uint(123), createResp.ID)
 	assert.Equal(t, "created", createResp.Status)
@@ -106,7 +108,7 @@ func TestAPIClient_DeleteInfrastructure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check the response
-	deleteResp, ok := resp.(*DeleteResponse)
+	deleteResp, ok := resp.(*infrastructure.Response)
 	require.True(t, ok)
 	assert.Equal(t, uint(123), deleteResp.ID)
 	assert.Equal(t, "deleted", deleteResp.Status)
@@ -136,7 +138,7 @@ func TestAPIClient_GetInfrastructure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check the response
-	createResp, ok := resp.(*CreateResponse)
+	createResp, ok := resp.(*infrastructure.Response)
 	require.True(t, ok)
 	assert.Equal(t, uint(123), createResp.ID)
 	assert.Equal(t, "active", createResp.Status)
@@ -166,7 +168,7 @@ func TestAPIClient_ListInfrastructure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check the response
-	createResps, ok := resp.([]CreateResponse)
+	createResps, ok := resp.([]infrastructure.Response)
 	require.True(t, ok)
 	assert.Len(t, createResps, 2)
 	assert.Equal(t, uint(123), createResps[0].ID)

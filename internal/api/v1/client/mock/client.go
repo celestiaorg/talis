@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/celestiaorg/talis/internal/api/v1/client"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // MockClient implements the Client interface for testing
@@ -63,7 +64,7 @@ func (m *MockClient) CreateInfrastructure(ctx context.Context, req interface{}) 
 	}
 
 	// Default mock implementation
-	return &client.CreateResponse{
+	return &infrastructure.Response{
 		ID:     1,
 		Status: "created",
 	}, nil
@@ -86,7 +87,7 @@ func (m *MockClient) DeleteInfrastructure(ctx context.Context, req interface{}) 
 	}
 
 	// Default mock implementation
-	return &client.DeleteResponse{
+	return &infrastructure.Response{
 		ID:     1,
 		Status: "deleted",
 	}, nil
@@ -109,7 +110,7 @@ func (m *MockClient) GetInfrastructure(ctx context.Context, id string) (interfac
 	}
 
 	// Default mock implementation
-	return &client.CreateResponse{
+	return &infrastructure.Response{
 		ID:     1,
 		Status: "active",
 	}, nil
@@ -130,7 +131,7 @@ func (m *MockClient) ListInfrastructure(ctx context.Context) (interface{}, error
 	}
 
 	// Default mock implementation
-	return []client.CreateResponse{
+	return []infrastructure.Response{
 		{
 			ID:     1,
 			Status: "active",
