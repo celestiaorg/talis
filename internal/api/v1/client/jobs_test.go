@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/celestiaorg/talis/internal/api/v1/routes"
 )
 
 func TestAPIClient_GetJob(t *testing.T) {
@@ -15,7 +17,7 @@ func TestAPIClient_GetJob(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check request method and path
 		assert.Equal(t, http.MethodGet, r.Method)
-		assert.Equal(t, "/api/v1/jobs/123", r.URL.Path)
+		assert.Equal(t, routes.GetJobURL("123"), r.URL.Path)
 
 		// Return a successful response
 		w.WriteHeader(http.StatusOK)
@@ -34,11 +36,10 @@ func TestAPIClient_GetJob(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check the response
-	jobResp, ok := resp.(*map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "123", (*jobResp)["job_id"])
-	assert.Equal(t, "completed", (*jobResp)["status"])
-	assert.Equal(t, "2023-01-01T00:00:00Z", (*jobResp)["created_at"])
+	assert.NotNil(t, resp)
+	assert.Equal(t, "123", resp.JobID)
+	assert.Equal(t, "completed", resp.Status)
+	assert.Equal(t, "2023-01-01T00:00:00Z", resp.CreatedAt)
 }
 
 func TestAPIClient_ListJobs(t *testing.T) {
@@ -52,25 +53,25 @@ func TestAPIClient_ListJobs(t *testing.T) {
 			name:   "no filters",
 			limit:  0,
 			status: "",
-			path:   "/api/v1/jobs",
+			path:   routes.ListJobsURL(),
 		},
 		{
 			name:   "with limit",
 			limit:  5,
 			status: "",
-			path:   "/api/v1/jobs?limit=5",
+			path:   routes.ListJobsURL() + "?limit=5",
 		},
 		{
 			name:   "with status",
 			limit:  0,
 			status: "running",
-			path:   "/api/v1/jobs?status=running",
+			path:   routes.ListJobsURL() + "?status=running",
 		},
 		{
 			name:   "with limit and status",
 			limit:  5,
 			status: "running",
-			path:   "/api/v1/jobs?limit=5&status=running",
+			path:   routes.ListJobsURL() + "?limit=5&status=running",
 		},
 	}
 
@@ -102,13 +103,11 @@ func TestAPIClient_ListJobs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check the response
-			jobResps, ok := resp.([]map[string]interface{})
-			require.True(t, ok)
-			assert.Len(t, jobResps, 2)
-			assert.Equal(t, "123", jobResps[0]["job_id"])
-			assert.Equal(t, "running", jobResps[0]["status"])
-			assert.Equal(t, "456", jobResps[1]["job_id"])
-			assert.Equal(t, "completed", jobResps[1]["status"])
+			assert.Len(t, resp, 2)
+			assert.Equal(t, "123", resp[0].JobID)
+			assert.Equal(t, "running", resp[0].Status)
+			assert.Equal(t, "456", resp[1].JobID)
+			assert.Equal(t, "completed", resp[1].Status)
 		})
 	}
 }

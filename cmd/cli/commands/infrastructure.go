@@ -13,7 +13,7 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// CreateRequest represents the JSON structure for creating infrastructure
+// CreateRequest struct is used for creating infrastructure
 type CreateRequest struct {
 	Name        string                           `json:"name"`
 	ProjectName string                           `json:"project_name"`
@@ -21,7 +21,7 @@ type CreateRequest struct {
 	Instances   []infrastructure.InstanceRequest `json:"instances"`
 }
 
-// DeleteRequest represents the JSON structure for deleting infrastructure
+// DeleteRequest struct is used for deleting infrastructure
 type DeleteRequest struct {
 	ID          uint                             `json:"id"`
 	Name        string                           `json:"name"`
@@ -47,19 +47,18 @@ var infraCmd = &cobra.Command{
 
 var createInfraCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create new infrastructure",
+	Short: "Create infrastructure",
+	Long:  `Create infrastructure based on a JSON configuration file.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get API client
-		client := getAPIClient(cmd)
-
-		// Parse input file
+		// Get flags
 		jsonFile, _ := cmd.Flags().GetString("file")
-		if jsonFile == "" {
-			return fmt.Errorf("error: JSON file not provided")
-		}
+
+		// Validate file path
 		if err := validateFilePath(jsonFile); err != nil {
-			return fmt.Errorf("error validating file path: %w", err)
+			return err
 		}
+
+		// Read and parse JSON file
 		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
@@ -76,9 +75,17 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error: no instances specified in the JSON file")
 		}
 
+		// Convert to infrastructure.CreateRequest
+		createReq := infrastructure.CreateRequest{
+			Name:        req.Name,
+			ProjectName: req.ProjectName,
+			WebhookURL:  req.WebhookURL,
+			Instances:   req.Instances,
+		}
+
 		// Call API client
 		ctx := context.Background()
-		resp, err := client.CreateInfrastructure(ctx, req)
+		resp, err := clientInstance.CreateJob(ctx, createReq)
 		if err != nil {
 			return fmt.Errorf("error creating infrastructure: %w", err)
 		}
@@ -88,65 +95,44 @@ var createInfraCmd = &cobra.Command{
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
 
 		// Generate delete file
-		baseFileName := filepath.Base(jsonFile)
-		deleteFileName := fmt.Sprintf("delete_%s", baseFileName)
-		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), deleteFileName)
-
-		// Extract the ID from the response
-		respMap, ok := resp.(map[string]interface{})
-		if !ok {
-			_, _ = fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to parse response for delete file generation\n")
-			return nil
-		}
-
-		// Create delete request
+		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), fmt.Sprintf("delete_%s.json", strings.TrimSuffix(filepath.Base(jsonFile), filepath.Ext(jsonFile))))
 		deleteReq := DeleteRequest{
+			ID:          resp.ID,
 			Name:        req.Name,
 			ProjectName: req.ProjectName,
 			Instances:   req.Instances,
 		}
 
-		// Set the ID from the response
-		if id, ok := respMap["id"].(float64); ok {
-			deleteReq.ID = uint(id)
-		} else {
-			_, _ = fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to extract ID from response\n")
-			return nil
-		}
-
-		// Marshal the delete request to JSON
-		deleteJSON, err := json.MarshalIndent(deleteReq, "", "    ")
+		deleteJSON, err := json.MarshalIndent(deleteReq, "", "  ")
 		if err != nil {
-			_, _ = fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to generate delete file: %v\n", err)
-			return nil
+			return fmt.Errorf("error generating delete file: %w", err)
 		}
 
-		// Write the delete file
+		// #nosec G304 -- file path is constructed from a validated input file
 		if err := os.WriteFile(deleteFilePath, deleteJSON, 0600); err != nil {
-			_, _ = fmt.Fprintf(cmd.OutOrStderr(), "Warning: Failed to write delete file: %v\n", err)
-			return nil
+			return fmt.Errorf("error writing delete file: %w", err)
 		}
 
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Delete file generated: %s (with job ID: %d)\n", deleteFilePath, deleteReq.ID)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nDelete file generated: %s\n", deleteFilePath)
+
 		return nil
 	},
 }
 
 var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete existing infrastructure",
+	Short: "Delete infrastructure",
+	Long:  `Delete infrastructure based on a JSON configuration file.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get API client
-		client := getAPIClient(cmd)
-
-		// Parse input file
+		// Get flags
 		jsonFile, _ := cmd.Flags().GetString("file")
-		if jsonFile == "" {
-			return fmt.Errorf("error: JSON file not provided")
-		}
+
+		// Validate file path
 		if err := validateFilePath(jsonFile); err != nil {
-			return fmt.Errorf("error validating file path: %w", err)
+			return err
 		}
+
+		// Read and parse JSON file
 		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
@@ -158,9 +144,19 @@ var deleteInfraCmd = &cobra.Command{
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
+		// Convert to infrastructure.DeleteInstanceRequest
+		deleteReq := infrastructure.DeleteInstanceRequest{
+			ID:          req.ID,
+			Name:        req.Name,
+			ProjectName: req.ProjectName,
+			Instances:   req.Instances,
+		}
+
 		// Call API client
 		ctx := context.Background()
-		resp, err := client.DeleteInfrastructure(ctx, req)
+		// Use a dummy job ID since we're deleting infrastructure
+		jobID := fmt.Sprintf("%d", req.ID)
+		resp, err := clientInstance.DeleteJobInstance(ctx, jobID, deleteReq)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
@@ -168,6 +164,7 @@ var deleteInfraCmd = &cobra.Command{
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
 		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+
 		return nil
 	},
 }

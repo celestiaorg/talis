@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/api/v1/client/mock"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // setupJobsTestCommand sets up a test command with a mock client
@@ -49,22 +50,22 @@ func TestListJobsCommand(t *testing.T) {
 	cmd, mockClient, outputBuf := setupJobsTestCommand(t)
 
 	// Configure mock client to return a successful response
-	mockClient.ListJobsFn = func(ctx context.Context, limit int, status string) (interface{}, error) {
+	mockClient.ListJobsFn = func(ctx context.Context, limit int, status string) ([]infrastructure.JobStatus, error) {
 		// Verify parameters
 		assert.Equal(t, 5, limit)
 		assert.Equal(t, "running", status)
 
 		// Return mock response
-		return []map[string]interface{}{
+		return []infrastructure.JobStatus{
 			{
-				"job_id":     "123",
-				"status":     "running",
-				"created_at": "2023-01-01T00:00:00Z",
+				JobID:     "123",
+				Status:    "running",
+				CreatedAt: "2023-01-01T00:00:00Z",
 			},
 			{
-				"job_id":     "456",
-				"status":     "running",
-				"created_at": "2023-01-02T00:00:00Z",
+				JobID:     "456",
+				Status:    "running",
+				CreatedAt: "2023-01-02T00:00:00Z",
 			},
 		}, nil
 	}
@@ -79,9 +80,9 @@ func TestListJobsCommand(t *testing.T) {
 
 	// Verify command output
 	output := outputBuf.String()
-	assert.Contains(t, output, `"job_id": "123"`)
-	assert.Contains(t, output, `"status": "running"`)
-	assert.Contains(t, output, `"job_id": "456"`)
+	assert.Contains(t, output, `"JobID": "123"`)
+	assert.Contains(t, output, `"Status": "running"`)
+	assert.Contains(t, output, `"JobID": "456"`)
 }
 
 func TestGetJobCommand(t *testing.T) {
@@ -89,15 +90,15 @@ func TestGetJobCommand(t *testing.T) {
 	cmd, mockClient, outputBuf := setupJobsTestCommand(t)
 
 	// Configure mock client to return a successful response
-	mockClient.GetJobFn = func(ctx context.Context, id string) (interface{}, error) {
+	mockClient.GetJobFn = func(ctx context.Context, id string) (*infrastructure.JobStatus, error) {
 		// Verify parameters
 		assert.Equal(t, "123", id)
 
 		// Return mock response
-		return map[string]interface{}{
-			"job_id":     "123",
-			"status":     "completed",
-			"created_at": "2023-01-01T00:00:00Z",
+		return &infrastructure.JobStatus{
+			JobID:     "123",
+			Status:    "completed",
+			CreatedAt: "2023-01-01T00:00:00Z",
 		}, nil
 	}
 
@@ -111,6 +112,6 @@ func TestGetJobCommand(t *testing.T) {
 
 	// Verify command output
 	output := outputBuf.String()
-	assert.Contains(t, output, `"job_id": "123"`)
-	assert.Contains(t, output, `"status": "completed"`)
+	assert.Contains(t, output, `"JobID": "123"`)
+	assert.Contains(t, output, `"Status": "completed"`)
 }

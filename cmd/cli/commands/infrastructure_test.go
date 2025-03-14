@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/api/v1/client/mock"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // setupTestCommand sets up a test command with a mock client
@@ -83,19 +84,17 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	jsonFile := createTempJSONFile(t, jsonContent)
 
 	// Configure mock client to return a successful response for create
-	mockClient.CreateInfrastructureFn = func(ctx context.Context, req interface{}) (interface{}, error) {
+	mockClient.CreateJobFn = func(ctx context.Context, req infrastructure.CreateRequest) (*infrastructure.Response, error) {
 		// Verify request
-		createReq, ok := req.(CreateRequest)
-		assert.True(t, ok)
-		assert.Equal(t, "test-infra", createReq.Name)
-		assert.Equal(t, "test-project", createReq.ProjectName)
-		assert.Len(t, createReq.Instances, 1)
-		assert.Equal(t, "aws", createReq.Instances[0].Provider)
+		assert.Equal(t, "test-infra", req.Name)
+		assert.Equal(t, "test-project", req.ProjectName)
+		assert.Len(t, req.Instances, 1)
+		assert.Equal(t, "aws", req.Instances[0].Provider)
 
 		// Return mock response
-		return map[string]interface{}{
-			"id":     float64(123),
-			"status": "created",
+		return &infrastructure.Response{
+			ID:     123,
+			Status: "created",
 		}, nil
 	}
 
@@ -105,12 +104,12 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	require.NoError(t, err, "Create command execution failed")
 
 	// Verify that the mock client was called
-	require.Len(t, mockClient.CreateInfrastructureCalls, 1, "CreateInfrastructure should be called once")
+	require.Len(t, mockClient.CreateJobCalls, 1, "CreateJob should be called once")
 
 	// Verify command output
 	output := outputBuf.String()
-	assert.Contains(t, output, `"id": 123`)
-	assert.Contains(t, output, `"status": "created"`)
+	assert.Contains(t, output, `"ID": 123`)
+	assert.Contains(t, output, `"Status": "created"`)
 
 	// Verify that the delete file was created
 	deleteFilePath := filepath.Join(filepath.Dir(jsonFile), "delete_test.json")
@@ -135,19 +134,18 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	outputBuf.Reset()
 
 	// Configure mock client to return a successful response for delete
-	mockClient.DeleteInfrastructureFn = func(ctx context.Context, req interface{}) (interface{}, error) {
+	mockClient.DeleteJobInstanceFn = func(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*infrastructure.Response, error) {
 		// Verify request
-		deleteReq, ok := req.(DeleteRequest)
-		assert.True(t, ok)
-		assert.Equal(t, uint(123), deleteReq.ID)
-		assert.Equal(t, "test-infra", deleteReq.Name)
-		assert.Equal(t, "test-project", deleteReq.ProjectName)
-		assert.Len(t, deleteReq.Instances, 1)
+		assert.Equal(t, "123", jobID)
+		assert.Equal(t, uint(123), req.ID)
+		assert.Equal(t, "test-infra", req.Name)
+		assert.Equal(t, "test-project", req.ProjectName)
+		assert.Len(t, req.Instances, 1)
 
 		// Return mock response
-		return map[string]interface{}{
-			"id":     float64(123),
-			"status": "deleted",
+		return &infrastructure.Response{
+			ID:     123,
+			Status: "deleted",
 		}, nil
 	}
 
@@ -157,12 +155,12 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	require.NoError(t, err, "Delete command execution failed")
 
 	// Verify that the mock client was called
-	require.Len(t, mockClient.DeleteInfrastructureCalls, 1, "DeleteInfrastructure should be called once")
+	require.Len(t, mockClient.DeleteJobInstanceCalls, 1, "DeleteJobInstance should be called once")
 
 	// Verify command output
 	output = outputBuf.String()
-	assert.Contains(t, output, `"id": 123`)
-	assert.Contains(t, output, `"status": "deleted"`)
+	assert.Contains(t, output, `"ID": 123`)
+	assert.Contains(t, output, `"Status": "deleted"`)
 }
 
 func TestDeleteInfrastructureCommand(t *testing.T) {
@@ -189,19 +187,18 @@ func TestDeleteInfrastructureCommand(t *testing.T) {
 	jsonFile := createTempJSONFile(t, jsonContent)
 
 	// Configure mock client to return a successful response
-	mockClient.DeleteInfrastructureFn = func(ctx context.Context, req interface{}) (interface{}, error) {
+	mockClient.DeleteJobInstanceFn = func(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*infrastructure.Response, error) {
 		// Verify request
-		deleteReq, ok := req.(DeleteRequest)
-		assert.True(t, ok)
-		assert.Equal(t, uint(123), deleteReq.ID)
-		assert.Equal(t, "test-infra", deleteReq.Name)
-		assert.Equal(t, "test-project", deleteReq.ProjectName)
-		assert.Len(t, deleteReq.Instances, 1)
+		assert.Equal(t, "123", jobID)
+		assert.Equal(t, uint(123), req.ID)
+		assert.Equal(t, "test-infra", req.Name)
+		assert.Equal(t, "test-project", req.ProjectName)
+		assert.Len(t, req.Instances, 1)
 
 		// Return mock response
-		return map[string]interface{}{
-			"id":     float64(123),
-			"status": "deleted",
+		return &infrastructure.Response{
+			ID:     123,
+			Status: "deleted",
 		}, nil
 	}
 
@@ -211,10 +208,10 @@ func TestDeleteInfrastructureCommand(t *testing.T) {
 	require.NoError(t, err, "Command execution failed")
 
 	// Verify that the mock client was called
-	require.Len(t, mockClient.DeleteInfrastructureCalls, 1, "DeleteInfrastructure should be called once")
+	require.Len(t, mockClient.DeleteJobInstanceCalls, 1, "DeleteJobInstance should be called once")
 
 	// Verify command output
 	output := outputBuf.String()
-	assert.Contains(t, output, `"id": 123`)
-	assert.Contains(t, output, `"status": "deleted"`)
+	assert.Contains(t, output, `"ID": 123`)
+	assert.Contains(t, output, `"Status": "deleted"`)
 }
