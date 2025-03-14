@@ -40,8 +40,10 @@ func setupTestCommand(t *testing.T) (*cobra.Command, *mock.MockClient, *bytes.Bu
 
 	// Set the output buffer for the root command and all subcommands
 	cmd.SetOut(outputBuf)
+	cmd.SetErr(outputBuf)
 	for _, subCmd := range cmd.Commands() {
 		subCmd.SetOut(outputBuf)
+		subCmd.SetErr(outputBuf)
 	}
 
 	return cmd, mockClient, outputBuf
@@ -80,7 +82,7 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	}`
 	jsonFile := createTempJSONFile(t, jsonContent)
 
-	// Configure mock client to return a successful response
+	// Configure mock client to return a successful response for create
 	mockClient.CreateInfrastructureFn = func(ctx context.Context, req interface{}) (interface{}, error) {
 		// Verify request
 		createReq, ok := req.(CreateRequest)
@@ -97,10 +99,10 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 		}, nil
 	}
 
-	// Execute the command
+	// Execute the create command
 	cmd.SetArgs([]string{"create", "-f", jsonFile})
 	err := cmd.Execute()
-	require.NoError(t, err, "Command execution failed")
+	require.NoError(t, err, "Create command execution failed")
 
 	// Verify that the mock client was called
 	require.Len(t, mockClient.CreateInfrastructureCalls, 1, "CreateInfrastructure should be called once")
@@ -127,6 +129,40 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	assert.Equal(t, "test-infra", deleteReq.Name)
 	assert.Equal(t, "test-project", deleteReq.ProjectName)
 	assert.Len(t, deleteReq.Instances, 1)
+
+	// Now test the delete command with the generated delete file
+	// Reset the output buffer
+	outputBuf.Reset()
+
+	// Configure mock client to return a successful response for delete
+	mockClient.DeleteInfrastructureFn = func(ctx context.Context, req interface{}) (interface{}, error) {
+		// Verify request
+		deleteReq, ok := req.(DeleteRequest)
+		assert.True(t, ok)
+		assert.Equal(t, uint(123), deleteReq.ID)
+		assert.Equal(t, "test-infra", deleteReq.Name)
+		assert.Equal(t, "test-project", deleteReq.ProjectName)
+		assert.Len(t, deleteReq.Instances, 1)
+
+		// Return mock response
+		return map[string]interface{}{
+			"id":     float64(123),
+			"status": "deleted",
+		}, nil
+	}
+
+	// Execute the delete command with the generated delete file
+	cmd.SetArgs([]string{"delete", "-f", deleteFilePath})
+	err = cmd.Execute()
+	require.NoError(t, err, "Delete command execution failed")
+
+	// Verify that the mock client was called
+	require.Len(t, mockClient.DeleteInfrastructureCalls, 1, "DeleteInfrastructure should be called once")
+
+	// Verify command output
+	output = outputBuf.String()
+	assert.Contains(t, output, `"id": 123`)
+	assert.Contains(t, output, `"status": "deleted"`)
 }
 
 func TestDeleteInfrastructureCommand(t *testing.T) {

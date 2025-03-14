@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -29,7 +28,7 @@ var jobsCmd = &cobra.Command{
 var listJobsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all jobs",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get API client
 		client := getAPIClient(cmd)
 
@@ -41,8 +40,7 @@ var listJobsCmd = &cobra.Command{
 		var limit int
 		if limitStr != "" {
 			if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
-				fmt.Printf("Error parsing limit: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("error parsing limit: %w", err)
 			}
 		}
 
@@ -50,20 +48,20 @@ var listJobsCmd = &cobra.Command{
 		ctx := context.Background()
 		resp, err := client.ListJobs(ctx, limit, status)
 		if err != nil {
-			fmt.Printf("Error fetching jobs: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error fetching jobs: %w", err)
 		}
 
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		fmt.Println(string(prettyJSON))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		return nil
 	},
 }
 
 var getJobCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a specific job",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get API client
 		client := getAPIClient(cmd)
 
@@ -74,13 +72,13 @@ var getJobCmd = &cobra.Command{
 		ctx := context.Background()
 		resp, err := client.GetJob(ctx, jobID)
 		if err != nil {
-			fmt.Printf("Error fetching job: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error fetching job: %w", err)
 		}
 
 		// Process response
 		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		fmt.Println(string(prettyJSON))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		return nil
 	},
 }
 
