@@ -2,7 +2,6 @@
 run:
   timeout: 5m
   modules-download-mode: readonly
-  go: "1.24" # Specify the Go version to match your project
 
 linters:
   enable:
