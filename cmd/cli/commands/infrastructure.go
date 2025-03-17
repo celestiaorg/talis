@@ -1,11 +1,9 @@
 package commands
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,192 +31,125 @@ var infraCmd = &cobra.Command{
 
 var createInfraCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create new infrastructure",
-	Run: func(cmd *cobra.Command, args []string) {
-		var req infrastructure.InstanceCreateRequest
-
+	Short: "Create infrastructure",
+	Long:  `Create infrastructure based on a JSON configuration file.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Get flags
 		jsonFile, _ := cmd.Flags().GetString("file")
-		if jsonFile == "" {
-			fmt.Println("Error: JSON file not provided")
-			os.Exit(1)
-		}
+
+		// Validate file path
 		if err := validateFilePath(jsonFile); err != nil {
-			fmt.Printf("Error validating file path: %v\n", err)
-			os.Exit(1)
+			return err
 		}
+
+		// Read and parse JSON file
 		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
-			fmt.Printf("Error reading JSON file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
+		var req infrastructure.CreateRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			fmt.Printf("Error parsing JSON file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
 		// Validate that instances array is not empty
 		if len(req.Instances) == 0 {
-			fmt.Println("Error: No instances specified in the JSON file")
-			os.Exit(1)
+			return fmt.Errorf("error: no instances specified in the JSON file")
 		}
 
-		jsonData, err := json.Marshal(req)
+		// Convert to infrastructure.CreateRequest
+		createReq := infrastructure.CreateRequest{
+			Name:        req.Name,
+			ProjectName: req.ProjectName,
+			WebhookURL:  req.WebhookURL,
+			Instances:   req.Instances,
+		}
+
+		// Call API client
+		ctx := context.Background()
+		resp, err := clientInstance.CreateJob(ctx, createReq)
 		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error creating infrastructure: %w", err)
 		}
 
-		resp, err := http.Post("http://localhost:8080/api/v1/instances",
-			"application/json", bytes.NewBuffer(jsonData))
+		// Process response
+		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+
+		// Generate delete file
+		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), fmt.Sprintf("delete_%s.json", strings.TrimSuffix(filepath.Base(jsonFile), filepath.Ext(jsonFile))))
+		deleteReq := infrastructure.DeleteRequest{
+			ID:          resp.ID,
+			Name:        req.Name,
+			ProjectName: req.ProjectName,
+			Instances:   req.Instances,
+		}
+
+		deleteJSON, err := json.MarshalIndent(deleteReq, "", "  ")
 		if err != nil {
-			fmt.Printf("Error creating infrastructure: %v\n", err)
-			os.Exit(1)
-		}
-		defer func() {
-			if cerr := resp.Body.Close(); cerr != nil {
-				err = fmt.Errorf("error closing response body: %w", cerr)
-			}
-		}()
-
-		// Check if the response status code is an error
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("Error creating infrastructure. Status code: %d, Response: %s\n", resp.StatusCode, string(body))
-			os.Exit(1)
+			return fmt.Errorf("error generating delete file: %w", err)
 		}
 
-		// Decode the response body into a map
-		var result map[string]interface{}
-		decoder := json.NewDecoder(resp.Body)
-		decoder.UseNumber() // Use json.Number instead of float64 for numbers
-		if err := decoder.Decode(&result); err != nil {
-			fmt.Printf("Error decoding response: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Print the response in a pretty format
-		prettyJSON, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Println(string(prettyJSON))
-
-		// The request was successful, generate a delete.json file
-		// Create a delete request based on the create request
-		deleteReq := infrastructure.DeleteInstanceRequest{
-			InstanceName: req.InstanceName,
-			ProjectName:  req.ProjectName,
-			Instances:    req.Instances,
-		}
-
-		// Extract the job ID from the response
-		idFound := false
-		if id, ok := result["ID"]; ok {
-			if num, ok := id.(json.Number); ok {
-				if i, err := num.Int64(); err == nil {
-					deleteReq.ID = uint(i)
-					idFound = true
-				}
-			}
-		}
-		if !idFound {
-			fmt.Println("Warning: Could not extract job ID from response. Using ID: 0")
-			deleteReq.ID = 0
-		}
-
-		// Generate the delete file name based on the create file name
-		baseFileName := filepath.Base(jsonFile)
-		deleteFileName := fmt.Sprintf("delete_%s", baseFileName)
-
-		// If the create file is in a different directory, preserve that path
-		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), deleteFileName)
-
-		// Marshal the delete request to JSON
-		deleteJSON, err := json.MarshalIndent(deleteReq, "", "    ")
-		if err != nil {
-			fmt.Printf("Warning: Failed to generate delete file: %v\n", err)
-			return
-		}
-
-		// Write the delete file
+		// #nosec G304 -- file path is constructed from a validated input file
 		if err := os.WriteFile(deleteFilePath, deleteJSON, 0600); err != nil {
-			fmt.Printf("Warning: Failed to write delete file: %v\n", err)
-			return
+			return fmt.Errorf("error writing delete file: %w", err)
 		}
 
-		fmt.Printf("Delete file generated: %s (with job ID: %d)\n", deleteFilePath, deleteReq.ID)
+		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\nDelete file generated: %s\n", deleteFilePath)
+
+		return nil
 	},
 }
 
 var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
-	Run: func(cmd *cobra.Command, args []string) {
-		var req infrastructure.DeleteInstanceRequest
-
-		// Check if JSON file is provided
+	Long:  `Delete infrastructure based on a JSON configuration file.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Get flags
 		jsonFile, _ := cmd.Flags().GetString("file")
-		if jsonFile == "" {
-			fmt.Println("Error: JSON file not provided")
-			os.Exit(1)
-		}
+
+		// Validate file path
 		if err := validateFilePath(jsonFile); err != nil {
-			fmt.Printf("Error validating file path: %v\n", err)
-			os.Exit(1)
+			return err
 		}
+
+		// Read and parse JSON file
 		// #nosec G304 -- file path is validated before use
 		data, err := os.ReadFile(jsonFile)
 		if err != nil {
-			fmt.Printf("Error reading JSON file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
+		var req infrastructure.DeleteRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			fmt.Printf("Error parsing JSON file: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
-		// Validate that instances array is not empty
-		if len(req.Instances) == 0 {
-			fmt.Println("Error: No instances specified in the JSON file")
-			os.Exit(1)
+		// Convert to infrastructure.DeleteInstanceRequest
+		deleteReq := infrastructure.DeleteInstanceRequest{
+			ID:           req.ID,
+			InstanceName: req.Name,
+			ProjectName:  req.ProjectName,
+			Instances:    req.Instances,
 		}
 
-		jsonData, err := json.Marshal(req)
+		// Call API client
+		ctx := context.Background()
+		// Use a dummy job ID since we're deleting infrastructure
+		jobID := fmt.Sprintf("%d", req.ID)
+		resp, err := clientInstance.DeleteJobInstance(ctx, jobID, deleteReq)
 		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
 
-		// Create a new request
-		httpReq, err := http.NewRequest("DELETE", "http://localhost:8080/api/v1/instances",
-			bytes.NewBuffer(jsonData))
-		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
-			os.Exit(1)
-		}
-		httpReq.Header.Set("Content-Type", "application/json")
+		// Process response
+		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
 
-		// Send the request
-		client := &http.Client{}
-		resp, err := client.Do(httpReq)
-		if err != nil {
-			fmt.Printf("Error deleting infrastructure: %v\n", err)
-			os.Exit(1)
-		}
-		defer func() {
-			if cerr := resp.Body.Close(); cerr != nil {
-				err = fmt.Errorf("error closing response body: %w", cerr)
-			}
-		}()
-
-		var result interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("Error decoding response: %v\n", err)
-			os.Exit(1)
-		}
-
-		prettyJSON, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Println(string(prettyJSON))
+		return nil
 	},
 }
 
