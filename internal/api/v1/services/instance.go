@@ -13,23 +13,31 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// JobServiceInterface defines the interface for job operations.
-// This interface is used by InstanceService to manage job states during infrastructure operations.
-// It provides a minimal set of methods needed to create and update job statuses,
-// following the Interface Segregation Principle by only exposing the methods that are actually used.
-type JobServiceInterface interface {
+// Instance defines the interface for instance operations
+type Instance interface {
+	ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
+	CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error)
+	DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error)
+	GetInstance(ctx context.Context, id uint) (*models.Instance, error)
+	GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
+	GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error)
+}
+
+// Job defines the interface for job operations
+type Job interface {
 	CreateJob(ctx context.Context, job *models.Job) (*models.Job, error)
 	UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error
+	GetByProjectName(ctx context.Context, projectName string) (*models.Job, error)
 }
 
 // InstanceService provides business logic for instance operations
 type InstanceService struct {
 	repo       *repos.InstanceRepository
-	jobService JobServiceInterface
+	jobService Job
 }
 
 // NewInstanceService creates a new instance service instance
-func NewInstanceService(repo *repos.InstanceRepository, jobService JobServiceInterface) *InstanceService {
+func NewInstanceService(repo *repos.InstanceRepository, jobService Job) *InstanceService {
 	return &InstanceService{
 		repo:       repo,
 		jobService: jobService,
@@ -390,4 +398,34 @@ func (s *InstanceService) updateJobStatusWithError(
 	if err := s.jobService.UpdateJobStatus(ctx, jobID, status, result, errMsg); err != nil {
 		log.Printf("Failed to update job status: %v", err)
 	}
+}
+
+// GetPublicIPs retrieves all public IPs and instance details
+func (s *InstanceService) GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+	fmt.Println("📥 Getting all instances from database...")
+
+	// Get all instances with their details
+	instances, err := s.repo.List(ctx, opts)
+	if err != nil {
+		fmt.Printf("❌ Error listing instances: %v\n", err)
+		return nil, fmt.Errorf("failed to list instances: %w", err)
+	}
+
+	fmt.Printf("✅ Retrieved %d instances from database\n", len(instances))
+	return instances, nil
+}
+
+// GetInstancesByJobID retrieves all instances for a specific job
+func (s *InstanceService) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
+	fmt.Printf("📥 Getting instances for job ID %d from database...\n", jobID)
+
+	// Get instances for the specific job
+	instances, err := s.repo.GetByJobID(ctx, jobID)
+	if err != nil {
+		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
+		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+	}
+
+	fmt.Printf("✅ Retrieved %d instances for job %d from database\n", len(instances), jobID)
+	return instances, nil
 }

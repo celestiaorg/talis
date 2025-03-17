@@ -12,10 +12,15 @@ const (
 	// ProviderAzure represents Microsoft Azure provider
 	ProviderAzure ProviderID = "azure"
 	// ProviderDO represents DigitalOcean provider
-	ProviderDO       ProviderID = "do"
+	ProviderDO ProviderID = "do"
+	// ProviderScaleway represents Scaleway provider
 	ProviderScaleway ProviderID = "scw"
-	ProviderVultr    ProviderID = "vultr"
-	ProviderLinode   ProviderID = "linode"
-	ProviderHetzner  ProviderID = "hetzner"
-	ProviderOVH      ProviderID = "ovh"
+	// ProviderVultr represents Vultr provider
+	ProviderVultr ProviderID = "vultr"
+	// ProviderLinode represents Linode provider
+	ProviderLinode ProviderID = "linode"
+	// ProviderHetzner represents Hetzner provider
+	ProviderHetzner ProviderID = "hetzner"
+	// ProviderOVH represents OVH provider
+	ProviderOVH ProviderID = "ovh"
 )
