@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 func TestAPIClient_GetJob(t *testing.T) {
@@ -110,4 +113,74 @@ func TestAPIClient_ListJobs(t *testing.T) {
 			assert.Equal(t, "completed", resp[1].Status)
 		})
 	}
+}
+
+func TestAPIClient_CreateJob(t *testing.T) {
+	// Create a sample job creation request
+	createReq := infrastructure.CreateRequest{
+		Name:        "test-job",
+		ProjectName: "test-project",
+		WebhookURL:  "https://example.com/webhook",
+		Instances: []infrastructure.InstanceRequest{
+			{
+				Provider:          "aws",
+				NumberOfInstances: 2,
+				Provision:         true,
+				Region:            "us-west-2",
+				Size:              "t2.micro",
+				Image:             "ami-12345",
+				Tags:              []string{"test", "dev"},
+				SSHKeyName:        "test-key",
+			},
+		},
+	}
+
+	// Expected response from the server
+	expectedResp := infrastructure.Response{
+		ID:     12345,
+		Status: "pending",
+	}
+
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check request method and path
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, routes.CreateJobURL(), r.URL.Path)
+
+		// Read and verify request body
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var receivedReq infrastructure.CreateRequest
+		err = json.Unmarshal(body, &receivedReq)
+		require.NoError(t, err)
+
+		// Verify the request matches what we sent
+		assert.Equal(t, createReq.Name, receivedReq.Name)
+		assert.Equal(t, createReq.ProjectName, receivedReq.ProjectName)
+		assert.Equal(t, createReq.WebhookURL, receivedReq.WebhookURL)
+		assert.Len(t, receivedReq.Instances, 1)
+		assert.Equal(t, createReq.Instances[0].Provider, receivedReq.Instances[0].Provider)
+
+		// Return a successful response
+		w.WriteHeader(http.StatusOK)
+		respBytes, _ := json.Marshal(expectedResp)
+		_, _ = w.Write(respBytes)
+	}))
+	defer server.Close()
+
+	// Create a client with the test server URL
+	client, err := NewClient(&ClientOptions{
+		BaseURL: server.URL,
+	})
+	require.NoError(t, err)
+
+	// Call the method
+	resp, err := client.CreateJob(context.Background(), createReq)
+	require.NoError(t, err)
+
+	// Check the response
+	assert.NotNil(t, resp)
+	assert.Equal(t, expectedResp.ID, resp.ID)
+	assert.Equal(t, expectedResp.Status, resp.Status)
 }

@@ -33,7 +33,7 @@ type Client interface {
 
 	// Instance methods
 	GetInstance(ctx context.Context, id string) (*infrastructure.InstanceInfo, error)
-	GetInstanceMetadata(ctx context.Context) (map[string]interface{}, error)
+	GetInstanceMetadata(ctx context.Context) (*InstanceMetadataResponse, error)
 	ListInstances(ctx context.Context) ([]infrastructure.InstanceInfo, error)
 
 	// Health check
@@ -276,13 +276,13 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (*infrastructure
 }
 
 // GetInstanceMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstanceMetadata(ctx context.Context) (map[string]interface{}, error) {
+func (c *APIClient) GetInstanceMetadata(ctx context.Context) (*InstanceMetadataResponse, error) {
 	endpoint := routes.GetInstanceMetadataURL()
-	var response map[string]interface{}
+	var response InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
-	return response, nil
+	return &response, nil
 }
 
 // ListInstances lists all instances

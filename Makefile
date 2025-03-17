@@ -11,6 +11,11 @@ GOFMT := gofmt
 GOMOD := $(GO) mod
 GOBUILD := $(GO) build
 
+# flags
+PKG ?= ./...
+TEST ?= .
+TEST_FLAGS ?= -v
+
 # Build flags
 LDFLAGS := -ldflags="-s -w"
 
@@ -38,9 +43,17 @@ clean:
 .PHONY: clean
 
 ## test: Run tests
+# You can specify a package with 'make test PKG=./path/to/package'
+# You can specify a test pattern with 'make test TEST=TestName'
+# You can specify test flags with 'make test TEST_FLAGS="-v -cover"'
+# Examples:
+#   make test                         # Run all tests
+#   make test PKG=./internal/auth     # Run tests in the auth package
+#   make test TEST=TestLogin  # Run tests matching TestLogin
+#   make test PKG=./internal/auth TEST=TestLogin  # Run TestLogin in auth package
 test:
 	@echo "Running tests..."
-	$(GOTEST) -v ./...
+	$(GOTEST) $(TEST_FLAGS) -run="$(TEST)" $(PKG)
 .PHONY: test
 
 ## fmt: Format code

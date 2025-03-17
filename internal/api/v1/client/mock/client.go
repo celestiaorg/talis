@@ -19,7 +19,7 @@ type MockClient struct {
 	CreateJobInstanceFn   func(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*infrastructure.InstanceInfo, error)
 	DeleteJobInstanceFn   func(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*infrastructure.Response, error)
 	ListInstancesFn       func(ctx context.Context) ([]infrastructure.InstanceInfo, error)
-	GetInstanceMetadataFn func(ctx context.Context) (map[string]interface{}, error)
+	GetInstanceMetadataFn func(ctx context.Context) (*client.InstanceMetadataResponse, error)
 	GetInstanceFn         func(ctx context.Context, id string) (*infrastructure.InstanceInfo, error)
 	HealthCheckFn         func(ctx context.Context) (map[string]string, error)
 
@@ -321,7 +321,7 @@ func (m *MockClient) ListInstances(ctx context.Context) ([]infrastructure.Instan
 }
 
 // GetInstanceMetadata mocks the GetInstanceMetadata method
-func (m *MockClient) GetInstanceMetadata(ctx context.Context) (map[string]interface{}, error) {
+func (m *MockClient) GetInstanceMetadata(ctx context.Context) (*client.InstanceMetadataResponse, error) {
 	// Record this call
 	m.GetInstanceMetadataCalls = append(m.GetInstanceMetadataCalls, struct {
 		Ctx context.Context
@@ -335,17 +335,29 @@ func (m *MockClient) GetInstanceMetadata(ctx context.Context) (map[string]interf
 	}
 
 	// Default mock implementation
-	return map[string]interface{}{
-		"instance-1": map[string]interface{}{
-			"ip":       "192.168.1.1",
-			"provider": "aws",
-			"region":   "us-west-2",
+	instances := []infrastructure.InstanceInfo{
+		{
+			Name:     "instance-1",
+			IP:       "192.168.1.1",
+			Provider: "aws",
+			Region:   "us-west-2",
+			Size:     "t2.micro",
 		},
-		"instance-2": map[string]interface{}{
-			"ip":       "192.168.1.2",
-			"provider": "aws",
-			"region":   "us-west-2",
+		{
+			Name:     "instance-2",
+			IP:       "192.168.1.2",
+			Provider: "aws",
+			Region:   "us-west-2",
+			Size:     "t2.micro",
 		},
+	}
+
+	return &client.InstanceMetadataResponse{
+		Instances: instances,
+		Total:     len(instances),
+		Page:      1,
+		Limit:     10,
+		Offset:    0,
 	}, nil
 }
 
