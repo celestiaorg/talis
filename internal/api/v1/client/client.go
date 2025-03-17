@@ -1,11 +1,9 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -124,16 +122,6 @@ func (c *APIClient) createAgent(ctx context.Context, method, endpoint string, bo
 	return agent, nil
 }
 
-// executeRequest creates an agent, sends the request, and processes the response
-func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string, body, response interface{}) error {
-	agent, err := c.createAgent(ctx, method, endpoint, body)
-	if err != nil {
-		return err
-	}
-
-	return c.doRequest(agent, response)
-}
-
 // doRequest sends the HTTP request and processes the response
 func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
 	// Execute the request
@@ -170,18 +158,14 @@ func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
 	return nil
 }
 
-// marshalRequest marshals the request body to JSON
-func marshalRequest(req interface{}) (io.Reader, error) {
-	if req == nil {
-		return nil, nil
-	}
-
-	jsonData, err := json.Marshal(req)
+// executeRequest creates an agent, sends the request, and processes the response
+func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string, body, response interface{}) error {
+	agent, err := c.createAgent(ctx, method, endpoint, body)
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling request: %w", err)
+		return err
 	}
 
-	return bytes.NewBuffer(jsonData), nil
+	return c.doRequest(agent, response)
 }
 
 // Jobs methods implementation

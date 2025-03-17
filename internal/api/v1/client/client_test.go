@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -178,38 +177,5 @@ func TestAPIClient_createAgent(t *testing.T) {
 		agent, err := apiClient.createAgent(ctx, http.MethodGet, "/test", nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, agent)
-	})
-}
-
-func TestMarshalRequest(t *testing.T) {
-	t.Run("nil request", func(t *testing.T) {
-		reader, err := marshalRequest(nil)
-		assert.NoError(t, err)
-		assert.Nil(t, reader)
-	})
-
-	t.Run("valid request", func(t *testing.T) {
-		req := map[string]interface{}{
-			"id":     1,
-			"status": "active",
-		}
-		reader, err := marshalRequest(req)
-		assert.NoError(t, err)
-		assert.NotNil(t, reader)
-
-		// Verify the marshaled JSON
-		var unmarshaled map[string]interface{}
-		err = json.NewDecoder(reader).Decode(&unmarshaled)
-		assert.NoError(t, err)
-		assert.Equal(t, float64(1), unmarshaled["id"])
-		assert.Equal(t, "active", unmarshaled["status"])
-	})
-
-	t.Run("invalid request", func(t *testing.T) {
-		// Create a value that can't be marshaled to JSON
-		req := make(chan int)
-		reader, err := marshalRequest(req)
-		assert.Error(t, err)
-		assert.Nil(t, reader)
 	})
 }
