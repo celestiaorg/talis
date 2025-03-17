@@ -234,21 +234,7 @@ apt-get install -y python3`,
 	}
 
 	// Create a single droplet
-	createRequest := &godo.DropletCreateRequest{
-		Name:   name,
-		Region: config.Region,
-		Size:   config.Size,
-		Image: godo.DropletCreateImage{
-			Slug: config.Image,
-		},
-		SSHKeys: []godo.DropletCreateSSHKey{
-			{ID: sshKeyID},
-		},
-		Tags: append([]string{name}, config.Tags...),
-		UserData: `#!/bin/bash
-apt-get update
-apt-get install -y python3`,
-	}
+	createRequest := p.CreateDropletRequest(name, config, sshKeyID)
 
 	// Create the droplet
 	droplet, _, err := p.doClient.Droplets().Create(ctx, createRequest)

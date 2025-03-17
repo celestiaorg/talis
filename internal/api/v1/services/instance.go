@@ -52,18 +52,20 @@ func (s *InstanceService) ListInstances(ctx context.Context, opts *models.ListOp
 // CreateInstance creates a new instance
 func (s *InstanceService) CreateInstance(
 	ctx context.Context,
-	name,
+	instanceName,
 	projectName,
 	webhookURL string,
 	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
 	// Create job request
+	jobName := fmt.Sprintf("%s-%s-creation", projectName, instanceName)
 	jobReq := &infrastructure.JobRequest{
-		Name:        name,
-		ProjectName: projectName,
-		Provider:    instances[0].Provider,
-		Instances:   instances,
-		Action:      "create",
+		JobName:      jobName,
+		InstanceName: instanceName,
+		ProjectName:  projectName,
+		Provider:     instances[0].Provider,
+		Instances:    instances,
+		Action:       "create",
 	}
 
 	if err := jobReq.Validate(); err != nil {
@@ -72,10 +74,11 @@ func (s *InstanceService) CreateInstance(
 
 	// Create job first
 	job := &models.Job{
-		Name:        name,
-		ProjectName: projectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  webhookURL,
+		Name:         jobName,
+		InstanceName: jobReq.InstanceName,
+		ProjectName:  projectName,
+		Status:       models.JobStatusPending,
+		WebhookURL:   webhookURL,
 	}
 
 	job, err := s.jobService.CreateJob(ctx, job)
@@ -98,7 +101,7 @@ func (s *InstanceService) CreateInstance(
 func (s *InstanceService) DeleteInstance(
 	ctx context.Context,
 	jobID uint,
-	name,
+	instanceName,
 	projectName string,
 	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
@@ -107,18 +110,18 @@ func (s *InstanceService) DeleteInstance(
 		Model: gorm.Model{
 			ID: jobID,
 		},
-		Name:        name,
+		Name:        instanceName,
 		ProjectName: projectName,
 		Status:      models.JobStatusPending,
 	}
 
 	// Create infrastructure request
 	infraReq := &infrastructure.JobRequest{
-		Name:        name,
-		ProjectName: projectName,
-		Provider:    instances[0].Provider,
-		Instances:   instances,
-		Action:      "delete",
+		InstanceName: instanceName,
+		ProjectName:  projectName,
+		Provider:     instances[0].Provider,
+		Instances:    instances,
+		Action:       "delete",
 	}
 
 	// Start async infrastructure deletion
@@ -263,25 +266,65 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("no instances found for job %d", job.ID)
 	}
 
-	// Calculate how many instances to delete
-	numberOfInstancesToDelete := 0
+	// TODO: this section of code could be refactored to be unit tested
+	// Check if we have specific instance names to delete
+	var instancesToDelete []models.Instance
+	var specificNamesToDelete []string
+
+	// Collect specific instance names to delete
 	for _, instanceReq := range infraReq.Instances {
-		numberOfInstancesToDelete += instanceReq.NumberOfInstances
+		if instanceReq.Name != "" {
+			specificNamesToDelete = append(specificNamesToDelete, instanceReq.Name)
+		}
 	}
 
-	if numberOfInstancesToDelete <= 0 {
-		return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
-	}
+	// If specific names are provided, find those instances
+	if len(specificNamesToDelete) > 0 {
+		fmt.Printf("ℹ️ Deleting specific instances by name: %v\n", specificNamesToDelete)
 
-	// Limit the number of instances to delete to the available ones
-	if numberOfInstancesToDelete > len(instances) {
-		fmt.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available\n",
+		// Find instances with the specified names
+		for _, name := range specificNamesToDelete {
+			found := false
+			for _, instance := range instances {
+				if instance.Name == name {
+					instancesToDelete = append(instancesToDelete, instance)
+					found = true
+					break
+				}
+			}
+			if !found {
+				fmt.Printf("⚠️ Warning: Instance with name '%s' not found\n", name)
+			}
+		}
+
+		if len(instancesToDelete) == 0 {
+			return fmt.Errorf("none of the specified instances were found")
+		}
+	} else {
+		// No specific names provided, use FIFO order (oldest first)
+		// Calculate how many instances to delete
+		numberOfInstancesToDelete := 0
+		for _, instanceReq := range infraReq.Instances {
+			numberOfInstancesToDelete += instanceReq.NumberOfInstances
+		}
+
+		if numberOfInstancesToDelete <= 0 {
+			return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
+		}
+
+		// Limit the number of instances to delete to the available ones
+		if numberOfInstancesToDelete > len(instances) {
+			fmt.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available\n",
+				numberOfInstancesToDelete, len(instances))
+			numberOfInstancesToDelete = len(instances)
+		}
+
+		// Select only the oldest instances to delete
+		instancesToDelete = instances[:numberOfInstancesToDelete]
+
+		fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
 			numberOfInstancesToDelete, len(instances))
-		numberOfInstancesToDelete = len(instances)
 	}
-
-	// Select only the oldest instances to delete
-	instancesToDelete := instances[:numberOfInstancesToDelete]
 
 	// Prepare deletion result
 	deletionResult := map[string]interface{}{
@@ -289,18 +332,15 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		"deleted": []string{},
 	}
 
-	fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
-		numberOfInstancesToDelete, len(instances))
-
 	// Try to delete each selected instance
 	for _, instance := range instancesToDelete {
 		fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
 
 		// Create a new infrastructure request for each instance
 		instanceInfraReq := &infrastructure.JobRequest{
-			Name:        instance.Name,
-			ProjectName: infraReq.ProjectName,
-			Provider:    infraReq.Provider,
+			InstanceName: instance.Name,
+			ProjectName:  infraReq.ProjectName,
+			Provider:     infraReq.Provider,
 			Instances: []infrastructure.InstanceRequest{{
 				Provider: string(instance.ProviderID),
 				Region:   instance.Region,
@@ -319,31 +359,22 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		// Execute the deletion for this specific instance
 		_, err = infra.Execute()
 		if err != nil {
-			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-				fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
-				// Instance doesn't exist in DO, safe to mark as deleted
-				if err := s.repo.Delete(ctx, instance.ID); err != nil {
-					fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
-				} else {
-					fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
-					if deleted, ok := deletionResult["deleted"].([]string); ok {
-						deletionResult["deleted"] = append(deleted, instance.Name)
-					}
-				}
-			} else {
+			if !(strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
 				fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
 				continue
 			}
-		} else {
-			// Deletion was successful, update database
-			if err := s.repo.Delete(ctx, instance.ID); err != nil {
-				fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
-			} else {
-				fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
-				if deleted, ok := deletionResult["deleted"].([]string); ok {
-					deletionResult["deleted"] = append(deleted, instance.Name)
-				}
-			}
+			fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
+		}
+
+		// Instance doesn't exist in DO or deletion was successful, safe to mark as deleted
+		if err := s.repo.Delete(ctx, instance.ID); err != nil {
+			fmt.Printf("❌ Failed to mark instance %s as deleted in database: %v\n", instance.Name, err)
+			continue
+		}
+
+		fmt.Printf("✅ Marked instance %s as deleted in database\n", instance.Name)
+		if deleted, ok := deletionResult["deleted"].([]string); ok {
+			deletionResult["deleted"] = append(deleted, instance.Name)
 		}
 	}
 
