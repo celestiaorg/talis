@@ -117,10 +117,10 @@ func TestAPIClient_ListJobs(t *testing.T) {
 
 func TestAPIClient_CreateJob(t *testing.T) {
 	// Create a sample job creation request
-	createReq := infrastructure.CreateRequest{
-		Name:        "test-job",
-		ProjectName: "test-project",
-		WebhookURL:  "https://example.com/webhook",
+	createReq := infrastructure.InstanceCreateRequest{
+		InstanceName: "test-job",
+		ProjectName:  "test-project",
+		WebhookURL:   "https://example.com/webhook",
 		Instances: []infrastructure.InstanceRequest{
 			{
 				Provider:          "aws",
@@ -151,12 +151,12 @@ func TestAPIClient_CreateJob(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 
-		var receivedReq infrastructure.CreateRequest
+		var receivedReq infrastructure.InstanceCreateRequest
 		err = json.Unmarshal(body, &receivedReq)
 		require.NoError(t, err)
 
 		// Verify the request matches what we sent
-		assert.Equal(t, createReq.Name, receivedReq.Name)
+		assert.Equal(t, createReq.InstanceName, receivedReq.InstanceName)
 		assert.Equal(t, createReq.ProjectName, receivedReq.ProjectName)
 		assert.Equal(t, createReq.WebhookURL, receivedReq.WebhookURL)
 		assert.Len(t, receivedReq.Instances, 1)

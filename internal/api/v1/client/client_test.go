@@ -242,7 +242,7 @@ func TestEndToEndClientWorkflow(t *testing.T) {
 		// ===== Job endpoints =====
 		case r.URL.Path == routes.CreateJobURL() && r.Method == http.MethodPost:
 			// Create a new job
-			var req infrastructure.CreateRequest
+			var req infrastructure.InstanceCreateRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(map[string]string{"message": "Invalid request body"})
@@ -500,11 +500,11 @@ func TestEndToEndClientWorkflow(t *testing.T) {
 
 	// 2. Create a job
 	t.Run("Create a job", func(t *testing.T) {
-		createReq := infrastructure.CreateRequest{
-			Name:        "test-job",
-			ProjectName: "test-project",
-			WebhookURL:  "https://example.com/webhook",
-			Instances:   []infrastructure.InstanceRequest{},
+		createReq := infrastructure.InstanceCreateRequest{
+			InstanceName: "test-job",
+			ProjectName:  "test-project",
+			WebhookURL:   "https://example.com/webhook",
+			Instances:    []infrastructure.InstanceRequest{},
 		}
 
 		resp, err := client.CreateJob(ctx, createReq)

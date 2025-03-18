@@ -11,7 +11,7 @@ import (
 type MockClient struct {
 	// Function fields that can be set to mock behavior
 	GetJobFn              func(ctx context.Context, id string) (*infrastructure.JobStatus, error)
-	CreateJobFn           func(ctx context.Context, req infrastructure.CreateRequest) (*infrastructure.Response, error)
+	CreateJobFn           func(ctx context.Context, req infrastructure.InstanceCreateRequest) (*infrastructure.Response, error)
 	ListJobsFn            func(ctx context.Context, limit int, status string) ([]infrastructure.JobStatus, error)
 	GetJobInstancesFn     func(ctx context.Context, jobID string) ([]infrastructure.InstanceInfo, error)
 	GetJobPublicIPsFn     func(ctx context.Context, jobID string) ([]string, error)
@@ -30,7 +30,7 @@ type MockClient struct {
 	}
 	CreateJobCalls []struct {
 		Ctx context.Context
-		Req infrastructure.CreateRequest
+		Req infrastructure.InstanceCreateRequest
 	}
 	ListJobsCalls []struct {
 		Ctx    context.Context
@@ -103,11 +103,11 @@ func (m *MockClient) GetJob(ctx context.Context, id string) (*infrastructure.Job
 }
 
 // CreateJob mocks the CreateJob method
-func (m *MockClient) CreateJob(ctx context.Context, req infrastructure.CreateRequest) (*infrastructure.Response, error) {
+func (m *MockClient) CreateJob(ctx context.Context, req infrastructure.InstanceCreateRequest) (*infrastructure.Response, error) {
 	// Record this call
 	m.CreateJobCalls = append(m.CreateJobCalls, struct {
 		Ctx context.Context
-		Req infrastructure.CreateRequest
+		Req infrastructure.InstanceCreateRequest
 	}{
 		Ctx: ctx,
 		Req: req,
