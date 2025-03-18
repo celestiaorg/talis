@@ -57,6 +57,14 @@ func (s *InstanceService) CreateInstance(
 	webhookURL string,
 	instances []infrastructure.InstanceRequest,
 ) (*models.Job, error) {
+	log.Printf("📝 Starting instance creation process for project %s with name %s", projectName, name)
+
+	// Validate instances array is not empty
+	if len(instances) == 0 {
+		log.Printf("❌ No instances provided in request")
+		return nil, fmt.Errorf("no instances provided in request")
+	}
+
 	// Create job request
 	jobReq := &infrastructure.JobRequest{
 		Name:        name,
@@ -66,7 +74,9 @@ func (s *InstanceService) CreateInstance(
 		Action:      "create",
 	}
 
+	log.Printf("🔍 Validating job request: %+v", jobReq)
 	if err := jobReq.Validate(); err != nil {
+		log.Printf("❌ Job request validation failed: %v", err)
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
@@ -76,21 +86,82 @@ func (s *InstanceService) CreateInstance(
 		ProjectName: projectName,
 		Status:      models.JobStatusPending,
 		WebhookURL:  webhookURL,
+		OwnerID:     0, // Default owner ID for now
 	}
 
+	log.Printf("📝 Creating job in database: %+v", job)
 	job, err := s.jobService.CreateJob(ctx, job)
 	if err != nil {
+		log.Printf("❌ Failed to create job in database: %v", err)
 		return nil, fmt.Errorf("failed to create job: %w", err)
 	}
+	log.Printf("✅ Job created successfully with ID: %d", job.ID)
 
+	// Create pending instances in the database
+	instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
+	log.Printf("📝 Will create %d instances with config: %+v", instanceConfig.NumberOfInstances, instanceConfig)
+
+	for i := 0; i < instanceConfig.NumberOfInstances; i++ {
+		// Create default tags if none provided
+		var tags []string
+		if len(instanceConfig.Tags) > 0 {
+			tags = instanceConfig.Tags
+		} else {
+			tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
+		}
+
+		// Create instance in database with pending status
+		instance := &models.Instance{
+			JobID:      job.ID,
+			ProviderID: models.ProviderID(jobReq.Provider),
+			Name:       fmt.Sprintf("%s-%d", name, i), // Match DO's naming convention
+			Region:     instanceConfig.Region,
+			Size:       instanceConfig.Size,
+			Image:      instanceConfig.Image,
+			Tags:       tags,
+			Status:     models.InstanceStatusPending,
+		}
+
+		log.Printf("📝 Creating instance %d/%d in database: %+v", i+1, instanceConfig.NumberOfInstances, instance)
+
+		if err := s.repo.Create(ctx, instance); err != nil {
+			log.Printf("❌ Failed to create instance in database:\nInstance data: %+v\nError details: %v\nError type: %T",
+				instance, err, err)
+
+			// Log more details about the error
+			log.Printf("🔍 Detailed error information:")
+			log.Printf("  - Error type: %T", err)
+			log.Printf("  - Error message: %v", err)
+			log.Printf("  - Instance data: %+v", instance)
+
+			// If this is the first instance and it fails, we should fail the entire operation
+			if i == 0 {
+				log.Printf("❌ First instance creation failed, aborting operation")
+				// Try to update job status to failed
+				updateErr := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusFailed, nil,
+					fmt.Sprintf("Failed to create first instance: %v", err))
+				if updateErr != nil {
+					log.Printf("❌ Additionally failed to update job status: %v", updateErr)
+				}
+				return nil, fmt.Errorf("failed to create first instance in database: %w", err)
+			}
+
+			// For subsequent instances, continue but log the error
+			continue
+		}
+		log.Printf("✅ Successfully created instance %s in database with ID %d", instance.Name, instance.ID)
+	}
+
+	log.Printf("🚀 Starting async infrastructure creation for job %d", job.ID)
 	// Start async infrastructure creation
 	go func() {
 		if err := s.handleInfrastructureCreation(context.Background(), job, jobReq, instances); err != nil {
-			fmt.Printf("❌ Failed to handle infrastructure creation: %v\n", err)
+			log.Printf("❌ Failed to handle infrastructure creation: %v", err)
 			s.updateJobStatusWithError(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
 		}
 	}()
 
+	log.Printf("✅ Instance creation process initiated successfully for job %d", job.ID)
 	return job, nil
 }
 
@@ -144,77 +215,99 @@ func (s *InstanceService) handleInfrastructureCreation(
 	jobReq *infrastructure.JobRequest,
 	instances []infrastructure.InstanceRequest,
 ) error {
-	fmt.Println("🚀 Starting async infrastructure creation...")
+	log.Printf("🚀 Starting async infrastructure creation for job %d...", job.ID)
 
 	// Update to initializing when starting setup
+	log.Printf("📝 Updating job status to initializing...")
 	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusInitializing, nil, "")
 
+	log.Printf("🔧 Creating infrastructure client...")
 	infra, err := infrastructure.NewInfrastructure(jobReq)
 	if err != nil {
+		log.Printf("❌ Failed to create infrastructure client: %v", err)
 		return fmt.Errorf("failed to create infrastructure client: %w", err)
 	}
 
 	// Update to provisioning when creating infrastructure
+	log.Printf("📝 Updating job status to provisioning...")
 	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusProvisioning, nil, "")
 
+	log.Printf("🚀 Executing infrastructure creation...")
 	result, err := infra.Execute()
 	if err != nil {
 		// Check if error is due to resource not found
 		if strings.Contains(err.Error(), "404") && strings.Contains(err.Error(), "could not be found") {
-			fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
+			log.Printf("⚠️ Warning: Some old resources were not found (already deleted)")
 		} else {
+			log.Printf("❌ Failed to execute infrastructure: %v", err)
 			return fmt.Errorf("failed to execute infrastructure: %w", err)
 		}
 	}
 
-	// Save instances to database
+	// Get instance information from the result
 	instanceInfos, ok := result.([]infrastructure.InstanceInfo)
 	if !ok {
+		log.Printf("❌ Invalid result type: expected []infrastructure.InstanceInfo, got %T", result)
 		return fmt.Errorf("invalid result type: expected []infrastructure.InstanceInfo, got %T", result)
 	}
 
-	// Get the request configuration that applies to all instances
-	instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
+	log.Printf("📝 Got instance information from provider: %+v", instanceInfos)
 
+	// Get existing instances from database
+	log.Printf("🔍 Getting existing instances from database for job %d...", job.ID)
+	dbInstances, err := s.repo.GetByJobID(ctx, job.ID)
+	if err != nil {
+		log.Printf("❌ Failed to get instances from database: %v", err)
+		return fmt.Errorf("failed to get instances from database: %w", err)
+	}
+
+	// Update instances in database with their new information
+	log.Printf("📝 Updating instances in database with provider information...")
 	for _, info := range instanceInfos {
-		// Create default tags if none provided
-		var tags []string
-		if len(instanceConfig.Tags) > 0 {
-			tags = instanceConfig.Tags
-		} else {
-			tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
+		// Find the instance to update by checking if DO's name starts with our base name
+		var instanceToUpdate *models.Instance
+		for i := range dbInstances {
+			// The DO instance name should start with our database instance name
+			if strings.HasPrefix(info.Name, dbInstances[i].Name) {
+				instanceToUpdate = &dbInstances[i]
+				break
+			}
 		}
 
-		// Create instance in database
-		instance := &models.Instance{
-			JobID:      job.ID,
-			ProviderID: models.ProviderID(jobReq.Provider),
-			Name:       info.Name,
-			PublicIP:   info.IP,
-			Region:     info.Region,
-			Size:       info.Size,
-			Image:      instanceConfig.Image,
-			Tags:       tags,
-			Status:     models.InstanceStatusReady,
-		}
-		if err := s.repo.Create(ctx, instance); err != nil {
-			fmt.Printf("❌ Failed to save instance to database: %v\n", err)
+		if instanceToUpdate != nil {
+			// Update existing instance with DO's information
+			instanceToUpdate.Name = info.Name // Update with actual DO name
+			instanceToUpdate.PublicIP = info.IP
+			instanceToUpdate.Status = models.InstanceStatusReady
+			if err := s.repo.Update(ctx, instanceToUpdate.ID, instanceToUpdate); err != nil {
+				log.Printf("❌ Failed to update instance in database: %v", err)
+				continue
+			}
+			log.Printf("✅ Updated instance %s in database with IP %s", instanceToUpdate.Name, info.IP)
 		} else {
-			fmt.Printf("✅ Instance %s saved to database with ID %d\n", instance.Name, instance.ID)
+			log.Printf("⚠️ Warning: No matching instance found in database for DO instance %s", info.Name)
+			// Log all database instances for debugging
+			log.Printf("🔍 Database instances available:")
+			for _, dbInstance := range dbInstances {
+				log.Printf("  - %s (ID: %d)", dbInstance.Name, dbInstance.ID)
+			}
 		}
 	}
 
 	// Handle provisioning if requested
 	if instances[0].Provision {
+		log.Printf("🔧 Starting provisioning process...")
 		if err := s.handleProvisioning(ctx, job, infra, instanceInfos); err != nil {
+			log.Printf("❌ Provisioning failed: %v", err)
 			return err
 		}
 	}
 
 	// Update final status with result
+	log.Printf("📝 Updating job status to completed...")
 	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusCompleted, instanceInfos, "")
 
-	fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", job.ID)
+	log.Printf("✅ Infrastructure creation completed for job ID %d", job.ID)
 	return nil
 }
 
@@ -227,18 +320,53 @@ func (s *InstanceService) handleProvisioning(
 ) error {
 	instances, ok := result.([]infrastructure.InstanceInfo)
 	if !ok {
+		log.Printf("❌ Invalid result type for provisioning: %T", result)
 		return fmt.Errorf("invalid result type: %T, expected []infrastructure.InstanceInfo", result)
 	}
 
-	fmt.Printf("📝 Created instances: %+v\n", instances)
+	log.Printf("📝 Starting provisioning for instances: %+v", instances)
 
 	// Update to configuring when setting up Ansible
+	log.Printf("📝 Updating job status to configuring...")
 	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusConfiguring, instances, "")
 
+	// Update instance status to provisioning
+	log.Printf("📝 Updating instance statuses to provisioning...")
+	dbInstances, err := s.repo.GetByJobID(ctx, job.ID)
+	if err != nil {
+		log.Printf("⚠️ Warning: Failed to get instances from database: %v", err)
+	} else {
+		for i := range dbInstances {
+			if err := s.repo.UpdateStatus(ctx, dbInstances[i].ID, models.InstanceStatusProvisioning); err != nil {
+				log.Printf("⚠️ Warning: Failed to update instance %s status: %v", dbInstances[i].Name, err)
+			} else {
+				log.Printf("✅ Updated instance %s status to provisioning", dbInstances[i].Name)
+			}
+		}
+	}
+
+	log.Printf("🔧 Running provisioning process...")
 	if err := infra.RunProvisioning(instances); err != nil {
+		log.Printf("❌ Provisioning failed: %v", err)
 		return fmt.Errorf("infrastructure created but provisioning failed: %w", err)
 	}
 
+	// Update instance status to ready after successful provisioning
+	log.Printf("📝 Updating instance statuses to ready...")
+	dbInstances, err = s.repo.GetByJobID(ctx, job.ID)
+	if err != nil {
+		log.Printf("⚠️ Warning: Failed to get instances from database: %v", err)
+	} else {
+		for i := range dbInstances {
+			if err := s.repo.UpdateStatus(ctx, dbInstances[i].ID, models.InstanceStatusReady); err != nil {
+				log.Printf("⚠️ Warning: Failed to update instance %s status: %v", dbInstances[i].Name, err)
+			} else {
+				log.Printf("✅ Updated instance %s status to ready", dbInstances[i].Name)
+			}
+		}
+	}
+
+	log.Printf("✅ Provisioning completed successfully")
 	return nil
 }
 
@@ -248,18 +376,22 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	job *models.Job,
 	infraReq *infrastructure.JobRequest,
 ) error {
-	fmt.Printf("🗑️ Starting async deletion for job %d\n", job.ID)
+	log.Printf("🗑️ Starting async deletion for job %d", job.ID)
 
 	// Update to initializing when starting setup
+	log.Printf("📝 Updating job status to initializing...")
 	s.updateJobStatusWithError(ctx, job.ID, models.JobStatusInitializing, nil, "")
 
 	// Get instances from database for this job, ordered by creation time
+	log.Printf("🔍 Getting instances from database for job %d...", job.ID)
 	instances, err := s.repo.GetByJobIDOrdered(ctx, job.ID)
 	if err != nil {
+		log.Printf("❌ Failed to get instances from database: %v", err)
 		return fmt.Errorf("failed to get instances: %w", err)
 	}
 
 	if len(instances) == 0 {
+		log.Printf("❌ No instances found for job %d", job.ID)
 		return fmt.Errorf("no instances found for job %d", job.ID)
 	}
 
@@ -270,12 +402,13 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	}
 
 	if numberOfInstancesToDelete <= 0 {
+		log.Printf("❌ Invalid number of instances to delete: %d", numberOfInstancesToDelete)
 		return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
 	}
 
 	// Limit the number of instances to delete to the available ones
 	if numberOfInstancesToDelete > len(instances) {
-		fmt.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available\n",
+		log.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available",
 			numberOfInstancesToDelete, len(instances))
 		numberOfInstancesToDelete = len(instances)
 	}
@@ -289,12 +422,12 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		"deleted": []string{},
 	}
 
-	fmt.Printf("ℹ️ Will delete %d oldest instances out of %d total instances\n",
+	log.Printf("ℹ️ Will delete %d oldest instances out of %d total instances",
 		numberOfInstancesToDelete, len(instances))
 
 	// Try to delete each selected instance
 	for _, instance := range instancesToDelete {
-		fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
+		log.Printf("🗑️ Attempting to delete instance: %s", instance.Name)
 
 		// Create a new infrastructure request for each instance
 		instanceInfraReq := &infrastructure.JobRequest{
