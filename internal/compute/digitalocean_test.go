@@ -11,21 +11,23 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // Test helper functions
 
 // newTestProvider creates a DigitalOceanProvider with a mock client for testing
-func newTestProvider() (*DigitalOceanProvider, *mockDOClient) {
-	mockClient := newMockDOClient()
+func newTestProvider() (*DigitalOceanProvider, *mocks.MockDOClient) {
+	mockClient := mocks.NewMockDOClient()
 	provider := &DigitalOceanProvider{}
 	provider.SetClient(mockClient)
 	return provider, mockClient
 }
 
 // setupMockDropletCreate configures the mock client to return a successful droplet creation
-func setupMockDropletCreate(mockClient *mockDOClient, dropletID int, dropletName string) {
-	mockClient.mockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
+func setupMockDropletCreate(mockClient *mocks.MockDOClient, dropletID int, dropletName string) {
+	mockClient.MockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
 		return &godo.Droplet{
 			ID:   dropletID,
 			Name: dropletName,
@@ -44,7 +46,7 @@ func setupMockDropletCreate(mockClient *mockDOClient, dropletID int, dropletName
 	}
 
 	// Also set up the Get function to return the same droplet with IP
-	mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+	mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 		if id == dropletID {
 			return &godo.Droplet{
 				ID:   dropletID,
@@ -67,8 +69,8 @@ func setupMockDropletCreate(mockClient *mockDOClient, dropletID int, dropletName
 }
 
 // setupMockSSHKeyList configures the mock client to return a list of SSH keys
-func setupMockSSHKeyList(mockClient *mockDOClient, keys []godo.Key) {
-	mockClient.mockKeyService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
+func setupMockSSHKeyList(mockClient *mocks.MockDOClient, keys []godo.Key) {
+	mockClient.MockKeyService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
 		return keys, nil, nil
 	}
 }
@@ -80,7 +82,7 @@ func setupMockSSHKeyList(mockClient *mockDOClient, keys []godo.Key) {
 // TestDOClient tests the DOClient interface implementation
 func TestDOClient(t *testing.T) {
 	t.Run("MockDOClient", func(t *testing.T) {
-		mockClient := newMockDOClient()
+		mockClient := mocks.NewMockDOClient()
 
 		dropletService := mockClient.Droplets()
 		assert.NotNil(t, dropletService)
@@ -103,7 +105,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mocks
-		mockClient.mockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
 			return &godo.Droplet{
 				ID:   12345,
 				Name: req.Name,
@@ -130,7 +132,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -149,7 +151,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mocks
-		mockClient.mockDropletService.CreateMultipleFunc = func(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.CreateMultipleFunc = func(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
 			droplets := make([]godo.Droplet, len(req.Names))
 			for i, name := range req.Names {
 				droplets[i] = godo.Droplet{
@@ -180,7 +182,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.CreateMultipleFunc = func(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.CreateMultipleFunc = func(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -199,7 +201,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mocks
-		mockClient.mockDropletService.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
+		mockClient.MockDropletService.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
 			return nil, nil
 		}
 
@@ -214,7 +216,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
+		mockClient.MockDropletService.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
 			return nil, errors.New("API error")
 		}
 
@@ -229,7 +231,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mocks
-		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 			return &godo.Droplet{
 				ID:   id,
 				Name: "test-droplet",
@@ -253,7 +255,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -269,7 +271,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mocks
-		mockClient.mockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 			return []godo.Droplet{
 				{ID: 12345, Name: "test-1"},
 				{ID: 67890, Name: "test-2"},
@@ -290,7 +292,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -330,7 +332,7 @@ func TestKeyService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockKeyService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
+		mockClient.MockKeyService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -434,7 +436,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 			{ID: 12345, Name: "test-key"},
 		})
 
-		mockClient.mockDropletService.CreateMultipleFunc = func(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.CreateMultipleFunc = func(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
 			droplets := make([]godo.Droplet, len(req.Names))
 			for i, name := range req.Names {
 				droplets[i] = godo.Droplet{
@@ -457,7 +459,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		}
 
 		// Setup the Get function to return droplets with IPs
-		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 			// Calculate the index based on the ID (10000, 10001, 10002)
 			index := id - 10000
 			if index >= 0 && index < 3 {
@@ -471,9 +473,6 @@ func TestDigitalOceanProvider(t *testing.T) {
 								IPAddress: fmt.Sprintf("192.0.2.%d", index+1),
 							},
 						},
-					},
-					Region: &godo.Region{
-						Slug: "nyc1",
 					},
 				}, nil, nil
 			}
@@ -502,7 +501,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 		// Setup mocks
 		var listCallCount int
-		mockClient.mockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 			listCallCount++
 			if listCallCount == 1 {
 				return []godo.Droplet{
@@ -518,7 +517,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 			return []godo.Droplet{}, nil, nil
 		}
 
-		mockClient.mockDropletService.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
+		mockClient.MockDropletService.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
 			return nil, nil
 		}
 
@@ -587,7 +586,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockKeyService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
+		mockClient.MockKeyService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -601,7 +600,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("SetClient", func(t *testing.T) {
 		provider := &DigitalOceanProvider{}
-		mockClient := newMockDOClient()
+		mockClient := mocks.NewMockDOClient()
 
 		// Initially the client should be nil
 		assert.Nil(t, provider.doClient)
@@ -631,7 +630,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return no droplets (already deleted)
-		mockClient.mockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 			return []godo.Droplet{}, nil, nil
 		}
 
@@ -646,7 +645,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return the droplet (not deleted yet)
-		mockClient.mockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 			return []godo.Droplet{
 				{
 					ID:   12345,
@@ -670,7 +669,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 
@@ -686,7 +685,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock
-		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 			return &godo.Droplet{
 				Networks: &godo.Networks{
 					V4: []godo.NetworkV4{
@@ -711,7 +710,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return a droplet with no public IP
-		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 			return &godo.Droplet{
 				Networks: &godo.Networks{
 					V4: []godo.NetworkV4{
@@ -736,7 +735,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Setup mock to return an error
-		mockClient.mockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		mockClient.MockDropletService.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 			return nil, nil, errors.New("API error")
 		}
 

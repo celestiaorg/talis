@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
+
+	"github.com/celestiaorg/talis/internal/compute/types"
 )
 
 const (
@@ -30,17 +32,17 @@ type DefaultDOClient struct {
 }
 
 // Droplets returns the droplet service
-func (c *DefaultDOClient) Droplets() DropletService {
+func (c *DefaultDOClient) Droplets() types.DropletService {
 	return &DefaultDropletService{service: c.client.Droplets}
 }
 
 // Keys returns the key service
-func (c *DefaultDOClient) Keys() KeyService {
+func (c *DefaultDOClient) Keys() types.KeyService {
 	return &DefaultKeyService{service: c.client.Keys}
 }
 
 // NewDOClient creates a new DefaultDOClient
-func NewDOClient(token string) DOClient {
+func NewDOClient(token string) types.DOClient {
 	return &DefaultDOClient{
 		client: godo.NewFromToken(token),
 	}
@@ -108,7 +110,7 @@ func (s *DefaultKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]
 
 // DigitalOceanProvider implements the ComputeProvider interface
 type DigitalOceanProvider struct {
-	doClient DOClient
+	doClient types.DOClient
 }
 
 // Exported methods with their unexported helpers
@@ -350,7 +352,7 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) 
 }
 
 // SetClient sets the DOClient for testing purposes
-func (p *DigitalOceanProvider) SetClient(client DOClient) {
+func (p *DigitalOceanProvider) SetClient(client types.DOClient) {
 	p.doClient = client
 }
 

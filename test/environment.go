@@ -12,7 +12,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/api/v1/client"
 	"github.com/celestiaorg/talis/internal/db/repos"
-	"github.com/celestiaorg/talis/test/mocks/compute"
+	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // TestEnvironment encapsulates all components needed for integration testing.
@@ -37,7 +37,7 @@ type TestEnvironment struct {
 	InstanceRepo *repos.InstanceRepository
 
 	// Mock providers
-	MockDOClient *compute.MockDOClient
+	MockDOClient *mocks.MockDOClient
 
 	// Context management
 	ctx        context.Context
