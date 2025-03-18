@@ -18,14 +18,6 @@ const (
 	defaultWaitInterval = 10 * time.Second
 )
 
-// DOClient interface and implementations
-
-// DOClient defines the interface for interacting with DigitalOcean API
-type DOClient interface {
-	Droplets() DropletService
-	Keys() KeyService
-}
-
 // DefaultDOClient is the standard implementation of DOClient using godo
 type DefaultDOClient struct {
 	client *godo.Client
@@ -46,17 +38,6 @@ func NewDOClient(token string) types.DOClient {
 	return &DefaultDOClient{
 		client: godo.NewFromToken(token),
 	}
-}
-
-// DropletService interface and implementations
-
-// DropletService defines the interface for DigitalOcean droplet operations
-type DropletService interface {
-	Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
-	CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
-	Delete(ctx context.Context, id int) (*godo.Response, error)
-	Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
-	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 }
 
 // DefaultDropletService implements DropletService using godo
@@ -87,13 +68,6 @@ func (s *DefaultDropletService) Get(ctx context.Context, id int) (*godo.Droplet,
 // List lists all droplets
 func (s *DefaultDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	return s.service.List(ctx, opt)
-}
-
-// KeyService interface and implementations
-
-// KeyService defines the interface for DigitalOcean SSH key operations
-type KeyService interface {
-	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error)
 }
 
 // DefaultKeyService implements KeyService using godo
