@@ -61,11 +61,6 @@ func NewTestEnvironment(t *testing.T, opts ...Option) *TestEnvironment {
 		cancelFunc: cancel,
 	}
 
-	// Apply options
-	for _, opt := range opts {
-		opt(env)
-	}
-
 	// Initialize cleanup function
 	env.cleanup = func() {
 		if env.Server != nil {
@@ -74,7 +69,21 @@ func NewTestEnvironment(t *testing.T, opts ...Option) *TestEnvironment {
 		if env.cancelFunc != nil {
 			env.cancelFunc()
 		}
-		// Database cleanup will be added in Task 1.3
+		// Close database if it exists
+		if env.DB != nil {
+			sqlDB, err := env.DB.DB()
+			if err == nil && sqlDB != nil {
+				_ = sqlDB.Close()
+			}
+		}
+	}
+
+	// Setup database by default
+	WithDB(nil)(env)
+
+	// Apply additional options
+	for _, opt := range opts {
+		opt(env)
 	}
 
 	return env

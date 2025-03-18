@@ -4,6 +4,10 @@ package test
 import (
 	"context"
 	"time"
+
+	"gorm.io/gorm"
+
+	"github.com/celestiaorg/talis/internal/db/repos"
 )
 
 // Version represents the current version of the test package.
@@ -42,8 +46,39 @@ func WithCleanupFunc(cleanup func()) Option {
 	}
 }
 
-// WithOption applies the given option to the test environment.
-// This is a placeholder that will be expanded as we add more options.
-func WithOption(opt Option) Option {
-	return opt
+// WithDB returns an option that configures the test environment to use
+// the provided database connection. If nil, a new in-memory database
+// will be created.
+func WithDB(database *gorm.DB) Option {
+	return func(env *TestEnvironment) {
+		if database != nil {
+			env.DB = database
+		} else {
+			// Create new in-memory database
+			dbConn, err := NewInMemoryDB()
+			env.Require().NoError(err, "Failed to create in-memory database")
+			env.DB = dbConn
+
+			// Run migrations
+			err = RunMigrations(env.DB)
+			env.Require().NoError(err, "Failed to run database migrations")
+		}
+
+		// Initialize repositories
+		env.JobRepo = repos.NewJobRepository(env.DB)
+		env.InstanceRepo = repos.NewInstanceRepository(env.DB)
+
+		// Add cleanup
+		oldCleanup := env.cleanup
+		env.cleanup = func() {
+			if oldCleanup != nil {
+				oldCleanup()
+			}
+			// Close database connection
+			sqlDB, err := env.DB.DB()
+			if err == nil && sqlDB != nil {
+				_ = sqlDB.Close()
+			}
+		}
+	}
 }
