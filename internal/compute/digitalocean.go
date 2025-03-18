@@ -354,7 +354,10 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 		// Try to list the droplet
 		droplets, _, err := p.doClient.Droplets().List(ctx, &godo.ListOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to list droplets: %w", err)
+			fmt.Printf("⏳ Failed to list droplets: %v, retrying in %v (attempt %d/%d)...\n",
+				err, interval, i+1, maxRetries)
+			time.Sleep(interval)
+			continue
 		}
 
 		// Check if the droplet still exists in the specific region
