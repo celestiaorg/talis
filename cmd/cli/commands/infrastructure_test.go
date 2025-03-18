@@ -84,9 +84,9 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	jsonFile := createTempJSONFile(t, jsonContent)
 
 	// Configure mock client to return a successful response for create
-	mockClient.CreateJobFn = func(ctx context.Context, req infrastructure.CreateRequest) (*infrastructure.Response, error) {
+	mockClient.CreateJobFn = func(ctx context.Context, req infrastructure.InstanceCreateRequest) (*infrastructure.Response, error) {
 		// Verify request
-		assert.Equal(t, "test-infra", req.Name)
+		assert.Equal(t, "test-infra", req.InstanceName)
 		assert.Equal(t, "test-project", req.ProjectName)
 		assert.Len(t, req.Instances, 1)
 		assert.Equal(t, "aws", req.Instances[0].Provider)
@@ -120,12 +120,12 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 	deleteFileContent, err := os.ReadFile(deleteFilePath)
 	require.NoError(t, err)
 
-	var deleteReq DeleteRequest
+	var deleteReq infrastructure.DeleteInstanceRequest
 	err = json.Unmarshal(deleteFileContent, &deleteReq)
 	require.NoError(t, err)
 
 	assert.Equal(t, uint(123), deleteReq.ID)
-	assert.Equal(t, "test-infra", deleteReq.Name)
+	assert.Equal(t, "test-infra", deleteReq.InstanceName)
 	assert.Equal(t, "test-project", deleteReq.ProjectName)
 	assert.Len(t, deleteReq.Instances, 1)
 
@@ -138,7 +138,7 @@ func TestCreateInfrastructureCommand(t *testing.T) {
 		// Verify request
 		assert.Equal(t, "123", jobID)
 		assert.Equal(t, uint(123), req.ID)
-		assert.Equal(t, "test-infra", req.Name)
+		assert.Equal(t, "test-infra", req.InstanceName)
 		assert.Equal(t, "test-project", req.ProjectName)
 		assert.Len(t, req.Instances, 1)
 
@@ -191,7 +191,7 @@ func TestDeleteInfrastructureCommand(t *testing.T) {
 		// Verify request
 		assert.Equal(t, "123", jobID)
 		assert.Equal(t, uint(123), req.ID)
-		assert.Equal(t, "test-infra", req.Name)
+		assert.Equal(t, "test-infra", req.InstanceName)
 		assert.Equal(t, "test-project", req.ProjectName)
 		assert.Len(t, req.Instances, 1)
 

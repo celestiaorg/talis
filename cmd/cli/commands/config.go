@@ -31,7 +31,7 @@ func getAPIClient(cmd *cobra.Command) client.Client {
 
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	if timeout == 0 {
-		timeout = 30 * time.Second // Default
+		timeout = client.DefaultTimeout // Default
 	}
 
 	// Create client options

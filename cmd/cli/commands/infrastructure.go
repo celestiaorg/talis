@@ -35,7 +35,10 @@ var createInfraCmd = &cobra.Command{
 	Long:  `Create infrastructure based on a JSON configuration file.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get flags
-		jsonFile, _ := cmd.Flags().GetString("file")
+		jsonFile, err := cmd.Flags().GetString("file")
+		if err != nil {
+			return err
+		}
 
 		// Validate file path
 		if err := validateFilePath(jsonFile); err != nil {
@@ -49,22 +52,14 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req infrastructure.CreateRequest
-		if err := json.Unmarshal(data, &req); err != nil {
+		var createReq infrastructure.InstanceCreateRequest
+		if err := json.Unmarshal(data, &createReq); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
 		// Validate that instances array is not empty
-		if len(req.Instances) == 0 {
+		if len(createReq.Instances) == 0 {
 			return fmt.Errorf("error: no instances specified in the JSON file")
-		}
-
-		// Convert to infrastructure.CreateRequest
-		createReq := infrastructure.CreateRequest{
-			Name:        req.Name,
-			ProjectName: req.ProjectName,
-			WebhookURL:  req.WebhookURL,
-			Instances:   req.Instances,
 		}
 
 		// Call API client
@@ -80,11 +75,11 @@ var createInfraCmd = &cobra.Command{
 
 		// Generate delete file
 		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), fmt.Sprintf("delete_%s.json", strings.TrimSuffix(filepath.Base(jsonFile), filepath.Ext(jsonFile))))
-		deleteReq := infrastructure.DeleteRequest{
-			ID:          resp.ID,
-			Name:        req.Name,
-			ProjectName: req.ProjectName,
-			Instances:   req.Instances,
+		deleteReq := infrastructure.DeleteInstanceRequest{
+			ID:           resp.ID,
+			InstanceName: createReq.InstanceName,
+			ProjectName:  createReq.ProjectName,
+			Instances:    createReq.Instances,
 		}
 
 		deleteJSON, err := json.MarshalIndent(deleteReq, "", "  ")
@@ -123,24 +118,15 @@ var deleteInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req infrastructure.DeleteRequest
-		if err := json.Unmarshal(data, &req); err != nil {
+		var deleteReq infrastructure.DeleteInstanceRequest
+		if err := json.Unmarshal(data, &deleteReq); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
-		}
-
-		// Convert to infrastructure.DeleteInstanceRequest
-		deleteReq := infrastructure.DeleteInstanceRequest{
-			ID:           req.ID,
-			InstanceName: req.Name,
-			ProjectName:  req.ProjectName,
-			Instances:    req.Instances,
 		}
 
 		// Call API client
 		ctx := context.Background()
 		// Use a dummy job ID since we're deleting infrastructure
-		jobID := fmt.Sprintf("%d", req.ID)
-		resp, err := clientInstance.DeleteJobInstance(ctx, jobID, deleteReq)
+		resp, err := clientInstance.DeleteJobInstance(ctx, fmt.Sprintf("%d", deleteReq.ID), deleteReq)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
