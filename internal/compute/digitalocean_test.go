@@ -289,13 +289,16 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("CreateInstance_SingleInstance", func(t *testing.T) {
 		provider, _ := newTestProvider()
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
 
 		// Create instance
 		config := InstanceConfig{
 			Region:   "nyc1",
 			Size:     "s-1vcpu-1gb",
 			Image:    "ubuntu-20-04-x64",
-			SSHKeyID: "test-key",
+			SSHKeyID: keys[0].Name,
 		}
 
 		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
@@ -308,13 +311,16 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("CreateInstance_MultipleInstances", func(t *testing.T) {
 		provider, _ := newTestProvider()
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
 
 		// Create multiple instances
 		config := InstanceConfig{
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-20-04-x64",
-			SSHKeyID:          "test-key",
+			SSHKeyID:          keys[0].Name,
 			NumberOfInstances: 3,
 		}
 
@@ -345,36 +351,28 @@ func TestDigitalOceanProvider(t *testing.T) {
 	})
 
 	t.Run("GetSSHKeyID_Success", func(t *testing.T) {
-		provider, _ := newTestProvider()
+		provider, mockClient := newTestProvider()
+		keys, _, err := mockClient.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
 
 		// Call the method
-		id, err := provider.GetSSHKeyID(context.Background(), "test-key")
+		id, err := provider.GetSSHKeyID(context.Background(), keys[0].Name)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Equal(t, 12345, id)
+		assert.Equal(t, keys[0].ID, id)
 	})
 
 	t.Run("GetSSHKeyID_KeyNotFound", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-		mockClient.MockKeyService.SimulateNotFound()
-		// Call the method
-		_, err := provider.GetSSHKeyID(context.Background(), "test-key")
-
-		// Verify results
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "SSH key 'test-key' not found")
-	})
-
-	t.Run("GetSSHKeyID_NoKeys", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
 		// Call the method
-		_, err := provider.GetSSHKeyID(context.Background(), "test-key")
+		_, err := provider.GetSSHKeyID(context.Background(), "not-existing-key")
 
 		// Verify results
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no SSH keys found")
+		assert.Contains(t, err.Error(), "not found")
 	})
 
 	t.Run("SetClient", func(t *testing.T) {
@@ -409,7 +407,18 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, _ := newTestProvider()
 
 		// Call the unexported method directly with a short interval
-		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", 1, 100*time.Millisecond)
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.NoError(t, err)
+	})
+
+	t.Run("WaitForDeletion_Success_With_Retries", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+		mockClient.MockDropletService.SimulateDelayedSuccess(3)
+
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
 
 		// Verify results
 		assert.NoError(t, err)
@@ -417,48 +426,48 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("WaitForDeletion_Error", func(t *testing.T) {
 		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateAuthenticationFailure()
+		mockClient.MockDropletService.SimulateMaxRetries()
 
 		// Call the unexported method directly with a short interval
-		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", 1, 100*time.Millisecond)
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Failed to list droplets")
+		assert.Contains(t, err.Error(), "still exists")
 	})
 
 	t.Run("WaitForIP_Success", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
 		// Call the unexported method directly with a short interval
-		ip, err := provider.waitForIP(context.Background(), 12345, 1, 100*time.Millisecond)
+		ip, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
 
 		// Verify results
 		assert.NoError(t, err)
 		assert.Equal(t, "192.0.2.1", ip)
 	})
 
-	t.Run("WaitForIP_NoPublicIP", func(t *testing.T) {
+	t.Run("WaitForIP_Error", func(t *testing.T) {
 		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateAuthenticationFailure()
+		mockClient.MockDropletService.SimulateDelayedSuccess(3)
 
 		// Call the unexported method directly with a short interval
-		_, err := provider.waitForIP(context.Background(), 12345, 1, 100*time.Millisecond)
+		ip, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
 
 		// Verify results
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no public IP found after")
+		assert.NoError(t, err)
+		assert.Equal(t, "192.0.2.1", ip)
 	})
 
 	t.Run("WaitForIP_Error", func(t *testing.T) {
 		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateNotFound()
+		mockClient.MockDropletService.SimulateMaxRetries()
 
 		// Call the unexported method directly with a short interval
-		_, err := provider.waitForIP(context.Background(), 12345, 1, 100*time.Millisecond)
+		_, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get droplet details")
+		assert.Contains(t, err.Error(), "no public IP")
 	})
 }

@@ -338,11 +338,6 @@ func (p *DigitalOceanProvider) ValidateCredentials() error {
 	return nil
 }
 
-// WaitForDeletion waits for a droplet to be fully deleted (exported for testing)
-func (p *DigitalOceanProvider) WaitForDeletion(ctx context.Context, name string, region string, maxRetries int) error {
-	return p.waitForDeletion(ctx, name, region, maxRetries, defaultWaitInterval)
-}
-
 // waitForDeletion waits for a droplet to be fully deleted
 func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string, region string, maxRetries int, interval time.Duration) error {
 	if p.doClient == nil {
@@ -380,11 +375,6 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 	}
 
 	return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)
-}
-
-// WaitForIP waits for a droplet to get an IP address (exported for testing)
-func (p *DigitalOceanProvider) WaitForIP(ctx context.Context, dropletID int, maxRetries int) (string, error) {
-	return p.waitForIP(ctx, dropletID, maxRetries, defaultWaitInterval)
 }
 
 // waitForIP waits for a droplet to get an IP address

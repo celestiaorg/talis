@@ -71,6 +71,7 @@ type MockDropletService struct {
 	GetFunc            func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
 	DeleteFunc         func(ctx context.Context, id int) (*godo.Response, error)
 	ListFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	attemptCount       int // Track number of attempts for retry simulations
 }
 
 // setupStandardDropletResponses configures the standard success responses for droplet service
@@ -190,6 +191,64 @@ func (s *MockDropletService) SimulateAuthenticationFailure() {
 	s.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.AuthenticationError
 	}
+}
+
+// SimulateDelayedSuccess configures the service to succeed after a specific number of attempts
+func (s *MockDropletService) SimulateDelayedSuccess(successAfterAttempts int) {
+	s.attemptCount = 0
+
+	// For waitForIP testing
+	s.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		s.attemptCount++
+		if s.attemptCount >= successAfterAttempts {
+			return s.std.Droplets.DefaultDroplet, nil, nil
+		}
+		// Return a droplet with no IP before success
+		droplet := *s.std.Droplets.DefaultDroplet
+		droplet.Networks = &godo.Networks{}
+		return &droplet, nil, nil
+	}
+
+	// For waitForDeletion testing
+	s.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		s.attemptCount++
+		if s.attemptCount >= successAfterAttempts {
+			// Return empty list to simulate deletion
+			return []godo.Droplet{}, nil, nil
+		}
+		// Return list with the droplet still present
+		return s.std.Droplets.DefaultDropletList, nil, nil
+	}
+}
+
+// SimulateMaxRetries configures the service to always fail until max retries are hit
+func (s *MockDropletService) SimulateMaxRetries() {
+	s.attemptCount = 0
+
+	// For waitForIP testing
+	s.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+		s.attemptCount++
+		droplet := *s.std.Droplets.DefaultDroplet
+		droplet.Networks = &godo.Networks{} // Always return no IP
+		return &droplet, nil, nil
+	}
+
+	// For waitForDeletion testing
+	s.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		s.attemptCount++
+		// Always return list with the droplet present
+		return s.std.Droplets.DefaultDropletList, nil, nil
+	}
+}
+
+// GetAttemptCount returns the current attempt count
+func (s *MockDropletService) GetAttemptCount() int {
+	return s.attemptCount
+}
+
+// ResetAttemptCount resets the attempt counter
+func (s *MockDropletService) ResetAttemptCount() {
+	s.attemptCount = 0
 }
 
 // MockKeyService implements types.KeyService for testing
