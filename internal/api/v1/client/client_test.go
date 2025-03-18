@@ -631,9 +631,9 @@ func TestEndToEndClientWorkflow(t *testing.T) {
 	// 11. Delete the instance and verify it's gone
 	t.Run("Delete job instance", func(t *testing.T) {
 		deleteReq := infrastructure.DeleteInstanceRequest{
-			ID:          123,
-			Name:        "test-job",
-			ProjectName: "test-project",
+			ID:           123,
+			InstanceName: "test-job",
+			ProjectName:  "test-project",
 			Instances: []infrastructure.InstanceRequest{
 				{
 					Provider:          "aws",

@@ -88,9 +88,9 @@ func TestAPIClient_DeleteJobInstance(t *testing.T) {
 	// Test data
 	jobID := "job-123"
 	deleteReq := infrastructure.DeleteInstanceRequest{
-		ID:          456,
-		Name:        "test-job",
-		ProjectName: "test-project",
+		ID:           456,
+		InstanceName: "test-job",
+		ProjectName:  "test-project",
 		Instances: []infrastructure.InstanceRequest{
 			{
 				Provider:          "aws",
@@ -122,7 +122,7 @@ func TestAPIClient_DeleteJobInstance(t *testing.T) {
 
 		// Verify the request matches what we sent
 		assert.Equal(t, deleteReq.ID, receivedReq.ID)
-		assert.Equal(t, deleteReq.Name, receivedReq.Name)
+		assert.Equal(t, deleteReq.InstanceName, receivedReq.InstanceName)
 		assert.Equal(t, deleteReq.ProjectName, receivedReq.ProjectName)
 		assert.Len(t, receivedReq.Instances, len(deleteReq.Instances))
 
