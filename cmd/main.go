@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"strconv"
 
@@ -90,7 +91,8 @@ func customErrorHandler(c *fiber.Ctx, err error) error {
 	message := "Internal Server Error"
 
 	// Check if it's a fiber.*Error
-	if e, ok := err.(*fiber.Error); ok {
+	var e *fiber.Error
+	if errors.As(err, &e) {
 		code = e.Code
 		message = e.Message
 	}

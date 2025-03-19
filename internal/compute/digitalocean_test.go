@@ -40,11 +40,13 @@ func TestDOClient(t *testing.T) {
 	})
 
 	t.Run("NewProvider", func(t *testing.T) {
-		os.Setenv("DIGITALOCEAN_TOKEN", "test-token")
+		err := os.Setenv("DIGITALOCEAN_TOKEN", "test-token")
+		assert.NoError(t, err)
 		provider, err := NewDigitalOceanProvider()
 		assert.NoError(t, err)
 		assert.NotNil(t, provider)
-		os.Unsetenv("DIGITALOCEAN_TOKEN")
+		err = os.Unsetenv("DIGITALOCEAN_TOKEN")
+		assert.NoError(t, err)
 	})
 }
 

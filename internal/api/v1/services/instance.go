@@ -404,9 +404,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	// Check if we have specific instance names to delete
 	var instancesToDelete []models.Instance
 	var specificNamesToDelete []string
-
-	// Calculate how many instances to delete
-	numberOfInstancesToDelete := 0
+	var numberOfInstancesToDelete int
 
 	// Collect specific instance names to delete
 	for _, instanceReq := range infraReq.Instances {
@@ -414,6 +412,9 @@ func (s *InstanceService) handleInfrastructureDeletion(
 			specificNamesToDelete = append(specificNamesToDelete, instanceReq.Name)
 		}
 	}
+
+	// Calculate how many instances to delete
+	numberOfInstancesToDelete = len(specificNamesToDelete)
 
 	if numberOfInstancesToDelete <= 0 {
 		log.Printf("❌ Invalid number of instances to delete: %d", numberOfInstancesToDelete)
