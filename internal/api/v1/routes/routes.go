@@ -31,7 +31,6 @@ const (
 	// Job instance routes
 	CreateJobInstance = "CreateJobInstance"
 	DeleteJobInstance = "DeleteJobInstance"
-	GetJobInstance    = "GetJobInstance"
 	GetJobInstances   = "GetJobInstances"
 	GetJobPublicIPs   = "GetJobPublicIPs"
 
@@ -70,7 +69,6 @@ func RegisterRoutes(
 	jobInstances := jobs.Group("/:jobId/instances")
 	jobInstances.Post("/", instanceHandler.CreateInstance).Name(CreateJobInstance)
 	jobInstances.Delete("/", instanceHandler.DeleteInstance).Name(DeleteJobInstance)
-	jobInstances.Get("/:instanceId", instanceHandler.GetInstance).Name(GetJobInstance)
 	jobInstances.Get("/", instanceHandler.GetInstancesByJobID).Name(GetJobInstances)
 	jobInstances.Get("/public-ips", instanceHandler.GetPublicIPs).Name(GetJobPublicIPs)
 
@@ -172,14 +170,6 @@ func CreateJobInstanceURL(jobId string) string {
 // DeleteJobInstanceURL returns the URL for deleting a job instance
 func DeleteJobInstanceURL(jobId string) string {
 	return BuildURL(DeleteJobInstance, map[string]string{"jobId": jobId})
-}
-
-// GetJobInstanceURL returns the URL for getting a specific job instance
-func GetJobInstanceURL(jobId, instanceId string) string {
-	return BuildURL(GetJobInstance, map[string]string{
-		"jobId":      jobId,
-		"instanceId": instanceId,
-	})
 }
 
 // GetJobInstancesURL returns the URL for getting instances by job ID

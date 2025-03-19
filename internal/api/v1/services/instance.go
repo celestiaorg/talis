@@ -19,7 +19,6 @@ type Instance interface {
 	CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error)
 	DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error)
 	GetInstance(ctx context.Context, id uint) (*models.Instance, error)
-	GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
 	GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error)
 }
 
@@ -398,21 +397,6 @@ func (s *InstanceService) updateJobStatusWithError(
 	if err := s.jobService.UpdateJobStatus(ctx, jobID, status, result, errMsg); err != nil {
 		log.Printf("Failed to update job status: %v", err)
 	}
-}
-
-// GetPublicIPs retrieves all public IPs and instance details
-func (s *InstanceService) GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
-	fmt.Println("📥 Getting all instances from database...")
-
-	// Get all instances with their details
-	instances, err := s.repo.List(ctx, opts)
-	if err != nil {
-		fmt.Printf("❌ Error listing instances: %v\n", err)
-		return nil, fmt.Errorf("failed to list instances: %w", err)
-	}
-
-	fmt.Printf("✅ Retrieved %d instances from database\n", len(instances))
-	return instances, nil
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job

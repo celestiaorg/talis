@@ -79,12 +79,14 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"jobs":   jobs,
-		"total":  len(jobs),
-		"page":   page,
-		"limit":  limit,
-		"offset": paginationOpts.Offset,
+	return c.JSON(infrastructure.ListJobsResponse{
+		Jobs: jobs,
+		Pagination: infrastructure.PaginationResponse{
+			Total:  len(jobs),
+			Page:   page,
+			Limit:  limit,
+			Offset: paginationOpts.Offset,
+		},
 	})
 }
 

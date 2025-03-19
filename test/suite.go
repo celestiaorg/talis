@@ -112,3 +112,15 @@ func (s *TestSuite) Context() context.Context {
 func (s *TestSuite) Require() *require.Assertions {
 	return require.New(s.t)
 }
+
+// Retry retries a function until it succeeds or the number of retries is reached.
+func (s *TestSuite) Retry(fn func() error, retries int, interval time.Duration) (err error) {
+	for i := 0; i < retries; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(interval)
+	}
+	return
+}

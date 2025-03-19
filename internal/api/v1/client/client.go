@@ -21,21 +21,20 @@ const DefaultTimeout = 30 * time.Second
 // Client defines the interface for interacting with the Talis API
 type Client interface {
 	// Jobs methods
-	CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*infrastructure.Response, error)
+	CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*models.Job, error)
 	GetJob(ctx context.Context, id string) (*models.JobStatus, error)
-	ListJobs(ctx context.Context, limit int, status string) ([]infrastructure.JobStatus, error)
+	ListJobs(ctx context.Context, limit int, status string) (*infrastructure.ListJobsResponse, error)
 
 	// Job instances methods
-	CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*infrastructure.InstanceInfo, error)
-	DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*infrastructure.Response, error)
-	GetJobInstance(ctx context.Context, jobID string, instanceID string) (*infrastructure.InstanceInfo, error)
-	GetJobInstances(ctx context.Context, jobID string) ([]infrastructure.InstanceInfo, error)
-	GetJobPublicIPs(ctx context.Context, jobID string) ([]string, error)
+	CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*models.Job, error)
+	DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*models.Job, error)
+	GetJobInstances(ctx context.Context, jobID string) (*infrastructure.JobInstancesResponse, error)
+	GetJobPublicIPs(ctx context.Context, jobID string) (*infrastructure.PublicIPsResponse, error)
 
 	// Instance methods
-	GetInstance(ctx context.Context, id string) (*infrastructure.InstanceInfo, error)
-	GetInstanceMetadata(ctx context.Context) (*InstanceMetadataResponse, error)
-	ListInstances(ctx context.Context) ([]infrastructure.InstanceInfo, error)
+	GetInstance(ctx context.Context, id string) (*models.Instance, error)
+	GetInstanceMetadata(ctx context.Context) (*infrastructure.InstanceMetadataResponse, error)
+	ListInstances(ctx context.Context) (*infrastructure.ListInstancesResponse, error)
 
 	// Health check
 	HealthCheck(ctx context.Context) (map[string]string, error)
@@ -163,9 +162,9 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 // Jobs methods implementation
 
 // CreateJob creates a new job
-func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*infrastructure.Response, error) {
+func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*models.Job, error) {
 	endpoint := routes.CreateJobURL()
-	var response infrastructure.Response
+	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
 		return nil, err
 	}
@@ -183,7 +182,7 @@ func (c *APIClient) GetJob(ctx context.Context, id string) (*models.JobStatus, e
 }
 
 // ListJobs lists jobs with optional filtering
-func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) ([]infrastructure.JobStatus, error) {
+func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) (*infrastructure.ListJobsResponse, error) {
 	endpoint := routes.ListJobsURL()
 
 	// Add query parameters
@@ -200,15 +199,15 @@ func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) ([]i
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
-	return response.Jobs, nil
+	return &response, nil
 }
 
 // Job instances methods implementation
 
 // CreateJobInstance creates a new instance for a job
-func (c *APIClient) CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*infrastructure.InstanceInfo, error) {
+func (c *APIClient) CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*models.Job, error) {
 	endpoint := routes.CreateJobInstanceURL(jobID)
-	var response infrastructure.InstanceInfo
+	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
 		return nil, err
 	}
@@ -216,51 +215,41 @@ func (c *APIClient) CreateJobInstance(ctx context.Context, jobID string, req inf
 }
 
 // DeleteJobInstance deletes an instance of a job
-func (c *APIClient) DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*infrastructure.Response, error) {
+func (c *APIClient) DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*models.Job, error) {
 	endpoint := routes.DeleteJobInstanceURL(jobID)
-	var response infrastructure.Response
+	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodDelete, endpoint, req, &response); err != nil {
 		return nil, err
 	}
 	return &response, nil
 }
 
-// GetJobInstance retrieves a specific instance of a job
-func (c *APIClient) GetJobInstance(ctx context.Context, jobID string, instanceID string) (*infrastructure.InstanceInfo, error) {
-	endpoint := routes.GetJobInstanceURL(jobID, instanceID)
-	var response infrastructure.InstanceInfo
+// GetJobInstances retrieves instances for a job
+func (c *APIClient) GetJobInstances(ctx context.Context, jobID string) (*infrastructure.JobInstancesResponse, error) {
+	endpoint := routes.GetJobInstancesURL(jobID)
+	var response infrastructure.JobInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
 	return &response, nil
 }
 
-// GetJobInstances retrieves instances for a job
-func (c *APIClient) GetJobInstances(ctx context.Context, jobID string) ([]infrastructure.InstanceInfo, error) {
-	endpoint := routes.GetJobInstancesURL(jobID)
-	var response []infrastructure.InstanceInfo
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
-	}
-	return response, nil
-}
-
 // GetJobPublicIPs retrieves public IPs for a job
-func (c *APIClient) GetJobPublicIPs(ctx context.Context, jobID string) ([]string, error) {
+func (c *APIClient) GetJobPublicIPs(ctx context.Context, jobID string) (*infrastructure.PublicIPsResponse, error) {
 	endpoint := routes.GetJobPublicIPsURL(jobID)
-	var response []string
+	var response infrastructure.PublicIPsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
-	return response, nil
+	return &response, nil
 }
 
 // Instance methods implementation
 
 // GetInstance retrieves an instance by ID
-func (c *APIClient) GetInstance(ctx context.Context, id string) (*infrastructure.InstanceInfo, error) {
+func (c *APIClient) GetInstance(ctx context.Context, id string) (*models.Instance, error) {
 	endpoint := routes.GetInstanceURL(id)
-	var response infrastructure.InstanceInfo
+	var response models.Instance
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
@@ -268,9 +257,9 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (*infrastructure
 }
 
 // GetInstanceMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstanceMetadata(ctx context.Context) (*InstanceMetadataResponse, error) {
+func (c *APIClient) GetInstanceMetadata(ctx context.Context) (*infrastructure.InstanceMetadataResponse, error) {
 	endpoint := routes.GetInstanceMetadataURL()
-	var response InstanceMetadataResponse
+	var response infrastructure.InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
@@ -278,13 +267,13 @@ func (c *APIClient) GetInstanceMetadata(ctx context.Context) (*InstanceMetadataR
 }
 
 // ListInstances lists all instances
-func (c *APIClient) ListInstances(ctx context.Context) ([]infrastructure.InstanceInfo, error) {
+func (c *APIClient) ListInstances(ctx context.Context) (*infrastructure.ListInstancesResponse, error) {
 	endpoint := routes.ListInstancesURL()
-	var response []infrastructure.InstanceInfo
+	var response infrastructure.ListInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
-	return response, nil
+	return &response, nil
 }
 
 // Health check implementation

@@ -36,10 +36,13 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"instances": instances,
-		"page":      page,
-		"limit":     limit,
+	return c.JSON(infrastructure.ListInstancesResponse{
+		Instances: instances,
+		Pagination: infrastructure.PaginationResponse{
+			Total: len(instances),
+			Page:  page,
+			Limit: limit,
+		},
 	})
 }
 
@@ -160,10 +163,10 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", DefaultPageSize)
 	paginationOpts := getPaginationOptions(page, limit)
 
-	// Get instances with their public IPs using the service
-	instances, err := h.service.GetPublicIPs(c.Context(), paginationOpts)
+	// Get instances
+	instances, err := h.service.ListInstances(c.Context(), paginationOpts)
 	if err != nil {
-		fmt.Printf("❌ Error getting public IPs: %v\n", err)
+		fmt.Printf("❌ Error getting instances: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get public IPs: %v", err),
 		})
@@ -171,22 +174,24 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
-	// Convert instances to simplified format with only public IPs and job IDs
-	publicIPs := make([]map[string]interface{}, len(instances))
+	// Extract the public IPs from the instances
+	publicIPs := make([]infrastructure.PublicIPs, len(instances))
 	for i, instance := range instances {
-		publicIPs[i] = map[string]interface{}{
-			"job_id":    instance.JobID,
-			"public_ip": instance.PublicIP,
+		publicIPs[i] = infrastructure.PublicIPs{
+			JobID:    instance.JobID,
+			PublicIP: instance.PublicIP,
 		}
 	}
 
 	// Return instances with pagination info
-	return c.JSON(fiber.Map{
-		"instances": publicIPs,
-		"total":     len(instances),
-		"page":      page,
-		"limit":     limit,
-		"offset":    paginationOpts.Offset,
+	return c.JSON(infrastructure.PublicIPsResponse{
+		PublicIPs: publicIPs,
+		Pagination: infrastructure.PaginationResponse{
+			Total:  len(instances),
+			Page:   page,
+			Limit:  limit,
+			Offset: paginationOpts.Offset,
+		},
 	})
 }
 
@@ -199,9 +204,9 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	paginationOpts := getPaginationOptions(page, limit)
 
 	// Get instances with their details using the service
-	instances, err := h.service.GetPublicIPs(c.Context(), paginationOpts)
+	instances, err := h.service.ListInstances(c.Context(), paginationOpts)
 	if err != nil {
-		fmt.Printf("❌ Error getting instance metadata: %v\n", err)
+		fmt.Printf("❌ Error getting instance: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get instance metadata: %v", err),
 		})
@@ -210,12 +215,14 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
 	// Return instances with pagination info
-	return c.JSON(fiber.Map{
-		"instances": instances,
-		"total":     len(instances),
-		"page":      page,
-		"limit":     limit,
-		"offset":    paginationOpts.Offset,
+	return c.JSON(infrastructure.InstanceMetadataResponse{
+		Instances: instances,
+		Pagination: infrastructure.PaginationResponse{
+			Total:  len(instances),
+			Page:   page,
+			Limit:  limit,
+			Offset: paginationOpts.Offset,
+		},
 	})
 }
 
@@ -246,10 +253,10 @@ func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
 
 	fmt.Printf("✅ Found %d instances for job %d\n", len(instances), jobID)
 
-	// Return all instance details
-	return c.JSON(fiber.Map{
-		"instances": instances,
-		"total":     len(instances),
-		"job_id":    jobID,
+	// Return response using JobInstancesResponse type
+	return c.JSON(infrastructure.JobInstancesResponse{
+		Instances: instances,
+		Total:     len(instances),
+		JobID:     uint(jobID),
 	})
 }
