@@ -45,12 +45,7 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 
 // CreateInstance handles the request to create a new instance
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var req struct {
-		Name        string                           `json:"name"`
-		ProjectName string                           `json:"project_name"`
-		WebhookURL  string                           `json:"webhook_url"`
-		Instances   []infrastructure.InstanceRequest `json:"instances"`
-	}
+	var req infrastructure.InstanceCreateRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -73,7 +68,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	}
 
 	// Create instance using the service
-	job, err := h.service.CreateInstance(c.Context(), req.Name, req.ProjectName, req.WebhookURL, req.Instances)
+	job, err := h.service.CreateInstance(c.Context(), req.InstanceName, req.ProjectName, req.WebhookURL, req.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -83,7 +78,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusAccepted).JSON(job)
 }
 
-// DeleteInstance handles the request to delete an instance
+// DeleteInstance handles the request to delete instance(s) from a job in FIFO order
 func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 	var req infrastructure.DeleteInstanceRequest
 
@@ -99,9 +94,9 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 		})
 	}
 
-	if req.Name == "" {
+	if req.InstanceName == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "name is required",
+			"error": "instance_name is required",
 		})
 	}
 
@@ -111,6 +106,8 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 		})
 	}
 
+	// TODO: I think if no instances are provided it should just delete all instances for the job.
+	// In order to do this we need the provider info which will be a DB request from DeleteInstance.
 	if len(req.Instances) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "at least one instance is required",
@@ -118,7 +115,7 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 	}
 
 	// Delete instance using the service
-	job, err := h.service.DeleteInstance(c.Context(), req.ID, req.Name, req.ProjectName, req.Instances)
+	job, err := h.service.DeleteInstance(c.Context(), req.ID, req.InstanceName, req.ProjectName, req.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
