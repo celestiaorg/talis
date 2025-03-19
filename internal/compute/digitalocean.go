@@ -5,6 +5,7 @@ package compute
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -87,15 +88,52 @@ type DigitalOceanProvider struct {
 	doClient types.DOClient
 }
 
-// Exported methods with their unexported helpers
-
 // ConfigureProvider is a no-op since we're not using Pulumi anymore
 func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
 	return nil
 }
 
-// CreateDropletRequest creates a DropletCreateRequest with common configuration (exported for testing)
-func (p *DigitalOceanProvider) CreateDropletRequest(name string, config InstanceConfig, sshKeyID int) *godo.DropletCreateRequest {
+// CreateInstance creates a new DigitalOcean droplet
+func (p *DigitalOceanProvider) CreateInstance(
+	ctx context.Context,
+	name string,
+	config InstanceConfig,
+) ([]InstanceInfo, error) {
+	if p.doClient == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	log.Printf("🚀 Creating DigitalOcean droplet(s): %s", name)
+	log.Printf("  Region: %s", config.Region)
+	log.Printf("  Size: %s", config.Size)
+	log.Printf("  Image: %s", config.Image)
+	log.Printf("  Number of instances: %d", config.NumberOfInstances)
+
+	// Get SSH key ID
+	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
+	if err != nil {
+		log.Printf("❌ Failed to get SSH key: %v", err)
+		return nil, fmt.Errorf("failed to get SSH key: %w", err)
+	}
+
+	// Create single or multiple droplets based on configuration
+	if config.NumberOfInstances > 1 {
+		return p.createMultipleDroplets(ctx, name, config, sshKeyID)
+	}
+
+	// For single instance, wrap the result in a slice for consistent interface
+	instance, err := p.createSingleDroplet(ctx, name, config, sshKeyID)
+	if err != nil {
+		return nil, err
+	}
+	return []InstanceInfo{instance}, nil
+} // createDropletRequest creates a DropletCreateRequest with common configuration
+
+func (p *DigitalOceanProvider) createDropletRequest(
+	name string,
+	config InstanceConfig,
+	sshKeyID int,
+) *godo.DropletCreateRequest {
 	return &godo.DropletCreateRequest{
 		Name:   name,
 		Region: config.Region,
@@ -113,129 +151,132 @@ apt-get install -y python3`,
 	}
 }
 
-// CreateInstance creates a new DigitalOcean droplet
-func (p *DigitalOceanProvider) CreateInstance(
+// createMultipleDroplets creates multiple droplets using the CreateMultiple API
+func (p *DigitalOceanProvider) createMultipleDroplets(
 	ctx context.Context,
 	name string,
 	config InstanceConfig,
+	sshKeyID int,
 ) ([]InstanceInfo, error) {
 	if p.doClient == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	fmt.Printf("🚀 Creating DigitalOcean droplet: %s\n", name)
-	fmt.Printf("   Region: %s, Size: %s, Image: %s\n", config.Region, config.Size, config.Image)
+	const maxDropletsPerBatch = 10
+	var allInstances []InstanceInfo
+	remainingInstances := config.NumberOfInstances
+	batchNumber := 0
 
-	// Get SSH key ID
-	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get SSH key ID: %w", err)
-	}
-
-	// If creating multiple instances, use the batch API
-	if config.NumberOfInstances > 1 {
-		fmt.Printf("🔢 Creating %d instances...\n", config.NumberOfInstances)
-
-		const maxDropletsPerBatch = 10
-		var allInstances []InstanceInfo
-		remainingInstances := config.NumberOfInstances
-		batchNumber := 0
-
-		for remainingInstances > 0 {
-			// Calculate how many instances to create in this batch
-			batchSize := remainingInstances
-			if batchSize > maxDropletsPerBatch {
-				batchSize = maxDropletsPerBatch
-			}
-
-			// Create names for this batch
-			startIndex := batchNumber * maxDropletsPerBatch
-			names := make([]string, batchSize)
-			for i := 0; i < batchSize; i++ {
-				names[i] = fmt.Sprintf("%s-%d", name, startIndex+i)
-			}
-
-			// Create the request
-			createRequest := &godo.DropletMultiCreateRequest{
-				Names:  names,
-				Region: config.Region,
-				Size:   config.Size,
-				Image: godo.DropletCreateImage{
-					Slug: config.Image,
-				},
-				SSHKeys: []godo.DropletCreateSSHKey{
-					{ID: sshKeyID},
-				},
-				Tags: append([]string{names[0]}, config.Tags...),
-				UserData: `#!/bin/bash
-apt-get update
-apt-get install -y python3`,
-			}
-
-			fmt.Printf("🚀 Creating batch %d of droplets (%d instances)...\n", batchNumber+1, batchSize)
-			droplets, _, err := p.doClient.Droplets().CreateMultiple(ctx, createRequest)
-			if err != nil {
-				fmt.Printf("❌ Failed to create droplets in batch %d: %v\n", batchNumber+1, err)
-				return nil, fmt.Errorf("failed to create droplets: %w", err)
-			}
-
-			// Wait for all droplets in this batch to get their IPs and collect information
-			var batchInstances []InstanceInfo
-
-			for _, droplet := range droplets {
-				fmt.Printf("⏳ Waiting for droplet %s to get an IP address...\n", droplet.Name)
-				ip, err := p.waitForIP(ctx, droplet.ID, defaultMaxRetries, defaultWaitInterval)
-				if err != nil {
-					fmt.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v\n", droplet.Name, err)
-					continue
-				}
-
-				instance := InstanceInfo{
-					ID:       fmt.Sprintf("%d", droplet.ID),
-					Name:     droplet.Name,
-					PublicIP: ip,
-					Provider: "digitalocean",
-					Region:   config.Region,
-					Size:     config.Size,
-				}
-				batchInstances = append(batchInstances, instance)
-			}
-
-			allInstances = append(allInstances, batchInstances...)
-			remainingInstances -= batchSize
-			batchNumber++
+	for remainingInstances > 0 {
+		// Calculate how many instances to create in this batch
+		batchSize := remainingInstances
+		if batchSize > maxDropletsPerBatch {
+			batchSize = maxDropletsPerBatch
 		}
 
-		return allInstances, nil
+		// Create names for this batch
+		names := make([]string, batchSize)
+		startIndex := batchNumber * maxDropletsPerBatch
+		for i := 0; i < batchSize; i++ {
+			names[i] = fmt.Sprintf("%s-%d", name, startIndex+i)
+		}
+
+		createRequest := &godo.DropletMultiCreateRequest{
+			Names:  names,
+			Region: config.Region,
+			Size:   config.Size,
+			Image: godo.DropletCreateImage{
+				Slug: config.Image,
+			},
+			SSHKeys: []godo.DropletCreateSSHKey{
+				{ID: sshKeyID},
+			},
+			Tags: append([]string{name}, config.Tags...),
+			UserData: `#!/bin/bash
+apt-get update
+apt-get install -y python3`,
+		}
+
+		log.Printf("🚀 Creating batch %d of droplets (%d instances)...", batchNumber+1, batchSize)
+		droplets, _, err := p.doClient.Droplets().CreateMultiple(ctx, createRequest)
+		if err != nil {
+			log.Printf("❌ Failed to create droplets in batch %d: %v", batchNumber+1, err)
+			return nil, fmt.Errorf("failed to create droplets: %w", err)
+		}
+
+		// Wait for all droplets in this batch to get their IPs and collect information
+		for _, droplet := range droplets {
+			log.Printf("⏳ Waiting for droplet %s to get an IP address...", droplet.Name)
+			ip, err := p.waitForIP(ctx, droplet.ID, defaultMaxRetries, defaultWaitInterval)
+			if err != nil {
+				// Log the error but continue with other droplets
+				log.Printf("⚠️ Warning: Failed to get IP for droplet %s: %v", droplet.Name, err)
+				continue
+			}
+
+			instance := InstanceInfo{
+				ID:       fmt.Sprintf("%d", droplet.ID),
+				Name:     droplet.Name,
+				PublicIP: ip,
+				Provider: "digitalocean",
+				Region:   config.Region,
+				Size:     config.Size,
+			}
+			allInstances = append(allInstances, instance)
+			log.Printf("✅ Droplet %s is ready with IP: %s", droplet.Name, ip)
+		}
+
+		remainingInstances -= batchSize
+		batchNumber++
+
+		// If we have more instances to create, add a small delay between batches
+		if remainingInstances > 0 {
+			log.Printf("⏳ Waiting before creating next batch... (%d instances remaining)", remainingInstances)
+			time.Sleep(5 * time.Second)
+		}
 	}
 
-	// Create a single droplet
-	createRequest := p.CreateDropletRequest(name, config, sshKeyID)
+	log.Printf("✅ Created all %d droplets with base name: %s", len(allInstances), name)
+	return allInstances, nil
+}
+
+// createSingleDroplet creates a single droplet
+func (p *DigitalOceanProvider) createSingleDroplet(
+	ctx context.Context,
+	name string,
+	config InstanceConfig,
+	sshKeyID int,
+) (InstanceInfo, error) {
+	if p.doClient == nil {
+		return InstanceInfo{}, fmt.Errorf("client not initialized")
+	}
+
+	// Use consistent naming with index for single droplet
+	dropletName := fmt.Sprintf("%s-0", name)
+	createRequest := p.createDropletRequest(dropletName, config, sshKeyID)
 
 	// Create the droplet
 	droplet, _, err := p.doClient.Droplets().Create(ctx, createRequest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create droplet: %w", err)
+		log.Printf("❌ Failed to create droplet: %v", err)
+		return InstanceInfo{}, fmt.Errorf("failed to create droplet: %w", err)
 	}
 
-	fmt.Printf("✅ Droplet created with ID: %d\n", droplet.ID)
-
-	// Wait for the droplet to get an IP address
+	// Wait for droplet to get an IP
 	ip, err := p.waitForIP(ctx, droplet.ID, defaultMaxRetries, defaultWaitInterval)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get droplet IP: %w", err)
+		return InstanceInfo{}, err
 	}
 
-	instance := InstanceInfo{
+	log.Printf("✅ Droplet creation completed: %s (IP: %s)", dropletName, ip)
+	return InstanceInfo{
 		ID:       fmt.Sprintf("%d", droplet.ID),
-		Name:     droplet.Name,
+		Name:     dropletName,
 		PublicIP: ip,
 		Provider: "digitalocean",
 		Region:   config.Region,
 		Size:     config.Size,
-	}
-
-	return []InstanceInfo{instance}, nil
+	}, nil
 }
 
 // DeleteInstance deletes a DigitalOcean droplet
@@ -297,29 +338,29 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) 
 		return 0, fmt.Errorf("client not initialized")
 	}
 
-	fmt.Printf("🔑 Looking up SSH key: %s\n", keyName)
+	log.Printf("🔑 Looking up SSH key: %s", keyName)
 
 	// List all SSH keys
 	keys, _, err := p.doClient.Keys().List(ctx, &godo.ListOptions{})
 	if err != nil {
+		log.Printf("❌ Failed to list SSH keys: %v", err)
 		return 0, fmt.Errorf("failed to list SSH keys: %w", err)
-	}
-	if len(keys) == 0 {
-		return 0, fmt.Errorf("no SSH keys found")
 	}
 
 	// Find the key by name
 	for _, key := range keys {
 		if key.Name == keyName {
-			fmt.Printf("✅ Found SSH key '%s' with ID: %d\n", keyName, key.ID)
+			log.Printf("✅ Found SSH key '%s' with ID: %d", keyName, key.ID)
 			return key.ID, nil
 		}
 	}
 
 	// If we get here, print available keys to help with diagnosis
-	fmt.Println("Available SSH keys:")
-	for _, key := range keys {
-		fmt.Printf("  - %s (ID: %d)\n", key.Name, key.ID)
+	if len(keys) > 0 {
+		log.Printf("Available SSH keys:")
+		for _, key := range keys {
+			log.Printf("  - %s (ID: %d)", key.Name, key.ID)
+		}
 	}
 
 	return 0, fmt.Errorf("SSH key '%s' not found", keyName)
@@ -344,7 +385,7 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 		return fmt.Errorf("client not initialized")
 	}
 
-	fmt.Printf("⏳ Waiting for droplet %s in region %s to be deleted...\n", name, region)
+	log.Printf("⏳ Waiting for droplet %s in region %s to be deleted...", name, region)
 	for i := 0; i < maxRetries; i++ {
 		// Try to list the droplet
 		droplets, _, err := p.doClient.Droplets().List(ctx, &godo.ListOptions{})
@@ -365,13 +406,13 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 		}
 
 		if !found {
-			fmt.Printf("✅ Confirmed droplet %s in region %s has been deleted\n", name, region)
+			log.Printf("✅ Confirmed droplet %s in region %s has been deleted", name, region)
 			return nil
 		}
 
-		fmt.Printf("⏳ Droplet %s in region %s still exists, retrying in %v (attempt %d/%d)...\n",
-			name, region, interval, i+1, maxRetries)
-		time.Sleep(interval)
+		log.Printf("⏳ Droplet %s in region %s still exists, retrying in 5 seconds (attempt %d/%d)...",
+			name, region, i+1, maxRetries)
+		time.Sleep(5 * time.Second)
 	}
 
 	return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)
@@ -388,32 +429,29 @@ func (p *DigitalOceanProvider) waitForIP(
 		return "", fmt.Errorf("client not initialized")
 	}
 
-	fmt.Println("⏳ Waiting for droplet to get an IP address...")
+	log.Printf("⏳ Waiting for droplet to get an IP address...")
 	for i := 0; i < maxRetries; i++ {
 		d, _, err := p.doClient.Droplets().Get(ctx, dropletID)
 		if err != nil {
+			log.Printf("❌ Failed to get droplet details: %v", err)
 			return "", fmt.Errorf("failed to get droplet details: %w", err)
 		}
 
 		// Get the public IPv4 address
-		if d != nil && d.Networks != nil {
-			for _, network := range d.Networks.V4 {
-				if network.Type == "public" {
-					ip := network.IPAddress
-					fmt.Printf("📍 Found public IP for droplet: %s\n", ip)
-					return ip, nil
-				}
+		for _, network := range d.Networks.V4 {
+			if network.Type == "public" {
+				ip := network.IPAddress
+				log.Printf("📍 Found public IP for droplet: %s", ip)
+				return ip, nil
 			}
 		}
 
-		fmt.Printf("⏳ IP not assigned yet, retrying in %v (attempt %d/%d)...\n", interval, i+1, maxRetries)
-		time.Sleep(interval)
+		log.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...", i+1, maxRetries)
+		time.Sleep(10 * time.Second)
 	}
 
-	return "", fmt.Errorf("no public IP found after %d attempts", maxRetries)
+	return "", fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)
 }
-
-// Functions related to DigitalOceanProvider
 
 // NewDigitalOceanProvider creates a new DigitalOcean provider instance
 func NewDigitalOceanProvider() (*DigitalOceanProvider, error) {

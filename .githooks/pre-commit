@@ -2,7 +2,7 @@
 
 # Run make lint before committing
 echo "Running linters..."
-#make lint
+make lint
 
 # Check the exit status
 if [ $? -ne 0 ]; then
@@ -11,4 +11,4 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✅ Linting passed."
-exit 0 
+exit 0

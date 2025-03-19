@@ -31,7 +31,7 @@ func SetupServer(suite *TestSuite) {
 	instanceService := services.NewInstanceService(suite.InstanceRepo, jobService)
 
 	// Create handlers
-	jobHandler := handlers.NewJobHandler(jobService)
+	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
 
 	// Register routes

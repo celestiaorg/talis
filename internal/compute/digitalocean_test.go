@@ -280,7 +280,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 			SSHKeyID: "test-key",
 		}
 
-		request := provider.CreateDropletRequest("test-instance", config, 12345)
+		request := provider.createDropletRequest("test-instance", config, 12345)
 		assert.Equal(t, "test-instance", request.Name)
 		assert.Equal(t, "nyc1", request.Region)
 		assert.Equal(t, "s-1vcpu-1gb", request.Size)
