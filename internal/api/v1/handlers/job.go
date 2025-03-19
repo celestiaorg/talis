@@ -1,11 +1,8 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"strconv"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -16,12 +13,16 @@ import (
 
 // JobHandler handles HTTP requests for job operations
 type JobHandler struct {
-	service *services.JobService
+	service         services.Job
+	instanceService services.Instance
 }
 
 // NewJobHandler creates a new job handler instance
-func NewJobHandler(s *services.JobService) *JobHandler {
-	return &JobHandler{service: s}
+func NewJobHandler(s services.Job, instanceService services.Instance) *JobHandler {
+	return &JobHandler{
+		service:         s,
+		instanceService: instanceService,
+	}
 }
 
 // GetJobStatus handles the request to get a job's status
@@ -103,114 +104,43 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 		})
 	}
 
-	// Convert to Request and validate
-	JobReq := &infrastructure.JobRequest{
-		Name:        req.Name,
-		ProjectName: req.ProjectName,
-		Provider:    req.Instances[0].Provider,
-		Instances:   req.Instances,
-		Action:      "create",
+	// Check if project name already exists
+	existingJob, err := h.service.GetByProjectName(c.Context(), req.ProjectName)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to check project name: %v", err),
+		})
 	}
-
-	if err := JobReq.Validate(); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
+	if existingJob != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": fmt.Sprintf("project name '%s' is already in use", req.ProjectName),
+			"job":   existingJob,
 		})
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
-
-	job, err := h.service.CreateJob(c.Context(), &models.Job{
+	// Create job first
+	job := &models.Job{
 		Name:        req.Name,
-		OwnerID:     uint(ownerID),
 		ProjectName: req.ProjectName,
 		Status:      models.JobStatusPending,
 		WebhookURL:  req.WebhookURL,
-	})
+		OwnerID:     0, // Default owner ID for now
+	}
+
+	job, err = h.service.CreateJob(c.Context(), job)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to create job: %v", err),
 		})
 	}
 
-	// TODO: this logic should be moved to a service
-	// Create job first
-	go func() {
-		fmt.Println("🚀 Starting async infrastructure creation...")
-
-		// Update to initializing when starting Pulumi setup
-		if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusInitializing, nil, ""); err != nil {
-			fmt.Printf("❌ Failed to update job status to initializing: %v\n", err)
-			return
-		}
-
-		infra, err := infrastructure.NewInfrastructure(JobReq)
-		if err != nil {
-			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
-			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error()); err != nil {
-				log.Printf("Failed to update job status: %v", err)
-			}
-			return
-		}
-
-		// Update to provisioning when creating infrastructure
-		if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusProvisioning, nil, ""); err != nil {
-			fmt.Printf("❌ Failed to update job status to provisioning: %v\n", err)
-			return
-		}
-
-		result, err := infra.Execute()
-		if err != nil {
-			// Check if error is due to resource not found
-			if strings.Contains(err.Error(), "404") &&
-				strings.Contains(err.Error(), "could not be found") {
-				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
-			} else {
-				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
-				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error()); err != nil {
-					log.Printf("Failed to update job status: %v", err)
-				}
-				return
-			}
-		}
-
-		// Start Ansible provisioning if creation was successful and provisioning is requested
-		if req.Instances[0].Provision {
-			instances, ok := result.([]infrastructure.InstanceInfo)
-			if !ok {
-				fmt.Printf("❌ Invalid result type: %T\n", result)
-				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil,
-					fmt.Sprintf("invalid result type: %T, expected []infrastructure.InstanceInfo", result)); err != nil {
-					log.Printf("Failed to update job status: %v", err)
-				}
-				return
-			}
-
-			fmt.Printf("📝 Created instances: %+v\n", instances)
-
-			// Update to configuring when setting up Ansible
-			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusConfiguring, instances, ""); err != nil {
-				fmt.Printf("❌ Failed to update job status to configuring: %v\n", err)
-				return
-			}
-
-			if err := infra.RunProvisioning(instances); err != nil {
-				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
-				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, instances, fmt.Sprintf("infrastructure created but provisioning failed: %v", err)); err != nil {
-					log.Printf("Failed to update job status: %v", err)
-				}
-				return
-			}
-		}
-
-		// Update final status with result
-		if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusCompleted, result, ""); err != nil {
-			fmt.Printf("❌ Failed to update final job status: %v\n", err)
-			return
-		}
-
-		fmt.Printf("✅ Infrastructure creation completed for job ID %d and job name %s\n", job.ID, job.Name)
-	}()
+	// Create instances using the instance service
+	err = h.instanceService.CreateInstancesForJob(c.Context(), job, req.Instances)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
 	return c.Status(fiber.StatusCreated).JSON(job)
 }
