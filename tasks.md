@@ -12,19 +12,7 @@ Complete
 
 ## Phase 2: Centralize and Refactor Mock Infrastructure
 
-### Task 2.3: Create Mock Configuration Types
-- Add `test/mocks/config.go` for mock configuration types
-- Define `InstanceCreationConfig` struct
-- Implement `DefaultInstanceCreationConfig` function
-- **Expected effort**: ~40 lines of code
-- **Commit message**: `feat: add configuration types for standardized mock setup`
-
-### Task 2.4: Add Provider Factory For Tests
-- Create `test/mocks/provider_factory.go`
-- Implement functions to create pre-configured provider mocks
-- Add helper method to inject mocked providers into TestEnvironment
-- **Expected effort**: ~50 lines of code
-- **Commit message**: `feat: implement provider factory for creating test mock providers`
+Complete
 
 ## Phase 3: API Server and Client Setup
 

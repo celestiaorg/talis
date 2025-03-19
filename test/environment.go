@@ -111,8 +111,16 @@ func (e *TestEnvironment) Require() *require.Assertions {
 
 // WithTimeout returns a new context with the specified timeout.
 // The returned context is a child of the environment's context.
+// This is useful for operations that need a different timeout than the default.
 func (e *TestEnvironment) WithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(e.ctx, timeout)
+}
+
+// WithDeadline returns a new context with the specified deadline.
+// The returned context is a child of the environment's context.
+// This is useful for operations that need to complete by a specific time.
+func (e *TestEnvironment) WithDeadline(deadline time.Time) (context.Context, context.CancelFunc) {
+	return context.WithDeadline(e.ctx, deadline)
 }
 
 // T returns the testing.T instance for this environment.
