@@ -3,9 +3,10 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
+
+	log "github.com/celestiaorg/talis/internal/logger"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -145,7 +146,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 		if err != nil {
 			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
 			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error()); err != nil {
-				log.Printf("Failed to update job status: %v", err)
+				log.Infof("Failed to update job status: %v", err)
 			}
 			return
 		}
@@ -165,7 +166,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			} else {
 				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
 				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error()); err != nil {
-					log.Printf("Failed to update job status: %v", err)
+					log.Infof("Failed to update job status: %v", err)
 				}
 				return
 			}
@@ -178,7 +179,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 				fmt.Printf("❌ Invalid result type: %T\n", result)
 				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil,
 					fmt.Sprintf("invalid result type: %T, expected []infrastructure.InstanceInfo", result)); err != nil {
-					log.Printf("Failed to update job status: %v", err)
+					log.Infof("Failed to update job status: %v", err)
 				}
 				return
 			}
@@ -194,7 +195,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			if err := infra.RunProvisioning(instances); err != nil {
 				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
 				if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, instances, fmt.Sprintf("infrastructure created but provisioning failed: %v", err)); err != nil {
-					log.Printf("Failed to update job status: %v", err)
+					log.Infof("Failed to update job status: %v", err)
 				}
 				return
 			}
