@@ -172,6 +172,9 @@ func (s *MockDropletService) SimulateRateLimit() {
 	s.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.RateLimitError
 	}
+	s.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
+		return nil, s.std.Droplets.RateLimitError
+	}
 	s.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.RateLimitError
 	}
@@ -187,6 +190,9 @@ func (s *MockDropletService) SimulateAuthenticationFailure() {
 	}
 	s.GetFunc = func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.AuthenticationError
+	}
+	s.DeleteFunc = func(ctx context.Context, id int) (*godo.Response, error) {
+		return nil, s.std.Droplets.AuthenticationError
 	}
 	s.ListFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.AuthenticationError

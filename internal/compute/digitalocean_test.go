@@ -2,6 +2,7 @@ package compute
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -305,8 +306,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, instances, 1)
 		assert.Equal(t, "test-instance", instances[0].Name)
-		assert.Equal(t, "192.0.2.1", instances[0].PublicIP)
-		assert.Equal(t, "54321", instances[0].ID)
+		assert.Equal(t, mocks.DefaultDropletIP1, instances[0].PublicIP)
+		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), instances[0].ID)
 	})
 
 	t.Run("CreateInstance_MultipleInstances", func(t *testing.T) {
@@ -429,7 +430,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		mockClient.MockDropletService.SimulateMaxRetries()
 
 		// Call the unexported method directly with a short interval
-		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
+		err := provider.waitForDeletion(context.Background(), mocks.DefaultDropletName1, mocks.DefaultDropletRegion, defaultMaxRetries, 100*time.Millisecond)
 
 		// Verify results
 		assert.Error(t, err)
