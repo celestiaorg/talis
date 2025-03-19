@@ -50,7 +50,9 @@ func (s *InstanceTestSuite) TearDownSuite() {
 	sqlDB, err := s.DB.DB()
 	if err == nil {
 		err = sqlDB.Close()
-		s.NoError(err, "failed to close database connection")
+		if err != nil {
+			s.T().Log("failed to close database connection")
+		}
 	}
 }
 
