@@ -8,7 +8,7 @@ import (
 // Validate validates the infrastructure request
 func (r *JobRequest) Validate() error {
 	if r.Name == "" {
-		return fmt.Errorf("name is required")
+		return fmt.Errorf("job_name is required")
 	}
 	return nil
 }
@@ -18,11 +18,19 @@ func (r *InstancesRequest) Validate() error {
 	if r.JobName == "" {
 		return fmt.Errorf("job_name is required")
 	}
+
+	if r.ProjectName == "" {
+		return fmt.Errorf("project_name is required")
+	}
 	if len(r.Instances) == 0 {
 		return fmt.Errorf("at least one instance configuration is required")
 	}
 
 	for i, instance := range r.Instances {
+		if instance.Name == "" && r.InstanceName == "" {
+			return fmt.Errorf("instance_name or instance.name is required")
+		}
+
 		if err := instance.Validate(); err != nil {
 			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
 		}
@@ -58,8 +66,8 @@ func (i *InstanceRequest) Validate() error {
 
 // Validate validates the delete request
 func (r *DeleteRequest) Validate() error {
-	if r.Name == "" {
-		return fmt.Errorf("name is required")
+	if r.InstanceName == "" {
+		return fmt.Errorf("instance_name is required")
 	}
 	if r.ProjectName == "" {
 		return fmt.Errorf("project_name is required")

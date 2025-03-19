@@ -46,7 +46,7 @@ func NewInfrastructure(req *InstancesRequest) (*Infrastructure, error) {
 	jobID := fmt.Sprintf("job-%s", timestamp)
 
 	return &Infrastructure{
-		name:        req.JobName,
+		name:        req.InstanceName,
 		projectName: req.ProjectName,
 		instances:   req.Instances,
 		provider:    provider,
@@ -83,6 +83,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				SSHKeyID:          instance.SSHKeyName,
 				Tags:              instance.Tags,
 				NumberOfInstances: instance.NumberOfInstances,
+				CustomName:        instance.Name,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
