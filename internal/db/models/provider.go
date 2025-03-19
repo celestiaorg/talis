@@ -7,6 +7,8 @@ type ProviderID string
 
 // Provider constants define the supported cloud providers
 const (
+	// ProviderMock represents a mock provider for testing purposes
+	ProviderMock ProviderID = "mock"
 	// ProviderAWS represents Amazon Web Services provider
 	ProviderAWS ProviderID = "aws"
 	// ProviderGCP represents Google Cloud Platform provider
@@ -14,12 +16,17 @@ const (
 	// ProviderAzure represents Microsoft Azure provider
 	ProviderAzure ProviderID = "azure"
 	// ProviderDO represents DigitalOcean provider
-	ProviderDO       ProviderID = "digitalocean"
+	ProviderDO ProviderID = "do"
+	// ProviderScaleway represents Scaleway provider
 	ProviderScaleway ProviderID = "scw"
-	ProviderVultr    ProviderID = "vultr"
-	ProviderLinode   ProviderID = "linode"
-	ProviderHetzner  ProviderID = "hetzner"
-	ProviderOVH      ProviderID = "ovh"
+	// ProviderVultr represents Vultr provider
+	ProviderVultr ProviderID = "vultr"
+	// ProviderLinode represents Linode provider
+	ProviderLinode ProviderID = "linode"
+	// ProviderHetzner represents Hetzner provider
+	ProviderHetzner ProviderID = "hetzner"
+	// ProviderOVH represents OVH provider
+	ProviderOVH ProviderID = "ovh"
 )
 
 // String implements the fmt.Stringer interface

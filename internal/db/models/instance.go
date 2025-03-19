@@ -97,3 +97,15 @@ func (s *InstanceStatus) UnmarshalJSON(data []byte) error {
 	*s = status
 	return nil
 }
+
+// MarshalJSON implements the json.Marshaler interface for Instance
+func (i Instance) MarshalJSON() ([]byte, error) {
+	type Alias Instance
+	return json.Marshal(struct {
+		ID uint `json:"id"`
+		Alias
+	}{
+		ID:    i.Model.ID,
+		Alias: Alias(i),
+	})
+}

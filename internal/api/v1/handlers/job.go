@@ -50,22 +50,26 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 
 // ListJobs handles the request to list jobs
 func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
-	var (
-		limit  = c.QueryInt("limit", 10)
-		offset = c.QueryInt("offset", 0)
-	)
-	status, err := models.ParseJobStatus(c.Query("status"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).
-			JSON(errInvalidInput("invalid job status"))
+	var status = models.JobStatusUnknown
+
+	// Parse status if provided
+	if statusStr := c.Query("status"); statusStr != "" {
+		var err error
+		status, err = models.ParseJobStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid job status",
+			})
+		}
 	}
+
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), &models.ListOptions{
-		Limit:  limit,
-		Offset: offset,
-	})
+	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(errServer(err.Error()))
@@ -107,6 +111,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 // TerminateJob handles the request to terminate a job
 func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
+	// TODO: this should be job name as jobID is a db internal thing
 	jobID, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).

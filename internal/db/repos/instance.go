@@ -39,6 +39,17 @@ func (r *InstanceRepository) GetByID(ctx context.Context, JobID, ID uint) (*mode
 	return &instance, nil
 }
 
+// GetByNames retrieves instances by their names
+// TODO: Need to add ownerID to the query for security in future
+func (r *InstanceRepository) GetByNames(ctx context.Context, names []string) ([]models.Instance, error) {
+	var instances []models.Instance
+	err := r.db.WithContext(ctx).Where("name IN (?)", names).Find(&instances).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instances: %w", err)
+	}
+	return instances, nil
+}
+
 // Update updates an instance
 func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *models.Instance) error {
 	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: ID}}).Updates(instance).Error

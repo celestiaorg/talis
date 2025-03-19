@@ -18,6 +18,8 @@ type DigitalOceanProvider struct {
 	doClient *godo.Client
 }
 
+var _ ComputeProvider = &DigitalOceanProvider{}
+
 // NewDigitalOceanProvider creates a new DigitalOcean provider instance
 func NewDigitalOceanProvider() (*DigitalOceanProvider, error) {
 	token := os.Getenv("DIGITALOCEAN_TOKEN")
