@@ -102,12 +102,13 @@ DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 # Build the CLI
 make build-cli
 
-# Start with the example configuration
+# Copy and modify the example create configuration
 cp create.json_example create.json
-# Modify create.json with your specific settings
+# Edit create.json with your specific configuration
 
-# Create infrastructure (this will auto-generate delete.json)
+# Create infrastructure using your configuration
 talis infra create -f create.json
+# A delete.json file will be automatically generated after successful creation
 
 # Delete infrastructure using the auto-generated file
 talis infra delete -f delete.json
@@ -151,6 +152,10 @@ talis jobs get --id job-20240315-123456
     ]
 }
 ```
+
+#### Auto-generated Delete Configuration (delete.json):
+
+The delete configuration will be automatically generated after a successful creation. It will include all necessary information to delete the created resources:
 
 The `instance_name` field is used as a base name for instances. Each instance gets a suffix that is incremented starting from 0 (e.g., "talis-0"). Individual instances can have custom names by specifying the `name` field in the instance object, as shown in the example above with "talis-validator".
 
