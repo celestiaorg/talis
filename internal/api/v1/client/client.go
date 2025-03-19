@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -20,8 +21,8 @@ const DefaultTimeout = 30 * time.Second
 // Client defines the interface for interacting with the Talis API
 type Client interface {
 	// Jobs methods
-	CreateJob(ctx context.Context, req infrastructure.CreateRequest) (*infrastructure.Response, error)
-	GetJob(ctx context.Context, id string) (*infrastructure.JobStatus, error)
+	CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*infrastructure.Response, error)
+	GetJob(ctx context.Context, id string) (*models.JobStatus, error)
 	ListJobs(ctx context.Context, limit int, status string) ([]infrastructure.JobStatus, error)
 
 	// Job instances methods
@@ -132,19 +133,10 @@ func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
 
 	// Check for non-success status codes
 	if statusCode < 200 || statusCode >= 300 {
-		// Try to decode the error response
-		var errResp ErrorResponse
-		if err := json.Unmarshal(body, &errResp); err == nil && errResp.Message != "" {
-			return &fiber.Error{
-				Code:    statusCode,
-				Message: errResp.Message,
-			}
-		}
-
-		// If we can't decode the error response, return a generic error
+		// If we can't decode the error response, return an error with the raw body as the message
 		return &fiber.Error{
 			Code:    statusCode,
-			Message: "unknown error",
+			Message: string(body),
 		}
 	}
 
@@ -171,7 +163,7 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 // Jobs methods implementation
 
 // CreateJob creates a new job
-func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateRequest) (*infrastructure.Response, error) {
+func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*infrastructure.Response, error) {
 	endpoint := routes.CreateJobURL()
 	var response infrastructure.Response
 	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
@@ -181,9 +173,9 @@ func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateRequ
 }
 
 // GetJob retrieves a job by ID
-func (c *APIClient) GetJob(ctx context.Context, id string) (*infrastructure.JobStatus, error) {
+func (c *APIClient) GetJob(ctx context.Context, id string) (*models.JobStatus, error) {
 	endpoint := routes.GetJobURL(id)
-	var response infrastructure.JobStatus
+	var response models.JobStatus
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
@@ -204,11 +196,11 @@ func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) ([]i
 		endpoint += fmt.Sprintf("?status=%s", status)
 	}
 
-	var response []infrastructure.JobStatus
+	var response infrastructure.ListJobsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return nil, err
 	}
-	return response, nil
+	return response.Jobs, nil
 }
 
 // Job instances methods implementation

@@ -17,9 +17,9 @@ import (
 // 2. Provider mocks are called correctly
 // 3. Instance status is tracked properly
 func TestInstanceCreation(t *testing.T) {
-	// Create a new test environment with server and database
-	env := test.NewTestEnvironment(t, test.WithServer())
-	defer env.Cleanup()
+	// Create a new test suite with server and database
+	suite := test.NewTestSuite(t, test.WithServer())
+	defer suite.Cleanup()
 
 	// Create a test job request with instance
 	jobReq := infrastructure.CreateRequest{
@@ -41,7 +41,7 @@ func TestInstanceCreation(t *testing.T) {
 	}
 
 	// Create the job using the API client
-	job, err := env.APIClient.CreateJob(env.Context(), jobReq)
+	job, err := suite.APIClient.CreateJob(suite.Context(), jobReq)
 	require.NoError(t, err, "Failed to create job")
 	require.NotNil(t, job, "Job response should not be nil")
 
@@ -50,12 +50,12 @@ func TestInstanceCreation(t *testing.T) {
 	assert.Equal(t, "pending", job.Status, "Job should start in pending status")
 
 	// Get the job status to verify instances were created
-	status, err := env.APIClient.GetJob(env.Context(), fmt.Sprint(job.ID))
+	status, err := suite.APIClient.GetJob(suite.Context(), fmt.Sprint(job.ID))
 	require.NoError(t, err, "Failed to get job status")
 	require.NotNil(t, status, "Job status should not be nil")
 
 	// Get instances for the job
-	instances, err := env.APIClient.GetJobInstances(env.Context(), fmt.Sprint(job.ID))
+	instances, err := suite.APIClient.GetJobInstances(suite.Context(), fmt.Sprint(job.ID))
 	require.NoError(t, err, "Failed to get job instances")
 	require.NotNil(t, instances, "Job instances should not be nil")
 
@@ -75,9 +75,9 @@ func TestInstanceCreation(t *testing.T) {
 // 2. Resource limit errors
 // 3. Provider-specific errors
 func TestInstanceCreationErrors(t *testing.T) {
-	// Create test environment
-	env := test.NewTestEnvironment(t, test.WithServer())
-	defer env.Cleanup()
+	// Create test suite
+	suite := test.NewTestSuite(t, test.WithServer())
+	defer suite.Cleanup()
 
 	// Test case: Invalid provider
 	invalidProviderReq := infrastructure.CreateRequest{
@@ -95,12 +95,12 @@ func TestInstanceCreationErrors(t *testing.T) {
 	}
 
 	// Attempt to create job with invalid provider
-	job, err := env.APIClient.CreateJob(env.Context(), invalidProviderReq)
+	job, err := suite.APIClient.CreateJob(suite.Context(), invalidProviderReq)
 	assert.Error(t, err, "Expected error for invalid provider")
 	assert.Nil(t, job, "Job should be nil for invalid provider")
 
 	// Test case: Provider authentication failure
-	env.MockDOClient.SimulateAuthenticationFailure()
+	suite.MockDOClient.SimulateAuthenticationFailure()
 	authFailureReq := infrastructure.CreateRequest{
 		Name:        "auth-failure-job",
 		ProjectName: "auth-failure-project",
@@ -116,15 +116,15 @@ func TestInstanceCreationErrors(t *testing.T) {
 	}
 
 	// Attempt to create job with auth failure
-	job, err = env.APIClient.CreateJob(env.Context(), authFailureReq)
+	job, err = suite.APIClient.CreateJob(suite.Context(), authFailureReq)
 	assert.Error(t, err, "Expected error for authentication failure")
 	assert.Nil(t, job, "Job should be nil for authentication failure")
 
 	// Reset mock to standard behavior
-	env.MockDOClient.ResetToStandard()
+	suite.MockDOClient.ResetToStandard()
 
 	// Test case: Rate limit error
-	env.MockDOClient.SimulateRateLimit()
+	suite.MockDOClient.SimulateRateLimit()
 	rateLimitReq := infrastructure.CreateRequest{
 		Name:        "rate-limit-job",
 		ProjectName: "rate-limit-project",
@@ -140,7 +140,7 @@ func TestInstanceCreationErrors(t *testing.T) {
 	}
 
 	// Attempt to create job with rate limit
-	job, err = env.APIClient.CreateJob(env.Context(), rateLimitReq)
+	job, err = suite.APIClient.CreateJob(suite.Context(), rateLimitReq)
 	assert.Error(t, err, "Expected error for rate limit")
 	assert.Nil(t, job, "Job should be nil for rate limit")
 }
@@ -151,12 +151,12 @@ func TestInstanceCreationErrors(t *testing.T) {
 // 2. Eventual success after retries
 // 3. Max retry handling
 func TestInstanceCreationRetries(t *testing.T) {
-	// Create test environment
-	env := test.NewTestEnvironment(t, test.WithServer())
-	defer env.Cleanup()
+	// Create test suite
+	suite := test.NewTestSuite(t, test.WithServer())
+	defer suite.Cleanup()
 
 	// Configure mock for delayed success (using rate limit simulation)
-	env.MockDOClient.SimulateRateLimit()
+	suite.MockDOClient.SimulateRateLimit()
 
 	// Create a test job request
 	jobReq := infrastructure.CreateRequest{
@@ -174,25 +174,25 @@ func TestInstanceCreationRetries(t *testing.T) {
 	}
 
 	// Attempt to create job (should fail with rate limit)
-	job, err := env.APIClient.CreateJob(env.Context(), jobReq)
+	job, err := suite.APIClient.CreateJob(suite.Context(), jobReq)
 	assert.Error(t, err, "Expected error for rate limit")
 	assert.Nil(t, job, "Job should be nil for rate limit")
 
 	// Reset mock to standard behavior to simulate eventual success
-	env.MockDOClient.ResetToStandard()
+	suite.MockDOClient.ResetToStandard()
 
 	// Retry job creation
-	job, err = env.APIClient.CreateJob(env.Context(), jobReq)
+	job, err = suite.APIClient.CreateJob(suite.Context(), jobReq)
 	require.NoError(t, err, "Job creation should succeed after retry")
 	require.NotNil(t, job, "Job should not be nil after retry")
 
 	// Verify job was created
-	status, err := env.APIClient.GetJob(env.Context(), fmt.Sprint(job.ID))
+	status, err := suite.APIClient.GetJob(suite.Context(), fmt.Sprint(job.ID))
 	require.NoError(t, err, "Failed to get job status")
 	require.NotNil(t, status, "Job status should not be nil")
 
 	// Get instances for the job
-	instances, err := env.APIClient.GetJobInstances(env.Context(), fmt.Sprint(job.ID))
+	instances, err := suite.APIClient.GetJobInstances(suite.Context(), fmt.Sprint(job.ID))
 	require.NoError(t, err, "Failed to get job instances")
 	require.NotNil(t, instances, "Job instances should not be nil")
 

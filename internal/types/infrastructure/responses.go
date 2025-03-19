@@ -13,3 +13,12 @@ type CreateRequest struct {
 	WebhookURL  string            `json:"webhook_url"`  // Webhook URL of the job
 	Instances   []InstanceRequest `json:"instances"`    // Instances to create
 }
+
+// ListJobsResponse represents the response from the list jobs endpoint
+type ListJobsResponse struct {
+	Jobs   []JobStatus `json:"jobs"`   // List of jobs
+	Total  int         `json:"total"`  // Total number of jobs
+	Page   int         `json:"page"`   // Current page number
+	Limit  int         `json:"limit"`  // Number of items per page
+	Offset int         `json:"offset"` // Offset from start of results
+}
