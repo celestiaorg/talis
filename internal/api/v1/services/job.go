@@ -26,6 +26,7 @@ func (s *JobService) ListJobs(ctx context.Context, status models.JobStatus, owne
 
 // CreateJob creates a new job
 func (s *JobService) CreateJob(ctx context.Context, job *models.Job) (*models.Job, error) {
+	// TODO: this should be removed since job.Name is required. This code is never hit?
 	if job.Name == "" {
 		job.Name = fmt.Sprintf("job-%s", time.Now().Format("20060102-150405"))
 	}
@@ -45,4 +46,9 @@ func (s *JobService) GetJobStatus(ctx context.Context, ownerID uint, id uint) (m
 // UpdateJobStatus updates the status of a job
 func (s *JobService) UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error {
 	return s.repo.UpdateStatus(ctx, id, status, result, errMsg)
+}
+
+// GetByProjectName retrieves a job by its project name
+func (s *JobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
+	return s.repo.GetByProjectName(ctx, projectName)
 }

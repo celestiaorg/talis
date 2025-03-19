@@ -2,23 +2,25 @@
 
 Talis is a multi-cloud infrastructure provisioning and configuration project that uses:
 
-- API to create cloud instances on the desired cloud provider
+- Direct Cloud Provider APIs to create and manage cloud instances
 - Ansible for initial system configuration and package installation
 
 ## Overview
 
-- **Multi-cloud**: With a single codebase, you can choose which cloud provider to use—AWS or DigitalOcean
+- **Multi-cloud**: With a single codebase, you can choose which cloud provider to use (currently supporting DigitalOcean, with more providers coming soon)
+- **Direct API Integration**: Uses cloud provider APIs directly for better control and reliability
 - **Ansible**: Provides initial system configuration and package installation
+- **Extensive Testing**: Comprehensive test coverage for all cloud provider operations
 
 ## Requirements
 
-- Go (1.22 or higher)
+- Go (1.24 or higher)
 - Ansible (2.9 or higher)
 - SSH key pair for instance access
 - Cloud Credentials:
   - For [DigitalOcean](https://www.digitalocean.com/): Personal Access Token in `DIGITALOCEAN_TOKEN` environment variable
   - For [Linode](https://www.linode.com/): Coming soon
-  - For [Vultr](https://www.vultr.com/): Comming soon
+  - For [Vultr](https://www.vultr.com/): Coming soon
   - For [DataPacket](https://www.datapacket.com/): Coming soon
 
 ## Project Structure
@@ -26,71 +28,48 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 ```
 talis/
 ├── cmd/
-│   ├── main.go                    # Main entry point
+│   └── main.go                    # Main entry point
 ├── internal/
 │   ├── api/                       # API related code
 │   │   └── v1/
-│   │       ├── handlers/         # Request handlers
+│   │       ├── handlers/         # Request handlers (instances, jobs)
 │   │       ├── middleware/       # API middleware
-│   │       └── routes/           # Route definitions
-│   ├── application/              # Application layer
-│   │   └── job/                 # Job service implementation
+│   │       ├── routes/          # Route definitions
+│   │       └── services/        # Business logic services
 │   ├── compute/                   # Cloud provider implementations
-│   │   ├── compute.go            # ComputeProvider interface and common types
+│   │   ├── provider.go           # ComputeProvider interface and common types
 │   │   ├── digitalocean.go       # DigitalOcean implementation
 │   │   └── ansible.go            # Ansible configuration and provisioning
 │   ├── db/                        # Database layer
-│   │   └── job/                 # Job database models
-│   ├── domain/                    # Domain layer
-│   │   └── job/                 # Job domain models and interfaces
-│   ├── infrastructure/           # Infrastructure layer
-│   │   └── persistence/         # Data persistence implementations
-│   │       └── postgres/        # PostgreSQL implementations
-│   └── types/
+│   │   ├── db.go                 # Database connection and configuration
+│   │   ├── models/              # Database models (instances, jobs)
+│   │   └── repos/               # Database repositories
+│   └── types/                     # Common types and models
 │       └── infrastructure/        # Infrastructure types and logic
-│           ├── models.go         # Type definitions
-│           ├── validation.go     # Request validation
-│           ├── pulumi.go        # Pulumi logic
-│           └── infrastructure.go # Main infrastructure logic
-├── ansible/                      # Ansible configurations
-│   ├── playbook.yml             # Main Ansible playbook
-│   └── inventory_*_ansible.ini  # Generated inventory files
-├── scripts/                      # Utility scripts
-└── .env.example                  # Environment variables example
-├── Makefile                      # Build and development commands
+├── ansible/                       # Ansible configurations
+│   ├── playbook.yml              # Main Ansible playbook
+│   └── inventory_*_ansible.ini   # Generated inventory files
+├── scripts/                       # Utility scripts
+└── .env.example                   # Environment variables example
 ```
 
-## Key Files
-
-### cmd/
-- **main.go**: Application entry point with server setup
+## Key Components
 
 ### internal/api/v1/
-- **handlers/**: HTTP request handlers
+- **handlers/**: HTTP request handlers for instances and jobs
 - **middleware/**: API middleware (logging, auth, etc.)
 - **routes/**: API route definitions
-
-### internal/application/
-- **job/**: Job service implementation with business logic
-
-### internal/compute/
-- **compute.go**: Defines the `ComputeProvider` interface and common types
-- **digitalocean.go**: `ComputeProvider` implementation for DigitalOcean
-- **ansible.go**: Ansible configuration and provisioning
+- **services/**: Business logic services
 
 ### internal/db/
-- **job/**: Job database models and operations
+- **models/**: Database models for instances and jobs
+- **repos/**: Database repositories with CRUD operations
+- **db.go**: Database connection and configuration
 
-### internal/domain/
-- **job/**: Job domain models, interfaces and business rules
-
-### internal/infrastructure/
-- **persistence/postgres/**: PostgreSQL implementations of repositories
-
-### internal/types/infrastructure/
-- **models.go**: Main data structure definitions
-- **validation.go**: Request validation
-- **infrastructure.go**: Main infrastructure management logic
+### internal/compute/
+- **provider.go**: Defines the `ComputeProvider` interface and common types
+- **digitalocean.go**: Implementation for DigitalOcean with comprehensive test coverage
+- **ansible.go**: Ansible configuration and provisioning
 
 ### ansible/
 - **playbook.yml**: Main Ansible playbook
@@ -107,12 +86,11 @@ cp .env.example .env
 ```bash
 # DigitalOcean
 DIGITALOCEAN_TOKEN=your_digitalocean_token_here
-SSH_KEY_ID=your_key_id_here
 ```
 
 3. Ensure your SSH key is available:
 ```bash
-# The default path is /root/.ssh/id_rsa
+# The default path is ~/.ssh/id_rsa
 # You can specify a different path in the request
 ```
 
@@ -120,35 +98,34 @@ SSH_KEY_ID=your_key_id_here
 
 ### Using the CLI
 
-Talis provides a command-line interface for managing infrastructure and jobs.
-
 ```bash
 # Build the CLI
 make build-cli
 
-# Create infrastructure using a JSON file
+# Start with the example configuration
+cp create.json_example create.json
+# Modify create.json with your specific settings
+
+# Create infrastructure (this will auto-generate delete.json)
 talis infra create -f create.json
 
-# Delete infrastructure using a JSON file
+# Delete infrastructure using the auto-generated file
 talis infra delete -f delete.json
 
 # List all jobs
 talis jobs list
 
-# List jobs with filters
-talis jobs list --limit 10 --status running
-
 # Get job status
 talis jobs get --id job-20240315-123456
 ```
 
-### API Usage
+### Example Configuration Files
 
-### Create Instances
+#### Create Configuration (create.json_example):
 ```json
 {
-    "name": "talis",
-    "project_name": "talis-pulumi-ansible",
+    "instance_name": "talis",
+    "project_name": "talis-test",
     "instances": [
         {
             "provider": "digitalocean",
@@ -159,72 +136,70 @@ talis jobs get --id job-20240315-123456
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-do-instance"],
             "ssh_key_name": "your-ssh-key-name"
+        },
+        {
+            "provider": "digitalocean",
+            "name": "talis-validator",
+            "number_of_instances": 1,
+            "provision": true,
+            "region": "nyc3",
+            "size": "s-2vcpu-2gb",
+            "image": "ubuntu-22-04-x64",
+            "tags": ["talis-validator"],
+            "ssh_key_name": "your-ssh-key-name"
         }
     ]
 }
 ```
 
-### CLI Commands
-
-#### Infrastructure Management
-```bash
-# Create infrastructure
-talis infra create -f config.json
-
-# Delete infrastructure
-talis infra delete -f config.json
-```
-
-#### Job Management
-```bash
-# List all jobs
-talis jobs list
-
-# List with filters
-talis jobs list --limit 10 --status running
-
-# Get specific job
-talis jobs get --id <job-id>
-```
-
-### Ansible Provisioning
-
-When `provision: true` is set in the instance configuration, Talis will:
-
-1. Wait for the instance to be accessible via SSH
-2. Create an Ansible inventory file
-3. Run the Ansible playbook that:
-   - Updates system packages
-   - Installs required software (nginx, docker, etc.)
-   - Configures basic services
-   - Sets up firewall rules
-
-The Ansible playbook can be customized by modifying `ansible/playbook.yml`.
+The `instance_name` field is used as a base name for instances. Each instance gets a suffix that is incremented starting from 0 (e.g., "talis-0"). Individual instances can have custom names by specifying the `name` field in the instance object, as shown in the example above with "talis-validator".
 
 ### Delete Instances
 
+Example configuration (delete.json_example):
+
+#### Delete Configuration (delete.json):
+This file is automatically generated after a successful creation. It contains all the information needed to delete the created resources:
+
 ```json
 {
-    "name": "talis",
-    "project_name": "talis-pulumi-ansible",
+    "id": 10,
+    "instance_name": "talis",
+    "project_name": "talis-test",
     "instances": [
         {
             "provider": "digitalocean",
             "number_of_instances": 1,
-            "region": "nyc3",
-            "size": "s-1vcpu-1gb"
+            "region": "nyc3"
+        },
+        {
+            "provider": "digitalocean",
+            "name": "talis-validator",
+            "region": "nyc3"
         }
     ]
 }
 ```
+
+When deleting instances, you can specify which instances to delete by providing the `name` field in the instance object. If no specific names are provided, instances are deleted in FIFO order (oldest first).
 
 ## Extensibility
 
 ### Adding New Providers
 
 1. Create new file in `internal/compute/` (e.g., `aws.go`)
-2. Implement the `ComputeProvider` interface
-3. Add the provider in `NewComputeProvider` in `compute.go`
+2. Implement the `ComputeProvider` interface:
+   ```go
+   type ComputeProvider interface {
+       ValidateCredentials() error
+       GetEnvironmentVars() map[string]string
+       ConfigureProvider(stack interface{}) error
+       CreateInstance(ctx context.Context, name string, config InstanceConfig) ([]InstanceInfo, error)
+       DeleteInstance(ctx context.Context, name string, region string) error
+   }
+   ```
+3. Add the provider in `NewComputeProvider` in `provider.go`
+4. Add comprehensive tests following the pattern in `digitalocean_test.go`
 
 ### Customizing Ansible
 
@@ -234,9 +209,40 @@ Modify files in `ansible/`:
 
 ## Upcoming Features
 
-- More Ansible playbook options
-- AWS support
+- AWS provider implementation
+- Linode provider implementation
+- Vultr provider implementation
+- DataPacket provider implementation
 - Webhook notification system
-- 100 Light Nodes deployment
+- Enhanced job management and monitoring
+- 100 Light Nodes deployment support
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-coverage
+
+# Run specific tests
+go test ./internal/compute -run TestDigitalOceanProvider
+```
+
+### Code Quality
+
+The project uses:
+- golangci-lint for code quality
+- go test for unit and integration testing
+- yamllint for YAML file validation
+
+Run the linters:
+```bash
+make lint
+```
 
 ---
+

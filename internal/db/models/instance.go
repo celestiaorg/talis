@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +43,7 @@ type Instance struct {
 	Region     string         `json:"region" gorm:"varchar(255)"`
 	Size       string         `json:"size" gorm:"varchar(255)"`
 	Image      string         `json:"image" gorm:"varchar(255)"`
-	Tags       []string       `json:"tags" gorm:"type:json"`
+	Tags       pq.StringArray `json:"tags" gorm:"type:text[]"`
 	Status     InstanceStatus `json:"status" gorm:"index"`
 	CreatedAt  time.Time      `json:"created_at" gorm:"index"`
 }
@@ -93,4 +94,16 @@ func (s *InstanceStatus) UnmarshalJSON(data []byte) error {
 
 	*s = status
 	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for Instance
+func (i Instance) MarshalJSON() ([]byte, error) {
+	type Alias Instance
+	return json.Marshal(struct {
+		ID uint `json:"id"`
+		Alias
+	}{
+		ID:    i.Model.ID,
+		Alias: Alias(i),
+	})
 }

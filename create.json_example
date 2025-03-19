@@ -1,17 +1,27 @@
 {
-    "name": "talis",
-    "project_name": "talis-pulumi-ansible",
-    "action": "create",
+    "instance_name": "talis",
+    "project_name": "talis-test-cli-0",
     "instances": [
         {
             "provider": "digitalocean",
             "number_of_instances": 1,
+            "provision": false,
             "region": "nyc3",
             "size": "s-1vcpu-1gb",
             "image": "ubuntu-22-04-x64",
-            "tags": ["talis-do-instance"],
-            "ssh_key_name": "your-ssh-key-name",
-            "provision": false
+            "tags": ["talis", "dev", "testing"],
+            "ssh_key_name": "<your-ssh-key-id>"
+        },
+        {
+            "provider": "digitalocean",
+            "name": "talis-validator",
+            "number_of_instances": 1,
+            "provision": false,
+            "region": "nyc3",
+            "size": "s-2vcpu-2gb",
+            "image": "ubuntu-22-04-x64",
+            "tags": ["talis", "validator", "testing"],
+            "ssh_key_name": "<your-ssh-key-id>"
         }
     ]
 }

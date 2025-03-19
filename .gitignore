@@ -18,7 +18,13 @@ build/
 Pulumi.*.yaml
 
 create.json
-delete.json
+delete*.json
 ansible/*.ini
 
 .vscode/
+TODO*
+
+# Test coverage files
+coverage.out
+coverage.html
+*.coverprofile

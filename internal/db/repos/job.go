@@ -3,6 +3,7 @@ package repos
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -51,6 +52,9 @@ func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.
 		qry.OwnerID = OwnerID
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("job not found: %w", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
 	}
@@ -122,4 +126,17 @@ func (r *JobRepository) Query(ctx context.Context, query string, args ...interfa
 	var jobs []models.Job
 	err := r.db.Raw(query, args...).Scan(&jobs).Error
 	return jobs, err
+}
+
+// GetByProjectName retrieves a job by its project name
+func (r *JobRepository) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
+	var job models.Job
+	result := r.db.WithContext(ctx).Where(&models.Job{ProjectName: projectName}).First(&job)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil // Silently return nil when no record is found
+		}
+		return nil, fmt.Errorf("failed to get job by project name: %w", result.Error)
+	}
+	return &job, nil
 }

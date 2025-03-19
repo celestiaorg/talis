@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
@@ -9,128 +12,244 @@ import (
 
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
-	service *services.InstanceService
+	service    services.Instance
+	jobService services.Job
 }
 
 // NewInstanceHandler creates a new instance handler instance
-func NewInstanceHandler(service *services.InstanceService) *InstanceHandler {
+func NewInstanceHandler(service services.Instance, jobService services.Job) *InstanceHandler {
 	return &InstanceHandler{
-		service: service,
+		service:    service,
+		jobService: jobService,
 	}
 }
 
-// DeleteInstance handles the request to delete an instance
-func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error": "delete instance not implemented yet",
+// ListInstances handles the request to list all instances
+func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+
+	instances, err := h.service.ListInstances(c.Context(), getPaginationOptions(page, limit))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to list instances: %v", err),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"instances": instances,
+		"page":      page,
+		"limit":     limit,
 	})
+}
 
-	// var req infrastructure.DeleteRequest
-	// if err := c.BodyParser(&req); err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"error": err.Error(),
-	// 	})
-	// }
+// CreateInstance handles the request to create a new instance
+func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
+	var req infrastructure.InstanceCreateRequest
 
-	// // Create job first
-	// j, err := h.jobService.CreateJob(context.Background(), req.Name, req.WebhookURL)
-	// if err != nil {
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"error": err.Error(),
-	// 	})
-	// }
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
-	// // Convert InstanceRequest to Request
-	// infraReq := &infrastructure.JobRequest{
-	// 	Name:        req.Name,
-	// 	ProjectName: req.ProjectName,
-	// 	Provider:    req.Instances[0].Provider,
-	// 	Instances:   convertToInstances(req.Instances),
-	// 	Action:      "delete",
-	// }
+	// Check if project name already exists
+	existingJob, err := h.jobService.GetByProjectName(c.Context(), req.ProjectName)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to check project name: %v", err),
+		})
+	}
+	if existingJob != nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": fmt.Sprintf("project name '%s' is already in use", req.ProjectName),
+			"job":   existingJob,
+		})
+	}
 
-	// // Start async infrastructure deletion
-	// go func() {
-	// 	fmt.Println("🗑️ Starting async infrastructure deletion...")
+	// Create instance using the service
+	job, err := h.service.CreateInstance(c.Context(), req.InstanceName, req.ProjectName, req.WebhookURL, req.Instances)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 
-	// 	// Update to initializing when starting Pulumi setup
-	// 	if err := h.jobService.UpdateJobStatus(context.Background(), j.ID, models.JobStatusInitializing, nil, ""); err != nil {
-	// 		fmt.Printf("❌ Failed to update job status to initializing: %v\n", err)
-	// 		return
-	// 	}
+	return c.Status(fiber.StatusAccepted).JSON(job)
+}
 
-	// 	infra, err := infrastructure.NewInfrastructure(infraReq)
-	// 	if err != nil {
-	// 		fmt.Printf("❌ Failed to create infrastructure client: %v\n", err)
-	// 		h.jobService.UpdateJobStatus(context.Background(), j.ID, models.JobStatusFailed, nil, err.Error())
-	// 		return
-	// 	}
+// DeleteInstance handles the request to delete instance(s) from a job in FIFO order
+func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
+	var req infrastructure.DeleteInstanceRequest
 
-	// 	// Update to deleting status
-	// 	if err := h.jobService.UpdateJobStatus(context.Background(), j.ID, models.JobStatusProvisioning, nil, ""); err != nil {
-	// 		fmt.Printf("❌ Failed to update job status to deleting: %v\n", err)
-	// 		return
-	// 	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("invalid request body: %v", err),
+		})
+	}
 
-	// 	result, err := infra.Execute()
-	// 	if err != nil {
-	// 		// Verificar si el error es por un recurso que no existe
-	// 		if strings.Contains(err.Error(), "404") &&
-	// 			strings.Contains(err.Error(), "could not be found") {
-	// 			fmt.Printf("⚠️ Warning: Resources were already deleted\n")
-	// 			result = map[string]string{
-	// 				"status": "deleted",
-	// 				"note":   "resources were already deleted",
-	// 			}
-	// 		} else {
-	// 			fmt.Printf("❌ Failed to delete infrastructure: %v\n", err)
-	// 			h.jobService.UpdateJobStatus(context.Background(), j.ID, models.JobStatusFailed, nil, err.Error())
-	// 			return
-	// 		}
-	// 	}
+	if req.ID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job id is required",
+		})
+	}
 
-	// 	// Update final status with result
-	// 	if err := h.jobService.UpdateJobStatus(context.Background(), j.ID, models.JobStatusDeleted, result, ""); err != nil {
-	// 		fmt.Printf("❌ Failed to update final job status: %v\n", err)
-	// 		return
-	// 	}
+	if req.InstanceName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "instance_name is required",
+		})
+	}
 
-	// 	fmt.Printf("✅ Infrastructure deletion completed for job %s\n", j.ID)
-	// }()
+	if req.ProjectName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "project_name is required",
+		})
+	}
 
-	// return c.Status(fiber.StatusAccepted).JSON(j)
+	// TODO: I think if no instances are provided it should just delete all instances for the job.
+	// In order to do this we need the provider info which will be a DB request from DeleteInstance.
+	if len(req.Instances) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "at least one instance is required",
+		})
+	}
+
+	// Delete instance using the service
+	job, err := h.service.DeleteInstance(c.Context(), req.ID, req.InstanceName, req.ProjectName, req.Instances)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(job)
 }
 
 // GetInstance returns details of a specific instance
 func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
-	instanceID := c.Params("id")
+	instanceID := c.Params("instanceId")
 	if instanceID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "instance id is required",
 		})
 	}
 
-	// TODO: Implement instance retrieval
-	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
-		"error": "get instance not implemented yet",
+	id, err := strconv.ParseUint(instanceID, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid instance id",
+		})
+	}
+
+	// Get instance using the service
+	instance, err := h.service.GetInstance(c.Context(), uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get instance: %v", err),
+		})
+	}
+
+	return c.JSON(instance)
+}
+
+// GetPublicIPs returns a list of public IPs and their associated job IDs
+func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
+	fmt.Println("🔍 Getting public IPs...")
+
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
+
+	// Get instances with their public IPs using the service
+	instances, err := h.service.GetPublicIPs(c.Context(), paginationOpts)
+	if err != nil {
+		fmt.Printf("❌ Error getting public IPs: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get public IPs: %v", err),
+		})
+	}
+
+	fmt.Printf("✅ Found %d instances\n", len(instances))
+
+	// Convert instances to simplified format with only public IPs and job IDs
+	publicIPs := make([]map[string]interface{}, len(instances))
+	for i, instance := range instances {
+		publicIPs[i] = map[string]interface{}{
+			"job_id":    instance.JobID,
+			"public_ip": instance.PublicIP,
+		}
+	}
+
+	// Return instances with pagination info
+	return c.JSON(fiber.Map{
+		"instances": publicIPs,
+		"total":     len(instances),
+		"page":      page,
+		"limit":     limit,
+		"offset":    paginationOpts.Offset,
 	})
 }
 
-// convertToInstances converts DeleteInstance to InstanceRequest
-//
-//nolint:unused // Will be used in future implementation
-func convertToInstances(deleteInstances []infrastructure.DeleteInstance) []infrastructure.InstanceRequest {
-	instances := make([]infrastructure.InstanceRequest, len(deleteInstances))
-	for i, di := range deleteInstances {
-		instances[i] = infrastructure.InstanceRequest{
-			Provider:          di.Provider,
-			NumberOfInstances: di.NumberOfInstances,
-			Region:            di.Region,
-			Size:              di.Size,
-			Image:             di.Image,
-			Tags:              di.Tags,
-			SSHKeyName:        di.SSHKeyName,
-		}
+// GetAllMetadata returns a list of all instance details
+func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
+	fmt.Println("🔍 Getting all instance metadata...")
+
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
+
+	// Get instances with their details using the service
+	instances, err := h.service.GetPublicIPs(c.Context(), paginationOpts)
+	if err != nil {
+		fmt.Printf("❌ Error getting instance metadata: %v\n", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get instance metadata: %v", err),
+		})
 	}
-	return instances
+
+	fmt.Printf("✅ Found %d instances\n", len(instances))
+
+	// Return instances with pagination info
+	return c.JSON(fiber.Map{
+		"instances": instances,
+		"total":     len(instances),
+		"page":      page,
+		"limit":     limit,
+		"offset":    paginationOpts.Offset,
+	})
+}
+
+// GetInstancesByJobID returns a list of instances for a specific job
+func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
+	jobID, err := c.ParamsInt("jobId")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid job id",
+		})
+	}
+	if jobID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job id is required",
+		})
+	}
+
+	fmt.Printf("🔍 Getting instances for job ID %d...\n", jobID)
+
+	// Get instances using the service
+	instances, err := h.service.GetInstancesByJobID(c.Context(), uint(jobID))
+	if err != nil {
+		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to get instances for job %d: %v", jobID, err),
+		})
+	}
+
+	fmt.Printf("✅ Found %d instances for job %d\n", len(instances), jobID)
+
+	// Return all instance details
+	return c.JSON(fiber.Map{
+		"instances": instances,
+		"total":     len(instances),
+		"job_id":    jobID,
+	})
 }

@@ -37,7 +37,7 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 
 // CreateInventory creates the inventory file with all instances
 func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error {
-	fmt.Printf("�� Creating inventory for job %s...\n", a.jobID)
+	fmt.Printf("📝 Creating inventory for job %s...\n", a.jobID)
 
 	// Create inventory path with base name
 	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
@@ -59,20 +59,25 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPa
 		}
 	}()
 
-	// Write header
-	if _, err := f.WriteString("[all]\n"); err != nil {
-		return err
+	// Write header with SSH settings and variables first
+	header := "[all:vars]\nansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'\n\n[all]\n"
+	if _, err := f.WriteString(header); err != nil {
+		return fmt.Errorf("failed to write inventory header: %w", err)
 	}
 
 	// Write all instances
 	for name, ip := range instances {
-		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s\n",
-			name, ip, keyPath)
+		// Always use the provided key path and root user for SSH
+		expandedKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s", name, ip, expandedKeyPath)
+		line += "\n"
+
 		if _, err := f.WriteString(line); err != nil {
-			return err
+			return fmt.Errorf("failed to write instance to inventory: %w", err)
 		}
 	}
 
+	fmt.Printf("✅ Created inventory file at %s\n", inventoryPath)
 	return nil
 }
 
@@ -99,7 +104,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 	// #nosec G204 -- command arguments are constructed from validated inputs
 	cmd := exec.Command("ansible-playbook", args...)
 
-	// Disable host key checking
+	// Disable host key checking and known hosts file
 	env := os.Environ()
 	env = append(env, "ANSIBLE_HOST_KEY_CHECKING=false")
 	env = append(env, "ANSIBLE_RETRY_FILES_ENABLED=false")
@@ -125,18 +130,22 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 	a.sshKeyPath = sshKeyPath
 	a.mutex.Unlock()
 
-	fmt.Printf("🔧 Configuring host %s with Ansible...\n", host)
+	fmt.Printf("🔧 Configuring host %s (instance: %s)...\n", host, instanceName)
 
 	// Wait for SSH to be available
 	fmt.Printf("⏳ Waiting for SSH to be available on %s...\n", host)
 	for i := 0; i < 30; i++ {
-		// #nosec G204 -- command arguments are constructed from validated inputs
-		checkCmd := exec.Command("ssh",
+		args := []string{
 			"-i", sshKeyPath,
 			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
 			"-o", "ConnectTimeout=5",
 			fmt.Sprintf("root@%s", host),
-			"echo 'SSH is ready'")
+			"echo 'SSH is ready'",
+		}
+
+		// #nosec G204 -- command arguments are constructed from validated inputs
+		checkCmd := exec.Command("ssh", args...)
 
 		if err := checkCmd.Run(); err == nil {
 			fmt.Printf("✅ SSH connection established to %s\n", host)
@@ -144,10 +153,10 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 		}
 
 		if i == 29 {
-			return fmt.Errorf("timeout waiting for SSH to be ready")
+			return fmt.Errorf("timeout waiting for SSH to be ready on %s after 5 minutes", host)
 		}
 
-		fmt.Printf("  Retrying in 10 seconds... (%d/30)\n", i+1)
+		fmt.Printf("  Retrying SSH connection to %s in 10 seconds... (%d/30)\n", host, i+1)
 		time.Sleep(10 * time.Second)
 	}
 

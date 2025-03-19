@@ -1,13 +1,19 @@
 {
-    "name": "talis",
-    "project_name": "talis-pulumi-ansible",
-    "action": "delete",
+    "id": <job-id-ref>,
+    "instance_name": "talis",
+    "project_name": "<project-name-ref>",
     "instances": [
         {
             "provider": "digitalocean",
             "number_of_instances": 1,
             "region": "nyc3",
             "size": "s-1vcpu-1gb"
+        },
+        {
+            "provider": "digitalocean",
+            "name": "talis-validator",
+            "region": "nyc3",
+            "size": "s-2vcpu-2gb"
         }
     ]
 }

@@ -1,7 +1,6 @@
 # Variables
 APP_NAME := talis
 GO_FILES := $(shell find . -name "*.go" -type f)
-NIX_FILES := $(shell find . -name "*.nix" -type f)
 PROJECTNAME=$(shell basename "$(PWD)")
 
 # Go commands
@@ -11,6 +10,11 @@ GOVET := $(GO) vet
 GOFMT := gofmt
 GOMOD := $(GO) mod
 GOBUILD := $(GO) build
+
+# flags
+PKG ?= ./...
+TEST ?= .
+TEST_FLAGS ?= -v
 
 # Build flags
 LDFLAGS := -ldflags="-s -w"
@@ -39,9 +43,17 @@ clean:
 .PHONY: clean
 
 ## test: Run tests
+# You can specify a package with 'make test PKG=./path/to/package'
+# You can specify a test pattern with 'make test TEST=TestName'
+# You can specify test flags with 'make test TEST_FLAGS="-v -cover"'
+# Examples:
+#   make test                         # Run all tests
+#   make test PKG=./internal/auth     # Run tests in the auth package
+#   make test TEST=TestLogin  # Run tests matching TestLogin
+#   make test PKG=./internal/auth TEST=TestLogin  # Run TestLogin in auth package
 test:
 	@echo "Running tests..."
-	$(GOTEST) -v ./...
+	$(GOTEST) $(TEST_FLAGS) -run="$(TEST)" $(PKG)
 .PHONY: test
 
 ## fmt: Format code
@@ -91,15 +103,6 @@ check-env:
 	@test -f ~/.ssh/id_rsa || (echo "Error: SSH key not found at ~/.ssh/id_rsa" && exit 1)
 	@test -f ~/.ssh/id_rsa.pub || (echo "Error: SSH public key not found at ~/.ssh/id_rsa.pub" && exit 1)
 .PHONY: check-env
-
-## nix-check: Validate Nix configurations
-nix-check:
-	@echo "Validating Nix configurations..."
-	@for file in $(NIX_FILES); do \
-		echo "Checking $$file..."; \
-		nix-instantiate --parse "$$file" >/dev/null || exit 1; \
-	done
-.PHONY: nix-check
 
 ## install-hooks: Install git hooks
 install-hooks:

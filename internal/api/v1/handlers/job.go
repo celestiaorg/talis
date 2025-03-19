@@ -53,40 +53,44 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 
 // ListJobs handles the request to list jobs
 func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
-	var (
-		limit  = c.QueryInt("limit", 10)
-		offset = c.QueryInt("offset", 0)
-	)
-	status, err := models.ParseJobStatus(c.Query("status"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid job status",
-		})
+	var status = models.JobStatusUnknown
+
+	// Parse status if provided
+	if statusStr := c.Query("status"); statusStr != "" {
+		var err error
+		status, err = models.ParseJobStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid job status",
+			})
+		}
 	}
+
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), &models.ListOptions{
-		Limit:  limit,
-		Offset: offset,
-	})
+	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list jobs: %v", err),
 		})
 	}
 
-	return c.JSON(jobs)
+	return c.JSON(fiber.Map{
+		"jobs":   jobs,
+		"total":  len(jobs),
+		"page":   page,
+		"limit":  limit,
+		"offset": paginationOpts.Offset,
+	})
 }
 
 // CreateJob handles the request to create a new job
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
-	var req struct {
-		Name        string                           `json:"name"`
-		ProjectName string                           `json:"project_name"`
-		WebhookURL  string                           `json:"webhook_url"`
-		Instances   []infrastructure.InstanceRequest `json:"instances"`
-	}
+	var req infrastructure.CreateJobRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -96,11 +100,12 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 	// Convert to Request and validate
 	JobReq := &infrastructure.JobRequest{
-		Name:        req.Name,
-		ProjectName: req.ProjectName,
-		Provider:    req.Instances[0].Provider,
-		Instances:   req.Instances,
-		Action:      "create",
+		JobName:      req.JobName,
+		InstanceName: req.InstanceName,
+		ProjectName:  req.ProjectName,
+		Provider:     req.Instances[0].Provider,
+		Instances:    req.Instances,
+		Action:       "create",
 	}
 
 	if err := JobReq.Validate(); err != nil {
@@ -112,11 +117,12 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	ownerID := 0 // TODO: get owner id from the JWT token
 
 	job, err := h.service.CreateJob(c.Context(), &models.Job{
-		Name:        req.Name,
-		OwnerID:     uint(ownerID),
-		ProjectName: req.ProjectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  req.WebhookURL,
+		Name:         req.JobName,
+		InstanceName: req.InstanceName,
+		OwnerID:      uint(ownerID),
+		ProjectName:  req.ProjectName,
+		Status:       models.JobStatusPending,
+		WebhookURL:   req.WebhookURL,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -155,16 +161,6 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			// Check if error is due to resource not found
 			if strings.Contains(err.Error(), "404") &&
 				strings.Contains(err.Error(), "could not be found") {
-				// Get Pulumi output result
-				outputs, outputErr := infra.GetOutputs()
-				if outputErr != nil {
-					fmt.Printf("❌ Failed to get outputs: %v\n", outputErr)
-					if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusFailed, nil, outputErr.Error()); err != nil {
-						log.Printf("Failed to update job status: %v", err)
-					}
-					return
-				}
-				result = outputs
 				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
 			} else {
 				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
@@ -175,7 +171,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			}
 		}
 
-		// Start Nix provisioning if creation was successful and provisioning is requested
+		// Start Ansible provisioning if creation was successful and provisioning is requested
 		if req.Instances[0].Provision {
 			instances, ok := result.([]infrastructure.InstanceInfo)
 			if !ok {
@@ -189,7 +185,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 			fmt.Printf("📝 Created instances: %+v\n", instances)
 
-			// Update to configuring when setting up Nix
+			// Update to configuring when setting up Ansible
 			if err := h.service.UpdateJobStatus(context.Background(), job.ID, models.JobStatusConfiguring, instances, ""); err != nil {
 				fmt.Printf("❌ Failed to update job status to configuring: %v\n", err)
 				return
