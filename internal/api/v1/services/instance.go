@@ -400,9 +400,7 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("no instances found for job %d", job.ID)
 	}
 
-	// TODO: this section of code could be refactored to be unit tested
-	// Check if we have specific instance names to delete
-	var instancesToDelete []models.Instance
+	// Collect specific instance names to delete
 	var specificNamesToDelete []string
 	var numberOfInstancesToDelete int
 
@@ -421,10 +419,21 @@ func (s *InstanceService) handleInfrastructureDeletion(
 		return fmt.Errorf("invalid number of instances to delete: %d", numberOfInstancesToDelete)
 	}
 
-	// Limit the number of instances to delete to the available ones
-	if numberOfInstancesToDelete > len(instances) {
-		log.Printf("⚠️ Warning: Requested to delete %d instances but only %d are available",
-			numberOfInstancesToDelete, len(instances))
+	// Find the instances to delete based on the specific names
+	var instancesToDelete []models.Instance
+	for _, name := range specificNamesToDelete {
+		for _, instance := range instances {
+			if instance.Name == name {
+				instancesToDelete = append(instancesToDelete, instance)
+				break
+			}
+		}
+	}
+
+	// If we couldn't find any instances to delete, return an error
+	if len(instancesToDelete) == 0 {
+		log.Printf("❌ No matching instances found to delete")
+		return fmt.Errorf("no matching instances found to delete")
 	}
 
 	// Prepare deletion result

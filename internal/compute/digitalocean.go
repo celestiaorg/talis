@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -359,22 +360,26 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 		return fmt.Errorf("failed to list droplets: %w", err)
 	}
 
-	// Find the droplet by name and region
+	// Find the droplet by name (with or without suffix) and region
 	var dropletID int
 	for _, d := range droplets {
-		if d.Name == name && d.Region.Slug == region {
+		// Check if the droplet name matches exactly or starts with our name (for suffixed instances)
+		if (d.Name == name || strings.HasPrefix(d.Name, name+"-")) && d.Region.Slug == region {
 			dropletID = d.ID
+			log.Printf("✅ Found matching droplet: %s (ID: %d)", d.Name, d.ID)
 			break
 		}
 	}
 
 	if dropletID == 0 {
-		return fmt.Errorf("droplet with name %s in region %s not found", name, region)
+		log.Printf("❌ No droplet found with name %s (or %s-*) in region %s", name, name, region)
+		return fmt.Errorf("droplet with name %s (or %s-*) in region %s not found", name, name, region)
 	}
 
 	// Delete the droplet using the DO API directly
 	_, err = p.doClient.Droplets.Delete(ctx, dropletID)
 	if err != nil {
+		log.Printf("❌ Failed to delete droplet: %v", err)
 		return fmt.Errorf("failed to delete droplet: %w", err)
 	}
 

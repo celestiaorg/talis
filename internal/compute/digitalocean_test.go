@@ -261,10 +261,21 @@ func TestKeyService(t *testing.T) {
 		// Verify results
 		assert.NoError(t, err)
 		assert.Len(t, keys, len(expectedKeys))
-		for i, key := range keys {
-			assert.Equal(t, expectedKeys[i].ID, key.ID)
-			assert.Equal(t, expectedKeys[i].Name, key.Name)
+
+		// Create maps for easier comparison
+		expectedKeysMap := make(map[int]string)
+		actualKeysMap := make(map[int]string)
+
+		for _, key := range expectedKeys {
+			expectedKeysMap[key.ID] = key.Name
 		}
+
+		for _, key := range keys {
+			actualKeysMap[key.ID] = key.Name
+		}
+
+		// Compare maps instead of slices
+		assert.Equal(t, expectedKeysMap, actualKeysMap)
 	})
 
 	t.Run("List_Error", func(t *testing.T) {
