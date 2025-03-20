@@ -11,7 +11,6 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
-	"github.com/celestiaorg/talis/internal/api/v1/middleware"
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db"
@@ -69,7 +68,7 @@ func main() {
 	})
 
 	// Add logger middleware
-	app.Use(middleware.Logger())
+	app.Use(log.Logger())
 
 	// Register routes
 	routes.RegisterRoutes(app, instanceHandler, jobHandler)
