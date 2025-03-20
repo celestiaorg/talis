@@ -13,6 +13,7 @@ const (
 )
 
 // SlugResponse is the response type for the API
+// TODO: I think this needs to be revised, I think a generic APIResponse type would be better. The Client methods would need to be updated to ingest the APIResponse type and then decode the data into the appropriate type.
 type SlugResponse struct {
 	Slug  Slug        `json:"slug"`
 	Error string      `json:"error"`

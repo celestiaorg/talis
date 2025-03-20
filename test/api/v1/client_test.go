@@ -13,11 +13,19 @@ import (
 	"github.com/celestiaorg/talis/test"
 )
 
-var defaultCreateRequest = infrastructure.JobRequest{
+var defaultJobRequest = infrastructure.JobRequest{
 	Name: "test-job",
 }
 
-var defaultInstance = infrastructure.InstanceRequest{
+var defaultInstancesRequest = infrastructure.InstancesRequest{
+	JobName:     "test-job",
+	ProjectName: "test-project",
+	Instances: []infrastructure.InstanceRequest{
+		defaultInstanceRequest,
+	},
+}
+
+var defaultInstanceRequest = infrastructure.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
 	NumberOfInstances: 1,
 	SSHKeyName:        "test-key",
@@ -28,37 +36,53 @@ var defaultInstance = infrastructure.InstanceRequest{
 
 // This file contains the comprehensive test suite for the API client.
 
-func TestClientJobMethods(t *testing.T) {
+// TestClientAdminMethods tests the admin methods of the API client.
+//
+// TODO: once ownerID is implemented, we should test the admin methods with a specific ownerID and that it can see instances and jobs across different ownerIDs.
+func TestClientAdminMethods(t *testing.T) {
 	suite := test.NewTestSuite(t)
 	defer suite.Cleanup()
 
-	// List jobs and verify there are none
-	jobsList, err := suite.APIClient.ListJobs(suite.Context(), handlers.DefaultPageSize, "")
-	require.NoError(t, err)
-	require.Empty(t, jobsList.Jobs)
-
 	// Create a job
-	job, err := suite.APIClient.CreateJob(suite.Context(), defaultCreateRequest)
+	err := suite.APIClient.CreateJob(suite.Context(), defaultJobRequest)
 	require.NoError(t, err)
-	require.NotNil(t, job)
 
-	// Compare fields of job to the defaultCreateRequest
-	require.Equal(t, defaultCreateRequest.Name, job.Name)
-
-	// Get the job status
-	jobStatus, err := suite.APIClient.GetJob(suite.Context(), fmt.Sprint(job.ID))
+	// Create an instance
+	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
 	require.NoError(t, err)
-	require.NotNil(t, jobStatus)
 
-	// List jobs and verify there is one
-	jobsList, err = suite.APIClient.ListJobs(suite.Context(), handlers.DefaultPageSize, "")
+	// List instances and verify there is one
+	err = suite.Retry(func() error {
+		instanceList, err := suite.APIClient.AdminGetInstances(suite.Context())
+		if err != nil {
+			return err
+		}
+		if len(instanceList.Instances) != 1 {
+			return fmt.Errorf("expected 1 instance, got %d", len(instanceList.Instances))
+		}
+		return nil
+	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
-	require.NotEmpty(t, jobsList.Jobs)
-	require.Equal(t, 1, len(jobsList.Jobs))
-	require.Equal(t, job.ID, jobsList.Jobs[0].ID)
 
-	// Delete the job
-	// TODO: Implement this
+	// List instances metadata and verify there are none
+	instanceMetadata, err := suite.APIClient.AdminGetInstancesMetadata(suite.Context())
+	require.NoError(t, err)
+	require.NotEmpty(t, instanceMetadata.Instances)
+	require.Equal(t, 1, len(instanceMetadata.Instances))
+	require.Equal(t, defaultInstanceRequest.Provider, instanceMetadata.Instances[0].ProviderID)
+	require.Equal(t, defaultInstanceRequest.Region, instanceMetadata.Instances[0].Region)
+	require.Equal(t, defaultInstanceRequest.Size, instanceMetadata.Instances[0].Size)
+	require.Equal(t, defaultInstanceRequest.Image, instanceMetadata.Instances[0].Image)
+}
+
+func TestClientHealthCheck(t *testing.T) {
+	suite := test.NewTestSuite(t)
+	defer suite.Cleanup()
+
+	// Get the health check
+	healthCheck, err := suite.APIClient.HealthCheck(suite.Context())
+	require.NoError(t, err)
+	require.NotNil(t, healthCheck)
 }
 
 func TestClientInstanceMethods(t *testing.T) {
@@ -66,104 +90,67 @@ func TestClientInstanceMethods(t *testing.T) {
 	defer suite.Cleanup()
 
 	// List instances and verify there are none
-	instanceList, err := suite.APIClient.ListInstances(suite.Context())
+	instanceList, err := suite.APIClient.GetInstances(suite.Context())
 	require.NoError(t, err)
 	require.Empty(t, instanceList.Instances)
 
 	// Create a job to create an instance against
-	// NOTE: This currently also creates the instance... bad
-	jobRequest := defaultCreateRequest
-	job, err := suite.APIClient.CreateJob(suite.Context(), jobRequest)
+	jobRequest := defaultJobRequest
+	err = suite.APIClient.CreateJob(suite.Context(), jobRequest)
 	require.NoError(t, err)
-	require.NotNil(t, job)
 
-	// TODO: This the instance is created with the job call we can't actually call this method...
-	//       Because this method requires a job/project to be created first.
-	//
-	// // Create a job instance
-	// // The variable is named jobInstance because the underlying type is *models.Job
-	// instanceReq := defaultInstance
-	// instanceReq.Name = defaultCreateRequest.InstanceName
-	// jobInstance, err := suite.APIClient.CreateJobInstance(suite.Context(), fmt.Sprint(job.ID), instanceReq)
-	// require.NoError(t, err)
-	// require.NotNil(t, jobInstance)
-	// require.Equal(t, instanceReq.Name, jobInstance.InstanceName)
-
-	// Since the return type is *models.Job, we need to find the instance in the list of instances.  wut
-	jobInstances, err := suite.APIClient.GetJobInstances(suite.Context(), fmt.Sprint(job.ID))
+	// Create an instance
+	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
 	require.NoError(t, err)
-	require.NotEmpty(t, jobInstances)
-	// Verify the response info
-	require.Equal(t, 1, jobInstances.Total)
-	require.Equal(t, 1, len(jobInstances.Instances))
-	require.Equal(t, job.ID, jobInstances.JobID)
-	// Verify the instance info
-	actualInstance := jobInstances.Instances[0]
-	// TODO: Since this instance is created by the job, we should verify the instance name is the same as the job name with the suffix counter
-	require.Equal(t, fmt.Sprintf("%s-%v", defaultCreateRequest.Name, 0), actualInstance.Name)
-	require.Equal(t, defaultInstance.Provider, actualInstance.ProviderID)
-	require.Equal(t, defaultInstance.Region, actualInstance.Region)
-	require.Equal(t, defaultInstance.Size, actualInstance.Size)
-	require.Equal(t, defaultInstance.Image, actualInstance.Image)
 
-	// Verify still only one job
-	jobsList, err := suite.APIClient.ListJobs(suite.Context(), handlers.DefaultPageSize, "")
+	// Wait for the instance to be available
+	err = suite.Retry(func() error {
+		instanceList, err := suite.APIClient.GetInstances(suite.Context())
+		if err != nil {
+			return err
+		}
+		if len(instanceList.Instances) != 1 {
+			return fmt.Errorf("expected 1 instance, got %d", len(instanceList.Instances))
+		}
+		return nil
+	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
-	require.NotEmpty(t, jobsList)
-	require.Equal(t, 1, len(jobsList.Jobs))
-	require.Equal(t, job.ID, jobsList.Jobs[0].ID)
 
-	// Get the instance
-	instance, err := suite.APIClient.GetInstance(suite.Context(), fmt.Sprint(actualInstance.ID))
-	require.NoError(t, err)
-	require.NotNil(t, instance)
-	require.Equal(t, instance, actualInstance)
-
-	// List instances and verify there is one
-	instanceList, err = suite.APIClient.ListInstances(suite.Context())
+	// Grab the instance from the list of instances
+	instanceRequest := defaultInstancesRequest.Instances[0]
+	instanceList, err = suite.APIClient.GetInstances(suite.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceList.Instances)
 	require.Equal(t, 1, len(instanceList.Instances))
-	require.Equal(t, actualInstance, instanceList.Instances[0])
+	require.Equal(t, instanceRequest.Name, instanceList.Instances[0].Name)
+	require.Equal(t, instanceRequest.Provider, instanceList.Instances[0].ProviderID)
+	require.Equal(t, instanceRequest.Region, instanceList.Instances[0].Region)
+	require.Equal(t, instanceRequest.Size, instanceList.Instances[0].Size)
+	require.Equal(t, instanceRequest.Image, instanceList.Instances[0].Image)
 
-	// Get the instance metadata
-	// Note there is no actual metadata, this is just the instance again currently.
-	instanceMetadata, err := suite.APIClient.GetInstanceMetadata(suite.Context())
+	actualInstance := instanceList.Instances[0]
+
+	// Get instance metadata
+	instanceMetadata, err := suite.APIClient.GetInstancesMetadata(suite.Context())
 	require.NoError(t, err)
-	require.NotNil(t, instanceMetadata)
+	require.NotEmpty(t, instanceMetadata.Instances)
 	require.Equal(t, 1, len(instanceMetadata.Instances))
 	require.Equal(t, actualInstance, instanceMetadata.Instances[0])
 
-	// Get Public IPs
-	publicIPs, err := suite.APIClient.GetJobPublicIPs(suite.Context(), fmt.Sprint(job.ID))
+	// Get public IPs
+	// TODO: this testing currently isn't create because there isn't a great way to link it to the instance. The return type is more geared towards the job.
+	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context())
 	require.NoError(t, err)
-	require.NotEmpty(t, publicIPs)
+	require.NotEmpty(t, publicIPs.PublicIPs)
 	require.Equal(t, 1, len(publicIPs.PublicIPs))
-	require.Equal(t, actualInstance.PublicIP, publicIPs.PublicIPs[0].PublicIP)
-	require.Equal(t, job.ID, publicIPs.PublicIPs[0].JobID)
 
-	// Delete the Instance
-	DeleteJobInstanceRequest := infrastructure.DeleteInstanceRequest{
-		ID:           job.ID,
-		InstanceName: actualInstance.Name,
-		ProjectName:  job.ProjectName,
-		Instances: []infrastructure.InstanceRequest{
-			{
-				// Instance just needs to be not empty.
-				// Providing a number of instances will delete the oldest instances.
-				NumberOfInstances: 1,
-				Provider:          actualInstance.ProviderID,
-			},
-		},
-	}
-
-	// We don't care about the return value because it is a *models.Job. wut
-	_, err = suite.APIClient.DeleteJobInstance(suite.Context(), fmt.Sprint(job.ID), DeleteJobInstanceRequest)
+	// Delete the instance
+	err = suite.APIClient.DeleteInstance(suite.Context(), fmt.Sprint(actualInstance.ID))
 	require.NoError(t, err)
 
 	// Verify the the instance eventually gets deleted
 	err = suite.Retry(func() error {
-		instanceList, err := suite.APIClient.ListInstances(suite.Context())
+		instanceList, err := suite.APIClient.GetInstances(suite.Context())
 		if err != nil {
 			return err
 		}
@@ -175,12 +162,86 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClientHealthCheck(t *testing.T) {
+func TestClientJobMethods(t *testing.T) {
 	suite := test.NewTestSuite(t)
 	defer suite.Cleanup()
 
-	// Get the health check
-	healthCheck, err := suite.APIClient.HealthCheck(suite.Context())
+	// Get jobs to verify there are none
+	jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
 	require.NoError(t, err)
-	require.NotNil(t, healthCheck)
+	require.Empty(t, jobsList.Jobs)
+
+	// Create a job
+	jobRequest := defaultJobRequest
+	err = suite.APIClient.CreateJob(suite.Context(), jobRequest)
+	require.NoError(t, err)
+
+	// Wait for the job to be available
+	err = suite.Retry(func() error {
+		jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+		if err != nil {
+			return err
+		}
+		if len(jobsList.Jobs) != 1 {
+			return fmt.Errorf("expected 1 job, got %d", len(jobsList.Jobs))
+		}
+		return nil
+	}, 100, 100*time.Millisecond)
+	require.NoError(t, err)
+
+	// Grab the job from the list of jobs
+	jobList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, jobList.Jobs)
+	require.Equal(t, 1, len(jobList.Jobs))
+	require.Equal(t, jobRequest.Name, jobList.Jobs[0].Name)
+
+	actualJob := jobList.Jobs[0]
+
+	// Get the job
+	job, err := suite.APIClient.GetJob(suite.Context(), fmt.Sprint(actualJob.ID))
+	require.NoError(t, err)
+	require.NotNil(t, job)
+
+	// Get instance metadata for the job
+	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID))
+	require.NoError(t, err)
+	require.NotNil(t, instanceMetadata)
+	require.Equal(t, 1, len(instanceMetadata.Instances))
+
+	// Get instances for the job
+	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID))
+	require.NoError(t, err)
+	require.NotNil(t, instances)
+	require.Equal(t, 1, len(instances.Instances))
+
+	// Verify returned instances are the same
+	require.Equal(t, instanceMetadata.Instances, instances.Instances)
+
+	// Get the job status
+	jobStatus, err := suite.APIClient.GetJobStatus(suite.Context(), fmt.Sprint(actualJob.ID))
+	require.NoError(t, err)
+	require.NotNil(t, jobStatus)
+
+	// Update the job
+	// TODO: this is not implemented yet, update when it is
+	err = suite.APIClient.UpdateJob(suite.Context(), fmt.Sprint(actualJob.ID), jobRequest)
+	require.NoError(t, err)
+
+	// Delete the job
+	err = suite.APIClient.DeleteJob(suite.Context(), fmt.Sprint(actualJob.ID))
+	require.NoError(t, err)
+
+	// Verify the job is deleted
+	err = suite.Retry(func() error {
+		jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+		if err != nil {
+			return err
+		}
+		if len(jobsList.Jobs) > 0 {
+			return fmt.Errorf("job not deleted: %v", jobsList.Jobs)
+		}
+		return nil
+	}, 100, 100*time.Millisecond)
+	require.NoError(t, err)
 }

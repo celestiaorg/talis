@@ -25,6 +25,30 @@ func NewJobHandler(s *services.Job, instanceService *services.Instance) *JobHand
 	}
 }
 
+// GetJob handles the request to get a job
+func (h *JobHandler) GetJob(c *fiber.Ctx) error {
+	jobIDStr := c.Params("id")
+	if jobIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
+	}
+
+	job, err := h.jobService.GetJob(c.Context(), uint(ownerID), uint(jobID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
+	}
+
+	return c.JSON(infrastructure.Success(job))
+}
+
 // GetJobStatus handles the request to get a job's status
 func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 	jobIDStr := c.Params("id")
@@ -89,6 +113,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 }
 
 // CreateJob handles the request to create a new job
+// TODO: this should return the Job ID so that it can be immediately queried.
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	var jobReq infrastructure.JobRequest
 	if err := c.BodyParser(&jobReq); err != nil {
@@ -137,11 +162,5 @@ func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 // UpdateJob handles the request to update a job
 func (h *JobHandler) UpdateJob(c *fiber.Ctx) error {
 	// Implementation for updating a job
-	return nil
-}
-
-// SearchJobs handles the request to search jobs
-func (h *JobHandler) SearchJobs(c *fiber.Ctx) error {
-	// Implementation for searching jobs
 	return nil
 }

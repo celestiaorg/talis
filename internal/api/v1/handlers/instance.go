@@ -26,6 +26,8 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", DefaultPageSize)
 
+	// TODO: should check for OwnerID and filter by it
+
 	instances, err := h.service.ListInstances(c.Context(), getPaginationOptions(page, limit))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -64,6 +66,7 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 }
 
 // CreateInstance handles the request to create instances
+// TODO: this should return the Instance ID so that it can be immediately queried.
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	var instancesReq infrastructure.InstancesRequest
 	if err := c.BodyParser(&instancesReq); err != nil {
@@ -136,6 +139,9 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", DefaultPageSize)
 	paginationOpts := getPaginationOptions(page, limit)
+
+	// TODO: should check for JobID and filter by it
+	// TODO: should check for OwnerID and filter by it
 
 	// Get instances with their details using the service
 	instances, err := h.service.ListInstances(c.Context(), paginationOpts)
@@ -221,7 +227,5 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "instances terminated successfully",
-	})
+	return c.Status(fiber.StatusOK).JSON(infrastructure.Success(nil))
 }
