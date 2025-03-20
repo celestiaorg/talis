@@ -203,16 +203,13 @@ func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
 
 // TerminateInstances handles the request to terminate instances
 func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
-	var deleteReq struct {
-		JobName     string   `json:"job_name"`
-		InstanceIDs []string `json:"instance_ids"`
-	}
+	var deleteReq infrastructure.DeleteInstanceRequest
 	if err := c.BodyParser(&deleteReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
-	if deleteReq.JobName == "" || len(deleteReq.InstanceIDs) == 0 {
+	if deleteReq.JobName == "" || len(deleteReq.InstanceNames) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "job name and instance names are required",
 		})
@@ -220,7 +217,7 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	err := h.service.Terminate(c.Context(), uint(ownerID), deleteReq.JobName, deleteReq.InstanceIDs)
+	err := h.service.Terminate(c.Context(), uint(ownerID), deleteReq.JobName, deleteReq.InstanceNames)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),

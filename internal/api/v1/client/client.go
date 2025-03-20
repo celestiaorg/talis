@@ -33,11 +33,11 @@ type Client interface {
 	GetInstancesPublicIPs(ctx context.Context) (infrastructure.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req infrastructure.InstancesRequest) error
-	DeleteInstance(ctx context.Context, id string) error
+	DeleteInstance(ctx context.Context, req infrastructure.DeleteInstanceRequest) error
 
 	// Jobs Endpoints
 	GetJobs(ctx context.Context, limit int, status string) (infrastructure.ListJobsResponse, error)
-	GetJob(ctx context.Context, id string) (models.JobStatus, error)
+	GetJob(ctx context.Context, id string) (models.Job, error)
 	GetMetadataByJobID(ctx context.Context, id string) (infrastructure.InstanceMetadataResponse, error)
 	GetInstancesByJobID(ctx context.Context, id string) (infrastructure.JobInstancesResponse, error)
 	GetJobStatus(ctx context.Context, id string) (models.JobStatus, error)
@@ -248,9 +248,9 @@ func (c *APIClient) CreateInstance(ctx context.Context, req infrastructure.Insta
 }
 
 // DeleteInstance deletes an instance by ID
-func (c *APIClient) DeleteInstance(ctx context.Context, id string) error {
+func (c *APIClient) DeleteInstance(ctx context.Context, req infrastructure.DeleteInstanceRequest) error {
 	endpoint := routes.TerminateInstancesURL()
-	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
 }
 
 // Job methods implementation
@@ -266,11 +266,11 @@ func (c *APIClient) GetJobs(ctx context.Context, limit int, status string) (infr
 }
 
 // GetJob retrieves a job by ID
-func (c *APIClient) GetJob(ctx context.Context, id string) (models.JobStatus, error) {
+func (c *APIClient) GetJob(ctx context.Context, id string) (models.Job, error) {
 	endpoint := routes.GetJobURL(id)
-	var response models.JobStatus
+	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return "", err
+		return models.Job{}, err
 	}
 	return response, nil
 }

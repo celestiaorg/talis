@@ -246,7 +246,7 @@ func GetJobMetadataURL(id string) string {
 
 // GetJobInstancesURL returns the URL for getting instances by job ID
 func GetJobInstancesURL(jobId string) string {
-	return BuildURL(GetInstancesByJobID, map[string]string{"jobId": jobId})
+	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobId})
 }
 
 // GetJobStatusURL returns the URL for getting job status by ID
