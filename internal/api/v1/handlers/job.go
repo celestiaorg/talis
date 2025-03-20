@@ -132,6 +132,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	}
 
 	// Create instances using the instance service
+	// TODO: this should be removed from the job handler and be a separate api call.
 	err = h.instanceService.CreateInstancesForJob(c.Context(), job, req.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

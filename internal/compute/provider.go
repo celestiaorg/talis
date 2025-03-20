@@ -3,6 +3,9 @@ package compute
 import (
 	"context"
 	"fmt"
+
+	"github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // ComputeProvider defines the interface for cloud providers
@@ -17,31 +20,10 @@ type ComputeProvider interface {
 	ConfigureProvider(stack interface{}) error
 
 	// CreateInstance creates a new instance
-	CreateInstance(ctx context.Context, name string, config InstanceConfig) ([]InstanceInfo, error)
+	CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error)
 
 	// DeleteInstance deletes an instance
 	DeleteInstance(ctx context.Context, name string, region string) error
-}
-
-// InstanceConfig represents the configuration for creating an instance
-type InstanceConfig struct {
-	Region            string   // Region where to create the instance
-	Size              string   // Size/type of the instance
-	Image             string   // OS image to use
-	SSHKeyID          string   // SSH key name to use
-	Tags              []string // Tags to apply to the instance
-	NumberOfInstances int      // Number of instances to create
-	CustomName        string   // Optional custom name for this specific instance
-}
-
-// InstanceInfo represents information about a created instance
-type InstanceInfo struct {
-	ID       string // Provider-specific instance ID
-	Name     string // Instance name
-	PublicIP string // Public IP address
-	Provider string // Provider name (e.g., "digitalocean")
-	Region   string // Region where instance was created
-	Size     string // Instance size/type
 }
 
 // Provisioner is the interface for system configuration
@@ -57,6 +39,8 @@ func NewComputeProvider(provider string) (ComputeProvider, error) {
 	switch provider {
 	case "digitalocean":
 		return NewDigitalOceanProvider()
+	case "digitalocean-mock":
+		return mocks.NewMockDOClient(), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}

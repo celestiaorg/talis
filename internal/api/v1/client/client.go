@@ -21,20 +21,20 @@ const DefaultTimeout = 30 * time.Second
 // Client defines the interface for interacting with the Talis API
 type Client interface {
 	// Jobs methods
-	CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*models.Job, error)
-	GetJob(ctx context.Context, id string) (*models.JobStatus, error)
-	ListJobs(ctx context.Context, limit int, status string) (*infrastructure.ListJobsResponse, error)
+	CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (models.Job, error)
+	GetJob(ctx context.Context, id string) (models.JobStatus, error)
+	ListJobs(ctx context.Context, limit int, status string) (infrastructure.ListJobsResponse, error)
 
 	// Job instances methods
-	CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*models.Job, error)
-	DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*models.Job, error)
-	GetJobInstances(ctx context.Context, jobID string) (*infrastructure.JobInstancesResponse, error)
-	GetJobPublicIPs(ctx context.Context, jobID string) (*infrastructure.PublicIPsResponse, error)
+	CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (models.Job, error)
+	DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (models.Job, error)
+	GetJobInstances(ctx context.Context, jobID string) (infrastructure.JobInstancesResponse, error)
+	GetJobPublicIPs(ctx context.Context, jobID string) (infrastructure.PublicIPsResponse, error)
 
 	// Instance methods
-	GetInstance(ctx context.Context, id string) (*models.Instance, error)
-	GetInstanceMetadata(ctx context.Context) (*infrastructure.InstanceMetadataResponse, error)
-	ListInstances(ctx context.Context) (*infrastructure.ListInstancesResponse, error)
+	GetInstance(ctx context.Context, id string) (models.Instance, error)
+	GetInstanceMetadata(ctx context.Context) (infrastructure.InstanceMetadataResponse, error)
+	ListInstances(ctx context.Context) (infrastructure.ListInstancesResponse, error)
 
 	// Health check
 	HealthCheck(ctx context.Context) (map[string]string, error)
@@ -162,27 +162,27 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 // Jobs methods implementation
 
 // CreateJob creates a new job
-func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (*models.Job, error) {
+func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (models.Job, error) {
 	endpoint := routes.CreateJobURL()
 	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
-		return nil, err
+		return models.Job{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // GetJob retrieves a job by ID
-func (c *APIClient) GetJob(ctx context.Context, id string) (*models.JobStatus, error) {
+func (c *APIClient) GetJob(ctx context.Context, id string) (models.JobStatus, error) {
 	endpoint := routes.GetJobURL(id)
 	var response models.JobStatus
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return "", err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // ListJobs lists jobs with optional filtering
-func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) (*infrastructure.ListJobsResponse, error) {
+func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) (infrastructure.ListJobsResponse, error) {
 	endpoint := routes.ListJobsURL()
 
 	// Add query parameters
@@ -197,83 +197,83 @@ func (c *APIClient) ListJobs(ctx context.Context, limit int, status string) (*in
 
 	var response infrastructure.ListJobsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return infrastructure.ListJobsResponse{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // Job instances methods implementation
 
 // CreateJobInstance creates a new instance for a job
-func (c *APIClient) CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (*models.Job, error) {
+func (c *APIClient) CreateJobInstance(ctx context.Context, jobID string, req infrastructure.InstanceRequest) (models.Job, error) {
 	endpoint := routes.CreateJobInstanceURL(jobID)
 	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
-		return nil, err
+		return models.Job{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // DeleteJobInstance deletes an instance of a job
-func (c *APIClient) DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (*models.Job, error) {
+func (c *APIClient) DeleteJobInstance(ctx context.Context, jobID string, req infrastructure.DeleteInstanceRequest) (models.Job, error) {
 	endpoint := routes.DeleteJobInstanceURL(jobID)
 	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodDelete, endpoint, req, &response); err != nil {
-		return nil, err
+		return models.Job{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // GetJobInstances retrieves instances for a job
-func (c *APIClient) GetJobInstances(ctx context.Context, jobID string) (*infrastructure.JobInstancesResponse, error) {
+func (c *APIClient) GetJobInstances(ctx context.Context, jobID string) (infrastructure.JobInstancesResponse, error) {
 	endpoint := routes.GetJobInstancesURL(jobID)
 	var response infrastructure.JobInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return infrastructure.JobInstancesResponse{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // GetJobPublicIPs retrieves public IPs for a job
-func (c *APIClient) GetJobPublicIPs(ctx context.Context, jobID string) (*infrastructure.PublicIPsResponse, error) {
+func (c *APIClient) GetJobPublicIPs(ctx context.Context, jobID string) (infrastructure.PublicIPsResponse, error) {
 	endpoint := routes.GetJobPublicIPsURL(jobID)
 	var response infrastructure.PublicIPsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return infrastructure.PublicIPsResponse{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // Instance methods implementation
 
 // GetInstance retrieves an instance by ID
-func (c *APIClient) GetInstance(ctx context.Context, id string) (*models.Instance, error) {
+func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance, error) {
 	endpoint := routes.GetInstanceURL(id)
 	var response models.Instance
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return models.Instance{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // GetInstanceMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstanceMetadata(ctx context.Context) (*infrastructure.InstanceMetadataResponse, error) {
+func (c *APIClient) GetInstanceMetadata(ctx context.Context) (infrastructure.InstanceMetadataResponse, error) {
 	endpoint := routes.GetInstanceMetadataURL()
 	var response infrastructure.InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return infrastructure.InstanceMetadataResponse{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // ListInstances lists all instances
-func (c *APIClient) ListInstances(ctx context.Context) (*infrastructure.ListInstancesResponse, error) {
+func (c *APIClient) ListInstances(ctx context.Context) (infrastructure.ListInstancesResponse, error) {
 	endpoint := routes.ListInstancesURL()
 	var response infrastructure.ListInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return infrastructure.ListInstancesResponse{}, err
 	}
-	return &response, nil
+	return response, nil
 }
 
 // Health check implementation
@@ -283,7 +283,7 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 	endpoint := routes.HealthCheckURL()
 	var response map[string]string
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return nil, err
+		return map[string]string{}, err
 	}
 	return response, nil
 }

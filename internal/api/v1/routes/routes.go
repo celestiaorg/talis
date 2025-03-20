@@ -51,6 +51,9 @@ var (
 )
 
 // RegisterRoutes configures all the v1 routes
+//
+// NOTE: route ordering is important because routes will try and match in the order they are registered.
+// For example, if we register GetInstance before GetInstanceMetadata, the /all-metadata will get interpreted as an instance ID.
 func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
@@ -74,8 +77,8 @@ func RegisterRoutes(
 
 	// Instance endpoints for instances (all jobs)
 	instances := v1.Group("/instances")
-	instances.Get("/:id", instanceHandler.GetInstance).Name(GetInstance)
 	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name(GetInstanceMetadata)
+	instances.Get("/:id", instanceHandler.GetInstance).Name(GetInstance)
 	instances.Get("/", instanceHandler.ListInstances).Name(ListInstances)
 
 	// Health check

@@ -2,17 +2,74 @@ package mocks
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/digitalocean/godo"
 
 	"github.com/celestiaorg/talis/internal/compute/types"
 )
 
+// This file contains all the mock implementations for the DigitalOcean API and helper methods
+
 // MockDOClient implements types.DOClient for testing
 type MockDOClient struct {
 	MockDropletService *MockDropletService
 	MockKeyService     *MockKeyService
 	StandardResponses  *StandardResponses
+}
+
+// ConfigureProvider is a no-op to satisfy the ComputeProvider interface
+func (c *MockDOClient) ConfigureProvider(stack interface{}) error {
+	return nil
+}
+
+// CreateInstance is a mock implementation of the CreateInstance method
+func (c *MockDOClient) CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error) {
+	dropletName := fmt.Sprintf("%s-0", name)
+	createRequest := createDropletRequest(dropletName, config, DefaultKeyID1)
+	droplet, _, err := c.MockDropletService.Create(ctx, createRequest)
+	if err != nil {
+		return nil, err
+	}
+	return []types.InstanceInfo{
+		{ID: fmt.Sprintf("%d", droplet.ID), Name: droplet.Name},
+	}, nil
+}
+
+// DeleteInstance is a mock implementation of the DeleteInstance method
+func (c *MockDOClient) DeleteInstance(ctx context.Context, name string, region string) error {
+	_, err := c.MockDropletService.Delete(ctx, DefaultDropletID1)
+	return err
+}
+
+// GetEnvironmentVars is a no-op to satisfy the ComputeProvider interface
+func (c *MockDOClient) GetEnvironmentVars() map[string]string {
+	return nil
+}
+
+// ValidateCredentials is a no-op to satisfy the ComputeProvider interface
+func (c *MockDOClient) ValidateCredentials() error {
+	return nil
+}
+
+// createDropletRequest is a helper function to create a DropletCreateRequest
+func createDropletRequest(
+	name string,
+	config types.InstanceConfig,
+	sshKeyID int,
+) *godo.DropletCreateRequest {
+	return &godo.DropletCreateRequest{
+		Name:   name,
+		Region: config.Region,
+		Size:   config.Size,
+		Image: godo.DropletCreateImage{
+			Slug: config.Image,
+		},
+		SSHKeys: []godo.DropletCreateSSHKey{
+			{ID: sshKeyID},
+		},
+		Tags: append([]string{name}, config.Tags...),
+	}
 }
 
 // NewMockDOClient creates a new MockDOClient with standard responses

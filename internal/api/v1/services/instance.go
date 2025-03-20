@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	"gorm.io/gorm"
@@ -405,15 +406,25 @@ func (s *InstanceService) handleInfrastructureDeletion(
 	var specificNamesToDelete []string
 	var numberOfInstancesToDelete int
 
-	// Collect specific instance names to delete
+	// Collect specific instance names to delete and track the total number of instances to delete
 	for _, instanceReq := range infraReq.Instances {
 		if instanceReq.Name != "" {
 			specificNamesToDelete = append(specificNamesToDelete, instanceReq.Name)
 		}
+		numberOfInstancesToDelete += instanceReq.NumberOfInstances
 	}
 
-	// Calculate how many instances to delete
-	numberOfInstancesToDelete = len(specificNamesToDelete)
+	// Check if we have specific instance names to delete
+	if len(specificNamesToDelete) > 0 {
+		for _, instance := range instances {
+			if slices.Contains(specificNamesToDelete, instance.Name) {
+				instancesToDelete = append(instancesToDelete, instance)
+			}
+		}
+	} else {
+		// If no specific instance names are provided, delete the oldest instances
+		instancesToDelete = instances[:numberOfInstancesToDelete]
+	}
 
 	if numberOfInstancesToDelete <= 0 {
 		log.Printf("❌ Invalid number of instances to delete: %d", numberOfInstancesToDelete)

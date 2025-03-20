@@ -97,8 +97,8 @@ func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
 func (p *DigitalOceanProvider) CreateInstance(
 	ctx context.Context,
 	name string,
-	config InstanceConfig,
-) ([]InstanceInfo, error) {
+	config types.InstanceConfig,
+) ([]types.InstanceInfo, error) {
 	if p.doClient == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
@@ -126,12 +126,12 @@ func (p *DigitalOceanProvider) CreateInstance(
 	if err != nil {
 		return nil, err
 	}
-	return []InstanceInfo{instance}, nil
+	return []types.InstanceInfo{instance}, nil
 } // createDropletRequest creates a DropletCreateRequest with common configuration
 
 func (p *DigitalOceanProvider) createDropletRequest(
 	name string,
-	config InstanceConfig,
+	config types.InstanceConfig,
 	sshKeyID int,
 ) *godo.DropletCreateRequest {
 	return &godo.DropletCreateRequest{
@@ -155,15 +155,15 @@ apt-get install -y python3`,
 func (p *DigitalOceanProvider) createMultipleDroplets(
 	ctx context.Context,
 	name string,
-	config InstanceConfig,
+	config types.InstanceConfig,
 	sshKeyID int,
-) ([]InstanceInfo, error) {
+) ([]types.InstanceInfo, error) {
 	if p.doClient == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	const maxDropletsPerBatch = 10
-	var allInstances []InstanceInfo
+	var allInstances []types.InstanceInfo
 	remainingInstances := config.NumberOfInstances
 	batchNumber := 0
 
@@ -214,7 +214,7 @@ apt-get install -y python3`,
 				continue
 			}
 
-			instance := InstanceInfo{
+			instance := types.InstanceInfo{
 				ID:       fmt.Sprintf("%d", droplet.ID),
 				Name:     droplet.Name,
 				PublicIP: ip,
@@ -244,11 +244,11 @@ apt-get install -y python3`,
 func (p *DigitalOceanProvider) createSingleDroplet(
 	ctx context.Context,
 	name string,
-	config InstanceConfig,
+	config types.InstanceConfig,
 	sshKeyID int,
-) (InstanceInfo, error) {
+) (types.InstanceInfo, error) {
 	if p.doClient == nil {
-		return InstanceInfo{}, fmt.Errorf("client not initialized")
+		return types.InstanceInfo{}, fmt.Errorf("client not initialized")
 	}
 
 	// Use consistent naming with index for single droplet
@@ -259,17 +259,17 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 	droplet, _, err := p.doClient.Droplets().Create(ctx, createRequest)
 	if err != nil {
 		log.Printf("❌ Failed to create droplet: %v", err)
-		return InstanceInfo{}, fmt.Errorf("failed to create droplet: %w", err)
+		return types.InstanceInfo{}, fmt.Errorf("failed to create droplet: %w", err)
 	}
 
 	// Wait for droplet to get an IP
 	ip, err := p.waitForIP(ctx, droplet.ID, defaultMaxRetries, defaultWaitInterval)
 	if err != nil {
-		return InstanceInfo{}, err
+		return types.InstanceInfo{}, err
 	}
 
 	log.Printf("✅ Droplet creation completed: %s (IP: %s)", dropletName, ip)
-	return InstanceInfo{
+	return types.InstanceInfo{
 		ID:       fmt.Sprintf("%d", droplet.ID),
 		Name:     dropletName,
 		PublicIP: ip,

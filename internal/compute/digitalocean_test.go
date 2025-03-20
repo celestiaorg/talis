@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 
@@ -273,7 +274,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("CreateDropletRequest", func(t *testing.T) {
 		provider, _ := newTestProvider()
-		config := InstanceConfig{
+		config := types.InstanceConfig{
 			Region:   "nyc1",
 			Size:     "s-1vcpu-1gb",
 			Image:    "ubuntu-20-04-x64",
@@ -295,7 +296,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.NotNil(t, keys)
 
 		// Create instance
-		config := InstanceConfig{
+		config := types.InstanceConfig{
 			Region:   "nyc1",
 			Size:     "s-1vcpu-1gb",
 			Image:    "ubuntu-20-04-x64",
@@ -317,7 +318,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.NotNil(t, keys)
 
 		// Create multiple instances
-		config := InstanceConfig{
+		config := types.InstanceConfig{
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-20-04-x64",

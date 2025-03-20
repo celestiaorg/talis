@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
+	"github.com/celestiaorg/talis/internal/compute/types"
 )
 
 // Infrastructure represents the infrastructure management system.
@@ -76,7 +77,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		for _, instance := range i.instances {
 			// Create all instances for this configuration at once
 			instanceName := i.name
-			info, err := i.provider.CreateInstance(context.Background(), instanceName, compute.InstanceConfig{
+			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
 				Region:            instance.Region,
 				Size:              instance.Size,
 				Image:             instance.Image,

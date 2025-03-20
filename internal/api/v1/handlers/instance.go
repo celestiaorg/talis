@@ -130,7 +130,7 @@ func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
 
 // GetInstance returns details of a specific instance
 func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
-	instanceID := c.Params("instanceId")
+	instanceID := c.Params("id")
 	if instanceID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "instance id is required",
