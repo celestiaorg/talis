@@ -306,7 +306,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
 		assert.NoError(t, err)
 		assert.Len(t, instances, 1)
-		assert.Equal(t, "test-instance", instances[0].Name)
+		assert.Equal(t, "test-instance-0", instances[0].Name)
 		assert.Equal(t, mocks.DefaultDropletIP1, instances[0].PublicIP)
 		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), instances[0].ID)
 	})

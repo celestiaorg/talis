@@ -412,7 +412,7 @@ func (p *DigitalOceanProvider) waitForDeletion(ctx context.Context, name string,
 
 		log.Printf("⏳ Droplet %s in region %s still exists, retrying in 5 seconds (attempt %d/%d)...",
 			name, region, i+1, maxRetries)
-		time.Sleep(5 * time.Second)
+		time.Sleep(interval)
 	}
 
 	return fmt.Errorf("droplet %s in region %s still exists after %d retries", name, region, maxRetries)
@@ -434,7 +434,8 @@ func (p *DigitalOceanProvider) waitForIP(
 		d, _, err := p.doClient.Droplets().Get(ctx, dropletID)
 		if err != nil {
 			log.Printf("❌ Failed to get droplet details: %v", err)
-			return "", fmt.Errorf("failed to get droplet details: %w", err)
+			time.Sleep(interval)
+			continue
 		}
 
 		// Get the public IPv4 address
@@ -447,7 +448,7 @@ func (p *DigitalOceanProvider) waitForIP(
 		}
 
 		log.Printf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...", i+1, maxRetries)
-		time.Sleep(10 * time.Second)
+		time.Sleep(interval)
 	}
 
 	return "", fmt.Errorf("droplet created but no public IP found after %d retries", maxRetries)
