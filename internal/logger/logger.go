@@ -9,7 +9,7 @@ import (
 
 var log = logrus.New()
 
-// Initialize sets up the logger with the appropriate configuration
+// InitializeAndConfigure sets up the logger with the appropriate configuration
 // and log level from environment variables
 func InitializeAndConfigure() {
 
@@ -23,13 +23,12 @@ func InitializeAndConfigure() {
 	configureLogLevel()
 
 }
-
 func configureLogLevel() {
 	log.SetLevel(logrus.InfoLevel)
 
 	levelStr := os.Getenv("LOG_LEVEL")
 	if levelStr == "" {
-		log.Warnf("Invalid log level '%s', defaulting to 'info'", levelStr)
+		log.Info("No LOG_LEVEL environment variable set, defaulting to 'info'")
 		// Defaults to InfoLevel set above
 		return
 	}
@@ -44,7 +43,6 @@ func configureLogLevel() {
 
 	log.SetLevel(level)
 	log.Infof("Log level set to '%s'", level)
-
 }
 
 //Logrus has seven logging levels: Trace, Debug, Info, Warning, Error, Fatal and Panic.

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/celestiaorg/talis/internal/logger"
-
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
