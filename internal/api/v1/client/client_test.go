@@ -91,7 +91,7 @@ func setupTestServer() *httptest.Server {
 			_, _ = w.Write([]byte(`{"id": 1, "status": "success"}`))
 		case "/error":
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"error": "bad_request", "message": "Invalid request", "status": 400}`))
+			_, _ = w.Write([]byte("Invalid request"))
 		case "/invalid-json":
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{invalid json`))
