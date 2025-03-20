@@ -1,20 +1,33 @@
 package infrastructure
 
+import "github.com/celestiaorg/talis/internal/db/models"
+
 // --------------------------------------------------
 // Instance
 // --------------------------------------------------
 
+// InstancesRequest represents a request to manage instances, including creation and deletion.
+type InstancesRequest struct {
+	JobName      string            `json:"job_name"`
+	InstanceName string            `json:"instance_name"`
+	Instances    []InstanceRequest `json:"instances"`
+	WebhookURL   string            `json:"webhook_url"`
+	Action       string            `json:"action"`
+	ProjectName  string            `json:"project_name"`
+	Provider     models.ProviderID `json:"provider"`
+}
+
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Provider          string   `json:"provider"`            // Provider of the compute service
-	Name              string   `json:"name"`                // Optional custom name for this specific instance
-	NumberOfInstances int      `json:"number_of_instances"` // Number of instances to create
-	Provision         bool     `json:"provision"`           // Whether to provision the instance
-	Region            string   `json:"region"`              // Region of the instance
-	Size              string   `json:"size"`                // Size of the instance
-	Image             string   `json:"image"`               // Image of the instance
-	Tags              []string `json:"tags"`                // Tags of the instance
-	SSHKeyName        string   `json:"ssh_key_name"`        // SSH key name of the instance
+	Name              string            `json:"name"`                // Name of the instance
+	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
+	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
+	Provision         bool              `json:"provision"`           // Whether to provision the instance
+	Region            string            `json:"region"`              // Region of the instance
+	Size              string            `json:"size"`                // Size of the instance
+	Image             string            `json:"image"`               // Image of the instance
+	Tags              []string          `json:"tags"`                // Tags of the instance
+	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure
@@ -56,11 +69,11 @@ type DeleteInstance struct {
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	Name     string `json:"name"`     // Name of the instance
-	IP       string `json:"ip"`       // IP address of the instance
-	Provider string `json:"provider"` // Provider of the compute service
-	Region   string `json:"region"`   // Region of the instance
-	Size     string `json:"size"`     // Size of the instance
+	Name     string            `json:"name"`     // Name of the instance
+	IP       string            `json:"ip"`       // IP address of the instance
+	Provider models.ProviderID `json:"provider"` // Provider of the compute service
+	Region   string            `json:"region"`   // Region of the instance
+	Size     string            `json:"size"`     // Size of the instance
 }
 
 // --------------------------------------------------
@@ -69,21 +82,7 @@ type InstanceInfo struct {
 
 // JobRequest represents the infrastructure request
 type JobRequest struct {
-	JobName      string            `json:"job_name"`      // Name of the job
-	InstanceName string            `json:"instance_name"` // Base name for instances
-	ProjectName  string            `json:"project_name"`  // Project name of the job
-	Provider     string            `json:"provider"`      // Provider of the compute service
-	Instances    []InstanceRequest `json:"instances"`     // Instances to create or delete
-	Action       string            `json:"action"`        // "create" or "delete"
-}
-
-// CreateJobRequest represents the request body for creating a new job
-type CreateJobRequest struct {
-	JobName      string            `json:"job_name"`      // Name of the job
-	InstanceName string            `json:"instance_name"` // Base name for instances
-	ProjectName  string            `json:"project_name"`  // Project name of the job
-	WebhookURL   string            `json:"webhook_url"`   // Webhook URL for job status updates
-	Instances    []InstanceRequest `json:"instances"`     // Instances to create
+	Name string `json:"name"`
 }
 
 // JobStatus represents the status of an infrastructure job
