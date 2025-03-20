@@ -15,11 +15,11 @@ import (
 // Instance provides business logic for instance operations
 type Instance struct {
 	repo       *repos.InstanceRepository
-	jobService *JobService
+	jobService *Job
 }
 
 // NewInstanceService creates a new instance service instance
-func NewInstanceService(repo *repos.InstanceRepository, jobService *JobService) *Instance {
+func NewInstanceService(repo *repos.InstanceRepository, jobService *Job) *Instance {
 	return &Instance{
 		repo:       repo,
 		jobService: jobService,

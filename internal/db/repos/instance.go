@@ -135,6 +135,7 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 
 // Terminate updates the status of an instance to terminated
 func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: id}}).
+	return r.db.WithContext(ctx).Model(&models.Instance{}).
+		Where(&models.Instance{Model: gorm.Model{ID: id}}).
 		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error
 }

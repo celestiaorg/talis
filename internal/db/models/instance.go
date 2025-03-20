@@ -41,7 +41,7 @@ type Instance struct {
 	JobID      uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
 	ProviderID ProviderID     `json:"provider_id" gorm:"not null"`
 	Name       string         `json:"name" gorm:"not null;index"`
-	PublicIP   string         `json:"public_ip" gorm:"not null;varchar(100)"`
+	PublicIP   string         `json:"public_ip" gorm:"varchar(100)"`
 	Region     string         `json:"region" gorm:"varchar(255)"`
 	Size       string         `json:"size" gorm:"varchar(255)"`
 	Image      string         `json:"image" gorm:"varchar(255)"`

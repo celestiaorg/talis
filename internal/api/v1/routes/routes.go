@@ -45,7 +45,7 @@ const (
 	GetInstance         = "GetInstance"
 	GetInstanceMetadata = "GetInstanceMetadata"
 	ListInstances       = "ListInstances"
-
+	TerminateInstances  = "TerminateInstances"
 	// Health check
 	HealthCheck = "HealthCheck"
 )
@@ -73,6 +73,7 @@ func RegisterRoutes(
 	instances.Get("/:id", instanceHandler.GetInstance).Name(GetInstance)
 	instances.Get("/public-ips", instanceHandler.GetPublicIPs).Name(GetJobPublicIPs)
 	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name(GetInstanceMetadata)
+	instances.Delete("/", instanceHandler.TerminateInstances).Name(TerminateInstances)
 
 	// ---------------------------
 	// Jobs endpoints

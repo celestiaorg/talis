@@ -13,12 +13,16 @@ import (
 
 // JobHandler handles HTTP requests for job operations
 type JobHandler struct {
-	service *services.JobService
+	service         *services.Job
+	instanceService *services.Instance
 }
 
 // NewJobHandler creates a new job handler instance
-func NewJobHandler(s *services.JobService) *JobHandler {
-	return &JobHandler{service: s}
+func NewJobHandler(s *services.Job, instanceService *services.Instance) *JobHandler {
+	return &JobHandler{
+		service:         s,
+		instanceService: instanceService,
+	}
 }
 
 // GetJobStatus handles the request to get a job's status
@@ -96,7 +100,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	job, err := h.service.CreateJob(c.Context(), uint(ownerID), &jobReq)
+	err := h.service.CreateJob(c.Context(), uint(ownerID), &jobReq)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(errServer(err.Error()))
@@ -105,7 +109,6 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).
 		JSON(Response{
 			Slug: SuccessSlug,
-			Data: job,
 		})
 }
 

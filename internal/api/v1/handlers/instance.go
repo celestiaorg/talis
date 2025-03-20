@@ -70,7 +70,6 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	instancesReq.Action = "create"
 
 	if err := instancesReq.Validate(); err != nil {
-		fmt.Printf("err val: %v\n", err)
 		return c.Status(fiber.StatusBadRequest).
 			JSON(errInvalidInput(err.Error()))
 	}

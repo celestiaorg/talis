@@ -11,24 +11,24 @@ import (
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
-// JobService provides business logic for job operations
-type JobService struct {
+// Job provides business logic for job operations
+type Job struct {
 	jobRepo      *repos.JobRepository
 	instanceRepo *repos.InstanceRepository
 }
 
 // NewJobService creates a new job service instance
-func NewJobService(jobRepo *repos.JobRepository, instanceRepo *repos.InstanceRepository) *JobService {
-	return &JobService{jobRepo: jobRepo, instanceRepo: instanceRepo}
+func NewJobService(jobRepo *repos.JobRepository, instanceRepo *repos.InstanceRepository) *Job {
+	return &Job{jobRepo: jobRepo, instanceRepo: instanceRepo}
 }
 
 // ListJobs retrieves a paginated list of jobs
-func (s *JobService) ListJobs(ctx context.Context, status models.JobStatus, ownerID uint, opts *models.ListOptions) ([]models.Job, error) {
+func (s *Job) ListJobs(ctx context.Context, status models.JobStatus, ownerID uint, opts *models.ListOptions) ([]models.Job, error) {
 	return s.jobRepo.List(ctx, status, ownerID, opts)
 }
 
 // CreateJob creates a new job
-func (s *JobService) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructure.JobRequest) (*models.Job, error) {
+func (s *Job) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructure.JobRequest) error {
 	job := &models.Job{
 		Name:    jobReq.Name,
 		OwnerID: ownerID,
@@ -39,15 +39,11 @@ func (s *JobService) CreateJob(ctx context.Context, ownerID uint, jobReq *infras
 		job.Name = fmt.Sprintf("job-%s", time.Now().Format("20060102-150405"))
 	}
 
-	if err := s.jobRepo.Create(ctx, job); err != nil {
-		return nil, err
-	}
-
-	return job, nil
+	return s.jobRepo.Create(ctx, job)
 }
 
 // GetJobStatus retrieves the status of a job
-func (s *JobService) GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error) {
+func (s *Job) GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error) {
 	j, err := s.jobRepo.GetByID(ctx, ownerID, id)
 	if err != nil {
 		return models.JobStatusUnknown, err
@@ -56,12 +52,12 @@ func (s *JobService) GetJobStatus(ctx context.Context, ownerID uint, id uint) (m
 }
 
 // UpdateJobStatus updates the status of a job
-func (s *JobService) UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error {
+func (s *Job) UpdateJobStatus(ctx context.Context, id uint, status models.JobStatus, result interface{}, errMsg string) error {
 	return s.jobRepo.UpdateStatus(ctx, id, status, result, errMsg)
 }
 
 // TerminateJob terminates a job and all its instances
-func (s *JobService) TerminateJob(ctx context.Context, ownerID uint, jobID uint) error {
+func (s *Job) TerminateJob(ctx context.Context, ownerID uint, jobID uint) error {
 	job, err := s.jobRepo.GetByID(ctx, ownerID, jobID)
 	if err != nil {
 		return err
@@ -72,12 +68,12 @@ func (s *JobService) TerminateJob(ctx context.Context, ownerID uint, jobID uint)
 }
 
 // GetByProjectName retrieves a job by its project name
-func (s *JobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
+func (s *Job) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
 	return s.jobRepo.GetByProjectName(ctx, projectName)
 }
 
 // handleInfrastructureDeletion handles the infrastructure deletion process
-func (s *JobService) terminateJob(ctx context.Context, job *models.Job) {
+func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 	go func() {
 		fmt.Printf("🗑️ Starting async deletion for job %d\n", job.ID)
 
