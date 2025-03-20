@@ -24,22 +24,26 @@ var DefaultBaseURL = fmt.Sprintf("http://localhost:%s", DefaultPort)
 // Route names for lookup
 const (
 	// Jobs routes
-	CreateJob = "CreateJob"
-	GetJob    = "GetJobStatus"
-	ListJobs  = "ListJobs"
+	CreateJob    = "CreateJob"
+	GetJobStatus = "GetJobStatus"
+	ListJobs     = "ListJobs"
+	SearchJobs   = "SearchJobs"
+	UpdateJob    = "UpdateJob"
+	TerminateJob = "TerminateJob"
+	GetJob       = "GetJob"
 
 	// Job instance routes
-	CreateJobInstance = "CreateJobInstance"
-	DeleteJobInstance = "DeleteJobInstance"
-	GetJobInstance    = "GetJobInstance"
-	GetJobInstances   = "GetJobInstances"
-	GetJobPublicIPs   = "GetJobPublicIPs"
+	CreateJobInstance   = "CreateJobInstance"
+	DeleteJobInstance   = "DeleteJobInstance"
+	GetJobPublicIPs     = "GetJobPublicIPs"
+	GetInstancesByJobID = "GetInstancesByJobID"
 
 	// Instance routes
+	CreateInstance      = "CreateInstance"
 	GetInstance         = "GetInstance"
 	GetInstanceMetadata = "GetInstanceMetadata"
 	ListInstances       = "ListInstances"
-
+	TerminateInstances  = "TerminateInstances"
 	// Health check
 	HealthCheck = "HealthCheck"
 )
@@ -60,25 +64,29 @@ func RegisterRoutes(
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
 
+	// Instances endpoints
+	instances := v1.Group("/instances")
+	instances.Get("/", instanceHandler.ListInstances).Name(ListInstances)
+	instances.Post("/", instanceHandler.CreateInstance).Name(CreateInstance)
+	instances.Get("/:id", instanceHandler.GetInstance).Name(GetInstance)
+	instances.Get("/public-ips", instanceHandler.GetPublicIPs).Name(GetJobPublicIPs)
+	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name(GetInstanceMetadata)
+	instances.Delete("/", instanceHandler.TerminateInstances).Name(TerminateInstances)
+
+	// ---------------------------
 	// Jobs endpoints
 	jobs := v1.Group("/jobs")
+	jobs.Get("/:id", jobHandler.GetJobStatus).Name(GetJobStatus)
 	jobs.Post("/", jobHandler.CreateJob).Name(CreateJob)
-	jobs.Get("/:id", jobHandler.GetJobStatus).Name(GetJob)
-	jobs.Get("/", jobHandler.ListJobs).Name(ListJobs)
+	jobs.Delete("/:id", jobHandler.TerminateJob).Name(TerminateJob)
+	jobs.Put("/:id", jobHandler.UpdateJob).Name(UpdateJob)
+	jobs.Get("/search", jobHandler.SearchJobs).Name(SearchJobs)
+	jobs.Get("/:jobId/instances", instanceHandler.GetInstancesByJobID).Name(GetInstancesByJobID)
 
-	// Job instances endpoints
-	jobInstances := jobs.Group("/:jobId/instances")
-	jobInstances.Post("/", instanceHandler.CreateInstance).Name(CreateJobInstance)
-	jobInstances.Delete("/", instanceHandler.DeleteInstance).Name(DeleteJobInstance)
-	jobInstances.Get("/:instanceId", instanceHandler.GetInstance).Name(GetJobInstance)
-	jobInstances.Get("/", instanceHandler.GetInstancesByJobID).Name(GetJobInstances)
-	jobInstances.Get("/public-ips", instanceHandler.GetPublicIPs).Name(GetJobPublicIPs)
-
-	// Instance endpoints for instances (all jobs)
-	instances := v1.Group("/instances")
-	instances.Get("/:id", instanceHandler.GetInstance).Name(GetInstance)
-	instances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name(GetInstanceMetadata)
-	instances.Get("/", instanceHandler.ListInstances).Name(ListInstances)
+	// Admin endpoints for instances (all jobs)
+	adminInstances := v1.Group("/admin/instances")
+	adminInstances.Get("/", instanceHandler.ListInstances).Name(ListInstances)
+	adminInstances.Get("/all-metadata", instanceHandler.GetAllMetadata).Name(GetInstanceMetadata)
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -145,8 +153,6 @@ func BuildURL(routeName string, params map[string]string) string {
 	return route
 }
 
-// Job route helpers
-
 // CreateJobURL returns the URL for creating a job
 func CreateJobURL() string {
 	return BuildURL(CreateJob, nil)
@@ -176,7 +182,7 @@ func DeleteJobInstanceURL(jobId string) string {
 
 // GetJobInstanceURL returns the URL for getting a specific job instance
 func GetJobInstanceURL(jobId, instanceId string) string {
-	return BuildURL(GetJobInstance, map[string]string{
+	return BuildURL(GetInstancesByJobID, map[string]string{
 		"jobId":      jobId,
 		"instanceId": instanceId,
 	})
@@ -184,7 +190,7 @@ func GetJobInstanceURL(jobId, instanceId string) string {
 
 // GetJobInstancesURL returns the URL for getting instances by job ID
 func GetJobInstancesURL(jobId string) string {
-	return BuildURL(GetJobInstances, map[string]string{"jobId": jobId})
+	return BuildURL(GetInstancesByJobID, map[string]string{"jobId": jobId})
 }
 
 // GetJobPublicIPsURL returns the URL for getting public IPs for a job

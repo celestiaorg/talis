@@ -4,7 +4,8 @@ import (
 	"time"
 
 	log "github.com/celestiaorg/talis/internal/logger"
-	"github.com/gofiber/fiber/v2"
+
+	fiber "github.com/gofiber/fiber/v2"
 )
 
 // Logger returns a middleware that logs HTTP requests

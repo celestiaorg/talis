@@ -2,9 +2,8 @@ package handlers
 
 import (
 	"fmt"
-	"strconv"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
@@ -12,15 +11,13 @@ import (
 
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
-	service    services.Instance
-	jobService services.Job
+	service *services.Instance
 }
 
 // NewInstanceHandler creates a new instance handler instance
-func NewInstanceHandler(service services.Instance, jobService services.Job) *InstanceHandler {
+func NewInstanceHandler(service *services.Instance) *InstanceHandler {
 	return &InstanceHandler{
-		service:    service,
-		jobService: jobService,
+		service: service,
 	}
 }
 
@@ -43,106 +40,17 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	})
 }
 
-// CreateInstance handles the request to create a new instance
-func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var req infrastructure.InstanceCreateRequest
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	// Check if project name already exists
-	existingJob, err := h.jobService.GetByProjectName(c.Context(), req.ProjectName)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to check project name: %v", err),
-		})
-	}
-	if existingJob != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error": fmt.Sprintf("project name '%s' is already in use", req.ProjectName),
-			"job":   existingJob,
-		})
-	}
-
-	// Create instance using the service
-	job, err := h.service.CreateInstance(c.Context(), req.InstanceName, req.ProjectName, req.WebhookURL, req.Instances)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	return c.Status(fiber.StatusAccepted).JSON(job)
-}
-
-// DeleteInstance handles the request to delete instance(s) from a job in FIFO order
-func (h *InstanceHandler) DeleteInstance(c *fiber.Ctx) error {
-	var req infrastructure.DeleteInstanceRequest
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": fmt.Sprintf("invalid request body: %v", err),
-		})
-	}
-
-	if req.ID == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "job id is required",
-		})
-	}
-
-	if req.InstanceName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "instance_name is required",
-		})
-	}
-
-	if req.ProjectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "project_name is required",
-		})
-	}
-
-	// TODO: I think if no instances are provided it should just delete all instances for the job.
-	// In order to do this we need the provider info which will be a DB request from DeleteInstance.
-	if len(req.Instances) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "at least one instance is required",
-		})
-	}
-
-	// Delete instance using the service
-	job, err := h.service.DeleteInstance(c.Context(), req.ID, req.InstanceName, req.ProjectName, req.Instances)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-	}
-
-	return c.Status(fiber.StatusAccepted).JSON(job)
-}
-
 // GetInstance returns details of a specific instance
 func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
-	instanceID := c.Params("instanceId")
-	if instanceID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "instance id is required",
-		})
-	}
-
-	id, err := strconv.ParseUint(instanceID, 10, 64)
+	instanceID, err := c.ParamsInt("id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid instance id",
-		})
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(fmt.Sprintf("instance id is required: %v", err)))
 	}
 
 	// Get instance using the service
-	instance, err := h.service.GetInstance(c.Context(), uint(id))
+	// TODO: Consider passing OwnerID for security purposes
+	instance, err := h.service.GetInstance(c.Context(), uint(instanceID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get instance: %v", err),
@@ -150,6 +58,34 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(instance)
+}
+
+// CreateInstance handles the request to create instances
+func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
+	var instancesReq infrastructure.InstancesRequest
+	if err := c.BodyParser(&instancesReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(err.Error()))
+	}
+	instancesReq.Action = "create"
+
+	if err := instancesReq.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(err.Error()))
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	err := h.service.CreateInstance(c.Context(), uint(ownerID), instancesReq.JobName, instancesReq.Instances)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(errServer(err.Error()))
+	}
+
+	return c.Status(fiber.StatusCreated).
+		JSON(Response{
+			Slug: SuccessSlug,
+		})
 }
 
 // GetPublicIPs returns a list of public IPs and their associated job IDs
@@ -251,5 +187,36 @@ func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
 		"instances": instances,
 		"total":     len(instances),
 		"job_id":    jobID,
+	})
+}
+
+// TerminateInstances handles the request to terminate instances
+func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
+	var deleteReq struct {
+		JobName     string   `json:"job_name"`
+		InstanceIDs []string `json:"instance_ids"`
+	}
+	if err := c.BodyParser(&deleteReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(errInvalidInput(err.Error()))
+	}
+
+	if deleteReq.JobName == "" || len(deleteReq.InstanceIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "job name and instance names are required",
+		})
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	err := h.service.Terminate(c.Context(), uint(ownerID), deleteReq.JobName, deleteReq.InstanceIDs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to terminate instances: %v", err),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "instances terminated successfully",
 	})
 }
