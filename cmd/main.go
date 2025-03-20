@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"strconv"
 
@@ -9,8 +10,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/joho/godotenv"
-
-	"errors"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 	"github.com/celestiaorg/talis/internal/api/v1/middleware"
@@ -63,7 +62,7 @@ func main() {
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
-	jobHandler := handlers.NewJobHandler(jobService)
+	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -76,37 +75,33 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(app, instanceHandler, jobHandler)
 
-	// Error handler
-	app.Use(func(c *fiber.Ctx) error {
-		err := c.Next()
-		if err != nil {
-			var fiberErr *fiber.Error
-			if errors.As(err, &fiberErr) {
-				return c.Status(fiberErr.Code).JSON(fiber.Map{
-					"error": fiberErr.Message,
-				})
-			}
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": err.Error(),
-			})
-		}
-		return nil
-	})
-
 	// Start server
-	log.Info("Server starting on :8080")
-	log.Fatal(app.Listen(":8080"))
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Info("Server starting on :" + port)
+	if err := app.Listen(":" + port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
 
-// customErrorHandler is a custom error handler for the Fiber app
+// customErrorHandler handles errors returned by the handlers
 func customErrorHandler(c *fiber.Ctx, err error) error {
 	// Default error
 	code := fiber.StatusInternalServerError
-	var fiberErr *fiber.Error
-	if errors.As(err, &fiberErr) {
-		code = fiberErr.Code
+	message := "Internal Server Error"
+
+	// Check if it's a fiber.*Error
+	var e *fiber.Error
+	if errors.As(err, &e) {
+		code = e.Code
+		message = e.Message
 	}
+
+	// Return JSON response
 	return c.Status(code).JSON(fiber.Map{
-		"error": err.Error(),
+		"error": message,
 	})
 }

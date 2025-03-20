@@ -71,6 +71,11 @@ func (m *MockInstanceService) DeleteInstance(ctx context.Context, jobID uint, na
 	return args.Get(0).(*models.Job), args.Error(1)
 }
 
+func (m *MockInstanceService) CreateInstancesForJob(ctx context.Context, job *models.Job, instances []infrastructure.InstanceRequest) error {
+	args := m.Called(ctx, job, instances)
+	return args.Error(0)
+}
+
 // MockJobService is a mock implementation of the JobServiceInterface
 type MockJobService struct {
 	mock.Mock
@@ -89,6 +94,22 @@ func (m *MockJobService) UpdateJobStatus(ctx context.Context, id uint, status mo
 func (m *MockJobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
 	args := m.Called(ctx, projectName)
 	return args.Get(0).(*models.Job), args.Error(1)
+}
+
+func (m *MockJobService) GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error) {
+	args := m.Called(ctx, ownerID, id)
+	if args.Error(1) != nil {
+		return "", args.Error(1)
+	}
+	return args.Get(0).(models.JobStatus), nil
+}
+
+func (m *MockJobService) ListJobs(ctx context.Context, status models.JobStatus, ownerID uint, opts *models.ListOptions) ([]models.Job, error) {
+	args := m.Called(ctx, status, ownerID, opts)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Job), args.Error(1)
 }
 
 func TestGetPublicIPs(t *testing.T) {
