@@ -7,8 +7,6 @@ type ProviderID string
 
 // Provider constants define the supported cloud providers
 const (
-	// ProviderMock represents a mock provider for testing purposes
-	ProviderMock ProviderID = "mock"
 	// ProviderAWS represents Amazon Web Services provider
 	ProviderAWS ProviderID = "aws"
 	// ProviderGCP represents Google Cloud Platform provider

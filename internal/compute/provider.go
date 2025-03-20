@@ -59,8 +59,6 @@ func NewComputeProvider(provider models.ProviderID) (ComputeProvider, error) {
 	switch provider {
 	case models.ProviderDO:
 		return NewDigitalOceanProvider()
-	case models.ProviderMock:
-		return NewMockComputeProvider()
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}

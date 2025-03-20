@@ -35,8 +35,6 @@ const (
 	// Job instance routes
 	CreateJobInstance   = "CreateJobInstance"
 	DeleteJobInstance   = "DeleteJobInstance"
-	GetJobInstance      = "GetJobInstance"
-	GetJobInstances     = "GetJobInstances"
 	GetJobPublicIPs     = "GetJobPublicIPs"
 	GetInstancesByJobID = "GetInstancesByJobID"
 
@@ -184,7 +182,7 @@ func DeleteJobInstanceURL(jobId string) string {
 
 // GetJobInstanceURL returns the URL for getting a specific job instance
 func GetJobInstanceURL(jobId, instanceId string) string {
-	return BuildURL(GetJobInstance, map[string]string{
+	return BuildURL(GetInstancesByJobID, map[string]string{
 		"jobId":      jobId,
 		"instanceId": instanceId,
 	})
@@ -192,7 +190,7 @@ func GetJobInstanceURL(jobId, instanceId string) string {
 
 // GetJobInstancesURL returns the URL for getting instances by job ID
 func GetJobInstancesURL(jobId string) string {
-	return BuildURL(GetJobInstances, map[string]string{"jobId": jobId})
+	return BuildURL(GetInstancesByJobID, map[string]string{"jobId": jobId})
 }
 
 // GetJobPublicIPsURL returns the URL for getting public IPs for a job
