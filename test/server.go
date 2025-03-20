@@ -27,12 +27,12 @@ func SetupServer(suite *TestSuite) {
 	suite.App.Use(middleware.Logger())
 
 	// Create services
-	jobService := services.NewJobService(suite.JobRepo)
+	jobService := services.NewJobService(suite.JobRepo, suite.InstanceRepo)
 	instanceService := services.NewInstanceService(suite.InstanceRepo, jobService)
 
 	// Create handlers
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
-	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService)
 
 	// Register routes
 	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler)

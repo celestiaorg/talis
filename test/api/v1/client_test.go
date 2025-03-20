@@ -13,18 +13,12 @@ import (
 	"github.com/celestiaorg/talis/test"
 )
 
-var defaultCreateRequest = infrastructure.CreateJobRequest{
-	JobName:      "test-job",
-	InstanceName: "test-instance",
-	ProjectName:  "test-project",
-	WebhookURL:   "https://example.com/webhook",
-	Instances: []infrastructure.InstanceRequest{
-		defaultInstance,
-	},
+var defaultCreateRequest = infrastructure.JobRequest{
+	Name: "test-job",
 }
 
 var defaultInstance = infrastructure.InstanceRequest{
-	Provider:          "digitalocean-mock",
+	Provider:          models.ProviderID("digitalocean-mock"),
 	NumberOfInstances: 1,
 	SSHKeyName:        "test-key",
 	Region:            "nyc1",
@@ -49,9 +43,7 @@ func TestClientJobMethods(t *testing.T) {
 	require.NotNil(t, job)
 
 	// Compare fields of job to the defaultCreateRequest
-	require.Equal(t, defaultCreateRequest.JobName, job.Name)
-	require.Equal(t, defaultCreateRequest.ProjectName, job.ProjectName)
-	require.Equal(t, defaultCreateRequest.WebhookURL, job.WebhookURL)
+	require.Equal(t, defaultCreateRequest.Name, job.Name)
 
 	// Get the job status
 	jobStatus, err := suite.APIClient.GetJob(suite.Context(), fmt.Sprint(job.ID))
@@ -108,8 +100,8 @@ func TestClientInstanceMethods(t *testing.T) {
 	// Verify the instance info
 	actualInstance := jobInstances.Instances[0]
 	// TODO: Since this instance is created by the job, we should verify the instance name is the same as the job name with the suffix counter
-	require.Equal(t, fmt.Sprintf("%s-%v", defaultCreateRequest.JobName, 0), actualInstance.Name)
-	require.Equal(t, models.ProviderID(defaultInstance.Provider), actualInstance.ProviderID)
+	require.Equal(t, fmt.Sprintf("%s-%v", defaultCreateRequest.Name, 0), actualInstance.Name)
+	require.Equal(t, defaultInstance.Provider, actualInstance.ProviderID)
 	require.Equal(t, defaultInstance.Region, actualInstance.Region)
 	require.Equal(t, defaultInstance.Size, actualInstance.Size)
 	require.Equal(t, defaultInstance.Image, actualInstance.Image)
@@ -160,7 +152,7 @@ func TestClientInstanceMethods(t *testing.T) {
 				// Instance just needs to be not empty.
 				// Providing a number of instances will delete the oldest instances.
 				NumberOfInstances: 1,
-				Provider:          string(actualInstance.ProviderID),
+				Provider:          actualInstance.ProviderID,
 			},
 		},
 	}

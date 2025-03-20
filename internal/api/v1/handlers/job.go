@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db/models"
@@ -13,14 +13,14 @@ import (
 
 // JobHandler handles HTTP requests for job operations
 type JobHandler struct {
-	service         services.Job
-	instanceService services.Instance
+	jobService      *services.Job
+	instanceService *services.Instance
 }
 
 // NewJobHandler creates a new job handler instance
-func NewJobHandler(s services.Job, instanceService services.Instance) *JobHandler {
+func NewJobHandler(s *services.Job, instanceService *services.Instance) *JobHandler {
 	return &JobHandler{
-		service:         s,
+		jobService:      s,
 		instanceService: instanceService,
 	}
 }
@@ -29,27 +29,24 @@ func NewJobHandler(s services.Job, instanceService services.Instance) *JobHandle
 func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 	jobIDStr := c.Params("id")
 	if jobIDStr == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "job id is required",
-		})
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid job id",
-		})
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	status, err := h.service.GetJobStatus(c.Context(), uint(ownerID), uint(jobID))
+	status, err := h.jobService.GetJobStatus(c.Context(), uint(ownerID), uint(jobID))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to get job status: %v", err),
-		})
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	return c.JSON(status)
+	return c.JSON(infrastructure.Success(status))
 }
 
 // ListJobs handles the request to list jobs
@@ -73,14 +70,14 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
+	jobs, err := h.jobService.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to list jobs: %v", err),
-		})
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
 	return c.JSON(infrastructure.ListJobsResponse{
+		Slug: infrastructure.SuccessSlug,
 		Jobs: jobs,
 		Pagination: infrastructure.PaginationResponse{
 			Total:  len(jobs),
@@ -93,52 +90,58 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 
 // CreateJob handles the request to create a new job
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
-	var req infrastructure.CreateJobRequest
-
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	var jobReq infrastructure.JobRequest
+	if err := c.BodyParser(&jobReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
-	// Check if project name already exists
-	existingJob, err := h.service.GetByProjectName(c.Context(), req.ProjectName)
+	if err := jobReq.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	err := h.jobService.CreateJob(c.Context(), uint(ownerID), &jobReq)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to check project name: %v", err),
-		})
-	}
-	if existingJob != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error": fmt.Sprintf("project name '%s' is already in use", req.ProjectName),
-			"job":   existingJob,
-		})
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	// Create job first
-	job := &models.Job{
-		Name:        req.JobName,
-		ProjectName: req.ProjectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  req.WebhookURL,
-		OwnerID:     0, // Default owner ID for now
-	}
+	return c.Status(fiber.StatusCreated).
+		JSON(infrastructure.Success(nil))
+}
 
-	job, err = h.service.CreateJob(c.Context(), job)
+// TerminateJob handles the request to terminate a job
+func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
+	// TODO: this should be job name as jobID is a db internal thing
+	jobID, err := c.ParamsInt("id")
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to create job: %v", err),
-		})
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid job id: %v", err)))
 	}
 
-	// Create instances using the instance service
-	// TODO: this should be removed from the job handler and be a separate api call.
-	err = h.instanceService.CreateInstancesForJob(c.Context(), job, req.Instances)
+	ownerID := 0 // TODO: get owner id from the JWT token
+
+	err = h.jobService.TerminateJob(c.Context(), uint(ownerID), uint(jobID))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(job)
+	return c.Status(fiber.StatusOK).
+		JSON(infrastructure.Success("Job terminated successfully"))
+}
+
+// UpdateJob handles the request to update a job
+func (h *JobHandler) UpdateJob(c *fiber.Ctx) error {
+	// Implementation for updating a job
+	return nil
+}
+
+// SearchJobs handles the request to search jobs
+func (h *JobHandler) SearchJobs(c *fiber.Ctx) error {
+	// Implementation for searching jobs
+	return nil
 }

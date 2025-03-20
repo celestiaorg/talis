@@ -21,7 +21,7 @@ const DefaultTimeout = 30 * time.Second
 // Client defines the interface for interacting with the Talis API
 type Client interface {
 	// Jobs methods
-	CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (models.Job, error)
+	CreateJob(ctx context.Context, req infrastructure.JobRequest) (models.Job, error)
 	GetJob(ctx context.Context, id string) (models.JobStatus, error)
 	ListJobs(ctx context.Context, limit int, status string) (infrastructure.ListJobsResponse, error)
 
@@ -162,7 +162,7 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 // Jobs methods implementation
 
 // CreateJob creates a new job
-func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.CreateJobRequest) (models.Job, error) {
+func (c *APIClient) CreateJob(ctx context.Context, req infrastructure.JobRequest) (models.Job, error) {
 	endpoint := routes.CreateJobURL()
 	var response models.Job
 	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {

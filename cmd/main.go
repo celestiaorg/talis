@@ -5,10 +5,8 @@ import (
 	"os"
 	"strconv"
 
+	fiber "github.com/gofiber/fiber/v2"
 	fiberlog "github.com/gofiber/fiber/v2/log"
-
-	"github.com/gofiber/fiber/v2"
-
 	"github.com/joho/godotenv"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
@@ -54,11 +52,11 @@ func main() {
 	instanceRepo := repos.NewInstanceRepository(DB)
 
 	// Initialize services
-	jobService := services.NewJobService(jobRepo)
+	jobService := services.NewJobService(jobRepo, instanceRepo)
 	instanceService := services.NewInstanceService(instanceRepo, jobService)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 
 	// Setup Fiber app

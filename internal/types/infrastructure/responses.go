@@ -26,6 +26,7 @@ type ListInstancesResponse struct {
 
 // ListJobsResponse represents the response from the list jobs endpoint
 type ListJobsResponse struct {
+	Slug       Slug               `json:"slug"`       // Slug of the job
 	Jobs       []models.Job       `json:"jobs"`       // List of jobs
 	Pagination PaginationResponse `json:"pagination"` // Pagination information
 }

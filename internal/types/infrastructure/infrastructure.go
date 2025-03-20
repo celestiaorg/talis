@@ -12,6 +12,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // Infrastructure represents the infrastructure management system.
@@ -36,7 +37,7 @@ type Infrastructure struct {
 // Returns:
 //   - *Infrastructure: A configured infrastructure manager
 //   - error: Any error that occurred during initialization
-func NewInfrastructure(req *JobRequest) (*Infrastructure, error) {
+func NewInfrastructure(req *InstancesRequest) (*Infrastructure, error) {
 	provider, err := compute.NewComputeProvider(req.Provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute provider: %w", err)
@@ -94,7 +95,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				instances = append(instances, InstanceInfo{
 					Name:     instanceInfo.Name,
 					IP:       instanceInfo.PublicIP,
-					Provider: instanceInfo.Provider,
+					Provider: models.ProviderID(instanceInfo.Provider),
 					Region:   instanceInfo.Region,
 					Size:     instanceInfo.Size,
 				})
