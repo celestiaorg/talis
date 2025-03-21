@@ -52,3 +52,8 @@ func (s *JobService) UpdateJobStatus(ctx context.Context, id uint, status models
 func (s *JobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
 	return s.repo.GetByProjectName(ctx, projectName)
 }
+
+// GetJob retrieves a job by its ID
+func (s *JobService) GetJob(ctx context.Context, id uint) (*models.Job, error) {
+	return s.repo.GetByID(ctx, 0, id) // Using 0 as ownerID since it's not being used yet
+}

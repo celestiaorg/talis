@@ -130,8 +130,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	}
 
 	// Create instances using the instance service
-	err = h.instanceService.CreateInstancesForJob(c.Context(), job, req.Instances)
-	if err != nil {
+	if err := h.instanceService.CreateInstance(c.Context(), job.ID, req.InstanceName, req.Instances); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})

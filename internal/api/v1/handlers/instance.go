@@ -45,37 +45,32 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 
 // CreateInstance handles the request to create a new instance
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var req infrastructure.InstanceCreateRequest
+	// Get jobId from path parameter
+	jobID, err := c.ParamsInt("jobId")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid job id",
+		})
+	}
 
+	var req infrastructure.InstanceCreateRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	// Check if project name already exists
-	existingJob, err := h.jobService.GetByProjectName(c.Context(), req.ProjectName)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to check project name: %v", err),
-		})
-	}
-	if existingJob != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"error": fmt.Sprintf("project name '%s' is already in use", req.ProjectName),
-			"job":   existingJob,
-		})
-	}
-
 	// Create instance using the service
-	job, err := h.service.CreateInstance(c.Context(), req.InstanceName, req.ProjectName, req.WebhookURL, req.Instances)
-	if err != nil {
+	if err := h.service.CreateInstance(c.Context(), uint(jobID), req.InstanceName, req.Instances); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	return c.Status(fiber.StatusAccepted).JSON(job)
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"message": "Instance creation initiated",
+		"job_id":  jobID,
+	})
 }
 
 // DeleteInstance handles the request to delete instance(s) from a job in FIFO order

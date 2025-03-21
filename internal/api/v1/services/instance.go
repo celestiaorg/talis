@@ -16,8 +16,7 @@ import (
 // Instance defines the interface for instance operations
 type Instance interface {
 	ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
-	CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error)
-	CreateInstancesForJob(ctx context.Context, job *models.Job, instances []infrastructure.InstanceRequest) error
+	CreateInstance(ctx context.Context, jobID uint, name string, instances []infrastructure.InstanceRequest) error
 	DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error)
 	GetInstance(ctx context.Context, id uint) (*models.Instance, error)
 	GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
@@ -31,6 +30,7 @@ type Job interface {
 	GetByProjectName(ctx context.Context, projectName string) (*models.Job, error)
 	GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error)
 	ListJobs(ctx context.Context, status models.JobStatus, ownerID uint, opts *models.ListOptions) ([]models.Job, error)
+	GetJob(ctx context.Context, id uint) (*models.Job, error)
 }
 
 // InstanceService provides business logic for instance operations
@@ -52,54 +52,27 @@ func (s *InstanceService) ListInstances(ctx context.Context, opts *models.ListOp
 	return s.repo.List(ctx, opts)
 }
 
-// CreateInstance creates a new instance
+// CreateInstance creates instances for an existing job
 func (s *InstanceService) CreateInstance(
 	ctx context.Context,
-	instanceName,
-	projectName,
-	webhookURL string,
+	jobID uint,
+	name string,
 	instances []infrastructure.InstanceRequest,
-) (*models.Job, error) {
-	log.Printf("📝 Starting instance creation process for project %s with name %s", projectName, instanceName)
+) error {
+	log.Printf("📝 Starting instance creation process for job %d", jobID)
 
 	// Validate instances array is not empty
 	if len(instances) == 0 {
 		log.Printf("❌ No instances provided in request")
-		return nil, fmt.Errorf("no instances provided in request")
+		return fmt.Errorf("no instances provided in request")
 	}
 
-	// Create job request
-	jobName := fmt.Sprintf("%s-%s-creation", projectName, instanceName)
-	jobReq := &infrastructure.JobRequest{
-		JobName:     jobName,
-		ProjectName: projectName,
-		Provider:    instances[0].Provider,
-		Instances:   instances,
-		Action:      "create",
-	}
-
-	log.Printf("🔍 Validating job request: %+v", jobReq)
-	if err := jobReq.Validate(); err != nil {
-		log.Printf("❌ Job request validation failed: %v", err)
-		return nil, fmt.Errorf("invalid request: %w", err)
-	}
-
-	// Create job first
-	job := &models.Job{
-		Name:        jobName,
-		ProjectName: projectName,
-		Status:      models.JobStatusPending,
-		WebhookURL:  webhookURL,
-		OwnerID:     0, // Default owner ID for now
-	}
-
-	log.Printf("📝 Creating job in database: %+v", job)
-	job, err := s.jobService.CreateJob(ctx, job)
+	// Get the existing job
+	job, err := s.jobService.GetJob(ctx, jobID)
 	if err != nil {
-		log.Printf("❌ Failed to create job in database: %v", err)
-		return nil, fmt.Errorf("failed to create job: %w", err)
+		log.Printf("❌ Failed to get job %d: %v", jobID, err)
+		return fmt.Errorf("failed to get job %d: %w", jobID, err)
 	}
-	log.Printf("✅ Job created successfully with ID: %d", job.ID)
 
 	// Create pending instances in the database
 	instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
@@ -117,8 +90,8 @@ func (s *InstanceService) CreateInstance(
 		// Create instance in database with pending status
 		instance := &models.Instance{
 			JobID:      job.ID,
-			ProviderID: models.ProviderID(jobReq.Provider),
-			Name:       fmt.Sprintf("%s-%d", instanceName, i), // Match DO's naming convention
+			ProviderID: models.ProviderID(instances[0].Provider),
+			Name:       fmt.Sprintf("%s-%d", job.Name, i), // Use job name as prefix instead of instance name
 			Region:     instanceConfig.Region,
 			Size:       instanceConfig.Size,
 			Image:      instanceConfig.Image,
@@ -147,13 +120,23 @@ func (s *InstanceService) CreateInstance(
 				if updateErr != nil {
 					log.Printf("❌ Additionally failed to update job status: %v", updateErr)
 				}
-				return nil, fmt.Errorf("failed to create first instance in database: %w", err)
+				return fmt.Errorf("failed to create first instance in database: %w", err)
 			}
 
 			// For subsequent instances, continue but log the error
 			continue
 		}
 		log.Printf("✅ Successfully created instance %s in database with ID %d", instance.Name, instance.ID)
+	}
+
+	// Create infrastructure request
+	jobReq := &infrastructure.JobRequest{
+		JobName:      job.Name,
+		InstanceName: name,
+		ProjectName:  job.ProjectName,
+		Provider:     instances[0].Provider,
+		Instances:    instances,
+		Action:       "create",
 	}
 
 	log.Printf("🚀 Starting async infrastructure creation for job %d", job.ID)
@@ -166,7 +149,7 @@ func (s *InstanceService) CreateInstance(
 	}()
 
 	log.Printf("✅ Instance creation process initiated successfully for job %d", job.ID)
-	return job, nil
+	return nil
 }
 
 // DeleteInstance deletes an instance
@@ -541,102 +524,4 @@ func (s *InstanceService) GetInstancesByJobID(ctx context.Context, jobID uint) (
 
 	fmt.Printf("✅ Retrieved %d instances for job %d from database\n", len(instances), jobID)
 	return instances, nil
-}
-
-// CreateInstancesForJob creates instances for an existing job
-func (s *InstanceService) CreateInstancesForJob(
-	ctx context.Context,
-	job *models.Job,
-	instances []infrastructure.InstanceRequest,
-) error {
-	log.Printf("📝 Starting instance creation process for job %d", job.ID)
-
-	// Validate instances array is not empty
-	if len(instances) == 0 {
-		log.Printf("❌ No instances provided in request")
-		return fmt.Errorf("no instances provided in request")
-	}
-
-	// Create job request
-	jobReq := &infrastructure.JobRequest{
-		JobName:      job.Name,
-		InstanceName: job.Name,
-		ProjectName:  job.ProjectName,
-		Provider:     instances[0].Provider,
-		Instances:    instances,
-		Action:       "create",
-	}
-
-	log.Printf("🔍 Validating job request: %+v", jobReq)
-	if err := jobReq.Validate(); err != nil {
-		log.Printf("❌ Job request validation failed: %v", err)
-		return fmt.Errorf("invalid request: %w", err)
-	}
-
-	// Create pending instances in the database
-	instanceConfig := instances[0] // Safe because we validate there's at least one instance in the request
-	log.Printf("📝 Will create %d instances with config: %+v", instanceConfig.NumberOfInstances, instanceConfig)
-
-	for i := 0; i < instanceConfig.NumberOfInstances; i++ {
-		// Create default tags if none provided
-		var tags []string
-		if len(instanceConfig.Tags) > 0 {
-			tags = instanceConfig.Tags
-		} else {
-			tags = []string{fmt.Sprintf("%s-do-instance", job.Name)}
-		}
-
-		// Create instance in database with pending status
-		instance := &models.Instance{
-			JobID:      job.ID,
-			ProviderID: models.ProviderID(jobReq.Provider),
-			Name:       fmt.Sprintf("%s-%d", job.Name, i), // Match DO's naming convention
-			Region:     instanceConfig.Region,
-			Size:       instanceConfig.Size,
-			Image:      instanceConfig.Image,
-			Tags:       tags,
-			Status:     models.InstanceStatusPending,
-		}
-
-		log.Printf("📝 Creating instance %d/%d in database: %+v", i+1, instanceConfig.NumberOfInstances, instance)
-
-		if err := s.repo.Create(ctx, instance); err != nil {
-			log.Printf("❌ Failed to create instance in database:\nInstance data: %+v\nError details: %v\nError type: %T",
-				instance, err, err)
-
-			// Log more details about the error
-			log.Printf("🔍 Detailed error information:")
-			log.Printf("  - Error type: %T", err)
-			log.Printf("  - Error message: %v", err)
-			log.Printf("  - Instance data: %+v", instance)
-
-			// If this is the first instance and it fails, we should fail the entire operation
-			if i == 0 {
-				log.Printf("❌ First instance creation failed, aborting operation")
-				// Try to update job status to failed
-				updateErr := s.jobService.UpdateJobStatus(ctx, job.ID, models.JobStatusFailed, nil,
-					fmt.Sprintf("Failed to create first instance: %v", err))
-				if updateErr != nil {
-					log.Printf("❌ Additionally failed to update job status: %v", updateErr)
-				}
-				return fmt.Errorf("failed to create first instance in database: %w", err)
-			}
-
-			// For subsequent instances, continue but log the error
-			continue
-		}
-		log.Printf("✅ Successfully created instance %s in database with ID %d", instance.Name, instance.ID)
-	}
-
-	log.Printf("🚀 Starting async infrastructure creation for job %d", job.ID)
-	// Start async infrastructure creation
-	go func() {
-		if err := s.handleInfrastructureCreation(context.Background(), job, jobReq, instances); err != nil {
-			log.Printf("❌ Failed to handle infrastructure creation: %v", err)
-			s.updateJobStatusWithError(context.Background(), job.ID, models.JobStatusFailed, nil, err.Error())
-		}
-	}()
-
-	log.Printf("✅ Instance creation process initiated successfully for job %d", job.ID)
-	return nil
 }

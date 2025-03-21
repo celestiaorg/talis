@@ -55,12 +55,9 @@ func (m *MockInstanceService) ListInstances(ctx context.Context, opts *models.Li
 	return args.Get(0).([]models.Instance), args.Error(1)
 }
 
-func (m *MockInstanceService) CreateInstance(ctx context.Context, name, projectName, webhookURL string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
-	args := m.Called(ctx, name, projectName, webhookURL, instances)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.Job), args.Error(1)
+func (m *MockInstanceService) CreateInstance(ctx context.Context, jobID uint, name string, instances []infrastructure.InstanceRequest) error {
+	args := m.Called(ctx, jobID, name, instances)
+	return args.Error(0)
 }
 
 func (m *MockInstanceService) DeleteInstance(ctx context.Context, jobID uint, name, projectName string, instances []infrastructure.InstanceRequest) (*models.Job, error) {
@@ -69,11 +66,6 @@ func (m *MockInstanceService) DeleteInstance(ctx context.Context, jobID uint, na
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.Job), args.Error(1)
-}
-
-func (m *MockInstanceService) CreateInstancesForJob(ctx context.Context, job *models.Job, instances []infrastructure.InstanceRequest) error {
-	args := m.Called(ctx, job, instances)
-	return args.Error(0)
 }
 
 // MockJobService is a mock implementation of the JobServiceInterface
@@ -93,6 +85,14 @@ func (m *MockJobService) UpdateJobStatus(ctx context.Context, id uint, status mo
 
 func (m *MockJobService) GetByProjectName(ctx context.Context, projectName string) (*models.Job, error) {
 	args := m.Called(ctx, projectName)
+	return args.Get(0).(*models.Job), args.Error(1)
+}
+
+func (m *MockJobService) GetJob(ctx context.Context, id uint) (*models.Job, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*models.Job), args.Error(1)
 }
 
