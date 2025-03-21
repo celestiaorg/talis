@@ -67,8 +67,8 @@ func main() {
 		ErrorHandler: customErrorHandler,
 	})
 
-	// Add logger middleware
-	app.Use(log.Logger())
+	// Add logger for API requests
+	app.Use(log.APILogger())
 
 	// Register routes
 	routes.RegisterRoutes(app, instanceHandler, jobHandler)

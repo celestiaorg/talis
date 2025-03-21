@@ -26,8 +26,8 @@ func InitializeAndConfigure() {
 
 }
 
-// Logger returns a middleware that logs HTTP requests
-func Logger() fiber.Handler {
+// APILogger returns a loggerthat logs HTTP requests
+func APILogger() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
 
