@@ -42,6 +42,11 @@ func (s *Job) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructur
 	return s.jobRepo.Create(ctx, job)
 }
 
+// GetJob retrieves the job
+func (s *Job) GetJob(ctx context.Context, ownerID uint, id uint) (*models.Job, error) {
+	return s.jobRepo.GetByID(ctx, ownerID, id)
+}
+
 // GetJobStatus retrieves the status of a job
 func (s *Job) GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error) {
 	j, err := s.jobRepo.GetByID(ctx, ownerID, id)

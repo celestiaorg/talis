@@ -13,16 +13,40 @@ import (
 
 // JobHandler handles HTTP requests for job operations
 type JobHandler struct {
-	service         *services.Job
+	jobService      *services.Job
 	instanceService *services.Instance
 }
 
 // NewJobHandler creates a new job handler instance
 func NewJobHandler(s *services.Job, instanceService *services.Instance) *JobHandler {
 	return &JobHandler{
-		service:         s,
+		jobService:      s,
 		instanceService: instanceService,
 	}
+}
+
+// GetJob handles the request to get a job
+func (h *JobHandler) GetJob(c *fiber.Ctx) error {
+	jobIDStr := c.Params("id")
+	if jobIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
+	}
+
+	ownerID := 0 // TODO: get owner id from the JWT token
+	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
+	}
+
+	job, err := h.jobService.GetJob(c.Context(), uint(ownerID), uint(jobID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
+	}
+
+	return c.JSON(infrastructure.Success(job))
 }
 
 // GetJobStatus handles the request to get a job's status
@@ -30,26 +54,23 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 	jobIDStr := c.Params("id")
 	if jobIDStr == "" {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(errInvalidInput("invalid job id"))
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(errInvalidInput("invalid job id"))
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	status, err := h.service.GetJobStatus(c.Context(), uint(ownerID), uint(jobID))
+	status, err := h.jobService.GetJobStatus(c.Context(), uint(ownerID), uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(errServer(err.Error()))
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	return c.JSON(Response{
-		Slug: SuccessSlug,
-		Data: status,
-	})
+	return c.JSON(infrastructure.Success(status))
 }
 
 // ListJobs handles the request to list jobs
@@ -73,43 +94,48 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	jobs, err := h.service.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
+	jobs, err := h.jobService.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(errServer(err.Error()))
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	return c.JSON(Response{
-		Slug: SuccessSlug,
-		Data: jobs,
+	return c.JSON(infrastructure.ListJobsResponse{
+		Slug: infrastructure.SuccessSlug,
+		Jobs: jobs,
+		Pagination: infrastructure.PaginationResponse{
+			Total:  len(jobs),
+			Page:   page,
+			Limit:  limit,
+			Offset: paginationOpts.Offset,
+		},
 	})
 }
 
 // CreateJob handles the request to create a new job
+// TODO: this should return the Job ID so that it can be immediately queried.
 func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 	var jobReq infrastructure.JobRequest
 	if err := c.BodyParser(&jobReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(errInvalidInput(err.Error()))
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
 	if err := jobReq.Validate(); err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(errInvalidInput(err.Error()))
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	err := h.service.CreateJob(c.Context(), uint(ownerID), &jobReq)
+	err := h.jobService.CreateJob(c.Context(), uint(ownerID), &jobReq)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(errServer(err.Error()))
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(Response{
-			Slug: SuccessSlug,
-		})
+		JSON(infrastructure.Success(nil))
 }
 
 // TerminateJob handles the request to terminate a job
@@ -118,32 +144,23 @@ func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 	jobID, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(errInvalidInput(fmt.Sprintf("invalid job id: %v", err)))
+			JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid job id: %v", err)))
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
-	err = h.service.TerminateJob(c.Context(), uint(ownerID), uint(jobID))
+	err = h.jobService.TerminateJob(c.Context(), uint(ownerID), uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(errServer(err.Error()))
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusOK).
-		JSON(Response{
-			Slug: SuccessSlug,
-			Data: "Job terminated successfully",
-		})
+		JSON(infrastructure.Success("Job terminated successfully"))
 }
 
 // UpdateJob handles the request to update a job
 func (h *JobHandler) UpdateJob(c *fiber.Ctx) error {
 	// Implementation for updating a job
-	return nil
-}
-
-// SearchJobs handles the request to search jobs
-func (h *JobHandler) SearchJobs(c *fiber.Ctx) error {
-	// Implementation for searching jobs
 	return nil
 }
