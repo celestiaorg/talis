@@ -5,10 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	fiberlog "github.com/gofiber/fiber/v2/log"
+	log "github.com/celestiaorg/talis/internal/logger"
 
 	"github.com/gofiber/fiber/v2"
-
 	"github.com/joho/godotenv"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
@@ -20,18 +19,21 @@ import (
 )
 
 func main() {
+	// Configure logger
+	log.InitializeAndConfigure()
+
+	// Log that the application is starting
+	log.Info("Starting application...")
+
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
-		fiberlog.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file")
 	}
-
-	// Configure logger
-	fiberlog.SetLevel(fiberlog.LevelInfo)
 
 	// This is temporary, we will pass them through the CLI later
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
 	if err != nil {
-		fiberlog.Fatalf("Failed to convert DB_PORT to int: %v", err)
+		log.Fatalf("Failed to convert DB_PORT to int: %v", err)
 	}
 
 	// Initialize database
@@ -44,7 +46,7 @@ func main() {
 		// SSLEnabled: os.Getenv("DB_SSL_MODE") == "true",
 	})
 	if err != nil {
-		fiberlog.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	// We will use connection pooling later
 	// defer DB.Close()
@@ -54,11 +56,11 @@ func main() {
 	instanceRepo := repos.NewInstanceRepository(DB)
 
 	// Initialize services
-	jobService := services.NewJobService(jobRepo)
+	jobService := services.NewJobService(jobRepo, instanceRepo)
 	instanceService := services.NewInstanceService(instanceRepo, jobService)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService, jobService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 
 	// Setup Fiber app
@@ -78,9 +80,9 @@ func main() {
 		port = "8080"
 	}
 
-	fiberlog.Info("Server starting on :" + port)
+	log.Info("Server starting on :" + port)
 	if err := app.Listen(":" + port); err != nil {
-		fiberlog.Fatalf("Failed to start server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
 
