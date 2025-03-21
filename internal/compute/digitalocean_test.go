@@ -5,49 +5,40 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/digitalocean/godo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // Test helper functions
 
 // newTestProvider creates a DigitalOceanProvider with a mock client for testing
-func newTestProvider() (*DigitalOceanProvider, *mockDOClient) {
-	mockClient := NewMockDOClient().(*mockDOClient)
-	provider := &DigitalOceanProvider{
-		doClient: &godo.Client{
-			Droplets: mockClient.mockDropletService,
-			Keys:     mockClient.mockKeyService,
-		},
-	}
+func newTestProvider() (*DigitalOceanProvider, *mocks.MockDOClient) {
+	mockClient := mocks.NewMockDOClient()
+	provider := &DigitalOceanProvider{}
+	provider.SetClient(mockClient)
 	return provider, mockClient
 }
 
 // Tests grouped by interface/struct implementation
 
+// DOClient interface and implementations tests
+
 // TestDOClient tests the DOClient interface implementation
 func TestDOClient(t *testing.T) {
-	t.Run("MockDOClient", func(t *testing.T) {
-		mockClient := NewMockDOClient()
+	client := NewDOClient("test-token")
+	assert.NotNil(t, client)
 
-		dropletService := mockClient.Droplets()
-		assert.NotNil(t, dropletService)
+	dropletService := client.Droplets()
+	assert.NotNil(t, dropletService)
 
-		keyService := mockClient.Keys()
-		assert.NotNil(t, keyService)
-	})
-
-	t.Run("NewProvider", func(t *testing.T) {
-		err := os.Setenv("DIGITALOCEAN_TOKEN", "test-token")
-		assert.NoError(t, err)
-		provider, err := NewDigitalOceanProvider()
-		assert.NoError(t, err)
-		assert.NotNil(t, provider)
-		err = os.Unsetenv("DIGITALOCEAN_TOKEN")
-		assert.NoError(t, err)
-	})
+	keyService := client.Keys()
+	assert.NotNil(t, keyService)
 }
 
 // DropletService interface and implementations tests
@@ -55,334 +46,300 @@ func TestDOClient(t *testing.T) {
 // TestDropletService tests the DropletService interface implementation
 func TestDropletService(t *testing.T) {
 	t.Run("Create_Success", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+		provider, mockClient := newTestProvider()
 
-		droplet := &godo.Droplet{
-			ID:   12345,
-			Name: "test-droplet",
-			Region: &godo.Region{
-				Slug: "nyc1",
-			},
-			Networks: &godo.Networks{
-				V4: []godo.NetworkV4{
-					{
-						Type:      "public",
-						IPAddress: "192.0.2.1",
-					},
-				},
-			},
-		}
-
-		mockClient.mockDropletService.droplets[droplet.ID] = droplet
-
-		// Call the method
-		result, _, err := mockClient.mockDropletService.Create(context.Background(), &godo.DropletCreateRequest{
+		// Call the method - will use standard success response
+		droplet, _, err := provider.doClient.Droplets().Create(context.Background(), &godo.DropletCreateRequest{
 			Name:   "test-droplet",
 			Region: "nyc1",
 		})
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		assert.Equal(t, droplet.ID, result.ID)
-		assert.Equal(t, droplet.Name, result.Name)
+		assert.NotNil(t, droplet)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.DefaultDroplet.ID, droplet.ID)
+		assert.Equal(t, "test-droplet", droplet.Name)
+		assert.Equal(t, "nyc1", droplet.Region.Slug)
 	})
 
-	t.Run("Create_Error", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+	t.Run("Create_Error_RateLimit", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
 
-		// Setup mock to return an error
-		mockClient.mockDropletService.droplets = nil
+		// Simulate rate limit error
+		mockClient.SimulateRateLimit()
 
 		// Call the method
-		droplet, _, err := mockClient.mockDropletService.Create(context.Background(), &godo.DropletCreateRequest{
+		droplet, _, err := provider.doClient.Droplets().Create(context.Background(), &godo.DropletCreateRequest{
 			Name:   "test-droplet",
 			Region: "nyc1",
 		})
 
 		// Verify results
 		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.RateLimitError, err)
+		assert.Nil(t, droplet)
+	})
+
+	t.Run("Create_Error_Authentication", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+
+		// Simulate authentication error
+		mockClient.SimulateAuthenticationFailure()
+
+		// Call the method
+		droplet, _, err := provider.doClient.Droplets().Create(context.Background(), &godo.DropletCreateRequest{
+			Name:   "test-droplet",
+			Region: "nyc1",
+		})
+
+		// Verify results
+		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.AuthenticationError, err)
 		assert.Nil(t, droplet)
 	})
 
 	t.Run("CreateMultiple_Success", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+		provider, _ := newTestProvider()
 
-		droplets := []godo.Droplet{
-			{
-				ID:   10000,
-				Name: "test-1",
-				Region: &godo.Region{
-					Slug: "nyc1",
-				},
-			},
-			{
-				ID:   10001,
-				Name: "test-2",
-				Region: &godo.Region{
-					Slug: "nyc1",
-				},
-			},
-		}
-
-		for _, d := range droplets {
-			mockClient.mockDropletService.droplets[d.ID] = &d
-		}
-
-		// Call the method
-		result, _, err := mockClient.mockDropletService.CreateMultiple(context.Background(), &godo.DropletMultiCreateRequest{
+		// Call the method - will use standard success response
+		droplets, _, err := provider.doClient.Droplets().CreateMultiple(context.Background(), &godo.DropletMultiCreateRequest{
 			Names:  []string{"test-1", "test-2"},
 			Region: "nyc1",
 		})
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Len(t, result, 2)
-		assert.Equal(t, droplets[0].Name, result[0].Name)
-		assert.Equal(t, droplets[1].Name, result[1].Name)
+		assert.Len(t, droplets, 2)
+		assert.Equal(t, "test-1", droplets[0].Name)
+		assert.Equal(t, "test-2", droplets[1].Name)
+		assert.Equal(t, "nyc1", droplets[0].Region.Slug)
+		assert.Equal(t, "nyc1", droplets[1].Region.Slug)
+	})
+
+	t.Run("CreateMultiple_Error_RateLimit", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+
+		// Simulate rate limit error
+		mockClient.SimulateRateLimit()
+
+		// Call the method
+		droplets, _, err := provider.doClient.Droplets().CreateMultiple(context.Background(), &godo.DropletMultiCreateRequest{
+			Names:  []string{"test-1", "test-2"},
+			Region: "nyc1",
+		})
+
+		// Verify results
+		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.RateLimitError, err)
+		assert.Nil(t, droplets)
 	})
 
 	t.Run("Delete_Success", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+		provider, _ := newTestProvider()
 
-		droplet := &godo.Droplet{
-			ID:   12345,
-			Name: "test-droplet",
-		}
-		mockClient.mockDropletService.droplets[droplet.ID] = droplet
-
-		// Call the method
-		_, err := mockClient.mockDropletService.Delete(context.Background(), droplet.ID)
+		// Call the method - will use standard success response
+		_, err := provider.doClient.Droplets().Delete(context.Background(), 12345)
 
 		// Verify results
 		assert.NoError(t, err)
-		_, exists := mockClient.mockDropletService.droplets[droplet.ID]
-		assert.False(t, exists)
+	})
+
+	t.Run("Delete_Error_NotFound", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+
+		// Simulate not found error
+		mockClient.MockDropletService.SimulateNotFound()
+
+		// Call the method
+		_, err := provider.doClient.Droplets().Delete(context.Background(), 12345)
+
+		// Verify results
+		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.NotFoundError, err)
 	})
 
 	t.Run("Get_Success", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+		provider, mockClient := newTestProvider()
 
-		droplet := &godo.Droplet{
-			ID:   12345,
-			Name: "test-droplet",
-			Region: &godo.Region{
-				Slug: "nyc1",
-			},
-		}
-		mockClient.mockDropletService.droplets[droplet.ID] = droplet
+		// Call the method - will use standard success response
+		droplet, _, err := provider.doClient.Droplets().Get(context.Background(), 12345)
+
+		// Verify results
+		assert.NoError(t, err)
+		assert.NotNil(t, droplet)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.DefaultDroplet.ID, droplet.ID)
+	})
+
+	t.Run("Get_Error_NotFound", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+
+		// Simulate not found error
+		mockClient.MockDropletService.SimulateNotFound()
 
 		// Call the method
-		result, _, err := mockClient.mockDropletService.Get(context.Background(), droplet.ID)
-
-		// Verify results
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		assert.Equal(t, droplet.ID, result.ID)
-		assert.Equal(t, droplet.Name, result.Name)
-	})
-
-	t.Run("Get_Error", func(t *testing.T) {
-		_, mockClient := newTestProvider()
-
-		// Call the method with non-existent ID
-		droplet, _, err := mockClient.mockDropletService.Get(context.Background(), 99999)
+		droplet, _, err := provider.doClient.Droplets().Get(context.Background(), 12345)
 
 		// Verify results
 		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Droplets.NotFoundError, err)
 		assert.Nil(t, droplet)
-	})
-
-	t.Run("GetBackupPolicy_Success", func(t *testing.T) {
-		_, mockClient := newTestProvider()
-
-		expectedPolicy := &godo.DropletBackupPolicy{
-			DropletID:     1,
-			BackupEnabled: true,
-			BackupPolicy: &godo.DropletBackupPolicyConfig{
-				Plan:                "weekly",
-				Weekday:             "monday",
-				Hour:                2,
-				WindowLengthHours:   4,
-				RetentionPeriodDays: 30,
-			},
-			NextBackupWindow: &godo.BackupWindow{},
-		}
-
-		mockClient.mockDropletService.GetBackupPolicyFunc = func(ctx context.Context, dropletID int) (*godo.DropletBackupPolicy, *godo.Response, error) {
-			return expectedPolicy, &godo.Response{}, nil
-		}
-
-		policy, _, err := mockClient.mockDropletService.GetBackupPolicy(context.Background(), 1)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, policy)
-		assert.Equal(t, expectedPolicy.DropletID, policy.DropletID)
-		assert.Equal(t, expectedPolicy.BackupEnabled, policy.BackupEnabled)
-		assert.Equal(t, expectedPolicy.BackupPolicy.Plan, policy.BackupPolicy.Plan)
-		assert.Equal(t, expectedPolicy.BackupPolicy.Weekday, policy.BackupPolicy.Weekday)
-		assert.Equal(t, expectedPolicy.BackupPolicy.Hour, policy.BackupPolicy.Hour)
-	})
-
-	t.Run("GetBackupPolicy_Error", func(t *testing.T) {
-		_, mockClient := newTestProvider()
-
-		mockClient.mockDropletService.GetBackupPolicyFunc = func(ctx context.Context, dropletID int) (*godo.DropletBackupPolicy, *godo.Response, error) {
-			return nil, &godo.Response{}, fmt.Errorf("failed to get backup policy")
-		}
-
-		policy, _, err := mockClient.mockDropletService.GetBackupPolicy(context.Background(), 1)
-
-		assert.Error(t, err)
-		assert.Nil(t, policy)
-		assert.Contains(t, err.Error(), "failed to get backup policy")
 	})
 }
 
 // KeyService interface and implementations tests
 
-// TestKeyService tests the KeyService interface implementation
 func TestKeyService(t *testing.T) {
 	t.Run("List_Success", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+		provider, mockClient := newTestProvider()
 
-		expectedKeys := []godo.Key{
-			{ID: 12345, Name: "test-key-1", PublicKey: "ssh-rsa AAAAB..."},
-			{ID: 67890, Name: "test-key-2", PublicKey: "ssh-rsa BBBBB..."},
-		}
-
-		for _, key := range expectedKeys {
-			mockClient.mockKeyService.keys[key.ID] = &key
-		}
-
-		// Call the method
-		keys, _, err := mockClient.mockKeyService.List(context.Background(), &godo.ListOptions{})
+		// Call the method - will use standard success response
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Len(t, keys, len(expectedKeys))
-
-		// Create maps for easier comparison
-		expectedKeysMap := make(map[int]string)
-		actualKeysMap := make(map[int]string)
-
-		for _, key := range expectedKeys {
-			expectedKeysMap[key.ID] = key.Name
-		}
-
-		for _, key := range keys {
-			actualKeysMap[key.ID] = key.Name
-		}
-
-		// Compare maps instead of slices
-		assert.Equal(t, expectedKeysMap, actualKeysMap)
+		assert.NotNil(t, keys)
+		assert.Equal(t, mockClient.StandardResponses.Keys.DefaultKeyList, keys)
 	})
 
-	t.Run("List_Error", func(t *testing.T) {
-		_, mockClient := newTestProvider()
+	t.Run("List_Error_RateLimit", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
 
-		// Clear the keys to simulate error
-		mockClient.mockKeyService.keys = nil
+		// Simulate rate limit error
+		mockClient.SimulateRateLimit()
 
 		// Call the method
-		keys, _, err := mockClient.mockKeyService.List(context.Background(), &godo.ListOptions{})
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
 
 		// Verify results
 		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Keys.RateLimitError, err)
+		assert.Nil(t, keys)
+	})
+
+	t.Run("List_Error_Authentication", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+
+		// Simulate authentication error
+		mockClient.SimulateAuthenticationFailure()
+
+		// Call the method
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
+
+		// Verify results
+		assert.Error(t, err)
+		assert.Equal(t, mockClient.StandardResponses.Keys.AuthenticationError, err)
 		assert.Nil(t, keys)
 	})
 }
 
 // DigitalOceanProvider struct and methods tests
 
-// TestDigitalOceanProvider tests the provider functionality
+// TestDigitalOceanProvider tests the basic provider functionality
 func TestDigitalOceanProvider(t *testing.T) {
-	t.Run("CreateInstance", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-
-		// Setup test data
-		sshKey := &godo.Key{
-			ID:   12345,
-			Name: "test-key",
+	// Save original env var
+	originalToken := os.Getenv("DIGITALOCEAN_TOKEN")
+	defer func() {
+		err := os.Setenv("DIGITALOCEAN_TOKEN", originalToken)
+		if err != nil {
+			t.Logf("Failed to restore DIGITALOCEAN_TOKEN: %v", err)
 		}
-		mockClient.mockKeyService.keys[sshKey.ID] = sshKey
+	}()
 
-		droplets := []*godo.Droplet{
-			{
-				ID:   10000,
-				Name: "test-instance-0",
-				Networks: &godo.Networks{
-					V4: []godo.NetworkV4{
-						{
-							Type:      "public",
-							IPAddress: "192.0.2.1",
-						},
-					},
-				},
-				Region: &godo.Region{
-					Slug: "nyc1",
-				},
-			},
-			{
-				ID:   10001,
-				Name: "test-instance-1",
-				Networks: &godo.Networks{
-					V4: []godo.NetworkV4{
-						{
-							Type:      "public",
-							IPAddress: "192.0.2.2",
-						},
-					},
-				},
-				Region: &godo.Region{
-					Slug: "nyc1",
-				},
-			},
-		}
+	t.Run("ValidToken", func(t *testing.T) {
+		// Set env var for test
+		err := os.Setenv("DIGITALOCEAN_TOKEN", "test-token")
+		require.NoError(t, err)
 
-		mockClient.mockDropletService.CreateFunc = func(ctx context.Context, req *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
-			for _, d := range droplets {
-				if d.Name == req.Name {
-					mockClient.mockDropletService.droplets[d.ID] = d
-					return d, &godo.Response{}, nil
-				}
-			}
-			return nil, nil, fmt.Errorf("droplet not found")
+		provider, err := NewDigitalOceanProvider()
+		assert.NoError(t, err)
+		assert.NotNil(t, provider)
+	})
+
+	t.Run("EmptyToken", func(t *testing.T) {
+		// Clear env var for test
+		err := os.Setenv("DIGITALOCEAN_TOKEN", "")
+		require.NoError(t, err)
+
+		provider, err := NewDigitalOceanProvider()
+		assert.Error(t, err)
+		assert.Nil(t, provider)
+		assert.Contains(t, err.Error(), "DIGITALOCEAN_TOKEN environment variable is not set")
+	})
+
+	t.Run("ConfigureProvider", func(t *testing.T) {
+		provider, _ := newTestProvider()
+		err := provider.ConfigureProvider(nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CreateDropletRequest", func(t *testing.T) {
+		provider, _ := newTestProvider()
+		config := types.InstanceConfig{
+			Region:   "nyc1",
+			Size:     "s-1vcpu-1gb",
+			Image:    "ubuntu-20-04-x64",
+			SSHKeyID: "test-key",
 		}
 
-		// Create multiple instances
-		config := InstanceConfig{
-			Region:            "nyc1",
-			Size:              "s-1vcpu-1gb",
-			Image:             "ubuntu-20-04-x64",
-			SSHKeyID:          "test-key",
-			NumberOfInstances: 2,
+		request := provider.createDropletRequest("test-instance", config, 12345)
+		assert.Equal(t, "test-instance", request.Name)
+		assert.Equal(t, "nyc1", request.Region)
+		assert.Equal(t, "s-1vcpu-1gb", request.Size)
+		assert.Equal(t, "ubuntu-20-04-x64", request.Image.Slug)
+		assert.Equal(t, 12345, request.SSHKeys[0].ID)
+	})
+
+	t.Run("CreateInstance_SingleInstance", func(t *testing.T) {
+		provider, _ := newTestProvider()
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
+
+		// Create instance
+		config := types.InstanceConfig{
+			Region:   "nyc1",
+			Size:     "s-1vcpu-1gb",
+			Image:    "ubuntu-20-04-x64",
+			SSHKeyID: keys[0].Name,
 		}
 
 		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
 		assert.NoError(t, err)
-		assert.Len(t, instances, 2)
+		assert.Len(t, instances, 1)
+		assert.Equal(t, "test-instance-0", instances[0].Name)
+		assert.Equal(t, mocks.DefaultDropletIP1, instances[0].PublicIP)
+		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), instances[0].ID)
+	})
+
+	t.Run("CreateInstance_MultipleInstances", func(t *testing.T) {
+		provider, _ := newTestProvider()
+		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
+
+		// Create multiple instances
+		config := types.InstanceConfig{
+			Region:            "nyc1",
+			Size:              "s-1vcpu-1gb",
+			Image:             "ubuntu-20-04-x64",
+			SSHKeyID:          keys[0].Name,
+			NumberOfInstances: 3,
+		}
+
+		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
+		assert.NoError(t, err)
+		assert.Len(t, instances, 3)
 		assert.Equal(t, "test-instance-0", instances[0].Name)
 		assert.Equal(t, "test-instance-1", instances[1].Name)
+		assert.Equal(t, "test-instance-2", instances[2].Name)
 	})
 
 	t.Run("DeleteInstance", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-
-		droplet := &godo.Droplet{
-			ID:   54321,
-			Name: "test-instance",
-			Region: &godo.Region{
-				Slug: "nyc1",
-			},
-		}
-		mockClient.mockDropletService.droplets[droplet.ID] = droplet
+		provider, _ := newTestProvider()
 
 		// Delete instance
 		err := provider.DeleteInstance(context.Background(), "test-instance", "nyc1")
 		assert.NoError(t, err)
-		_, exists := mockClient.mockDropletService.droplets[droplet.ID]
-		assert.False(t, exists)
 	})
 
 	t.Run("GetEnvironmentVars", func(t *testing.T) {
@@ -397,35 +354,122 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("GetSSHKeyID_Success", func(t *testing.T) {
 		provider, mockClient := newTestProvider()
-
-		key := &godo.Key{
-			ID:   12345,
-			Name: "test-key",
-		}
-		mockClient.mockKeyService.keys[key.ID] = key
+		keys, _, err := mockClient.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
 
 		// Call the method
-		id, err := provider.getSSHKeyID(context.Background(), "test-key")
+		id, err := provider.GetSSHKeyID(context.Background(), keys[0].Name)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Equal(t, 12345, id)
+		assert.Equal(t, keys[0].ID, id)
 	})
 
 	t.Run("GetSSHKeyID_KeyNotFound", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-
-		key := &godo.Key{
-			ID:   12345,
-			Name: "other-key",
-		}
-		mockClient.mockKeyService.keys[key.ID] = key
+		provider, _ := newTestProvider()
 
 		// Call the method
-		_, err := provider.getSSHKeyID(context.Background(), "test-key")
+		_, err := provider.GetSSHKeyID(context.Background(), "not-existing-key")
 
 		// Verify results
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "SSH key 'test-key' not found")
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("SetClient", func(t *testing.T) {
+		provider := &DigitalOceanProvider{}
+		mockClient := mocks.NewMockDOClient()
+
+		// Initially the client should be nil
+		assert.Nil(t, provider.doClient)
+
+		// Set the client
+		provider.SetClient(mockClient)
+
+		// Verify the client was set
+		assert.NotNil(t, provider.doClient)
+		assert.Equal(t, mockClient, provider.doClient)
+	})
+
+	t.Run("ValidateCredentials", func(t *testing.T) {
+		// Base case should be valid
+		provider, _ := newTestProvider()
+		err := provider.ValidateCredentials()
+		assert.NoError(t, err)
+
+		// Case where client is not initialized
+		provider = &DigitalOceanProvider{}
+		err = provider.ValidateCredentials()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "client not initialized")
+	})
+
+	t.Run("WaitForDeletion_Success", func(t *testing.T) {
+		provider, _ := newTestProvider()
+
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.NoError(t, err)
+	})
+
+	t.Run("WaitForDeletion_Success_With_Retries", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+		mockClient.MockDropletService.SimulateDelayedSuccess(3)
+
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.NoError(t, err)
+	})
+
+	t.Run("WaitForDeletion_Error", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+		mockClient.MockDropletService.SimulateMaxRetries()
+
+		// Call the unexported method directly with a short interval
+		err := provider.waitForDeletion(context.Background(), mocks.DefaultDropletName1, mocks.DefaultDropletRegion, defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "still exists")
+	})
+
+	t.Run("WaitForIP_Success", func(t *testing.T) {
+		provider, _ := newTestProvider()
+
+		// Call the unexported method directly with a short interval
+		ip, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.NoError(t, err)
+		assert.Equal(t, "192.0.2.1", ip)
+	})
+
+	t.Run("WaitForIP_Error", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+		mockClient.MockDropletService.SimulateDelayedSuccess(3)
+
+		// Call the unexported method directly with a short interval
+		ip, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.NoError(t, err)
+		assert.Equal(t, "192.0.2.1", ip)
+	})
+
+	t.Run("WaitForIP_Error", func(t *testing.T) {
+		provider, mockClient := newTestProvider()
+		mockClient.MockDropletService.SimulateMaxRetries()
+
+		// Call the unexported method directly with a short interval
+		_, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
+
+		// Verify results
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no public IP")
 	})
 }

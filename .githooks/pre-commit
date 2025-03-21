@@ -11,4 +11,4 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "✅ Linting passed."
-exit 0 
+exit 0

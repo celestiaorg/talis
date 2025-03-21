@@ -100,60 +100,41 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			}
 		}
 
-		// Start Ansible provisioning if creation was successful and provisioning is requested
+		// Update instance information in database
+		pInstances, ok := result.([]infrastructure.InstanceInfo)
+		if !ok {
+			fmt.Printf("❌ Invalid result type: %T\n", result)
+			return
+		}
+
+		fmt.Printf("📝 Created instances: %+v\n", pInstances)
+
+		// Update instance information in database
+		for _, instance := range pInstances {
+			// Update IP and status
+			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP); err != nil {
+				fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
+				continue
+			}
+			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.IP)
+
+			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
+				fmt.Printf("❌ Failed to update instance %s status: %v\n", instance.Name, err)
+				continue
+			}
+			fmt.Printf("✅ Updated instance %s status to ready\n", instance.Name)
+		}
+
+		// Start Ansible provisioning if requested
 		if instances[0].Provision {
-			pInstances, ok := result.([]infrastructure.InstanceInfo)
-			if !ok {
-				fmt.Printf("❌ Invalid result type: %T\n", result)
-				return
-			}
-
-			fmt.Printf("📝 Created instances: %+v\n", pInstances)
-
-			for _, instance := range pInstances {
-				err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP)
-				if err != nil {
-					fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
-				}
-
-				err = s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusProvisioning)
-				if err != nil {
-					fmt.Printf("❌ Failed to update instance %s status to provisioning: %v\n", instance.Name, err)
-				}
-			}
-
-			// TODO: instance provisioning should be done in a way that is async and updates the instance status one by one in the db
 			if err := infra.RunProvisioning(pInstances); err != nil {
 				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
 				return
-			}
-
-			for _, instance := range pInstances {
-				// TODO:Consider passing OwnerID to update the status as well
-				// Not sure if Ready is the best status to set here
-				if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
-					fmt.Printf("❌ Failed to update instance status to provisioning: %v\n", err)
-				}
 			}
 		}
 
 		fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", jobID)
 	}()
-}
-
-// GetPublicIPs retrieves all public IPs and instance details
-func (s *Instance) GetPublicIPs(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
-	fmt.Println("📥 Getting all instances from database...")
-
-	// Get all instances with their details
-	instances, err := s.repo.List(ctx, opts)
-	if err != nil {
-		fmt.Printf("❌ Error listing instances: %v\n", err)
-		return nil, fmt.Errorf("failed to list instances: %w", err)
-	}
-
-	fmt.Printf("✅ Retrieved %d instances from database\n", len(instances))
-	return instances, nil
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job

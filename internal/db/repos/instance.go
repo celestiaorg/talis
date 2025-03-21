@@ -57,7 +57,9 @@ func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *mode
 
 // UpdateIPByName updates the public IP of an instance by its name
 func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
-	return r.db.WithContext(ctx).Where(&models.Instance{Name: name}).Update(models.InstancePublicIPField, ip).Error
+	return r.db.WithContext(ctx).Model(&models.Instance{}).
+		Where(&models.Instance{Name: name}).
+		Update(models.InstancePublicIPField, ip).Error
 }
 
 // UpdateStatus updates the status of an instance
@@ -69,7 +71,7 @@ func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status m
 
 // UpdateStatusByName updates the status of an instance by its name
 func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string, status models.InstanceStatus) error {
-	return r.db.WithContext(ctx).
+	return r.db.WithContext(ctx).Model(&models.Instance{}).
 		Where(&models.Instance{Name: name}).
 		Update("status", status).Error
 }

@@ -40,10 +40,8 @@ type InstanceCreateRequest struct {
 
 // DeleteInstanceRequest represents the request body for deleting instances
 type DeleteInstanceRequest struct {
-	ID           uint              `json:"id" validate:"required"`              // ID of the job
-	InstanceName string            `json:"instance_name" validate:"required"`   // Base name for instances
-	ProjectName  string            `json:"project_name" validate:"required"`    // Project name of the job
-	Instances    []InstanceRequest `json:"instances" validate:"required,min=1"` // Instances to delete
+	JobName       string   `json:"job_name" validate:"required"`             // Job name of the job
+	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
 }
 
 // DeleteRequest represents a request to delete infrastructure
