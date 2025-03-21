@@ -65,7 +65,7 @@ fmt:
 .PHONY: fmt
 
 ## lint: Run all linters
-lint: fmt vet
+lint: tidy fmt vet
 	@echo "Running linters..."
 	@echo "--> Running golangci-lint"
 	@golangci-lint run

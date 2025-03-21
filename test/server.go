@@ -7,11 +7,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
-	"github.com/celestiaorg/talis/internal/api/middleware"
 	"github.com/celestiaorg/talis/internal/api/v1/client"
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
 	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/logger"
 )
 
 // testClientTimeout is the timeout for test API client requests
@@ -23,8 +23,8 @@ func SetupServer(suite *TestSuite) {
 	suite.App = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
-	// Add logger middleware
-	suite.App.Use(middleware.Logger())
+	// Add logger
+	suite.App.Use(logger.APILogger())
 
 	// Create services
 	jobService := services.NewJobService(suite.JobRepo, suite.InstanceRepo)
