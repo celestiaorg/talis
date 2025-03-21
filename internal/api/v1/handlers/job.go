@@ -33,14 +33,13 @@ func (h *JobHandler) GetJob(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
 	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	job, err := h.jobService.GetJob(c.Context(), uint(ownerID), uint(jobID))
+	job, err := h.jobService.GetJob(c.Context(), uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))

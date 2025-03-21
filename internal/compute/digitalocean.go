@@ -251,8 +251,11 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 		return types.InstanceInfo{}, fmt.Errorf("client not initialized")
 	}
 
-	// Use consistent naming with index for single droplet
-	dropletName := fmt.Sprintf("%s-0", name)
+	// Create the droplet
+	dropletName := fmt.Sprintf("%s-%d", name, 0)
+	if config.CustomName != "" {
+		dropletName = config.CustomName
+	}
 	createRequest := p.createDropletRequest(dropletName, config, sshKeyID)
 
 	// Create the droplet
