@@ -43,7 +43,7 @@ func (r *InstanceRepository) GetByID(ctx context.Context, JobID, ID uint) (*mode
 // TODO: Need to add ownerID to the query for security in future
 func (r *InstanceRepository) GetByNames(ctx context.Context, names []string) ([]models.Instance, error) {
 	var instances []models.Instance
-	err := r.db.WithContext(ctx).Where("name IN (?)", names).Find(&instances).Error
+	err := r.db.WithContext(ctx).Unscoped().Where("name IN (?)", names).Find(&instances).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instances: %w", err)
 	}
@@ -79,12 +79,17 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string
 // List retrieves a paginated list of instances
 func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	var instances []models.Instance
-	err := r.db.WithContext(ctx).
-		Model(&models.Instance{}).
-		Limit(opts.Limit).Offset(opts.Offset).
-		Order(models.InstanceCreatedAtField + " DESC").
-		Find(&instances).Error
-	return instances, err
+	query := r.db.WithContext(ctx)
+
+	if opts != nil && opts.IncludeDeleted {
+		query = query.Unscoped()
+	}
+
+	err := query.Find(&instances).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list instances: %w", err)
+	}
+	return instances, nil
 }
 
 // Count returns the total number of instances
@@ -115,7 +120,7 @@ func (r *InstanceRepository) Get(ctx context.Context, id uint) (*models.Instance
 // GetByJobID retrieves all instances for a given job ID
 func (r *InstanceRepository) GetByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
 	var instances []models.Instance
-	err := r.db.WithContext(ctx).Where(&models.Instance{JobID: jobID}).Find(&instances).Error
+	err := r.db.WithContext(ctx).Unscoped().Where(&models.Instance{JobID: jobID}).Find(&instances).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
 	}
@@ -126,6 +131,7 @@ func (r *InstanceRepository) GetByJobID(ctx context.Context, jobID uint) ([]mode
 func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) ([]models.Instance, error) {
 	var instances []models.Instance
 	err := r.db.WithContext(ctx).
+		Unscoped().
 		Where(&models.Instance{JobID: jobID}).
 		Order(models.InstanceCreatedAtField + " ASC"). // ASC order to get oldest first
 		Find(&instances).Error

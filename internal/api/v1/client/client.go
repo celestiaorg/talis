@@ -28,7 +28,7 @@ type Client interface {
 	HealthCheck(ctx context.Context) (map[string]string, error)
 
 	// Instance Endpoints
-	GetInstances(ctx context.Context) (infrastructure.ListInstancesResponse, error)
+	GetInstances(ctx context.Context, opts *models.ListOptions) (infrastructure.ListInstancesResponse, error)
 	GetInstancesMetadata(ctx context.Context) (infrastructure.InstanceMetadataResponse, error)
 	GetInstancesPublicIPs(ctx context.Context) (infrastructure.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
@@ -201,9 +201,24 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 
 // Instance methods implementation
 
-// GetInstances retrieves all instances
-func (c *APIClient) GetInstances(ctx context.Context) (infrastructure.ListInstancesResponse, error) {
+// GetInstances lists instances with optional filtering
+func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) (infrastructure.ListInstancesResponse, error) {
 	endpoint := routes.GetInstancesURL()
+	if opts != nil {
+		q := url.Values{}
+		if opts.Limit > 0 {
+			q.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		}
+		if opts.Offset > 0 {
+			q.Set("offset", fmt.Sprintf("%d", opts.Offset))
+		}
+		if opts.IncludeDeleted {
+			q.Set("include_deleted", "true")
+		}
+		if len(q) > 0 {
+			endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
+		}
+	}
 	var response infrastructure.ListInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.ListInstancesResponse{}, err

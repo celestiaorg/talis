@@ -6,6 +6,7 @@ import (
 	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -23,12 +24,14 @@ func NewInstanceHandler(service *services.Instance) *InstanceHandler {
 
 // ListInstances handles the request to list all instances
 func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
-	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", DefaultPageSize)
+	var opts models.ListOptions
+	opts.Limit = c.QueryInt("limit", DefaultPageSize)
+	opts.Offset = c.QueryInt("offset", 0)
+	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
 	// TODO: should check for OwnerID and filter by it
 
-	instances, err := h.service.ListInstances(c.Context(), getPaginationOptions(page, limit))
+	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list instances: %v", err),
@@ -38,9 +41,10 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	return c.JSON(infrastructure.ListInstancesResponse{
 		Instances: instances,
 		Pagination: infrastructure.PaginationResponse{
-			Total: len(instances),
-			Page:  page,
-			Limit: limit,
+			Total:  len(instances),
+			Page:   1,
+			Limit:  opts.Limit,
+			Offset: opts.Offset,
 		},
 	})
 }
@@ -96,12 +100,13 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting public IPs...")
 
-	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", DefaultPageSize)
-	paginationOpts := getPaginationOptions(page, limit)
+	var opts models.ListOptions
+	opts.Limit = c.QueryInt("limit", DefaultPageSize)
+	opts.Offset = c.QueryInt("offset", 0)
+	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
 	// Get instances
-	instances, err := h.service.ListInstances(c.Context(), paginationOpts)
+	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {
 		fmt.Printf("❌ Error getting instances: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -125,9 +130,9 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 		PublicIPs: publicIPs,
 		Pagination: infrastructure.PaginationResponse{
 			Total:  len(instances),
-			Page:   page,
-			Limit:  limit,
-			Offset: paginationOpts.Offset,
+			Page:   1,
+			Limit:  opts.Limit,
+			Offset: opts.Offset,
 		},
 	})
 }
@@ -136,15 +141,16 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all instance metadata...")
 
-	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", DefaultPageSize)
-	paginationOpts := getPaginationOptions(page, limit)
+	var opts models.ListOptions
+	opts.Limit = c.QueryInt("limit", DefaultPageSize)
+	opts.Offset = c.QueryInt("offset", 0)
+	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
 	// TODO: should check for JobID and filter by it
 	// TODO: should check for OwnerID and filter by it
 
 	// Get instances with their details using the service
-	instances, err := h.service.ListInstances(c.Context(), paginationOpts)
+	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {
 		fmt.Printf("❌ Error getting instance: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -159,9 +165,9 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 		Instances: instances,
 		Pagination: infrastructure.PaginationResponse{
 			Total:  len(instances),
-			Page:   page,
-			Limit:  limit,
-			Offset: paginationOpts.Offset,
+			Page:   1,
+			Limit:  opts.Limit,
+			Offset: opts.Offset,
 		},
 	})
 }
@@ -225,4 +231,29 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(infrastructure.Success(nil))
+}
+
+// GetInstances handles the request to list instances
+func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
+	var opts models.ListOptions
+	opts.Limit = c.QueryInt("limit", DefaultPageSize)
+	opts.Offset = c.QueryInt("offset", 0)
+	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
+
+	instances, err := h.service.ListInstances(c.Context(), &opts)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to list instances: %v", err),
+		})
+	}
+
+	return c.JSON(infrastructure.ListInstancesResponse{
+		Instances: instances,
+		Pagination: infrastructure.PaginationResponse{
+			Total:  len(instances),
+			Page:   1,
+			Limit:  opts.Limit,
+			Offset: opts.Offset,
+		},
+	})
 }
