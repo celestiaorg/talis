@@ -110,24 +110,8 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		errorsChan := make(chan error, 100)
 
 		for _, instance := range i.instances {
-			// Try base name first
-			wg.Add(1)
-			go func(name string, region string) {
-				defer wg.Done()
-				if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
-					if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
-						errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
-						return
-					}
-				} else {
-					deletedInstancesChan <- name
-					return
-				}
-			}(i.name, instance.Region)
-
-			// Try indexed names
-			for j := 0; j < instance.NumberOfInstances; j++ {
-				instanceName := fmt.Sprintf("%s-%d", i.name, j)
+			// If instance has a custom name, use that directly
+			if instance.Name != "" {
 				wg.Add(1)
 				go func(name string, region string) {
 					defer wg.Done()
@@ -142,7 +126,46 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 						return
 					}
 					deletedInstancesChan <- name
-				}(instanceName, instance.Region)
+				}(instance.Name, instance.Region)
+				continue
+			}
+
+			// If no custom name, try base name and indexed names
+			if i.name != "" {
+				// Try base name first
+				wg.Add(1)
+				go func(name string, region string) {
+					defer wg.Done()
+					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
+						if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
+							errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
+							return
+						}
+					} else {
+						deletedInstancesChan <- name
+						return
+					}
+				}(i.name, instance.Region)
+
+				// Try indexed names
+				for j := 0; j < instance.NumberOfInstances; j++ {
+					instanceName := fmt.Sprintf("%s-%d", i.name, j)
+					wg.Add(1)
+					go func(name string, region string) {
+						defer wg.Done()
+						fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, name, region)
+
+						if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
+							if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+								fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", name, region)
+								return
+							}
+							errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
+							return
+						}
+						deletedInstancesChan <- name
+					}(instanceName, instance.Region)
+				}
 			}
 		}
 

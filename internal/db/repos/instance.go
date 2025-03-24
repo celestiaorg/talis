@@ -135,9 +135,15 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 	return instances, nil
 }
 
-// Terminate updates the status of an instance to terminated
+// Terminate updates the status of an instance to terminated and performs a soft delete
 func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
+	// First update the status to terminated
+	if err := r.db.WithContext(ctx).Model(&models.Instance{}).
 		Where(&models.Instance{Model: gorm.Model{ID: id}}).
-		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error
+		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error; err != nil {
+		return err
+	}
+
+	// Then perform the soft delete
+	return r.db.WithContext(ctx).Delete(&models.Instance{}, id).Error
 }
