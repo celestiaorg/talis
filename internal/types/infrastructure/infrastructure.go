@@ -76,8 +76,12 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		fmt.Printf("🚀 Creating infrastructure...\n")
 		instances := make([]InstanceInfo, 0)
 		for _, instance := range i.instances {
-			// Create all instances for this configuration at once
-			instanceName := i.name
+			// Use instance name if provided, otherwise use base name
+			instanceName := instance.Name
+			if instanceName == "" {
+				instanceName = i.name
+			}
+
 			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
 				Region:            instance.Region,
 				Size:              instance.Size,

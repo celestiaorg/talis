@@ -39,25 +39,40 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 	}
 
 	for _, i := range instances {
-		if i.Name == "" {
-			i.Name = fmt.Sprintf("instance-%s", uuid.New().String())
+		baseName := i.Name
+		if baseName == "" {
+			baseName = fmt.Sprintf("instance-%s", uuid.New().String())
 		}
 
-		instance := &models.Instance{
-			Name:       i.Name,
-			JobID:      job.ID,
-			ProviderID: i.Provider,
-			Status:     models.InstanceStatusPending,
-			Region:     i.Region,
-			Size:       i.Size,
+		// Create multiple instances if requested
+		numInstances := i.NumberOfInstances
+		if numInstances < 1 {
+			numInstances = 1
 		}
 
-		if err := s.repo.Create(ctx, instance); err != nil {
-			return fmt.Errorf("failed to create instance: %w", err)
+		for idx := 0; idx < numInstances; idx++ {
+			instanceName := baseName
+			if numInstances > 1 {
+				instanceName = fmt.Sprintf("%s-%d", baseName, idx)
+			}
+
+			instance := &models.Instance{
+				Name:       instanceName,
+				JobID:      job.ID,
+				ProviderID: i.Provider,
+				Status:     models.InstanceStatusPending,
+				Region:     i.Region,
+				Size:       i.Size,
+			}
+
+			if err := s.repo.Create(ctx, instance); err != nil {
+				return fmt.Errorf("failed to create instance: %w", err)
+			}
 		}
 	}
 
-	s.provisionInstances(ctx, job.ID, instances)
+	// Start provisioning in background
+	go s.provisionInstances(ctx, job.ID, instances)
 
 	return nil
 }
