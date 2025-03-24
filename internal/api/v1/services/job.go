@@ -42,11 +42,6 @@ func (s *Job) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructur
 	return s.jobRepo.Create(ctx, job)
 }
 
-// GetJob retrieves the job
-func (s *Job) GetJob(ctx context.Context, ownerID uint, id uint) (*models.Job, error) {
-	return s.jobRepo.GetByID(ctx, ownerID, id)
-}
-
 // GetJobStatus retrieves the status of a job
 func (s *Job) GetJobStatus(ctx context.Context, ownerID uint, id uint) (models.JobStatus, error) {
 	j, err := s.jobRepo.GetByID(ctx, ownerID, id)
@@ -168,4 +163,9 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 
 		fmt.Printf("✅ Infrastructure deletion completed for job %d\n", job.ID)
 	}()
+}
+
+// GetJob retrieves a job by its ID
+func (s *Job) GetJob(ctx context.Context, id uint) (*models.Job, error) {
+	return s.jobRepo.GetByID(ctx, 0, id) // Using 0 as ownerID since it's not being used yet
 }

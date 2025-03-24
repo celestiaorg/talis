@@ -107,7 +107,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	defer suite.Cleanup()
 
 	// List instances and verify there are none
-	instanceList, err := suite.APIClient.GetInstances(suite.Context())
+	instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 	require.NoError(t, err)
 	require.Empty(t, instanceList.Instances)
 
@@ -122,7 +122,7 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Wait for the instance to be available
 	err = suite.Retry(func() error {
-		instanceList, err := suite.APIClient.GetInstances(suite.Context())
+		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 		if err != nil {
 			return err
 		}
@@ -134,7 +134,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Grab the instance from the list of instances
-	instanceList, err = suite.APIClient.GetInstances(suite.Context())
+	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceList.Instances)
 	require.Equal(t, 2, len(instanceList.Instances))
@@ -167,7 +167,7 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Verify the instances eventually get deleted
 	err = suite.Retry(func() error {
-		instanceList, err := suite.APIClient.GetInstances(suite.Context())
+		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 		if err != nil {
 			return err
 		}
