@@ -64,7 +64,7 @@ func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip
 
 // UpdateStatus updates the status of an instance
 func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status models.InstanceStatus) error {
-	return r.db.WithContext(ctx).
+	return r.db.WithContext(ctx).Model(&models.Instance{}).
 		Where(&models.Instance{Model: gorm.Model{ID: ID}}).
 		Update("status", status).Error
 }
