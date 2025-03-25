@@ -9,6 +9,91 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestSSHKeys(t *testing.T) {
+	tests := []struct {
+		name         string
+		keys         SSHKeys
+		jsonValue    string
+		validForJson bool
+		expectedKeys SSHKeys
+		dbValue      interface{}
+		validForScan bool
+	}{
+		{
+			name:         "Valid SSH keys",
+			keys:         SSHKeys{"key1", "key2"},
+			jsonValue:    `["key1","key2"]`,
+			validForJson: true,
+			expectedKeys: SSHKeys{"key1", "key2"},
+			dbValue:      []byte(`["key1","key2"]`),
+			validForScan: true,
+		},
+		{
+			name:         "Empty SSH keys",
+			keys:         SSHKeys{},
+			jsonValue:    `[]`,
+			validForJson: true,
+			expectedKeys: SSHKeys{},
+			dbValue:      []byte(`[]`),
+			validForScan: true,
+		},
+		{
+			name:         "Nil SSH keys",
+			keys:         nil,
+			jsonValue:    `null`,
+			validForJson: true,
+			expectedKeys: nil,
+			dbValue:      nil,
+			validForScan: true,
+		},
+		{
+			name:         "Invalid JSON",
+			jsonValue:    `invalid`,
+			validForJson: false,
+			dbValue:      []byte(`invalid`),
+			validForScan: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test JSON marshaling
+			if tt.keys != nil {
+				bytes, err := tt.keys.MarshalJSON()
+				assert.NoError(t, err, "Marshal should not return error")
+				assert.Equal(t, tt.jsonValue, string(bytes), "Marshal produced incorrect JSON")
+			}
+
+			// Test JSON unmarshaling
+			var unmarshaledKeys SSHKeys
+			err := unmarshaledKeys.UnmarshalJSON([]byte(tt.jsonValue))
+			if tt.validForJson {
+				assert.NoError(t, err, "Unmarshal should not return error")
+				assert.Equal(t, tt.expectedKeys, unmarshaledKeys, "Unmarshal produced incorrect keys")
+			} else {
+				assert.Error(t, err, "Unmarshal should return error for invalid JSON")
+			}
+
+			// Test database Value method
+			if tt.keys != nil {
+				value, err := tt.keys.Value()
+				assert.NoError(t, err, "Value should not return error")
+				assert.JSONEq(t, tt.jsonValue, string(value.([]byte)), "Value produced incorrect database value")
+			}
+
+			// Test database Scan method
+			var scannedKeys SSHKeys
+			err = scannedKeys.Scan(tt.dbValue)
+			if tt.validForScan {
+				assert.NoError(t, err, "Scan should not return error")
+				assert.Equal(t, tt.expectedKeys, scannedKeys, "Scan produced incorrect keys")
+			} else {
+				assert.Error(t, err, "Scan should return error for invalid value")
+			}
+		})
+	}
+}
+
 func TestJobStatus(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -147,7 +232,7 @@ func TestJob_Validation(t *testing.T) {
 		ProjectName:  "test-project",
 		OwnerID:      1,
 		Status:       JobStatusPending,
-		SSHKeys:      []string{"key1", "key2"},
+		SSHKeys:      SSHKeys{"key1", "key2"},
 		WebhookURL:   "https://example.com/webhook",
 		WebhookSent:  false,
 	}
@@ -169,5 +254,31 @@ func TestJob_Validation(t *testing.T) {
 		assert.Equal(t, validJob.SSHKeys, unmarshaledJob.SSHKeys)
 		assert.Equal(t, validJob.WebhookURL, unmarshaledJob.WebhookURL)
 		assert.Equal(t, validJob.WebhookSent, unmarshaledJob.WebhookSent)
+	})
+
+	t.Run("Job with nil SSHKeys", func(t *testing.T) {
+		job := validJob
+		job.SSHKeys = nil
+
+		jsonData, err := json.Marshal(job)
+		assert.NoError(t, err)
+
+		var unmarshaledJob Job
+		err = json.Unmarshal(jsonData, &unmarshaledJob)
+		assert.NoError(t, err)
+		assert.Nil(t, unmarshaledJob.SSHKeys)
+	})
+
+	t.Run("Job with empty SSHKeys", func(t *testing.T) {
+		job := validJob
+		job.SSHKeys = SSHKeys{}
+
+		jsonData, err := json.Marshal(job)
+		assert.NoError(t, err)
+
+		var unmarshaledJob Job
+		err = json.Unmarshal(jsonData, &unmarshaledJob)
+		assert.NoError(t, err)
+		assert.Empty(t, unmarshaledJob.SSHKeys)
 	})
 }

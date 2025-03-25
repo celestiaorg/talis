@@ -16,6 +16,44 @@ const (
 	JobUpdatedAtField = "updated_at"
 )
 
+// SSHKeys represents a collection of SSH keys
+type SSHKeys []string
+
+// MarshalJSON implements json.Marshaler interface for SSHKeys
+func (s SSHKeys) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(s))
+}
+
+// UnmarshalJSON implements json.Unmarshaler interface for SSHKeys
+func (s *SSHKeys) UnmarshalJSON(data []byte) error {
+	var keys []string
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return err
+	}
+	*s = SSHKeys(keys)
+	return nil
+}
+
+// Value implements the driver.Valuer interface for SSHKeys
+func (s SSHKeys) Value() (interface{}, error) {
+	return json.Marshal(s)
+}
+
+// Scan implements the sql.Scanner interface for SSHKeys
+func (s *SSHKeys) Scan(value interface{}) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to unmarshal SSHKeys value: %v", value)
+	}
+
+	return json.Unmarshal(bytes, s)
+}
+
 // JobStatus represents the status of a job
 type JobStatus string
 
@@ -45,7 +83,7 @@ type Job struct {
 	InstanceName string          `json:"instance_name" gorm:"not null; index"`
 	ProjectName  string          `json:"project_name" gorm:"not null; index"`
 	OwnerID      uint            `json:"owner_id" gorm:"not null;index"` // ID from the users table
-	SSHKeys      []string        `json:"ssh_keys" gorm:"type:jsonb"`
+	SSHKeys      SSHKeys         `json:"ssh_keys" gorm:"type:json"`
 	Status       JobStatus       `json:"status" gorm:"index"`
 	Result       json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`
 	Error        string          `json:"error,omitempty" gorm:"type:text"`
