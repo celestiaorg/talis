@@ -13,6 +13,9 @@ const (
 	//
 	//nolint:unused // Will be used in future implementation
 	ansibleDebug = false
+
+	// pathToPlaybook is the path to the ansible main playbook
+	pathToPlaybook = "ansible/main.yml"
 )
 
 // AnsibleConfigurator implements the Provisioner interface
@@ -93,12 +96,15 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 		"-i", inventoryPath,
 		// Run serially
 		"--forks", "1",
-		// // Add extra verbosity
-		// "-vvv",
+	}
+
+	// Add verbosity if debug mode is enabled
+	if ansibleDebug {
+		args = append(args, "-vvv")
 	}
 
 	// Add playbook path
-	args = append(args, "ansible/playbook.yml")
+	args = append(args, pathToPlaybook)
 
 	// Run ansible-playbook command
 	// #nosec G204 -- command arguments are constructed from validated inputs
