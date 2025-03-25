@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -24,21 +25,19 @@ type DBRepositoryTestSuite struct {
 
 func (s *DBRepositoryTestSuite) SetupTest() {
 	// Create new in-memory database with JSON support
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&_json=1"), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		DryRun:                                   false,
+		Logger:                                   logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(s.T(), err, "Failed to create in-memory database")
 
-	// Enable JSON support
-	db = db.Set("gorm:auto_preload", true)
-	s.db = db
-
 	// Run migrations
-	err = s.db.AutoMigrate(&models.Instance{}, &models.Job{})
+	err = db.AutoMigrate(&models.Instance{}, &models.Job{})
 	require.NoError(s.T(), err, "Failed to run database migrations")
 
 	// Initialize repositories
+	s.db = db
 	s.jobRepo = NewJobRepository(s.db)
 	s.instanceRepo = NewInstanceRepository(s.db)
 	s.ctx = context.Background()
@@ -78,7 +77,7 @@ func (s *DBRepositoryTestSuite) createTestJob() *models.Job {
 		ProjectName:  "test-project",
 		OwnerID:      1,
 		Status:       models.JobStatusPending,
-		SSHKeys:      []string{"key1", "key2"},
+		SSHKeys:      models.SSHKeys{"key1", "key2"},
 		WebhookURL:   "https://example.com/webhook",
 		WebhookSent:  false,
 		CreatedAt:    time.Now(),
