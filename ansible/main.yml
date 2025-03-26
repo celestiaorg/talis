@@ -1,0 +1,14 @@
+---
+- hosts: all
+  become: true
+  gather_facts: yes
+  strategy: free
+  tasks:
+    - name: Import vars file
+      include_vars: "vars/main.yml"
+
+    - name: Setup
+      import_tasks: "./stages/setup.yml"
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+      tags:
+        - setup
