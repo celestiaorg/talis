@@ -76,13 +76,32 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string
 		Update("status", status).Error
 }
 
-// List retrieves a paginated list of instances
+// List retrieves a paginated list of instances with optional status and soft delete filters
 func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	var instances []models.Instance
 	query := r.db.WithContext(ctx)
 
-	if opts != nil && opts.IncludeDeleted {
-		query = query.Unscoped()
+	if opts != nil {
+		// Apply status filter if provided
+		if opts.Status != nil {
+			query = query.Where("status = ?", *opts.Status)
+		} else {
+			// By default, only show non-terminated instances
+			query = query.Where("status != ?", models.InstanceStatusTerminated)
+		}
+
+		// Apply soft delete filter
+		if opts.IncludeDeleted {
+			query = query.Unscoped()
+		}
+
+		// Apply pagination
+		if opts.Limit > 0 {
+			query = query.Limit(opts.Limit)
+		}
+		if opts.Offset > 0 {
+			query = query.Offset(opts.Offset)
+		}
 	}
 
 	err := query.Find(&instances).Error

@@ -203,21 +203,40 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 
 // GetInstances lists instances with optional filtering
 func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) (infrastructure.ListInstancesResponse, error) {
-	endpoint := routes.GetInstancesURL()
+	q := url.Values{}
 	if opts != nil {
-		q := url.Values{}
+		if opts.IncludeDeleted {
+			q.Set("include_deleted", "true")
+		}
 		if opts.Limit > 0 {
 			q.Set("limit", fmt.Sprintf("%d", opts.Limit))
 		}
 		if opts.Offset > 0 {
 			q.Set("offset", fmt.Sprintf("%d", opts.Offset))
 		}
-		if opts.IncludeDeleted {
-			q.Set("include_deleted", "true")
+		if opts.Status != nil {
+			status := *opts.Status
+			var statusStr string
+			switch status {
+			case models.InstanceStatusUnknown:
+				statusStr = "unknown"
+			case models.InstanceStatusPending:
+				statusStr = "pending"
+			case models.InstanceStatusProvisioning:
+				statusStr = "provisioning"
+			case models.InstanceStatusReady:
+				statusStr = "ready"
+			case models.InstanceStatusTerminated:
+				statusStr = "terminated"
+			default:
+				return infrastructure.ListInstancesResponse{}, fmt.Errorf("invalid instance status: %d", status)
+			}
+			q.Set("status", statusStr)
 		}
-		if len(q) > 0 {
-			endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-		}
+	}
+	endpoint := routes.GetInstancesURL()
+	if len(q) > 0 {
+		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
 	}
 	var response infrastructure.ListInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {

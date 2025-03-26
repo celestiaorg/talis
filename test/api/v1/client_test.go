@@ -63,7 +63,7 @@ func TestClientAdminMethods(t *testing.T) {
 	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
 	require.NoError(t, err)
 
-	// List instances and verify there is one
+	// List instances and verify there are two (using include_deleted to ensure we see all instances)
 	err = suite.Retry(func() error {
 		instanceList, err := suite.APIClient.AdminGetInstances(suite.Context())
 		if err != nil {
@@ -72,11 +72,17 @@ func TestClientAdminMethods(t *testing.T) {
 		if len(instanceList.Instances) != 2 {
 			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
 		}
+		// Verify both instances are in non-terminated state
+		for _, instance := range instanceList.Instances {
+			if instance.Status == models.InstanceStatusTerminated {
+				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
+			}
+		}
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
 
-	// List instances metadata and verify there are none
+	// List instances metadata and verify there are two
 	instanceMetadata, err := suite.APIClient.AdminGetInstancesMetadata(suite.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceMetadata.Instances)
@@ -84,12 +90,9 @@ func TestClientAdminMethods(t *testing.T) {
 	require.Equal(t, defaultInstanceRequest1.Provider, instanceMetadata.Instances[0].ProviderID)
 	require.Equal(t, defaultInstanceRequest1.Region, instanceMetadata.Instances[0].Region)
 	require.Equal(t, defaultInstanceRequest1.Size, instanceMetadata.Instances[0].Size)
-	// TODO: figure out why the image reference was breaking
-	// require.Equal(t, defaultInstanceRequest1.Image, instanceMetadata.Instances[0].Image)
 	require.Equal(t, defaultInstanceRequest2.Provider, instanceMetadata.Instances[1].ProviderID)
 	require.Equal(t, defaultInstanceRequest2.Region, instanceMetadata.Instances[1].Region)
 	require.Equal(t, defaultInstanceRequest2.Size, instanceMetadata.Instances[1].Size)
-	// require.Equal(t, defaultInstanceRequest2.Image, instanceMetadata.Instances[1].Image)
 }
 
 func TestClientHealthCheck(t *testing.T) {
@@ -106,7 +109,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	suite := test.NewTestSuite(t)
 	defer suite.Cleanup()
 
-	// List instances and verify there are none
+	// List instances and verify there are none (using include_deleted to ensure we see all instances)
 	instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 	require.NoError(t, err)
 	require.Empty(t, instanceList.Instances)
@@ -129,6 +132,12 @@ func TestClientInstanceMethods(t *testing.T) {
 		if len(instanceList.Instances) != 2 {
 			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
 		}
+		// Verify both instances are in non-terminated state
+		for _, instance := range instanceList.Instances {
+			if instance.Status == models.InstanceStatusTerminated {
+				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
+			}
+		}
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
@@ -138,9 +147,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceList.Instances)
 	require.Equal(t, 2, len(instanceList.Instances))
-	// Not comparing the individual instance fields because the ordering is not deterministic yet.
 
-	// Get instance metadata
 	actualInstances := instanceList.Instances
 
 	// Get instance metadata
@@ -151,38 +158,46 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Equal(t, actualInstances, instanceMetadata.Instances)
 
 	// Get public IPs
-	// TODO: this testing currently isn't create because there isn't a great way to link it to the instance. The return type is more geared towards the job.
 	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, publicIPs.PublicIPs)
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
 
 	// Delete both instances
-	// TODO: onces delete methods have been updated, delete by name and delete by quantity
 	err = suite.APIClient.DeleteInstance(suite.Context(), infrastructure.DeleteInstanceRequest{
 		JobName:       jobRequest.Name,
 		InstanceNames: []string{actualInstances[1].Name, actualInstances[0].Name},
 	})
 	require.NoError(t, err)
 
-	// Verify the instances eventually get deleted
+	// Verify the instances eventually get terminated
 	err = suite.Retry(func() error {
-		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
+		// Use status filter to specifically look for terminated instances
+		terminatedStatus := models.InstanceStatusTerminated
+		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{
+			IncludeDeleted: true,
+			Status:         &terminatedStatus,
+		})
 		if err != nil {
 			return err
 		}
-		// TODO: ideally we can pull only non-terminated instances in the future. This will catch when that change occurs hopefully.
 		if len(instanceList.Instances) != 2 {
-			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
+			return fmt.Errorf("expected 2 terminated instances, got %d", len(instanceList.Instances))
 		}
+		// Verify both instances are in terminated state
 		for _, instance := range instanceList.Instances {
 			if instance.Status != models.InstanceStatusTerminated {
-				return fmt.Errorf("expected all instances to be terminated; instance %s is %s", instance.Name, instance.Status)
+				return fmt.Errorf("expected instance %s to be terminated, got %s", instance.Name, instance.Status)
 			}
 		}
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
+
+	// Verify that the default list (non-terminated) shows no instances
+	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{})
+	require.NoError(t, err)
+	require.Empty(t, instanceList.Instances, "expected no non-terminated instances")
 }
 
 func TestClientJobMethods(t *testing.T) {

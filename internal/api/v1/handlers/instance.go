@@ -29,6 +29,17 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
+	// Handle status filter
+	if statusStr := c.Query("status"); statusStr != "" {
+		status, err := models.ParseInstanceStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("invalid instance status: %v", err),
+			})
+		}
+		opts.Status = &status
+	}
+
 	// TODO: should check for OwnerID and filter by it
 
 	instances, err := h.service.ListInstances(c.Context(), &opts)
@@ -239,6 +250,17 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
+
+	// Handle status filter
+	if statusStr := c.Query("status"); statusStr != "" {
+		status, err := models.ParseInstanceStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("invalid instance status: %v", err),
+			})
+		}
+		opts.Status = &status
+	}
 
 	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {
