@@ -17,6 +17,9 @@ Complete documentation is available at https://github.com/celestiaorg/talis`,
 }
 
 func init() {
+	// Add client flags to the root command
+	commands.AddClientFlags(rootCmd)
+
 	// Add all subcommands to root command
 	rootCmd.AddCommand(commands.GetInfraCmd())
 	rootCmd.AddCommand(commands.GetJobsCmd())

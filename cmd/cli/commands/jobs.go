@@ -1,9 +1,9 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/spf13/cobra"
 )
@@ -28,71 +28,57 @@ var jobsCmd = &cobra.Command{
 var listJobsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all jobs",
-	Run: func(cmd *cobra.Command, args []string) {
-		limit, _ := cmd.Flags().GetString("limit")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Get API client
+		client := getAPIClient(cmd)
+
+		// Parse flags
+		limitStr, _ := cmd.Flags().GetString("limit")
 		status, _ := cmd.Flags().GetString("status")
 
-		url := "http://localhost:8080/api/v1/jobs"
-		if limit != "" || status != "" {
-			url += "?"
-			if limit != "" {
-				url += fmt.Sprintf("limit=%s", limit)
-			}
-			if status != "" {
-				if limit != "" {
-					url += "&"
-				}
-				url += fmt.Sprintf("status=%s", status)
+		// Convert limit to int
+		var limit int
+		if limitStr != "" {
+			if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+				return fmt.Errorf("error parsing limit: %w", err)
 			}
 		}
 
-		resp, err := http.Get(url)
+		// Call API client
+		ctx := context.Background()
+		resp, err := client.ListJobs(ctx, limit, status)
 		if err != nil {
-			fmt.Printf("Error fetching jobs: %v\n", err)
-			return
-		}
-		defer func() {
-			if cerr := resp.Body.Close(); cerr != nil {
-				fmt.Printf("Error closing response body: %v\n", cerr)
-			}
-		}()
-
-		var result interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("Error decoding response: %v\n", err)
-			return
+			return fmt.Errorf("error fetching jobs: %w", err)
 		}
 
-		prettyJSON, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Println(string(prettyJSON))
+		// Process response
+		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		return nil
 	},
 }
 
 var getJobCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a specific job",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Get API client
+		client := getAPIClient(cmd)
+
+		// Parse flags
 		jobID, _ := cmd.Flags().GetString("id")
 
-		resp, err := http.Get(fmt.Sprintf("http://localhost:8080/api/v1/jobs/%s", jobID))
+		// Call API client
+		ctx := context.Background()
+		resp, err := client.GetJob(ctx, jobID)
 		if err != nil {
-			fmt.Printf("Error fetching job: %v\n", err)
-			return
-		}
-		defer func() {
-			if cerr := resp.Body.Close(); cerr != nil {
-				fmt.Printf("Error closing response body: %v\n", cerr)
-			}
-		}()
-
-		var result interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("Error decoding response: %v\n", err)
-			return
+			return fmt.Errorf("error fetching job: %w", err)
 		}
 
-		prettyJSON, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Println(string(prettyJSON))
+		// Process response
+		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		return nil
 	},
 }
 
