@@ -30,14 +30,6 @@ type InstanceRequest struct {
 	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
 }
 
-// InstanceCreateRequest represents the JSON structure for creating infrastructure
-type InstanceCreateRequest struct {
-	InstanceName string            `json:"instance_name"`
-	ProjectName  string            `json:"project_name"`
-	WebhookURL   string            `json:"webhook_url,omitempty"`
-	Instances    []InstanceRequest `json:"instances"`
-}
-
 // DeleteInstanceRequest represents the request body for deleting instances
 type DeleteInstanceRequest struct {
 	JobName       string   `json:"job_name" validate:"required"`             // Job name of the job
