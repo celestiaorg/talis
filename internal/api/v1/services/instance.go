@@ -169,14 +169,35 @@ func (s *Instance) GetInstancesByJobID(ctx context.Context, jobID uint) ([]model
 
 // Terminate handles the termination of instances for a given job name and instance names.
 func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, instanceNames []string) error {
+	// First verify the job exists and belongs to the owner
 	job, err := s.jobService.jobRepo.GetByName(ctx, ownerID, jobName)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
 	}
 
-	instances, err := s.repo.GetByNames(ctx, instanceNames)
+	// Get instances that belong to this job and match the provided names
+	instances, err := s.repo.GetByJobIDAndNames(ctx, job.ID, instanceNames)
 	if err != nil {
 		return fmt.Errorf("failed to get instances: %w", err)
+	}
+
+	// Verify we found all requested instances
+	if len(instances) == 0 {
+		return fmt.Errorf("no active instances found with the specified names for job '%s'", jobName)
+	}
+	if len(instances) != len(instanceNames) {
+		// Some instances were not found, log which ones
+		foundNames := make(map[string]bool)
+		for _, instance := range instances {
+			foundNames[instance.Name] = true
+		}
+		var missingNames []string
+		for _, name := range instanceNames {
+			if !foundNames[name] {
+				missingNames = append(missingNames, name)
+			}
+		}
+		return fmt.Errorf("some instances were not found or are already deleted for job '%s': %v", jobName, missingNames)
 	}
 
 	s.terminate(ctx, job.Name, instances)
