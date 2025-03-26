@@ -47,7 +47,11 @@ talis/
 │   └── types/                     # Common types and models
 │       └── infrastructure/        # Infrastructure types and logic
 ├── ansible/                       # Ansible configurations
-│   ├── playbook.yml              # Main Ansible playbook
+│   ├── main.yml                  # Main Ansible configuration
+│   ├── stages/                   # Task stages for different configurations
+│   │   └── setup.yml            # Initial setup and configuration tasks
+│   ├── vars/                     # Variable definitions
+│   │   └── main.yml             # Main variables file
 │   └── inventory_*_ansible.ini   # Generated inventory files
 ├── scripts/                       # Utility scripts
 └── .env.example                   # Environment variables example
@@ -72,8 +76,12 @@ talis/
 - **ansible.go**: Ansible configuration and provisioning
 
 ### ansible/
-- **playbook.yml**: Main Ansible playbook
-- **inventory_*_ansible.ini**: Generated inventory files
+- **main.yml**: Main Ansible configuration file
+- **stages/**: Contains different stages of configuration
+  - **setup.yml**: Initial setup and configuration tasks
+- **vars/**: Variable definitions for Ansible
+  - **main.yml**: Main variables configuration
+- **inventory_*_ansible.ini**: Generated inventory files for each deployment
 
 ## Setup
 
@@ -209,8 +217,10 @@ When deleting instances, you can specify which instances to delete by providing 
 ### Customizing Ansible
 
 Modify files in `ansible/`:
-- `playbook.yml`: Main Ansible playbook
-- Add new roles in `ansible/roles/` for modular configurations
+- `main.yml`: Main Ansible configuration
+- `stages/setup.yml`: Initial system setup and configuration
+- `vars/main.yml`: Variable definitions
+- Add new stages in `ansible/stages/` for additional configurations
 
 ## Upcoming Features
 
