@@ -138,9 +138,6 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceList.Instances)
 	require.Equal(t, 2, len(instanceList.Instances))
-	// Not comparing the individual instance fields because the ordering is not deterministic yet.
-
-	// Get instance metadata
 	actualInstances := instanceList.Instances
 
 	// Get instance metadata
@@ -151,18 +148,21 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Equal(t, actualInstances, instanceMetadata.Instances)
 
 	// Get public IPs
-	// TODO: this testing currently isn't create because there isn't a great way to link it to the instance. The return type is more geared towards the job.
 	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, publicIPs.PublicIPs)
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
 
 	// Delete both instances
-	// TODO: onces delete methods have been updated, delete by name and delete by quantity
-	err = suite.APIClient.DeleteInstance(suite.Context(), infrastructure.DeleteInstanceRequest{
+	deleteRequest := infrastructure.DeleteInstanceRequest{
 		JobName:       jobRequest.Name,
 		InstanceNames: []string{actualInstances[1].Name, actualInstances[0].Name},
-	})
+	}
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	require.NoError(t, err)
+
+	// Submit the same deletion request again - should be a no-op
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Verify the instances eventually get deleted
@@ -171,7 +171,6 @@ func TestClientInstanceMethods(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		// TODO: ideally we can pull only non-terminated instances in the future. This will catch when that change occurs hopefully.
 		if len(instanceList.Instances) != 2 {
 			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
 		}

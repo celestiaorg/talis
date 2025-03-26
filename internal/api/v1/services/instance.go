@@ -9,6 +9,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -183,7 +184,8 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 
 	// Verify we found all requested instances
 	if len(instances) == 0 {
-		return fmt.Errorf("no active instances found with the specified names for job '%s'", jobName)
+		logger.Infof("No active instances found with the specified names for job '%s', request is a no-op", jobName)
+		return nil
 	}
 	if len(instances) != len(instanceNames) {
 		// Some instances were not found, log which ones
@@ -197,7 +199,7 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 				missingNames = append(missingNames, name)
 			}
 		}
-		return fmt.Errorf("some instances were not found or are already deleted for job '%s': %v", jobName, missingNames)
+		logger.Infof("Some instances were not found or are already deleted for job '%s': %v", jobName, missingNames)
 	}
 
 	s.terminate(ctx, job.Name, instances)
