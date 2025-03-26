@@ -51,7 +51,7 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var createReq infrastructure.InstanceCreateRequest
+		var createReq infrastructure.InstancesRequest
 		if err := json.Unmarshal(data, &createReq); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
@@ -63,15 +63,22 @@ var createInfraCmd = &cobra.Command{
 
 		// Call API client
 		ctx := context.Background()
-		resp, err := clientInstance.CreateJob(ctx, createReq)
+		err = clientInstance.CreateInstance(ctx, createReq)
 		if err != nil {
 			return fmt.Errorf("error creating infrastructure: %w", err)
 		}
 
 		// Process response
-		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Infrastructure created successfully")
 
+		// Get Job ID
+		// TODO: need more efficient way to get job ID or info. Like get job by name.
+		jobID, err := clientInstance.GetJobs(ctx, infrastructure.JobRequest{
+			Name: createReq.JobName,
+		})
+		if err != nil {
+			return fmt.Errorf("error creating job: %w", err)
+		}
 		// Generate delete file
 		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), fmt.Sprintf("delete_%s.json", strings.TrimSuffix(filepath.Base(jsonFile), filepath.Ext(jsonFile))))
 		deleteReq := infrastructure.DeleteInstanceRequest{
@@ -125,14 +132,13 @@ var deleteInfraCmd = &cobra.Command{
 		// Call API client
 		ctx := context.Background()
 		// Use a dummy job ID since we're deleting infrastructure
-		resp, err := clientInstance.DeleteJobInstance(ctx, fmt.Sprintf("%d", deleteReq.ID), deleteReq)
+		err = clientInstance.DeleteInstance(ctx, deleteReq)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
 
 		// Process response
-		prettyJSON, _ := json.MarshalIndent(resp, "", "  ")
-		_, _ = fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Infrastructure deleted successfully")
 
 		return nil
 	},
