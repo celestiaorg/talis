@@ -172,3 +172,19 @@ func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
 	// Then perform the soft delete
 	return r.db.WithContext(ctx).Delete(&models.Instance{}, id).Error
 }
+
+// GetByJobIDAndNames retrieves instances that belong to a specific job and match the given names
+func (r *InstanceRepository) GetByJobIDAndNames(
+	ctx context.Context,
+	jobID uint,
+	names []string,
+) ([]models.Instance, error) {
+	var instances []models.Instance
+	err := r.db.WithContext(ctx).
+		Where("job_id = ? AND name IN (?) AND deleted_at IS NULL", jobID, names).
+		Find(&instances).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instances: %w", err)
+	}
+	return instances, nil
+}

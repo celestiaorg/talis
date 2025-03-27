@@ -147,7 +147,6 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceList.Instances)
 	require.Equal(t, 2, len(instanceList.Instances))
-
 	actualInstances := instanceList.Instances
 
 	// Get instance metadata
@@ -164,10 +163,15 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
 
 	// Delete both instances
-	err = suite.APIClient.DeleteInstance(suite.Context(), infrastructure.DeleteInstanceRequest{
+	deleteRequest := infrastructure.DeleteInstanceRequest{
 		JobName:       jobRequest.Name,
 		InstanceNames: []string{actualInstances[1].Name, actualInstances[0].Name},
-	})
+	}
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	require.NoError(t, err)
+
+	// Submit the same deletion request again - should be a no-op
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Verify the instances eventually get terminated
