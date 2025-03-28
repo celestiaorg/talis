@@ -169,19 +169,50 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, ownerID uin
 }
 
 // List retrieves a paginated list of instances
+// applyListOptions applies the list options to the given query
+func (r *InstanceRepository) applyListOptions(query *gorm.DB, opts *models.ListOptions) *gorm.DB {
+	if opts == nil {
+		return query.Where("status != ?", models.InstanceStatusTerminated)
+	}
+
+	// Apply status filter if provided
+	if opts.Status != nil {
+		if opts.StatusFilter == models.StatusFilterNotEqual {
+			query = query.Where("status != ?", *opts.Status)
+		} else {
+			query = query.Where("status = ?", *opts.Status)
+		}
+	} else if !opts.IncludeDeleted {
+		// By default, only show non-terminated instances if not including deleted
+		query = query.Where("status != ?", models.InstanceStatusTerminated)
+	}
+
+	// Apply soft delete filter
+	if opts.IncludeDeleted {
+		query = query.Unscoped()
+	}
+
+	// Apply pagination
+	if opts.Limit > 0 {
+		query = query.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		query = query.Offset(opts.Offset)
+	}
+
+	return query
+}
+
+// List returns a list of instances based on the provided options
 func (r *InstanceRepository) List(ctx context.Context, ownerID uint, opts *models.ListOptions) ([]models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
 	var instances []models.Instance
-	query := r.db.WithContext(ctx)
+	query := r.applyListOptions(r.db.WithContext(ctx), opts)
 	if ownerID != models.AdminID {
 		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
-
-	if opts != nil && opts.IncludeDeleted {
-		query = query.Unscoped()
 	}
 
 	err := query.Find(&instances).Error
