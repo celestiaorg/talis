@@ -236,6 +236,12 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 		}
 		q.Set("status", statusStr)
 	}
+
+	// Add status_filter if provided, regardless of status value
+	if opts.StatusFilter != "" {
+		q.Set("status_filter", string(opts.StatusFilter))
+	}
+
 	return q, nil
 }
 

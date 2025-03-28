@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -203,4 +205,112 @@ func TestAPIClient_createAgent(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, agent)
 	})
+}
+
+func TestGetQueryParams(t *testing.T) {
+	ready := models.InstanceStatusReady
+	terminated := models.InstanceStatusTerminated
+
+	tests := []struct {
+		name     string
+		opts     *models.ListOptions
+		expected url.Values
+		wantErr  bool
+	}{
+		{
+			name:     "nil options",
+			opts:     nil,
+			expected: url.Values{},
+			wantErr:  false,
+		},
+		{
+			name:     "empty options",
+			opts:     &models.ListOptions{},
+			expected: url.Values{},
+			wantErr:  false,
+		},
+		{
+			name: "pagination only",
+			opts: &models.ListOptions{
+				Limit:  10,
+				Offset: 20,
+			},
+			expected: url.Values{
+				"limit":  []string{"10"},
+				"offset": []string{"20"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "include deleted only",
+			opts: &models.ListOptions{
+				IncludeDeleted: true,
+			},
+			expected: url.Values{
+				"include_deleted": []string{"true"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "status ready",
+			opts: &models.ListOptions{
+				Status: &ready,
+			},
+			expected: url.Values{
+				"status": []string{"ready"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "status terminated",
+			opts: &models.ListOptions{
+				Status: &terminated,
+			},
+			expected: url.Values{
+				"status": []string{"terminated"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "all options",
+			opts: &models.ListOptions{
+				Limit:          10,
+				Offset:         20,
+				IncludeDeleted: true,
+				Status:         &ready,
+				StatusFilter:   models.StatusFilterEqual,
+			},
+			expected: url.Values{
+				"limit":           []string{"10"},
+				"offset":          []string{"20"},
+				"include_deleted": []string{"true"},
+				"status":          []string{"ready"},
+				"status_filter":   []string{"equal"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid status",
+			opts: &models.ListOptions{
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatus(999)
+					return &s
+				}(),
+			},
+			expected: nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getQueryParams(tt.opts)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, got)
+		})
+	}
 }
