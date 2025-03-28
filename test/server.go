@@ -33,9 +33,11 @@ func SetupServer(suite *TestSuite) {
 	// Create handlers
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	projectHandler := handlers.NewProjectHandler(nil) // TODO: Add project service
+	taskHandler := handlers.NewTaskHandler(nil)       // TODO: Add task service
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, projectHandler, taskHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))
