@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"gorm.io/gorm"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // UserRepository handles database operations for user entities
