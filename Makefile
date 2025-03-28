@@ -94,6 +94,12 @@ run:
 	@go run ./cmd/main.go
 .PHONY: run
 
+## run-cli: Run the Talis CLI tool.: Usage: make run-cli ARGS="[args...]".: Examples: make run-cli ARGS="--help"
+run-cli:
+	@echo "Running Talis CLI..."
+	@go run ./cmd/cli/main.go $(ARGS)
+.PHONY: run-cli
+
 ## check-env: Check required environment variables
 check-env:
 	@echo "Checking environment variables..."
