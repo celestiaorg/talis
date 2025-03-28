@@ -29,17 +29,17 @@ type Client interface {
 
 	// Instance Endpoints
 	GetInstances(ctx context.Context, opts *models.ListOptions) (infrastructure.ListInstancesResponse, error)
-	GetInstancesMetadata(ctx context.Context) (infrastructure.InstanceMetadataResponse, error)
-	GetInstancesPublicIPs(ctx context.Context) (infrastructure.PublicIPsResponse, error)
+	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) (infrastructure.InstanceMetadataResponse, error)
+	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (infrastructure.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req infrastructure.InstancesRequest) error
 	DeleteInstance(ctx context.Context, req infrastructure.DeleteInstanceRequest) error
 
 	// Jobs Endpoints
-	GetJobs(ctx context.Context, limit int, status string) (infrastructure.ListJobsResponse, error)
+	GetJobs(ctx context.Context, opts *models.ListOptions) (infrastructure.ListJobsResponse, error)
 	GetJob(ctx context.Context, id string) (models.Job, error)
-	GetMetadataByJobID(ctx context.Context, id string) (infrastructure.InstanceMetadataResponse, error)
-	GetInstancesByJobID(ctx context.Context, id string) (infrastructure.JobInstancesResponse, error)
+	GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) (infrastructure.InstanceMetadataResponse, error)
+	GetInstancesByJobID(ctx context.Context, id string, opts *models.ListOptions) (infrastructure.JobInstancesResponse, error)
 	GetJobStatus(ctx context.Context, id string) (models.JobStatus, error)
 	CreateJob(ctx context.Context, req infrastructure.JobRequest) error
 	UpdateJob(ctx context.Context, id string, req infrastructure.JobRequest) error
@@ -201,24 +201,58 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 
 // Instance methods implementation
 
+// getQueryParams creates url.Values from ListOptions
+func getQueryParams(opts *models.ListOptions) (url.Values, error) {
+	q := url.Values{}
+	if opts == nil {
+		return q, nil
+	}
+
+	if opts.IncludeDeleted {
+		q.Set("include_deleted", "true")
+	}
+	if opts.Limit > 0 {
+		q.Set("limit", fmt.Sprintf("%d", opts.Limit))
+	}
+	if opts.Offset > 0 {
+		q.Set("offset", fmt.Sprintf("%d", opts.Offset))
+	}
+	if opts.Status != nil {
+		status := *opts.Status
+		var statusStr string
+		switch status {
+		case models.InstanceStatusUnknown:
+			statusStr = "unknown"
+		case models.InstanceStatusPending:
+			statusStr = "pending"
+		case models.InstanceStatusProvisioning:
+			statusStr = "provisioning"
+		case models.InstanceStatusReady:
+			statusStr = "ready"
+		case models.InstanceStatusTerminated:
+			statusStr = "terminated"
+		default:
+			return nil, fmt.Errorf("invalid instance status: %d", status)
+		}
+		q.Set("status", statusStr)
+	}
+
+	// Add status_filter if provided, regardless of status value
+	if opts.StatusFilter != "" {
+		q.Set("status_filter", string(opts.StatusFilter))
+	}
+
+	return q, nil
+}
+
 // GetInstances lists instances with optional filtering
 func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) (infrastructure.ListInstancesResponse, error) {
-	endpoint := routes.GetInstancesURL()
-	if opts != nil {
-		q := url.Values{}
-		if opts.Limit > 0 {
-			q.Set("limit", fmt.Sprintf("%d", opts.Limit))
-		}
-		if opts.Offset > 0 {
-			q.Set("offset", fmt.Sprintf("%d", opts.Offset))
-		}
-		if opts.IncludeDeleted {
-			q.Set("include_deleted", "true")
-		}
-		if len(q) > 0 {
-			endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-		}
+	q, err := getQueryParams(opts)
+	if err != nil {
+		return infrastructure.ListInstancesResponse{}, err
 	}
+
+	endpoint := routes.GetInstancesURL(q)
 	var response infrastructure.ListInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.ListInstancesResponse{}, err
@@ -227,8 +261,13 @@ func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) 
 }
 
 // GetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstancesMetadata(ctx context.Context) (infrastructure.InstanceMetadataResponse, error) {
-	endpoint := routes.GetInstanceMetadataURL()
+func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) (infrastructure.InstanceMetadataResponse, error) {
+	q, err := getQueryParams(opts)
+	if err != nil {
+		return infrastructure.InstanceMetadataResponse{}, err
+	}
+
+	endpoint := routes.GetInstanceMetadataURL(q)
 	var response infrastructure.InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.InstanceMetadataResponse{}, err
@@ -237,8 +276,13 @@ func (c *APIClient) GetInstancesMetadata(ctx context.Context) (infrastructure.In
 }
 
 // GetInstancesPublicIPs retrieves public IPs for all instances
-func (c *APIClient) GetInstancesPublicIPs(ctx context.Context) (infrastructure.PublicIPsResponse, error) {
-	endpoint := routes.GetPublicIPsURL()
+func (c *APIClient) GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (infrastructure.PublicIPsResponse, error) {
+	q, err := getQueryParams(opts)
+	if err != nil {
+		return infrastructure.PublicIPsResponse{}, err
+	}
+
+	endpoint := routes.GetPublicIPsURL(q)
 	var response infrastructure.PublicIPsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.PublicIPsResponse{}, err
@@ -271,8 +315,13 @@ func (c *APIClient) DeleteInstance(ctx context.Context, req infrastructure.Delet
 // Job methods implementation
 
 // GetJobs lists jobs with optional filtering
-func (c *APIClient) GetJobs(ctx context.Context, limit int, status string) (infrastructure.ListJobsResponse, error) {
-	endpoint := routes.GetJobsURL()
+func (c *APIClient) GetJobs(ctx context.Context, opts *models.ListOptions) (infrastructure.ListJobsResponse, error) {
+	q, err := getQueryParams(opts)
+	if err != nil {
+		return infrastructure.ListJobsResponse{}, err
+	}
+
+	endpoint := routes.GetJobsURL(q)
 	var response infrastructure.ListJobsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.ListJobsResponse{}, err
@@ -291,8 +340,13 @@ func (c *APIClient) GetJob(ctx context.Context, id string) (models.Job, error) {
 }
 
 // GetMetadataByJobID retrieves metadata for a job by ID
-func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string) (infrastructure.InstanceMetadataResponse, error) {
-	endpoint := routes.GetJobMetadataURL(id)
+func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) (infrastructure.InstanceMetadataResponse, error) {
+	q, err := getQueryParams(opts)
+	if err != nil {
+		return infrastructure.InstanceMetadataResponse{}, err
+	}
+
+	endpoint := routes.GetJobMetadataURL(id, q)
 	var response infrastructure.InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.InstanceMetadataResponse{}, err
@@ -301,8 +355,13 @@ func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string) (infrastr
 }
 
 // GetInstancesByJobID retrieves instances for a job by ID
-func (c *APIClient) GetInstancesByJobID(ctx context.Context, id string) (infrastructure.JobInstancesResponse, error) {
-	endpoint := routes.GetJobInstancesURL(id)
+func (c *APIClient) GetInstancesByJobID(ctx context.Context, id string, opts *models.ListOptions) (infrastructure.JobInstancesResponse, error) {
+	q, err := getQueryParams(opts)
+	if err != nil {
+		return infrastructure.JobInstancesResponse{}, err
+	}
+
+	endpoint := routes.GetJobInstancesURL(id, q)
 	var response infrastructure.JobInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.JobInstancesResponse{}, err

@@ -89,11 +89,16 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 	go func() {
 		fmt.Println("🚀 Starting async infrastructure creation...")
 
-		// TODO: need to update the instance status to provisioning
+		// Get the job name from the database
+		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID) // ownerID 0 for now since we're not using it yet
+		if err != nil {
+			fmt.Printf("❌ Failed to get job details: %v\n", err)
+			return
+		}
 
 		// Create a JobRequest for provisioning
 		infra, err := infrastructure.NewInfrastructure(&infrastructure.InstancesRequest{
-			JobName:     "example-job", // Replace with actual job name
+			JobName:     job.Name,
 			Instances:   instances,
 			ProjectName: "example-project", // TODO: replace it with the actual project name in another PR
 			Action:      "create",

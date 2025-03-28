@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
+	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -221,5 +222,116 @@ func (s *InstanceRepositoryTestSuite) TestTerminate() {
 	s.NoError(err)
 	for _, i := range instances {
 		s.NotEqual(instance.ID, i.ID, "Terminated instance should not be in regular list")
+	}
+}
+
+func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
+	tests := []struct {
+		name     string
+		opts     *models.ListOptions
+		validate func(query *gorm.DB)
+	}{
+		{
+			name: "nil options",
+			opts: nil,
+			validate: func(query *gorm.DB) {
+				var instances []models.Instance
+				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+					return tx.Find(&instances)
+				})
+				s.Contains(sql, "status != 4")
+			},
+		},
+		{
+			name: "with status equal filter",
+			opts: &models.ListOptions{
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterEqual,
+			},
+			validate: func(query *gorm.DB) {
+				var instances []models.Instance
+				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+					return tx.Find(&instances)
+				})
+				s.Contains(sql, "status = 3")
+			},
+		},
+		{
+			name: "with status not equal filter",
+			opts: &models.ListOptions{
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusTerminated
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterNotEqual,
+			},
+			validate: func(query *gorm.DB) {
+				var instances []models.Instance
+				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+					return tx.Find(&instances)
+				})
+				s.Contains(sql, "status != 4")
+			},
+		},
+		{
+			name: "with include deleted",
+			opts: &models.ListOptions{
+				IncludeDeleted: true,
+			},
+			validate: func(query *gorm.DB) {
+				var instances []models.Instance
+				err := query.Find(&instances).Error
+				s.NoError(err)
+				s.True(query.Statement.Unscoped)
+			},
+		},
+		{
+			name: "with pagination",
+			opts: &models.ListOptions{
+				Limit:  10,
+				Offset: 20,
+			},
+			validate: func(query *gorm.DB) {
+				var instances []models.Instance
+				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+					return tx.Find(&instances)
+				})
+				s.Contains(sql, "LIMIT 10")
+				s.Contains(sql, "OFFSET 20")
+			},
+		},
+		{
+			name: "with all options",
+			opts: &models.ListOptions{
+				Limit:          10,
+				Offset:         20,
+				IncludeDeleted: true,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterEqual,
+			},
+			validate: func(query *gorm.DB) {
+				var instances []models.Instance
+				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+					return tx.Find(&instances)
+				})
+				s.True(query.Statement.Unscoped)
+				s.Contains(sql, "LIMIT 10")
+				s.Contains(sql, "OFFSET 20")
+				s.Contains(sql, "status = 3")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			query := s.instanceRepo.applyListOptions(s.db, tt.opts)
+			tt.validate(query)
+		})
 	}
 }
