@@ -14,7 +14,8 @@ import (
 )
 
 var defaultJobRequest = infrastructure.JobRequest{
-	Name: "test-job",
+	Name:    "test-job",
+	OwnerID: models.AdminID,
 }
 
 var defaultInstancesRequest = infrastructure.InstancesRequest{
@@ -29,6 +30,7 @@ var defaultInstancesRequest = infrastructure.InstancesRequest{
 
 var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
+	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
 	SSHKeyName:        "test-key",
 	Region:            "nyc1",
@@ -38,6 +40,7 @@ var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 
 var defaultInstanceRequest2 = infrastructure.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
+	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
 	Name:              "custom-instance",
 	SSHKeyName:        "test-key",

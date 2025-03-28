@@ -28,8 +28,8 @@ func NewInstanceService(repo *repos.InstanceRepository, jobService *Job) *Instan
 }
 
 // ListInstances retrieves a paginated list of instances
-func (s *Instance) ListInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
-	return s.repo.List(ctx, opts)
+func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models.ListOptions) ([]models.Instance, error) {
+	return s.repo.List(ctx, ownerID, opts)
 }
 
 // CreateInstance creates a new instance
@@ -40,6 +40,23 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 	}
 
 	for _, i := range instances {
+		// Sanity check the ownerID fields.
+		// TODO: this is a little verbose, maybe we can clean it up?
+		bothZero := i.OwnerID == 0 && ownerID == 0
+		bothNonZero := i.OwnerID != 0 && ownerID != 0
+		// At least one of the ownerID fields is required
+		if bothZero {
+			return fmt.Errorf("instance owner_id is required")
+		}
+		// Sanity check that a user is not trying to create an instance for another user
+		if bothNonZero && i.OwnerID != ownerID {
+			return fmt.Errorf("instance owner_id does not match job owner_id")
+		}
+		// Ensure the instance owner_id is set
+		if i.OwnerID == 0 {
+			i.OwnerID = ownerID
+		}
+
 		baseName := i.Name
 		if baseName == "" {
 			baseName = fmt.Sprintf("instance-%s", uuid.New().String())
@@ -59,6 +76,7 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 
 			instance := &models.Instance{
 				Name:       instanceName,
+				OwnerID:    i.OwnerID,
 				JobID:      job.ID,
 				ProviderID: i.Provider,
 				Status:     models.InstanceStatusPending,
@@ -79,8 +97,8 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 }
 
 // GetInstance retrieves an instance by ID
-func (s *Instance) GetInstance(ctx context.Context, id uint) (*models.Instance, error) {
-	return s.repo.Get(ctx, id)
+func (s *Instance) GetInstance(ctx context.Context, ownerID, id uint) (*models.Instance, error) {
+	return s.repo.Get(ctx, ownerID, id)
 }
 
 // provisionInstances provisions the job asynchronously
@@ -133,13 +151,13 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 		// Update instance information in database
 		for _, instance := range pInstances {
 			// Update IP and status
-			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP); err != nil {
+			if err := s.repo.UpdateIPByName(ctx, instance.OwnerID, instance.Name, instance.IP); err != nil {
 				fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
 				continue
 			}
 			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.IP)
 
-			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
+			if err := s.repo.UpdateStatusByName(ctx, instance.OwnerID, instance.Name, models.InstanceStatusReady); err != nil {
 				fmt.Printf("❌ Failed to update instance %s status: %v\n", instance.Name, err)
 				continue
 			}
@@ -159,11 +177,11 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job
-func (s *Instance) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
+func (s *Instance) GetInstancesByJobID(ctx context.Context, ownerID uint, jobID uint) ([]models.Instance, error) {
 	fmt.Printf("📥 Getting instances for job ID %d from database...\n", jobID)
 
 	// Get instances for the specific job
-	instances, err := s.repo.GetByJobID(ctx, jobID)
+	instances, err := s.repo.GetByJobID(ctx, ownerID, jobID)
 	if err != nil {
 		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
 		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
@@ -182,7 +200,7 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 	}
 
 	// Get instances that belong to this job and match the provided names
-	instances, err := s.repo.GetByJobIDAndNames(ctx, job.ID, instanceNames)
+	instances, err := s.repo.GetByJobIDAndNames(ctx, ownerID, job.ID, instanceNames)
 	if err != nil {
 		return fmt.Errorf("failed to get instances: %w", err)
 	}
@@ -262,7 +280,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 					fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
 					// Instance doesn't exist in DO, safe to mark as deleted
-					if err := s.repo.Terminate(ctx, instance.ID); err != nil {
+					if err := s.repo.Terminate(ctx, instance.OwnerID, instance.ID); err != nil {
 						fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 						continue
 					}
@@ -277,7 +295,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			}
 
 			// Deletion was successful, update database
-			if err := s.repo.Terminate(ctx, instance.ID); err != nil {
+			if err := s.repo.Terminate(ctx, instance.OwnerID, instance.ID); err != nil {
 				fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 				continue
 			}

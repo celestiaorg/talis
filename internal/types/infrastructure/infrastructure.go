@@ -84,6 +84,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 
 			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
 				Region:            instance.Region,
+				OwnerID:           instance.OwnerID,
 				Size:              instance.Size,
 				Image:             instance.Image,
 				SSHKeyID:          instance.SSHKeyName,
@@ -95,6 +96,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
 			}
 			// Convert compute.InstanceInfo to our InstanceInfo and add to result
+			// TODO: why do we have two different instance info types?
 			for _, instanceInfo := range info {
 				instances = append(instances, InstanceInfo{
 					Name:     instanceInfo.Name,
@@ -102,6 +104,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 					Provider: models.ProviderID(instanceInfo.Provider),
 					Region:   instanceInfo.Region,
 					Size:     instanceInfo.Size,
+					OwnerID:  instance.OwnerID,
 				})
 			}
 		}

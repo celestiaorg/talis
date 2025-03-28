@@ -46,7 +46,7 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 
 	// TODO: should check for OwnerID and filter by it
 
-	instances, err := h.service.ListInstances(c.Context(), &opts)
+	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list instances: %v", err),
@@ -74,7 +74,7 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 
 	// Get instance using the service
 	// TODO: Consider passing OwnerID for security purposes
-	instance, err := h.service.GetInstance(c.Context(), uint(instanceID))
+	instance, err := h.service.GetInstance(c.Context(), models.AdminID, uint(instanceID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get instance: %v", err),
@@ -99,9 +99,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
-
-	err := h.service.CreateInstance(c.Context(), uint(ownerID), instancesReq.JobName, instancesReq.Instances)
+	err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.JobName, instancesReq.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -128,7 +126,7 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	}
 
 	// Get instances
-	instances, err := h.service.ListInstances(c.Context(), &opts)
+	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		fmt.Printf("❌ Error getting instances: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -179,7 +177,7 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	// TODO: should check for OwnerID and filter by it
 
 	// Get instances with their details using the service
-	instances, err := h.service.ListInstances(c.Context(), &opts)
+	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		fmt.Printf("❌ Error getting instance: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -218,7 +216,7 @@ func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
 	fmt.Printf("🔍 Getting instances for job ID %d...\n", jobID)
 
 	// Get instances using the service
-	instances, err := h.service.GetInstancesByJobID(c.Context(), uint(jobID))
+	instances, err := h.service.GetInstancesByJobID(c.Context(), models.AdminID, uint(jobID))
 	if err != nil {
 		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -250,9 +248,7 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
-
-	err := h.service.Terminate(c.Context(), uint(ownerID), deleteReq.JobName, deleteReq.InstanceNames)
+	err := h.service.Terminate(c.Context(), models.AdminID, deleteReq.JobName, deleteReq.InstanceNames)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),
@@ -280,7 +276,7 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 		opts.Status = &status
 	}
 
-	instances, err := h.service.ListInstances(c.Context(), &opts)
+	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list instances: %v", err),
