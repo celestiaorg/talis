@@ -21,6 +21,7 @@ type DBRepositoryTestSuite struct {
 	ctx          context.Context
 	jobRepo      *JobRepository
 	instanceRepo *InstanceRepository
+	userRepo     *UserRepository
 }
 
 func (s *DBRepositoryTestSuite) SetupTest() {
@@ -33,13 +34,14 @@ func (s *DBRepositoryTestSuite) SetupTest() {
 	require.NoError(s.T(), err, "Failed to create in-memory database")
 
 	// Run migrations
-	err = db.AutoMigrate(&models.Instance{}, &models.Job{})
+	err = db.AutoMigrate(&models.Instance{}, &models.Job{}, &models.User{})
 	require.NoError(s.T(), err, "Failed to run database migrations")
 
 	// Initialize repositories
 	s.db = db
 	s.jobRepo = NewJobRepository(s.db)
 	s.instanceRepo = NewInstanceRepository(s.db)
+	s.userRepo = NewUserRepository(s.db)
 	s.ctx = context.Background()
 }
 
@@ -85,6 +87,17 @@ func (s *DBRepositoryTestSuite) createTestJob() *models.Job {
 	err := s.jobRepo.Create(s.ctx, job)
 	s.Require().NoError(err)
 	return job
+}
+
+func (s *DBRepositoryTestSuite) createTestUser() *models.User {
+	user := &models.User{
+		Username: "test-user",
+		Email:    "test@example.com",
+		Role:     models.UserRoleUser,
+	}
+	err := s.userRepo.CreateUser(s.ctx, user)
+	s.Require().NoError(err)
+	return user
 }
 
 // TestDBRepository runs the test suite for the DBRepository to verify no panic
