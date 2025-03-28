@@ -61,6 +61,20 @@ const (
 	CreateJob           = "CreateJob"
 	UpdateJob           = "UpdateJob"
 	TerminateJob        = "TerminateJob"
+
+	// Project routes
+	CreateProject       = "CreateProject"
+	ListProjects        = "ListProjects"
+	GetProject          = "GetProject"
+	DeleteProject       = "DeleteProject"
+	GetProjectInstances = "GetProjectInstances"
+
+	// Task routes
+	CreateTask       = "CreateTask"
+	ListProjectTasks = "ListProjectTasks"
+	GetTask          = "GetTask"
+	UpdateTaskStatus = "UpdateTaskStatus"
+	DeleteTask       = "DeleteTask"
 )
 
 // routeCache stores extracted routes for use prior to compilation
@@ -78,6 +92,8 @@ func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
 	jobHandler *handlers.JobHandler,
+	projectHandler *handlers.ProjectHandler,
+	taskHandler *handlers.TaskHandler,
 ) {
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
@@ -115,6 +131,20 @@ func RegisterRoutes(
 	jobs.Post("/", jobHandler.CreateJob).Name(CreateJob)
 	jobs.Put("/:id", jobHandler.UpdateJob).Name(UpdateJob)
 	jobs.Delete("/:id", jobHandler.TerminateJob).Name(TerminateJob)
+
+	// Project routes
+	projects := v1.Group("/projects")
+	projects.Post("/", projectHandler.CreateProject).Name(CreateProject)
+	projects.Get("/", projectHandler.ListProjects).Name(ListProjects)
+	projects.Get("/:name", projectHandler.GetProject).Name(GetProject)
+	projects.Get("/:name/instances", projectHandler.ListProjectInstances).Name(GetProjectInstances)
+	projects.Delete("/:name", projectHandler.DeleteProject).Name(DeleteProject)
+
+	// Task routes
+	projects.Get("/:name/tasks", taskHandler.ListProjectTasks).Name(ListProjectTasks)
+	projects.Get("/:name/tasks/:taskName", taskHandler.GetTask).Name(GetTask)
+	projects.Put("/:name/tasks/:taskName/status", taskHandler.UpdateTaskStatus).Name(UpdateTaskStatus)
+	projects.Delete("/:name/tasks/:taskName", taskHandler.DeleteTask).Name(DeleteTask)
 }
 
 // initRouteCache initializes the route cache by creating a mock app and extracting routes
@@ -128,9 +158,11 @@ func initRouteCache() {
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
 		mockJobHandler := &handlers.JobHandler{}
+		mockProjectHandler := &handlers.ProjectHandler{}
+		mockTaskHandler := &handlers.TaskHandler{}
 
 		// Register routes with mock handlers
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockProjectHandler, mockTaskHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -267,4 +299,48 @@ func UpdateJobURL(id string) string {
 // DeleteJobURL returns the URL for deleting a job by ID
 func DeleteJobURL(id string) string {
 	return BuildURL(TerminateJob, map[string]string{"id": id})
+}
+
+// Project Routes
+
+// CreateProjectURL returns the URL for creating a project
+func CreateProjectURL() string {
+	return BuildURL(CreateProject, nil)
+}
+
+// ListProjectsURL returns the URL for listing projects
+func ListProjectsURL() string {
+	return BuildURL(ListProjects, nil)
+}
+
+// GetProjectURL returns the URL for getting a project by ID
+func GetProjectURL(id string) string {
+	return BuildURL(GetProject, map[string]string{"id": id})
+}
+
+// DeleteProjectURL returns the URL for deleting a project by ID
+func DeleteProjectURL(id string) string {
+	return BuildURL(DeleteProject, map[string]string{"id": id})
+}
+
+// Task Routes
+
+// ListProjectTasksURL returns the URL for listing tasks in a project
+func ListProjectTasksURL(projectName string) string {
+	return BuildURL(ListProjectTasks, map[string]string{"name": projectName})
+}
+
+// GetTaskURL returns the URL for getting a task by name
+func GetTaskURL(projectName string, taskName string) string {
+	return BuildURL(GetTask, map[string]string{"name": projectName, "taskName": taskName})
+}
+
+// UpdateTaskStatusURL returns the URL for updating a task status
+func UpdateTaskStatusURL(projectName string, taskName string) string {
+	return BuildURL(UpdateTaskStatus, map[string]string{"name": projectName, "taskName": taskName})
+}
+
+// DeleteTaskURL returns the URL for deleting a task
+func DeleteTaskURL(projectName string, taskName string) string {
+	return BuildURL(DeleteTask, map[string]string{"name": projectName, "taskName": taskName})
 }

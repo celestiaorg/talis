@@ -88,8 +88,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	}
 
 	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", DefaultPageSize)
-	paginationOpts := getPaginationOptions(page, limit)
+	paginationOpts := getPaginationOptions(page)
 
 	ownerID := 0 // TODO: get owner id from the JWT token
 
@@ -103,10 +102,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 		Slug: infrastructure.SuccessSlug,
 		Jobs: jobs,
 		Pagination: infrastructure.PaginationResponse{
-			Total:  len(jobs),
-			Page:   page,
-			Limit:  limit,
-			Offset: paginationOpts.Offset,
+			Total: len(jobs),
 		},
 	})
 }
