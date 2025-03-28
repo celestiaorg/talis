@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -208,26 +207,21 @@ func TestAPIClient_createAgent(t *testing.T) {
 }
 
 func TestGetQueryParams(t *testing.T) {
-	ready := models.InstanceStatusReady
-	terminated := models.InstanceStatusTerminated
-
 	tests := []struct {
-		name     string
-		opts     *models.ListOptions
-		expected url.Values
-		wantErr  bool
+		name    string
+		opts    *models.ListOptions
+		want    map[string][]string
+		wantErr bool
 	}{
 		{
-			name:     "nil options",
-			opts:     nil,
-			expected: url.Values{},
-			wantErr:  false,
+			name: "nil options",
+			opts: nil,
+			want: map[string][]string{},
 		},
 		{
-			name:     "empty options",
-			opts:     &models.ListOptions{},
-			expected: url.Values{},
-			wantErr:  false,
+			name: "empty options",
+			opts: &models.ListOptions{},
+			want: map[string][]string{},
 		},
 		{
 			name: "pagination only",
@@ -235,59 +229,83 @@ func TestGetQueryParams(t *testing.T) {
 				Limit:  10,
 				Offset: 20,
 			},
-			expected: url.Values{
-				"limit":  []string{"10"},
-				"offset": []string{"20"},
+			want: map[string][]string{
+				"limit":  {"10"},
+				"offset": {"20"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "include deleted only",
 			opts: &models.ListOptions{
 				IncludeDeleted: true,
 			},
-			expected: url.Values{
-				"include_deleted": []string{"true"},
+			want: map[string][]string{
+				"include_deleted": {"true"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "status ready",
 			opts: &models.ListOptions{
-				Status: &ready,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
 			},
-			expected: url.Values{
-				"status": []string{"ready"},
+			want: map[string][]string{
+				"status": {"ready"},
 			},
-			wantErr: false,
 		},
 		{
 			name: "status terminated",
 			opts: &models.ListOptions{
-				Status: &terminated,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusTerminated
+					return &s
+				}(),
 			},
-			expected: url.Values{
-				"status": []string{"terminated"},
+			want: map[string][]string{
+				"status": {"terminated"},
 			},
-			wantErr: false,
 		},
 		{
-			name: "all options",
+			name: "all options with status filter equal",
 			opts: &models.ListOptions{
 				Limit:          10,
 				Offset:         20,
 				IncludeDeleted: true,
-				Status:         &ready,
-				StatusFilter:   models.StatusFilterEqual,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterEqual,
 			},
-			expected: url.Values{
-				"limit":           []string{"10"},
-				"offset":          []string{"20"},
-				"include_deleted": []string{"true"},
-				"status":          []string{"ready"},
-				"status_filter":   []string{"equal"},
+			want: map[string][]string{
+				"limit":           {"10"},
+				"offset":          {"20"},
+				"include_deleted": {"true"},
+				"status":          {"ready"},
+				"status_filter":   {"equal"},
 			},
-			wantErr: false,
+		},
+		{
+			name: "all options with status filter not equal",
+			opts: &models.ListOptions{
+				Limit:          10,
+				Offset:         20,
+				IncludeDeleted: true,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusTerminated
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterNotEqual,
+			},
+			want: map[string][]string{
+				"limit":           {"10"},
+				"offset":          {"20"},
+				"include_deleted": {"true"},
+				"status":          {"terminated"},
+				"status_filter":   {"not_equal"},
+			},
 		},
 		{
 			name: "invalid status",
@@ -297,8 +315,7 @@ func TestGetQueryParams(t *testing.T) {
 					return &s
 				}(),
 			},
-			expected: nil,
-			wantErr:  true,
+			wantErr: true,
 		},
 	}
 
@@ -310,7 +327,7 @@ func TestGetQueryParams(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.expected, got)
+			assert.Equal(t, tt.want, map[string][]string(got))
 		})
 	}
 }
