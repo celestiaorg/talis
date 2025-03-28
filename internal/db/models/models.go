@@ -1,10 +1,12 @@
 package models
 
-// StatusFilter represents how to filter by status
+// StatusFilter represents how to filter instances by status
 type StatusFilter string
 
 const (
-	StatusFilterEqual    StatusFilter = "equal"
+	// StatusFilterEqual indicates filtering for instances with matching status
+	StatusFilterEqual StatusFilter = "equal"
+	// StatusFilterNotEqual indicates filtering for instances with non-matching status
 	StatusFilterNotEqual StatusFilter = "not_equal"
 )
 
