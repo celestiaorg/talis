@@ -1,4 +1,5 @@
 ---
+version: 2
 run:
   timeout: 5m
   modules-download-mode: readonly
@@ -7,16 +8,12 @@ linters:
   enable:
     - errorlint
     - errcheck
-    - gofmt
-    - goimports
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - revive
     - staticcheck
-    - typecheck
     - unconvert
     - unused
 
