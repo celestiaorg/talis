@@ -2,6 +2,7 @@ package repos
 
 import (
 	"context"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -56,6 +57,7 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 
 func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 	instance := &models.Instance{
+		OwnerID:    uint(rand.Intn(1000)),
 		JobID:      1,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance",
