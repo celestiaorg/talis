@@ -15,7 +15,7 @@ type UserRepository struct {
 	db *gorm.DB
 }
 
-// UserRepository handles database operations for user entities
+// NewUserRepository handles database operations for user entities
 func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
