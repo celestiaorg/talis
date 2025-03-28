@@ -37,10 +37,11 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 				JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid instance status: %v", err)))
 		}
 		opts.Status = &status
-	} else {
-		// By default, only show non-terminated instances
+	} else if !opts.IncludeDeleted && opts.Status == nil {
+		// By default, exclude terminated instances if not including deleted
 		defaultStatus := models.InstanceStatusTerminated
 		opts.Status = &defaultStatus
+		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
 	// TODO: should check for OwnerID and filter by it
@@ -119,10 +120,11 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
-	// By default, only show non-terminated instances
-	if c.Query("status") == "" {
+	// Only apply default status filter if IncludeDeleted is false
+	if !opts.IncludeDeleted && opts.Status == nil {
 		defaultStatus := models.InstanceStatusTerminated
 		opts.Status = &defaultStatus
+		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
 	// Get instances
@@ -166,10 +168,11 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
-	// By default, only show non-terminated instances
-	if c.Query("status") == "" {
+	// Only apply default status filter if IncludeDeleted is false
+	if !opts.IncludeDeleted && opts.Status == nil {
 		defaultStatus := models.InstanceStatusTerminated
 		opts.Status = &defaultStatus
+		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
 	// TODO: should check for JobID and filter by it

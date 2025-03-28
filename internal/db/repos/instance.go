@@ -84,7 +84,11 @@ func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions)
 	if opts != nil {
 		// Apply status filter if provided
 		if opts.Status != nil {
-			query = query.Where("status = ?", *opts.Status)
+			if opts.StatusFilter == models.StatusFilterNotEqual {
+				query = query.Where("status != ?", *opts.Status)
+			} else {
+				query = query.Where("status = ?", *opts.Status)
+			}
 		}
 
 		// Apply soft delete filter
