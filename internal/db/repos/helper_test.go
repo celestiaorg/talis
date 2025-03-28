@@ -99,11 +99,15 @@ func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models
 }
 
 func (s *DBRepositoryTestSuite) createTestJob() *models.Job {
+	return s.createTestJobForOwner(s.randomOwnerID())
+}
+
+func (s *DBRepositoryTestSuite) createTestJobForOwner(ownerID uint) *models.Job {
 	job := &models.Job{
 		Name:         "test-job",
 		InstanceName: "test-instance",
 		ProjectName:  "test-project",
-		OwnerID:      1,
+		OwnerID:      ownerID,
 		Status:       models.JobStatusPending,
 		SSHKeys:      models.SSHKeys{"key1", "key2"},
 		WebhookURL:   "https://example.com/webhook",

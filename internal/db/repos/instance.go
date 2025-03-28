@@ -9,14 +9,6 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
-// validateOwnerID ensures the ownerID is valid
-func validateOwnerID(ownerID uint) error {
-	if ownerID == 0 {
-		return fmt.Errorf("owner_id cannot be 0")
-	}
-	return nil
-}
-
 // InstanceRepository provides access to instance-related database operations
 type InstanceRepository struct {
 	db *gorm.DB
@@ -29,7 +21,7 @@ func NewInstanceRepository(db *gorm.DB) *InstanceRepository {
 
 // Create creates a new job in the database
 func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instance) error {
-	if err := validateOwnerID(instance.OwnerID); err != nil {
+	if err := models.ValidateOwnerID(instance.OwnerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 	return r.db.WithContext(ctx).Create(instance).Error
@@ -38,7 +30,7 @@ func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instan
 // GetByID retrieves an instance by its ID
 // if the ownerID is models.AdminID, it will return the instance regardless of ownership
 func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, JobID, ID uint) (*models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -63,7 +55,7 @@ func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, JobID, ID uin
 
 // GetByNames retrieves instances by their names
 func (r *InstanceRepository) GetByNames(ctx context.Context, ownerID uint, names []string) ([]models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -84,7 +76,7 @@ func (r *InstanceRepository) GetByNames(ctx context.Context, ownerID uint, names
 
 // Update updates an instance
 func (r *InstanceRepository) Update(ctx context.Context, ownerID, ID uint, instance *models.Instance) error {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -107,7 +99,7 @@ func (r *InstanceRepository) Update(ctx context.Context, ownerID, ID uint, insta
 
 // UpdateIPByName updates the public IP of an instance by its name
 func (r *InstanceRepository) UpdateIPByName(ctx context.Context, ownerID uint, name string, ip string) error {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -131,7 +123,7 @@ func (r *InstanceRepository) UpdateIPByName(ctx context.Context, ownerID uint, n
 
 // UpdateStatus updates the status of an instance
 func (r *InstanceRepository) UpdateStatus(ctx context.Context, ownerID, ID uint, status models.InstanceStatus) error {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -155,7 +147,7 @@ func (r *InstanceRepository) UpdateStatus(ctx context.Context, ownerID, ID uint,
 
 // UpdateStatusByName updates the status of an instance by its name
 func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, ownerID uint, name string, status models.InstanceStatus) error {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -178,7 +170,7 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, ownerID uin
 
 // List retrieves a paginated list of instances
 func (r *InstanceRepository) List(ctx context.Context, ownerID uint, opts *models.ListOptions) ([]models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -201,7 +193,7 @@ func (r *InstanceRepository) List(ctx context.Context, ownerID uint, opts *model
 
 // Count returns the total number of instances
 func (r *InstanceRepository) Count(ctx context.Context, ownerID uint) (int64, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return 0, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -220,7 +212,7 @@ func (r *InstanceRepository) Count(ctx context.Context, ownerID uint) (int64, er
 // Query executes a custom query against the instance table
 // This method is admin-only for security reasons
 func (r *InstanceRepository) Query(ctx context.Context, ownerID uint, query string, args ...interface{}) ([]models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 	if ownerID != models.AdminID {
@@ -234,7 +226,7 @@ func (r *InstanceRepository) Query(ctx context.Context, ownerID uint, query stri
 
 // Get retrieves an instance by ID
 func (r *InstanceRepository) Get(ctx context.Context, ownerID, id uint) (*models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -254,7 +246,7 @@ func (r *InstanceRepository) Get(ctx context.Context, ownerID, id uint) (*models
 
 // GetByJobID retrieves all instances for a given job ID
 func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint) ([]models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -275,7 +267,7 @@ func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint
 
 // GetByJobIDOrdered retrieves all instances for a given job ID, ordered by creation date (oldest first)
 func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, ownerID, jobID uint) ([]models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -297,7 +289,7 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, ownerID, job
 
 // Terminate updates the status of an instance to terminated and performs a soft delete
 func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) error {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
@@ -329,7 +321,7 @@ func (r *InstanceRepository) GetByJobIDAndNames(
 	jobID uint,
 	names []string,
 ) ([]models.Instance, error) {
-	if err := validateOwnerID(ownerID); err != nil {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
