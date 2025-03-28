@@ -26,6 +26,11 @@ func (r *JobRepository) Create(ctx context.Context, job *models.Job) error {
 	return r.db.WithContext(ctx).Create(job).Error
 }
 
+// Update updates an existing job in the database
+func (r *JobRepository) Update(ctx context.Context, job *models.Job) error {
+	return r.db.WithContext(ctx).Save(job).Error
+}
+
 // UpdateStatus updates the status of a job in the database
 func (r *JobRepository) UpdateStatus(ctx context.Context, ID uint, status models.JobStatus, result interface{}, errMsg string) error {
 	resultJSON, err := json.Marshal(result)
@@ -93,7 +98,13 @@ func (r *JobRepository) List(ctx context.Context, status models.JobStatus, Owner
 	if OwnerID != 0 {
 		qry.OwnerID = OwnerID
 	}
-	err := r.db.WithContext(ctx).Model(&models.Job{}).
+
+	db := r.db.WithContext(ctx)
+	if !opts.IncludeDeleted {
+		db = db.Unscoped().Where("deleted_at IS NULL")
+	}
+
+	err := db.Model(&models.Job{}).
 		Where(qry).
 		Limit(opts.Limit).Offset(opts.Offset).
 		Order(models.JobCreatedAtField + " DESC").
