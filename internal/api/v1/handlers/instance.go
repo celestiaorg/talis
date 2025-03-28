@@ -37,6 +37,10 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 				JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid instance status: %v", err)))
 		}
 		opts.Status = &status
+	} else {
+		// By default, only show non-terminated instances
+		defaultStatus := models.InstanceStatusTerminated
+		opts.Status = &defaultStatus
 	}
 
 	// TODO: should check for OwnerID and filter by it
@@ -115,6 +119,12 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
+	// By default, only show non-terminated instances
+	if c.Query("status") == "" {
+		defaultStatus := models.InstanceStatusTerminated
+		opts.Status = &defaultStatus
+	}
+
 	// Get instances
 	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {
@@ -155,6 +165,12 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
+
+	// By default, only show non-terminated instances
+	if c.Query("status") == "" {
+		defaultStatus := models.InstanceStatusTerminated
+		opts.Status = &defaultStatus
+	}
 
 	// TODO: should check for JobID and filter by it
 	// TODO: should check for OwnerID and filter by it
