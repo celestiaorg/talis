@@ -51,11 +51,7 @@ func (r *JobRepository) UpdateStatus(ctx context.Context, ID uint, status models
 // if the ownerID is 0, it will return the job regardless of the owner
 func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.Job, error) {
 	var job models.Job
-	qry := &models.Job{Model: gorm.Model{ID: ID}}
-	// Zero is an option when admin is fetching a job
-	if OwnerID != 0 {
-		qry.OwnerID = OwnerID
-	}
+	qry := &models.Job{Model: gorm.Model{ID: ID}, OwnerID: OwnerID}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("job not found: %w", err)
@@ -70,11 +66,7 @@ func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.
 // if the ownerID is 0, it will return the job regardless of the owner
 func (r *JobRepository) GetByName(ctx context.Context, OwnerID uint, name string) (*models.Job, error) {
 	var job models.Job
-	qry := &models.Job{Name: name}
-	// Zero is an option when admin is fetching a job
-	if OwnerID != 0 {
-		qry.OwnerID = OwnerID
-	}
+	qry := &models.Job{Name: name, OwnerID: OwnerID}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)

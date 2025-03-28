@@ -2,7 +2,8 @@ package repos
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"testing"
 	"time"
 
@@ -23,6 +24,13 @@ type DBRepositoryTestSuite struct {
 	jobRepo      *JobRepository
 	instanceRepo *InstanceRepository
 	userRepo     *UserRepository
+}
+
+// randomOwnerID creates a random owner ID using crypto/rand
+func (s *DBRepositoryTestSuite) randomOwnerID() uint {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000))
+	s.Require().NoError(err, "Failed to generate random owner ID")
+	return uint(n.Uint64())
 }
 
 func (s *DBRepositoryTestSuite) SetupTest() {
@@ -57,7 +65,7 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 
 func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 	instance := &models.Instance{
-		OwnerID:    uint(rand.Intn(1000)),
+		OwnerID:    s.randomOwnerID(),
 		JobID:      1,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance",

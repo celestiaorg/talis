@@ -3,6 +3,7 @@ package types
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
 	Region            string   // Region where to create the instance
+	OwnerID           uint     // Owner ID of the instance
 	Size              string   // Size/type of the instance
 	Image             string   // OS image to use
 	SSHKeyID          string   // SSH key name to use
@@ -14,6 +15,7 @@ type InstanceConfig struct {
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
 	ID       string // Provider-specific instance ID
+	OwnerID  uint   // Owner ID of the instance
 	Name     string // Instance name
 	PublicIP string // Public IP address
 	Provider string // Provider name (e.g., "digitalocean")

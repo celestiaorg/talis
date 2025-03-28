@@ -274,7 +274,6 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 	}
 
 	query := r.db.WithContext(ctx).
-		Unscoped().
 		Where(&models.Instance{Model: gorm.Model{ID: id}, OwnerID: ownerID})
 
 	// First update the status to terminated

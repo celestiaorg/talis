@@ -56,14 +56,13 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
 	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	status, err := h.jobService.GetJobStatus(c.Context(), uint(ownerID), uint(jobID))
+	status, err := h.jobService.GetJobStatus(c.Context(), models.AdminID, uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -91,9 +90,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	limit := c.QueryInt("limit", DefaultPageSize)
 	paginationOpts := getPaginationOptions(page, limit)
 
-	ownerID := 0 // TODO: get owner id from the JWT token
-
-	jobs, err := h.jobService.ListJobs(c.Context(), status, uint(ownerID), paginationOpts)
+	jobs, err := h.jobService.ListJobs(c.Context(), status, models.AdminID, paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -125,9 +122,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
-
-	err := h.jobService.CreateJob(c.Context(), uint(ownerID), &jobReq)
+	err := h.jobService.CreateJob(c.Context(), models.AdminID, &jobReq)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -146,9 +141,7 @@ func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid job id: %v", err)))
 	}
 
-	ownerID := 0 // TODO: get owner id from the JWT token
-
-	err = h.jobService.TerminateJob(c.Context(), uint(ownerID), uint(jobID))
+	err = h.jobService.TerminateJob(c.Context(), models.AdminID, uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
