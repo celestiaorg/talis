@@ -33,9 +33,8 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	if statusStr := c.Query("status"); statusStr != "" {
 		status, err := models.ParseInstanceStatus(statusStr)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": fmt.Sprintf("invalid instance status: %v", err),
-			})
+			return c.Status(fiber.StatusBadRequest).
+				JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid instance status: %v", err)))
 		}
 		opts.Status = &status
 	}

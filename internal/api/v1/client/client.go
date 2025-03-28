@@ -246,11 +246,7 @@ func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) 
 		return infrastructure.ListInstancesResponse{}, err
 	}
 
-	endpoint := routes.GetInstancesURL()
-	if len(q) > 0 {
-		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-	}
-
+	endpoint := routes.GetInstancesURL(q)
 	var response infrastructure.ListInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.ListInstancesResponse{}, err
@@ -265,11 +261,7 @@ func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListO
 		return infrastructure.InstanceMetadataResponse{}, err
 	}
 
-	endpoint := routes.GetInstanceMetadataURL()
-	if len(q) > 0 {
-		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-	}
-
+	endpoint := routes.GetInstanceMetadataURL(q)
 	var response infrastructure.InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.InstanceMetadataResponse{}, err
@@ -284,11 +276,7 @@ func (c *APIClient) GetInstancesPublicIPs(ctx context.Context, opts *models.List
 		return infrastructure.PublicIPsResponse{}, err
 	}
 
-	endpoint := routes.GetPublicIPsURL()
-	if len(q) > 0 {
-		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-	}
-
+	endpoint := routes.GetPublicIPsURL(q)
 	var response infrastructure.PublicIPsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.PublicIPsResponse{}, err
@@ -327,11 +315,7 @@ func (c *APIClient) GetJobs(ctx context.Context, opts *models.ListOptions) (infr
 		return infrastructure.ListJobsResponse{}, err
 	}
 
-	endpoint := routes.GetJobsURL()
-	if len(q) > 0 {
-		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-	}
-
+	endpoint := routes.GetJobsURL(q)
 	var response infrastructure.ListJobsResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.ListJobsResponse{}, err
@@ -356,11 +340,7 @@ func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string, opts *mod
 		return infrastructure.InstanceMetadataResponse{}, err
 	}
 
-	endpoint := routes.GetJobMetadataURL(id)
-	if len(q) > 0 {
-		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-	}
-
+	endpoint := routes.GetJobMetadataURL(id, q)
 	var response infrastructure.InstanceMetadataResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.InstanceMetadataResponse{}, err
@@ -375,11 +355,7 @@ func (c *APIClient) GetInstancesByJobID(ctx context.Context, id string, opts *mo
 		return infrastructure.JobInstancesResponse{}, err
 	}
 
-	endpoint := routes.GetJobInstancesURL(id)
-	if len(q) > 0 {
-		endpoint = fmt.Sprintf("%s?%s", endpoint, q.Encode())
-	}
-
+	endpoint := routes.GetJobInstancesURL(id, q)
 	var response infrastructure.JobInstancesResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return infrastructure.JobInstancesResponse{}, err
