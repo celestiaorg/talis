@@ -25,10 +25,10 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 func (r *UserRepository) CreateUser(ctx context.Context, user *models.User) error {
 	_, err := r.GetUserByUsername(ctx, user.Username)
 	if err == nil {
-		return fmt.Errorf("username %w, already exists", err)
+		return fmt.Errorf("username already exists")
 	}
 
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("error checking username existence: %w", err)
 	}
 	return r.db.WithContext(ctx).Create(user).Error
