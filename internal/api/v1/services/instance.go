@@ -40,9 +40,19 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 	}
 
 	for _, i := range instances {
-		if i.OwnerID != 0 && i.OwnerID != ownerID {
+		// Sanity check the ownerID fields.
+		// TODO: this is a little verbose, maybe we can clean it up?
+		bothZero := i.OwnerID == 0 && ownerID == 0
+		bothNonZero := i.OwnerID != 0 && ownerID != 0
+		// At least one of the ownerID fields is required
+		if bothZero {
+			return fmt.Errorf("instance owner_id is required")
+		}
+		// Sanity check that a user is not trying to create an instance for another user
+		if bothNonZero && i.OwnerID != ownerID {
 			return fmt.Errorf("instance owner_id does not match job owner_id")
 		}
+		// Ensure the instance owner_id is set
 		if i.OwnerID == 0 {
 			i.OwnerID = ownerID
 		}

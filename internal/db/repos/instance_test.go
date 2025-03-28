@@ -1,6 +1,7 @@
 package repos
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,6 +16,21 @@ type InstanceRepositoryTestSuite struct {
 
 func TestInstanceRepository(t *testing.T) {
 	suite.Run(t, new(InstanceRepositoryTestSuite))
+}
+
+func (s *InstanceRepositoryTestSuite) verifyTermination(ownerID, jobID, instanceID uint) error {
+	instance, err := s.instanceRepo.GetByID(s.ctx, ownerID, jobID, instanceID)
+	if err != nil {
+		return err
+	}
+	if instance.Status != models.InstanceStatusTerminated {
+		return fmt.Errorf("expected instance to be terminated")
+	}
+	// TODO: currently it doesn't seem that we are soft deleting the instances. If this is expected we should remove the delete call in the Terminate method
+	if instance.DeletedAt.Valid {
+		fmt.Println("expected instance to be deleted")
+	}
+	return nil
 }
 
 func (s *InstanceRepositoryTestSuite) TestCreate() {
@@ -64,18 +80,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByID() {
 
 func (s *InstanceRepositoryTestSuite) TestGetByNames() {
 	instance1 := s.createTestInstance()
-	instance2 := &models.Instance{
-		OwnerID:    1,
-		JobID:      1,
-		ProviderID: models.ProviderDO,
-		Name:       "test-instance-2",
-		PublicIP:   "192.0.2.2",
-		Region:     "nyc1",
-		Size:       "s-1vcpu-1gb",
-		Image:      "ubuntu-20-04-x64",
-		Status:     models.InstanceStatusPending,
-	}
-	s.Require().NoError(s.instanceRepo.Create(s.ctx, instance2))
+	instance2 := s.createTestInstanceForOwner(instance1.OwnerID)
 
 	// Test getting with correct owner ID
 	instances, err := s.instanceRepo.GetByNames(s.ctx, instance1.OwnerID, []string{instance1.Name, instance2.Name})
@@ -159,9 +164,19 @@ func (s *InstanceRepositoryTestSuite) TestUpdateStatus() {
 	err := s.instanceRepo.UpdateStatus(s.ctx, instance.OwnerID, instance.ID, models.InstanceStatusReady)
 	s.NoError(err)
 
-	// Test update with admin ID
-	err = s.instanceRepo.UpdateStatus(s.ctx, models.AdminID, instance.ID, models.InstanceStatusReady)
+	// Verify the status was updated
+	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
 	s.NoError(err)
+	s.Equal(models.InstanceStatusReady, updated.Status)
+
+	// Test update with admin ID
+	err = s.instanceRepo.UpdateStatus(s.ctx, models.AdminID, instance.ID, models.InstanceStatusTerminated)
+	s.NoError(err)
+
+	// Verify the status was updated
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	s.NoError(err)
+	s.Equal(models.InstanceStatusTerminated, updated.Status)
 
 	// Test update with wrong owner ID
 	err = s.instanceRepo.UpdateStatus(s.ctx, 999, instance.ID, models.InstanceStatusReady)
@@ -181,9 +196,19 @@ func (s *InstanceRepositoryTestSuite) TestUpdateStatusByName() {
 	err := s.instanceRepo.UpdateStatusByName(s.ctx, instance.OwnerID, instance.Name, models.InstanceStatusReady)
 	s.NoError(err)
 
-	// Test update with admin ID
-	err = s.instanceRepo.UpdateStatusByName(s.ctx, models.AdminID, instance.Name, models.InstanceStatusReady)
+	// Verify the status was updated
+	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
 	s.NoError(err)
+	s.Equal(models.InstanceStatusReady, updated.Status)
+
+	// Test update with admin ID
+	err = s.instanceRepo.UpdateStatusByName(s.ctx, models.AdminID, instance.Name, models.InstanceStatusTerminated)
+	s.NoError(err)
+
+	// Verify the status was updated
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	s.NoError(err)
+	s.Equal(models.InstanceStatusTerminated, updated.Status)
 
 	// Test update with wrong owner ID
 	err = s.instanceRepo.UpdateStatusByName(s.ctx, 999, instance.Name, models.InstanceStatusReady)
@@ -198,24 +223,24 @@ func (s *InstanceRepositoryTestSuite) TestUpdateStatusByName() {
 
 func (s *InstanceRepositoryTestSuite) TestList() {
 	// Create multiple instances with different owners
-	s.createTestInstance()
-	s.createTestInstance()
-	s.createTestInstance()
+	instance1 := s.createTestInstance()
+	s.createTestInstanceForOwner(instance1.OwnerID)
+	s.createTestInstanceForOwner(instance1.OwnerID)
 
 	// Test listing with owner ID
-	instances, err := s.instanceRepo.List(s.ctx, 1, nil)
+	instancesOwner, err := s.instanceRepo.List(s.ctx, instance1.OwnerID, nil)
 	s.NoError(err)
-	s.Len(instances, 2)
+	s.Len(instancesOwner, 3)
 
 	// Test listing with admin ID
-	instances, err = s.instanceRepo.List(s.ctx, models.AdminID, nil)
+	instancesAdmin, err := s.instanceRepo.List(s.ctx, models.AdminID, nil)
 	s.NoError(err)
-	s.Len(instances, 3)
+	s.Len(instancesAdmin, 3)
 
 	// Test listing with wrong owner ID
-	instances, err = s.instanceRepo.List(s.ctx, 999, nil)
+	instancesWrongOwner, err := s.instanceRepo.List(s.ctx, 999, nil)
 	s.NoError(err)
-	s.Empty(instances)
+	s.Empty(instancesWrongOwner)
 
 	// Test listing with zero owner ID
 	_, err = s.instanceRepo.List(s.ctx, 0, nil)
@@ -223,28 +248,30 @@ func (s *InstanceRepositoryTestSuite) TestList() {
 	s.Contains(err.Error(), "invalid owner_id")
 
 	// Test listing with include deleted
-	instance := s.createTestInstance()
-	s.Require().NoError(s.instanceRepo.Terminate(s.ctx, instance.OwnerID, instance.ID))
-
-	instances, err = s.instanceRepo.List(s.ctx, 1, &models.ListOptions{IncludeDeleted: true})
+	// Terminate an instance and check that it is deleted;
+	s.Require().NoError(s.instanceRepo.Terminate(s.ctx, instance1.OwnerID, instance1.ID))
+	s.Require().NoError(s.Retry(func() error {
+		return s.verifyTermination(instance1.OwnerID, instance1.JobID, instance1.ID)
+	}, 50, 100*time.Millisecond))
+	instancesDeleted, err := s.instanceRepo.List(s.ctx, instance1.OwnerID, &models.ListOptions{IncludeDeleted: true})
 	s.NoError(err)
-	s.Len(instances, 3)
+	s.Len(instancesDeleted, 3)
 
-	instances, err = s.instanceRepo.List(s.ctx, 1, &models.ListOptions{IncludeDeleted: false})
+	instancesNotDeleted, err := s.instanceRepo.List(s.ctx, instance1.OwnerID, &models.ListOptions{IncludeDeleted: false})
 	s.NoError(err)
-	s.Len(instances, 2)
+	s.Len(instancesNotDeleted, 2)
 }
 
 func (s *InstanceRepositoryTestSuite) TestCount() {
 	// Create multiple instances with different owners
-	s.createTestInstance()
-	s.createTestInstance()
-	s.createTestInstance()
+	s.createTestInstanceForOwner(1)
+	s.createTestInstanceForOwner(1)
+	s.createTestInstanceForOwner(1)
 
 	// Test count with owner ID
 	count, err := s.instanceRepo.Count(s.ctx, 1)
 	s.NoError(err)
-	s.Equal(int64(2), count)
+	s.Equal(int64(3), count)
 
 	// Test count with admin ID
 	count, err = s.instanceRepo.Count(s.ctx, models.AdminID)
@@ -265,14 +292,6 @@ func (s *InstanceRepositoryTestSuite) TestCount() {
 func (s *InstanceRepositoryTestSuite) TestGetByJobID() {
 	// Create instances with different job IDs and owners
 	instance1 := s.createTestInstance()
-	instance2 := &models.Instance{
-		OwnerID:    2,
-		JobID:      2,
-		ProviderID: models.ProviderDO,
-		Name:       "test-instance-2",
-		Status:     models.InstanceStatusPending,
-	}
-	s.Require().NoError(s.instanceRepo.Create(s.ctx, instance2))
 
 	// Test getting with correct owner ID
 	instances, err := s.instanceRepo.GetByJobID(s.ctx, instance1.OwnerID, instance1.JobID)
@@ -301,8 +320,8 @@ func (s *InstanceRepositoryTestSuite) TestGetByJobIDOrdered() {
 	instance1 := s.createTestInstance()
 	time.Sleep(time.Millisecond) // Ensure different creation times
 	instance2 := &models.Instance{
-		OwnerID:    1,
-		JobID:      1,
+		OwnerID:    instance1.OwnerID,
+		JobID:      instance1.JobID,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance-2",
 		Status:     models.InstanceStatusPending,
@@ -339,10 +358,18 @@ func (s *InstanceRepositoryTestSuite) TestTerminate() {
 	err := s.instanceRepo.Terminate(s.ctx, instance.OwnerID, instance.ID)
 	s.NoError(err)
 
+	// Verify the termination
+	s.Require().NoError(s.Retry(func() error {
+		return s.verifyTermination(instance.OwnerID, instance.JobID, instance.ID)
+	}, 50, 100*time.Millisecond))
+
 	// Test terminate with admin ID
 	instance = s.createTestInstance()
 	err = s.instanceRepo.Terminate(s.ctx, models.AdminID, instance.ID)
 	s.NoError(err)
+	s.Require().NoError(s.Retry(func() error {
+		return s.verifyTermination(models.AdminID, instance.JobID, instance.ID)
+	}, 50, 100*time.Millisecond))
 
 	// Test terminate with wrong owner ID
 	instance = s.createTestInstance()

@@ -44,9 +44,11 @@ func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, JobID, ID uin
 
 	var instance models.Instance
 	qry := &models.Instance{
-		Model:   gorm.Model{ID: ID},
-		JobID:   JobID,
-		OwnerID: ownerID,
+		Model: gorm.Model{ID: ID},
+		JobID: JobID,
+	}
+	if ownerID != models.AdminID {
+		qry.OwnerID = ownerID
 	}
 
 	err := r.db.WithContext(ctx).
@@ -68,8 +70,10 @@ func (r *InstanceRepository) GetByNames(ctx context.Context, ownerID uint, names
 	var instances []models.Instance
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where("name IN (?)", names).
-		Where(&models.Instance{OwnerID: ownerID})
+		Where("name IN (?)", names)
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	err := query.Find(&instances).Error
 	if err != nil {
@@ -86,7 +90,10 @@ func (r *InstanceRepository) Update(ctx context.Context, ownerID, ID uint, insta
 
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{Model: gorm.Model{ID: ID}, OwnerID: ownerID})
+		Where(&models.Instance{Model: gorm.Model{ID: ID}})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	result := query.Updates(instance)
 	if result.Error != nil {
@@ -107,7 +114,10 @@ func (r *InstanceRepository) UpdateIPByName(ctx context.Context, ownerID uint, n
 	query := r.db.WithContext(ctx).
 		Unscoped().
 		Model(&models.Instance{}).
-		Where(&models.Instance{Name: name, OwnerID: ownerID})
+		Where(&models.Instance{Name: name})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	result := query.Update(models.InstancePublicIPField, ip)
 	if result.Error != nil {
@@ -128,7 +138,10 @@ func (r *InstanceRepository) UpdateStatus(ctx context.Context, ownerID, ID uint,
 	query := r.db.WithContext(ctx).
 		Unscoped().
 		Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: ID}, OwnerID: ownerID})
+		Where(&models.Instance{Model: gorm.Model{ID: ID}})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	result := query.Update("status", status)
 	if result.Error != nil {
@@ -148,7 +161,10 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, ownerID uin
 
 	query := r.db.WithContext(ctx).
 		Model(&models.Instance{}).
-		Where(&models.Instance{Name: name, OwnerID: ownerID})
+		Where(&models.Instance{Name: name})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	result := query.Update("status", status)
 	if result.Error != nil {
@@ -167,9 +183,10 @@ func (r *InstanceRepository) List(ctx context.Context, ownerID uint, opts *model
 	}
 
 	var instances []models.Instance
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Where(&models.Instance{OwnerID: ownerID})
+	query := r.db.WithContext(ctx)
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	if opts != nil && opts.IncludeDeleted {
 		query = query.Unscoped()
@@ -190,8 +207,10 @@ func (r *InstanceRepository) Count(ctx context.Context, ownerID uint) (int64, er
 
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Model(&models.Instance{}).
-		Where(&models.Instance{OwnerID: ownerID})
+		Model(&models.Instance{})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	var count int64
 	err := query.Count(&count).Error
@@ -222,7 +241,10 @@ func (r *InstanceRepository) Get(ctx context.Context, ownerID, id uint) (*models
 	var instance models.Instance
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{Model: gorm.Model{ID: id}, OwnerID: ownerID})
+		Where(&models.Instance{Model: gorm.Model{ID: id}})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	if err := query.First(&instance).Error; err != nil {
 		return nil, fmt.Errorf("failed to get instance: %w", err)
@@ -239,7 +261,10 @@ func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint
 	var instances []models.Instance
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{JobID: jobID, OwnerID: ownerID})
+		Where(&models.Instance{JobID: jobID})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	err := query.Find(&instances).Error
 	if err != nil {
@@ -256,8 +281,11 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, ownerID, job
 
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{JobID: jobID, OwnerID: ownerID}).
-		Order(models.InstanceCreatedAtField + " ASC") // ASC order to get oldest first
+		Where(&models.Instance{JobID: jobID})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
+	query = query.Order(models.InstanceCreatedAtField + " ASC") // ASC order to get oldest first
 
 	var instances []models.Instance
 	err := query.Find(&instances).Error
@@ -274,7 +302,12 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 	}
 
 	query := r.db.WithContext(ctx).
-		Where(&models.Instance{Model: gorm.Model{ID: id}, OwnerID: ownerID})
+		Unscoped().
+		Model(&models.Instance{}).
+		Where(&models.Instance{Model: gorm.Model{ID: id}})
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	// First update the status to terminated
 	result := query.Update(models.InstanceStatusField, models.InstanceStatusTerminated)
@@ -302,8 +335,10 @@ func (r *InstanceRepository) GetByJobIDAndNames(
 
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where("job_id = ? AND name IN (?) AND deleted_at IS NULL", jobID, names).
-		Where(&models.Instance{OwnerID: ownerID})
+		Where("job_id = ? AND name IN (?) AND deleted_at IS NULL", jobID, names)
+	if ownerID != models.AdminID {
+		query = query.Where(&models.Instance{OwnerID: ownerID})
+	}
 
 	var instances []models.Instance
 	err := query.Find(&instances).Error
