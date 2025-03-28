@@ -170,10 +170,6 @@ func TestClientInstanceMethods(t *testing.T) {
 	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
-	// Submit the same deletion request again - should be a no-op
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
-	require.NoError(t, err)
-
 	// Verify the instances eventually get terminated
 	err = suite.Retry(func() error {
 		// Use status filter to specifically look for terminated instances
@@ -196,6 +192,11 @@ func TestClientInstanceMethods(t *testing.T) {
 		}
 		return nil
 	}, 100, 100*time.Millisecond)
+	require.NoError(t, err)
+
+	// Submit the same deletion request again - should be a no-op
+	// We do this after verifying termination to ensure the first deletion completed
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Verify that the default list (non-terminated) shows no instances
