@@ -150,14 +150,14 @@ func TestClientInstanceMethods(t *testing.T) {
 	actualInstances := instanceList.Instances
 
 	// Get instance metadata
-	instanceMetadata, err := suite.APIClient.GetInstancesMetadata(suite.Context())
+	instanceMetadata, err := suite.APIClient.GetInstancesMetadata(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceMetadata.Instances)
 	require.Equal(t, 2, len(instanceMetadata.Instances))
 	require.Equal(t, actualInstances, instanceMetadata.Instances)
 
 	// Get public IPs
-	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context())
+	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotEmpty(t, publicIPs.PublicIPs)
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
@@ -209,7 +209,9 @@ func TestClientJobMethods(t *testing.T) {
 	defer suite.Cleanup()
 
 	// Get jobs to verify there are none
-	jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+	jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+		Limit: handlers.DefaultPageSize,
+	})
 	require.NoError(t, err)
 	require.Empty(t, jobsList.Jobs)
 
@@ -220,7 +222,9 @@ func TestClientJobMethods(t *testing.T) {
 
 	// Wait for the job to be available
 	err = suite.Retry(func() error {
-		jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+		jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+			Limit: handlers.DefaultPageSize,
+		})
 		if err != nil {
 			return err
 		}
@@ -232,7 +236,9 @@ func TestClientJobMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Grab the job from the list of jobs
-	jobList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+	jobList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+		Limit: handlers.DefaultPageSize,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, jobList.Jobs)
 	require.Equal(t, 1, len(jobList.Jobs))
@@ -250,14 +256,14 @@ func TestClientJobMethods(t *testing.T) {
 	// TODO: the job appears to be mismatched?
 
 	// Get instance metadata for the job
-	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID))
+	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, instanceMetadata)
 	// TODO Job ID issue causing this as well.
 	// require.Equal(t, 1, len(instanceMetadata.Instances))
 
 	// Get instances for the job
-	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID))
+	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 	// TODO Job ID issue causing this as well.
@@ -282,7 +288,9 @@ func TestClientJobMethods(t *testing.T) {
 
 	// Verify the job is deleted
 	err = suite.Retry(func() error {
-		jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+		jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+			Limit: handlers.DefaultPageSize,
+		})
 		if err != nil {
 			return err
 		}
