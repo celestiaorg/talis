@@ -18,3 +18,7 @@ type ListOptions struct {
 	Status         *InstanceStatus `json:"status,omitempty"`        // Filter by instance status
 	StatusFilter   StatusFilter    `json:"status_filter,omitempty"` // How to filter by status
 }
+
+type UserQueryOptions struct {
+	Username string `json:"username" gorm:"not null;unique"`
+}

@@ -294,15 +294,15 @@ func DeleteJobURL(id string) string {
 
 // GetJobURL returns the URL for getting a job by ID
 func GetUserByIDURL(id string) string {
-	return BuildURL(GetUserByID, map[string]string{"id": id})
+	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
 }
 
 // GetUserByUsernameURL returns the URL for getting jobs
-func GetUserByUsernameURL() string {
-	return BuildURL(GetUserByUsername, nil)
+func GetUserByUsernameURL(queryParams url.Values) string {
+	return BuildURL(GetUserByUsername, nil, queryParams)
 }
 
 // CreateUserURL returns the URL for creating a job
 func CreateUserURL() string {
-	return BuildURL(CreateUser, nil)
+	return BuildURL(CreateUser, nil, nil)
 }
