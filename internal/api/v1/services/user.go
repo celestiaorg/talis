@@ -5,6 +5,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 type User struct {
@@ -17,8 +18,17 @@ func NewUserService(repo *repos.UserRepository) *User {
 	}
 }
 
-func (s User) CreateUser(ctx context.Context, user *models.User) error {
-	return s.repo.CreateUser(ctx, user)
+func (s User) CreateUser(ctx context.Context, userReq *infrastructure.CreateUserRequest) (v uint, err error) {
+	user := &models.User{
+		Username: userReq.Username,
+		Email:    userReq.Email,
+		Role:     userReq.Role,
+	}
+	err = s.repo.CreateUser(ctx, user)
+	if err != nil {
+		return v, err
+	}
+	return user.ID, nil
 }
 
 func (s User) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {

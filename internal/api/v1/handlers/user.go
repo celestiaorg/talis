@@ -16,6 +16,30 @@ func NewUserHandler(service *services.User) *UserHandler {
 	}
 }
 
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+	var userReq infrastructure.CreateUserRequest
+	if err := c.BodyParser(&userReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
+	}
+
+	// if err := userReq.Validate(); err != nil {
+	// 	return c.Status(fiber.StatusBadRequest).
+	// 		JSON(infrastructure.ErrInvalidInput(err.Error()))
+	// }
+
+	id, err := h.service.CreateUser(c.Context(), &userReq)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
+	}
+
+	return c.Status(fiber.StatusCreated).
+		JSON(infrastructure.Success(&infrastructure.CreateUserResponse{
+			UserId: id,
+		}))
+}
+
 func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	userID, err := c.ParamsInt("id")
 	if err != nil {
