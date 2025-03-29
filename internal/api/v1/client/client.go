@@ -44,6 +44,11 @@ type Client interface {
 	CreateJob(ctx context.Context, req infrastructure.JobRequest) error
 	UpdateJob(ctx context.Context, id string, req infrastructure.JobRequest) error
 	DeleteJob(ctx context.Context, id string) error
+
+	//User Endpoints
+	GetUserByID(ctx context.Context, id string) (models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (models.User, error)
+	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
 }
 
 // ClientOptions contains configuration options for the API client
@@ -336,4 +341,37 @@ func (c *APIClient) UpdateJob(ctx context.Context, id string, req infrastructure
 func (c *APIClient) DeleteJob(ctx context.Context, id string) error {
 	endpoint := routes.DeleteJobURL(id)
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+}
+
+// User method implementation
+
+// GetUserByID retrieves a user by id
+func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, error) {
+	endpoint := routes.GetUserByIDURL(id)
+	var response models.User
+	err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, response)
+	if err != nil {
+		return response, err
+	}
+	return response, nil
+}
+
+// GetUserByUsername retrieves a user by username
+func (c *APIClient) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+	endpoint := routes.GetUserByUsernameURL()
+	var response models.User
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
+		return response, err
+	}
+	return response, nil
+}
+
+// CreateUser creates a new user
+func (c *APIClient) CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error) {
+	var resp infrastructure.CreateUserResponse
+	endpoint := routes.CreateUserURL()
+	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &resp); err != nil {
+		return infrastructure.CreateUserResponse{}, err
+	}
+	return resp, nil
 }

@@ -63,7 +63,7 @@ const (
 	TerminateJob        = "TerminateJob"
 
 	// User routes
-	GetUserById       = "GetUserById"
+	GetUserByID       = "GetUserByID"
 	GetUserByUsername = "GetUserByUsername"
 	CreateUser        = "CreateUser"
 )
@@ -125,8 +125,9 @@ func RegisterRoutes(
 	// ---------------------------
 	// User endpoints
 	user := v1.Group("/user")
-	user.Get("/:id", userHandler.GetUserByID).Name(GetUserById)
+	user.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
 	user.Get("/", userHandler.GetUserByUsername).Name(GetUserByUsername)
+	user.Post("/", userHandler.CreateUser).Name(CreateUser)
 
 }
 
@@ -281,4 +282,21 @@ func UpdateJobURL(id string) string {
 // DeleteJobURL returns the URL for deleting a job by ID
 func DeleteJobURL(id string) string {
 	return BuildURL(TerminateJob, map[string]string{"id": id})
+}
+
+// User Routes
+
+// GetJobURL returns the URL for getting a job by ID
+func GetUserByIDURL(id string) string {
+	return BuildURL(GetUserByID, map[string]string{"id": id})
+}
+
+// GetUserByUsernameURL returns the URL for getting jobs
+func GetUserByUsernameURL() string {
+	return BuildURL(GetUserByUsername, nil)
+}
+
+// CreateUserURL returns the URL for creating a job
+func CreateUserURL() string {
+	return BuildURL(CreateUser, nil)
 }
