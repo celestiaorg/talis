@@ -52,6 +52,7 @@ func SetupTestDB(suite *TestSuite, database *gorm.DB) {
 	// Initialize repositories
 	suite.JobRepo = repos.NewJobRepository(suite.DB)
 	suite.InstanceRepo = repos.NewInstanceRepository(suite.DB)
+	suite.UserRepo = repos.NewUserRepository(suite.DB)
 
 	// Add cleanup
 	oldCleanup := suite.cleanup
