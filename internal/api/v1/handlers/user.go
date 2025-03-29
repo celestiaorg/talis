@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 	"github.com/gofiber/fiber/v2"
@@ -16,6 +18,15 @@ func NewUserHandler(service *services.User) *UserHandler {
 	}
 }
 
+// Define common errors
+var (
+	ErrInvalidUserID      = errors.New("invalid user id")
+	ErrInvalidUsername    = errors.New("invalid username")
+	ErrUserNotFoundByID   = errors.New("user not found with provided id")
+	ErrUserNotFoundByName = errors.New("user not found with provided username")
+)
+
+// CreateUser handles the creation of a new user
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	var userReq infrastructure.CreateUserRequest
 	if err := c.BodyParser(&userReq); err != nil {
@@ -23,10 +34,10 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
-	// if err := userReq.Validate(); err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).
-	// 		JSON(infrastructure.ErrInvalidInput(err.Error()))
-	// }
+	if err := userReq.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
+	}
 
 	id, err := h.service.CreateUser(c.Context(), &userReq)
 	if err != nil {
@@ -44,13 +55,13 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	userID, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput("invalid user id"))
+			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
 	}
 
 	user, err := h.service.GetUserByID(c.Context(), uint(userID))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).
-			JSON(infrastructure.ErrNotFound("cannot find user with id"))
+			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByID.Error()))
 	}
 
 	return c.JSON(infrastructure.GetUserResponse{
@@ -62,13 +73,13 @@ func (h *UserHandler) GetUserByUsername(c *fiber.Ctx) error {
 	username := c.Query("username")
 	if username == "" {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput("invalid username"))
+			JSON(infrastructure.ErrInvalidInput(ErrInvalidUsername.Error()))
 	}
-	user, err := h.service.GetUserByUsername(c.Context(), username)
 
+	user, err := h.service.GetUserByUsername(c.Context(), username)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).
-			JSON(infrastructure.ErrNotFound("cannot find user with username"))
+			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByName.Error()))
 	}
 
 	return c.JSON(infrastructure.GetUserResponse{

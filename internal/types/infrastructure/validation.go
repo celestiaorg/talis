@@ -144,3 +144,10 @@ func (i *DeleteInstance) Validate() error {
 	}
 	return nil
 }
+
+func (u CreateUserRequest) Validate() error {
+	if u.Username == "" {
+		return fmt.Errorf("provider is required")
+	}
+	return nil
+}
