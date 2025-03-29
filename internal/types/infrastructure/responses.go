@@ -63,3 +63,17 @@ type PublicIPsResponse struct {
 	PublicIPs  []PublicIPs        `json:"public_ips"` // List of public IPs
 	Pagination PaginationResponse `json:"pagination"` // Pagination information
 }
+
+type CreateUserResponse struct {
+	UserId uint `json:"id"`
+}
+
+type CreateUserRequest struct {
+	Username string          `json:"username" gorm:"not null;unique"`
+	Email    string          `json:"email" gorm:""`
+	Role     models.UserRole `json:"role" gorm:"index"`
+}
+
+type GetUserResponse struct {
+	User models.User `json:"user"`
+}
