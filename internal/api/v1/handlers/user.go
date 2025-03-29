@@ -3,15 +3,18 @@ package handlers
 import (
 	"errors"
 
+	"github.com/gofiber/fiber/v2"
+
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
-	"github.com/gofiber/fiber/v2"
 )
 
+// UserHandler handles HTTP requests for user operations
 type UserHandler struct {
 	service *services.User
 }
 
+// NewUserHandler creates a new UserHandler instance
 func NewUserHandler(service *services.User) *UserHandler {
 	return &UserHandler{
 		service: service,
@@ -51,6 +54,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		}))
 }
 
+// GetUserByID retrieves a user by their ID
 func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	userID, err := c.ParamsInt("id")
 	if err != nil {
@@ -69,6 +73,7 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	})
 }
 
+// GetUserByUsername retrieves a user by their username
 func (h *UserHandler) GetUserByUsername(c *fiber.Ctx) error {
 	username := c.Query("username")
 	if username == "" {

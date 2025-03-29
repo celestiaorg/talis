@@ -292,7 +292,7 @@ func DeleteJobURL(id string) string {
 
 // User Routes
 
-// GetJobURL returns the URL for getting a job by ID
+// GetUserByIDURL returns the URL for getting a job by ID
 func GetUserByIDURL(id string) string {
 	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
 }

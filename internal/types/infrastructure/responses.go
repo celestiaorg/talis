@@ -64,10 +64,12 @@ type PublicIPsResponse struct {
 	Pagination PaginationResponse `json:"pagination"` // Pagination information
 }
 
+// CreateUserResponse represents the response from the create user endpoint
 type CreateUserResponse struct {
 	UserId uint `json:"id"`
 }
 
+// CreateUserRequest represents a request to create a new user
 type CreateUserRequest struct {
 	Username     string          `json:"username" gorm:"not null;unique"`
 	Email        string          `json:"email" gorm:""`
@@ -75,6 +77,7 @@ type CreateUserRequest struct {
 	PublicSshKey string          `json:"public_ssh_key" gorm:""`
 }
 
+// GetUserResponse represents the response from the get user endpoint
 type GetUserResponse struct {
 	User models.User `json:"user"`
 }

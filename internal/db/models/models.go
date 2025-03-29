@@ -19,6 +19,7 @@ type ListOptions struct {
 	StatusFilter   StatusFilter    `json:"status_filter,omitempty"` // How to filter by status
 }
 
+// UserQueryOptions represents query params for GetUserByUsername operation
 type UserQueryOptions struct {
 	Username string `json:"username" gorm:"not null;unique"`
 }
