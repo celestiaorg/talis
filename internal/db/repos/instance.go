@@ -76,14 +76,44 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string
 		Update("status", status).Error
 }
 
-// List retrieves a paginated list of instances
-func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
-	var instances []models.Instance
-	query := r.db.WithContext(ctx)
+// applyListOptions applies the list options to the given query
+func (r *InstanceRepository) applyListOptions(query *gorm.DB, opts *models.ListOptions) *gorm.DB {
+	if opts == nil {
+		return query.Where("status != ?", models.InstanceStatusTerminated)
+	}
 
-	if opts != nil && opts.IncludeDeleted {
+	// Apply status filter if provided
+	if opts.Status != nil {
+		if opts.StatusFilter == models.StatusFilterNotEqual {
+			query = query.Where("status != ?", *opts.Status)
+		} else {
+			query = query.Where("status = ?", *opts.Status)
+		}
+	} else if !opts.IncludeDeleted {
+		// By default, only show non-terminated instances if not including deleted
+		query = query.Where("status != ?", models.InstanceStatusTerminated)
+	}
+
+	// Apply soft delete filter
+	if opts.IncludeDeleted {
 		query = query.Unscoped()
 	}
+
+	// Apply pagination
+	if opts.Limit > 0 {
+		query = query.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		query = query.Offset(opts.Offset)
+	}
+
+	return query
+}
+
+// List returns a list of instances based on the provided options
+func (r *InstanceRepository) List(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+	var instances []models.Instance
+	query := r.applyListOptions(r.db.WithContext(ctx), opts)
 
 	err := query.Find(&instances).Error
 	if err != nil {
