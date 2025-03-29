@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
@@ -63,9 +64,13 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	}
 
 	user, err := h.service.GetUserByID(c.Context(), uint(userID))
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(fiber.StatusNotFound).
 			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByID.Error()))
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
 	return c.JSON(infrastructure.GetUserResponse{
@@ -82,9 +87,13 @@ func (h *UserHandler) GetUserByUsername(c *fiber.Ctx) error {
 	}
 
 	user, err := h.service.GetUserByUsername(c.Context(), username)
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(fiber.StatusNotFound).
 			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByName.Error()))
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
 	return c.JSON(infrastructure.GetUserResponse{

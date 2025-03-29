@@ -125,10 +125,10 @@ func RegisterRoutes(
 
 	// ---------------------------
 	// User endpoints
-	user := v1.Group("/user")
-	user.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
-	user.Get("/", userHandler.GetUserByUsername).Name(GetUserByUsername)
-	user.Post("/", userHandler.CreateUser).Name(CreateUser)
+	users := v1.Group("/users")
+	users.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
+	users.Get("/", userHandler.GetUserByUsername).Name(GetUserByUsername)
+	users.Post("/", userHandler.CreateUser).Name(CreateUser)
 
 }
 

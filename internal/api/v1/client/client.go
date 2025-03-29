@@ -421,7 +421,7 @@ func (c *APIClient) DeleteJob(ctx context.Context, id string) error {
 func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, error) {
 	endpoint := routes.GetUserByIDURL(id)
 	var response models.User
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, response); err != nil {
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return models.User{}, err
 	}
 	return response, nil
@@ -431,7 +431,7 @@ func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, er
 func (c *APIClient) GetUserByUsername(ctx context.Context, opts *models.UserQueryOptions) (models.User, error) {
 	q, err := getByUserNameQueryParams(opts)
 	if err != nil {
-		return models.User{}, nil
+		return models.User{}, err
 	}
 	endpoint := routes.GetUserByUsernameURL(q)
 	var response models.User

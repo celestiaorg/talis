@@ -29,7 +29,7 @@ func ErrInvalidInput(msg string) SlugResponse {
 	}
 }
 
-// ErrNotFound returns a SlugResponse with the InvalidInputSlug and the error message
+// ErrNotFound returns a SlugResponse with the NotFoundSlug and the error message
 func ErrNotFound(msg string) SlugResponse {
 	return SlugResponse{
 		Slug:  NotFoundSlug,
