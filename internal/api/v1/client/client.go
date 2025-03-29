@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -44,6 +45,11 @@ type Client interface {
 	CreateJob(ctx context.Context, req infrastructure.JobRequest) error
 	UpdateJob(ctx context.Context, id string, req infrastructure.JobRequest) error
 	DeleteJob(ctx context.Context, id string) error
+
+	//User Endpoints
+	GetUserByID(ctx context.Context, id string) (models.User, error)
+	GetUserByUsername(ctx context.Context, opts *models.UserQueryOptions) (models.User, error)
+	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
 }
 
 // ClientOptions contains configuration options for the API client
@@ -200,6 +206,18 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 }
 
 // Instance methods implementation
+
+func getByUserNameQueryParams(opts *models.UserQueryOptions) (url.Values, error) {
+	q := url.Values{}
+	if opts == nil {
+		return q, nil
+	}
+	if opts.Username == "" {
+		return nil, errors.New("invalid username")
+	}
+	q.Set("username", opts.Username)
+	return q, nil
+}
 
 // getQueryParams creates url.Values from ListOptions
 func getQueryParams(opts *models.ListOptions) (url.Values, error) {
@@ -395,4 +413,40 @@ func (c *APIClient) UpdateJob(ctx context.Context, id string, req infrastructure
 func (c *APIClient) DeleteJob(ctx context.Context, id string) error {
 	endpoint := routes.DeleteJobURL(id)
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+}
+
+// User method implementation
+
+// GetUserByID retrieves a user by id
+func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, error) {
+	endpoint := routes.GetUserByIDURL(id)
+	var response models.User
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, response); err != nil {
+		return models.User{}, err
+	}
+	return response, nil
+}
+
+// GetUserByUsername retrieves a user by username
+func (c *APIClient) GetUserByUsername(ctx context.Context, opts *models.UserQueryOptions) (models.User, error) {
+	q, err := getByUserNameQueryParams(opts)
+	if err != nil {
+		return models.User{}, nil
+	}
+	endpoint := routes.GetUserByUsernameURL(q)
+	var response models.User
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
+		return models.User{}, err
+	}
+	return response, nil
+}
+
+// CreateUser creates a new user
+func (c *APIClient) CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error) {
+	var response infrastructure.CreateUserResponse
+	endpoint := routes.CreateUserURL()
+	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
+		return infrastructure.CreateUserResponse{}, err
+	}
+	return response, nil
 }

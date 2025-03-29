@@ -1,0 +1,93 @@
+package handlers
+
+import (
+	"errors"
+
+	"github.com/gofiber/fiber/v2"
+
+	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/types/infrastructure"
+)
+
+// UserHandler handles HTTP requests for user operations
+type UserHandler struct {
+	service *services.User
+}
+
+// NewUserHandler creates a new UserHandler instance
+func NewUserHandler(service *services.User) *UserHandler {
+	return &UserHandler{
+		service: service,
+	}
+}
+
+// Define common errors
+var (
+	ErrInvalidUserID      = errors.New("invalid user id")
+	ErrInvalidUsername    = errors.New("invalid username")
+	ErrUserNotFoundByID   = errors.New("user not found with provided id")
+	ErrUserNotFoundByName = errors.New("user not found with provided username")
+)
+
+// CreateUser handles the creation of a new user
+func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
+	var userReq infrastructure.CreateUserRequest
+	if err := c.BodyParser(&userReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
+	}
+
+	if err := userReq.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(err.Error()))
+	}
+
+	id, err := h.service.CreateUser(c.Context(), &userReq)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
+	}
+
+	return c.Status(fiber.StatusCreated).
+		JSON(infrastructure.Success(&infrastructure.CreateUserResponse{
+			UserId: id,
+		}))
+}
+
+// GetUserByID retrieves a user by their ID
+func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
+	userID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
+	}
+
+	user, err := h.service.GetUserByID(c.Context(), uint(userID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).
+			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByID.Error()))
+	}
+
+	return c.JSON(infrastructure.GetUserResponse{
+		User: *user,
+	})
+}
+
+// GetUserByUsername retrieves a user by their username
+func (h *UserHandler) GetUserByUsername(c *fiber.Ctx) error {
+	username := c.Query("username")
+	if username == "" {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(ErrInvalidUsername.Error()))
+	}
+
+	user, err := h.service.GetUserByUsername(c.Context(), username)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).
+			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByName.Error()))
+	}
+
+	return c.JSON(infrastructure.GetUserResponse{
+		User: *user,
+	})
+}

@@ -62,6 +62,11 @@ const (
 	CreateJob           = "CreateJob"
 	UpdateJob           = "UpdateJob"
 	TerminateJob        = "TerminateJob"
+
+	// User routes
+	GetUserByID       = "GetUserByID"
+	GetUserByUsername = "GetUserByUsername"
+	CreateUser        = "CreateUser"
 )
 
 // routeCache stores extracted routes for use prior to compilation
@@ -79,6 +84,7 @@ func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
 	jobHandler *handlers.JobHandler,
+	userHandler *handlers.UserHandler,
 ) {
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
@@ -116,6 +122,14 @@ func RegisterRoutes(
 	jobs.Post("/", jobHandler.CreateJob).Name(CreateJob)
 	jobs.Put("/:id", jobHandler.UpdateJob).Name(UpdateJob)
 	jobs.Delete("/:id", jobHandler.TerminateJob).Name(TerminateJob)
+
+	// ---------------------------
+	// User endpoints
+	user := v1.Group("/user")
+	user.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
+	user.Get("/", userHandler.GetUserByUsername).Name(GetUserByUsername)
+	user.Post("/", userHandler.CreateUser).Name(CreateUser)
+
 }
 
 // initRouteCache initializes the route cache by creating a mock app and extracting routes
@@ -129,9 +143,10 @@ func initRouteCache() {
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
 		mockJobHandler := &handlers.JobHandler{}
+		mockUserHandler := &handlers.UserHandler{}
 
 		// Register routes with mock handlers
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockUserHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -273,4 +288,21 @@ func UpdateJobURL(id string) string {
 // DeleteJobURL returns the URL for deleting a job by ID
 func DeleteJobURL(id string) string {
 	return BuildURL(TerminateJob, map[string]string{"id": id}, nil)
+}
+
+// User Routes
+
+// GetUserByIDURL returns the URL for getting a job by ID
+func GetUserByIDURL(id string) string {
+	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
+}
+
+// GetUserByUsernameURL returns the URL for getting jobs
+func GetUserByUsernameURL(queryParams url.Values) string {
+	return BuildURL(GetUserByUsername, nil, queryParams)
+}
+
+// CreateUserURL returns the URL for creating a job
+func CreateUserURL() string {
+	return BuildURL(CreateUser, nil, nil)
 }

@@ -53,14 +53,17 @@ func main() {
 	// Initialize repositories
 	jobRepo := repos.NewJobRepository(DB)
 	instanceRepo := repos.NewInstanceRepository(DB)
+	userRepo := repos.NewUserRepository(DB)
 
 	// Initialize services
 	jobService := services.NewJobService(jobRepo, instanceRepo)
 	instanceService := services.NewInstanceService(instanceRepo, jobService)
+	userService := services.NewUserService(userRepo)
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
+	userHandler := handlers.NewUserHandler(userService)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -71,7 +74,7 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes
-	routes.RegisterRoutes(app, instanceHandler, jobHandler)
+	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler)
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")
