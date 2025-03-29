@@ -61,6 +61,11 @@ const (
 	CreateJob           = "CreateJob"
 	UpdateJob           = "UpdateJob"
 	TerminateJob        = "TerminateJob"
+
+	// User routes
+	GetUserById       = "GetUserById"
+	GetUserByUsername = "GetUserByUsername"
+	CreateUser        = "CreateUser"
 )
 
 // routeCache stores extracted routes for use prior to compilation
@@ -78,6 +83,7 @@ func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
 	jobHandler *handlers.JobHandler,
+	userHandler *handlers.UserHandler,
 ) {
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
@@ -115,6 +121,13 @@ func RegisterRoutes(
 	jobs.Post("/", jobHandler.CreateJob).Name(CreateJob)
 	jobs.Put("/:id", jobHandler.UpdateJob).Name(UpdateJob)
 	jobs.Delete("/:id", jobHandler.TerminateJob).Name(TerminateJob)
+
+	// ---------------------------
+	// User endpoints
+	user := v1.Group("/user")
+	user.Get("/:id", userHandler.GetUserByID).Name(GetUserById)
+	user.Get("/", userHandler.GetUserByUsername).Name(GetUserByUsername)
+
 }
 
 // initRouteCache initializes the route cache by creating a mock app and extracting routes
@@ -128,9 +141,10 @@ func initRouteCache() {
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
 		mockJobHandler := &handlers.JobHandler{}
+		mockUserHandler := &handlers.UserHandler{}
 
 		// Register routes with mock handlers
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockUserHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
