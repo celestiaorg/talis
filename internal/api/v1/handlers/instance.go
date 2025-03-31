@@ -29,6 +29,21 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
+	// Handle status filter
+	if statusStr := c.Query("status"); statusStr != "" {
+		status, err := models.ParseInstanceStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid instance status: %v", err)))
+		}
+		opts.Status = &status
+	} else if !opts.IncludeDeleted && opts.Status == nil {
+		// By default, exclude terminated instances if not including deleted
+		defaultStatus := models.InstanceStatusTerminated
+		opts.Status = &defaultStatus
+		opts.StatusFilter = models.StatusFilterNotEqual
+	}
+
 	// TODO: should check for OwnerID and filter by it
 
 	instances, err := h.service.ListInstances(c.Context(), &opts)
@@ -105,6 +120,13 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
+	// Only apply default status filter if IncludeDeleted is false
+	if !opts.IncludeDeleted && opts.Status == nil {
+		defaultStatus := models.InstanceStatusTerminated
+		opts.Status = &defaultStatus
+		opts.StatusFilter = models.StatusFilterNotEqual
+	}
+
 	// Get instances
 	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {
@@ -145,6 +167,13 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
+
+	// Only apply default status filter if IncludeDeleted is false
+	if !opts.IncludeDeleted && opts.Status == nil {
+		defaultStatus := models.InstanceStatusTerminated
+		opts.Status = &defaultStatus
+		opts.StatusFilter = models.StatusFilterNotEqual
+	}
 
 	// TODO: should check for JobID and filter by it
 	// TODO: should check for OwnerID and filter by it
@@ -239,6 +268,17 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
 	opts.Offset = c.QueryInt("offset", 0)
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
+
+	// Handle status filter
+	if statusStr := c.Query("status"); statusStr != "" {
+		status, err := models.ParseInstanceStatus(statusStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": fmt.Sprintf("invalid instance status: %v", err),
+			})
+		}
+		opts.Status = &status
+	}
 
 	instances, err := h.service.ListInstances(c.Context(), &opts)
 	if err != nil {

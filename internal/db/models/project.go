@@ -9,10 +9,11 @@ import (
 // Project represents a project in the system
 type Project struct {
 	gorm.Model
-	OwnerID     uint      `json:"-" gorm:"uniqueIndex:idx_owner_project_name"`
-	Name        string    `json:"name" gorm:"uniqueIndex:idx_owner_project_name"`
+	ID          uint      `json:"-" gorm:"primaryKey"`
+	OwnerID     uint      `json:"-" gorm:"not null; index"`
+	Name        string    `json:"name" gorm:"not null; index"`
 	Description string    `json:"description" gorm:"type:text"`
-	Config      string    `json:"config" gorm:"type:json"`
+	Config      string    `json:"config" gorm:"type:text"`
 	Tasks       []Task    `json:"tasks" gorm:"foreignKey:ProjectID"`
 	CreatedAt   time.Time `json:"created_at" gorm:"index"`
 }

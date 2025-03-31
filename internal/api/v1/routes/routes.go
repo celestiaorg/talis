@@ -2,6 +2,7 @@ package routes
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -189,7 +190,7 @@ func GetRoute(name string) string {
 }
 
 // BuildURL builds a URL for the given route name and parameters
-func BuildURL(routeName string, params map[string]string) string {
+func BuildURL(routeName string, params map[string]string, queryParams url.Values) string {
 	route := GetRoute(routeName)
 	if route == "" {
 		return ""
@@ -205,6 +206,11 @@ func BuildURL(routeName string, params map[string]string) string {
 		route = strings.TrimSuffix(route, "/")
 	}
 
+	// Add query parameters if any
+	if len(queryParams) > 0 {
+		route = fmt.Sprintf("%s?%s", route, queryParams.Encode())
+	}
+
 	return route
 }
 
@@ -212,93 +218,93 @@ func BuildURL(routeName string, params map[string]string) string {
 
 // AdminInstancesURL returns the URL for getting all instances
 func AdminInstancesURL() string {
-	return BuildURL(AdminGetInstances, nil)
+	return BuildURL(AdminGetInstances, nil, nil)
 }
 
 // AdminInstancesMetadataURL returns the URL for getting all instances metadata
 func AdminInstancesMetadataURL() string {
-	return BuildURL(AdminGetInstancesMetadata, nil)
+	return BuildURL(AdminGetInstancesMetadata, nil, nil)
 }
 
 // Health check route helper
 
 // HealthCheckURL returns the URL for the health check endpoint
 func HealthCheckURL() string {
-	return BuildURL(HealthCheck, nil)
+	return BuildURL(HealthCheck, nil, nil)
 }
 
 // Instance route helpers
 
 // GetInstancesURL returns the URL for getting instances
-func GetInstancesURL() string {
-	return BuildURL(GetInstances, nil)
+func GetInstancesURL(queryParams url.Values) string {
+	return BuildURL(GetInstances, nil, queryParams)
 }
 
 // GetInstanceMetadataURL returns the URL for getting instance metadata
-func GetInstanceMetadataURL() string {
-	return BuildURL(GetMetadata, nil)
+func GetInstanceMetadataURL(queryParams url.Values) string {
+	return BuildURL(GetMetadata, nil, queryParams)
 }
 
 // GetPublicIPsURL returns the URL for getting public IPs
-func GetPublicIPsURL() string {
-	return BuildURL(GetPublicIPs, nil)
+func GetPublicIPsURL(queryParams url.Values) string {
+	return BuildURL(GetPublicIPs, nil, queryParams)
 }
 
 // GetInstanceURL returns the URL for getting an instance by ID
 func GetInstanceURL(id string) string {
-	return BuildURL(GetInstance, map[string]string{"id": id})
+	return BuildURL(GetInstance, map[string]string{"id": id}, nil)
 }
 
 // CreateInstanceURL returns the URL for creating an instance
 func CreateInstanceURL() string {
-	return BuildURL(CreateInstance, nil)
+	return BuildURL(CreateInstance, nil, nil)
 }
 
 // TerminateInstancesURL returns the URL for terminating instances
 func TerminateInstancesURL() string {
-	return BuildURL(TerminateInstances, nil)
+	return BuildURL(TerminateInstances, nil, nil)
 }
 
 // Job Routes
 
 // GetJobsURL returns the URL for getting jobs
-func GetJobsURL() string {
-	return BuildURL(GetJobs, nil)
+func GetJobsURL(queryParams url.Values) string {
+	return BuildURL(GetJobs, nil, queryParams)
 }
 
 // GetJobURL returns the URL for getting a job by ID
 func GetJobURL(id string) string {
-	return BuildURL(GetJob, map[string]string{"id": id})
+	return BuildURL(GetJob, map[string]string{"id": id}, nil)
 }
 
-// GetJobMetadataURL returns the URL for getting job metadata by ID
-func GetJobMetadataURL(id string) string {
-	return BuildURL(GetMetadataByJobID, map[string]string{"id": id})
+// GetJobMetadataURL returns the URL for getting job metadata
+func GetJobMetadataURL(id string, queryParams url.Values) string {
+	return BuildURL(GetMetadataByJobID, map[string]string{"id": id}, queryParams)
 }
 
-// GetJobInstancesURL returns the URL for getting instances by job ID
-func GetJobInstancesURL(jobId string) string {
-	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobId})
+// GetJobInstancesURL returns the URL for getting job instances
+func GetJobInstancesURL(jobId string, queryParams url.Values) string {
+	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobId}, queryParams)
 }
 
 // GetJobStatusURL returns the URL for getting job status by ID
 func GetJobStatusURL(id string) string {
-	return BuildURL(GetJobStatus, map[string]string{"id": id})
+	return BuildURL(GetJobStatus, map[string]string{"id": id}, nil)
 }
 
 // CreateJobURL returns the URL for creating a job
 func CreateJobURL() string {
-	return BuildURL(CreateJob, nil)
+	return BuildURL(CreateJob, nil, nil)
 }
 
 // UpdateJobURL returns the URL for updating a job by ID
 func UpdateJobURL(id string) string {
-	return BuildURL(UpdateJob, map[string]string{"id": id})
+	return BuildURL(UpdateJob, map[string]string{"id": id}, nil)
 }
 
 // DeleteJobURL returns the URL for deleting a job by ID
 func DeleteJobURL(id string) string {
-	return BuildURL(TerminateJob, map[string]string{"id": id})
+	return BuildURL(TerminateJob, map[string]string{"id": id}, nil)
 }
 
 // Project Routes

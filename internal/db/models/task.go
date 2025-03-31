@@ -43,6 +43,7 @@ func (s TaskStatus) String() string {
 	return string(s)
 }
 
+
 // ParseTaskStatus converts a string to a TaskStatus
 func ParseTaskStatus(str string) (TaskStatus, error) {
 	switch str {
