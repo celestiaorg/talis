@@ -76,6 +76,13 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string
 		Update("status", status).Error
 }
 
+// UpdateByName updates instance fields by name
+func (r *InstanceRepository) UpdateByName(ctx context.Context, name string, updates map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(&models.Instance{}).
+		Where(&models.Instance{Name: name}).
+		Updates(updates).Error
+}
+
 // applyListOptions applies the list options to the given query
 func (r *InstanceRepository) applyListOptions(query *gorm.DB, opts *models.ListOptions) *gorm.DB {
 	if opts == nil {
