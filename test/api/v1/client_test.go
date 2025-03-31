@@ -63,7 +63,7 @@ func TestClientAdminMethods(t *testing.T) {
 	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
 	require.NoError(t, err)
 
-	// List instances and verify there is one
+	// List instances and verify there are two (using include_deleted to ensure we see all instances)
 	err = suite.Retry(func() error {
 		instanceList, err := suite.APIClient.AdminGetInstances(suite.Context())
 		if err != nil {
@@ -72,11 +72,17 @@ func TestClientAdminMethods(t *testing.T) {
 		if len(instanceList.Instances) != 2 {
 			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
 		}
+		// Verify both instances are in non-terminated state
+		for _, instance := range instanceList.Instances {
+			if instance.Status == models.InstanceStatusTerminated {
+				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
+			}
+		}
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
 
-	// List instances metadata and verify there are none
+	// List instances metadata and verify there are two
 	instanceMetadata, err := suite.APIClient.AdminGetInstancesMetadata(suite.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceMetadata.Instances)
@@ -84,12 +90,9 @@ func TestClientAdminMethods(t *testing.T) {
 	require.Equal(t, defaultInstanceRequest1.Provider, instanceMetadata.Instances[0].ProviderID)
 	require.Equal(t, defaultInstanceRequest1.Region, instanceMetadata.Instances[0].Region)
 	require.Equal(t, defaultInstanceRequest1.Size, instanceMetadata.Instances[0].Size)
-	// TODO: figure out why the image reference was breaking
-	// require.Equal(t, defaultInstanceRequest1.Image, instanceMetadata.Instances[0].Image)
 	require.Equal(t, defaultInstanceRequest2.Provider, instanceMetadata.Instances[1].ProviderID)
 	require.Equal(t, defaultInstanceRequest2.Region, instanceMetadata.Instances[1].Region)
 	require.Equal(t, defaultInstanceRequest2.Size, instanceMetadata.Instances[1].Size)
-	// require.Equal(t, defaultInstanceRequest2.Image, instanceMetadata.Instances[1].Image)
 }
 
 func TestClientHealthCheck(t *testing.T) {
@@ -106,7 +109,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	suite := test.NewTestSuite(t)
 	defer suite.Cleanup()
 
-	// List instances and verify there are none
+	// List instances and verify there are none (using include_deleted to ensure we see all instances)
 	instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 	require.NoError(t, err)
 	require.Empty(t, instanceList.Instances)
@@ -129,6 +132,12 @@ func TestClientInstanceMethods(t *testing.T) {
 		if len(instanceList.Instances) != 2 {
 			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
 		}
+		// Verify both instances are in non-terminated state
+		for _, instance := range instanceList.Instances {
+			if instance.Status == models.InstanceStatusTerminated {
+				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
+			}
+		}
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
@@ -141,14 +150,14 @@ func TestClientInstanceMethods(t *testing.T) {
 	actualInstances := instanceList.Instances
 
 	// Get instance metadata
-	instanceMetadata, err := suite.APIClient.GetInstancesMetadata(suite.Context())
+	instanceMetadata, err := suite.APIClient.GetInstancesMetadata(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotEmpty(t, instanceMetadata.Instances)
 	require.Equal(t, 2, len(instanceMetadata.Instances))
 	require.Equal(t, actualInstances, instanceMetadata.Instances)
 
 	// Get public IPs
-	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context())
+	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotEmpty(t, publicIPs.PublicIPs)
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
@@ -161,27 +170,39 @@ func TestClientInstanceMethods(t *testing.T) {
 	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
-	// Submit the same deletion request again - should be a no-op
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
-	require.NoError(t, err)
-
-	// Verify the instances eventually get deleted
+	// Verify the instances eventually get terminated
 	err = suite.Retry(func() error {
-		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
+		// Use status filter to specifically look for terminated instances
+		terminatedStatus := models.InstanceStatusTerminated
+		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{
+			IncludeDeleted: true,
+			Status:         &terminatedStatus,
+		})
 		if err != nil {
 			return err
 		}
 		if len(instanceList.Instances) != 2 {
-			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
+			return fmt.Errorf("expected 2 terminated instances, got %d", len(instanceList.Instances))
 		}
+		// Verify both instances are in terminated state
 		for _, instance := range instanceList.Instances {
 			if instance.Status != models.InstanceStatusTerminated {
-				return fmt.Errorf("expected all instances to be terminated; instance %s is %s", instance.Name, instance.Status)
+				return fmt.Errorf("expected instance %s to be terminated, got %s", instance.Name, instance.Status)
 			}
 		}
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
+
+	// Submit the same deletion request again - should be a no-op
+	// We do this after verifying termination to ensure the first deletion completed
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	require.NoError(t, err)
+
+	// Verify that the default list (non-terminated) shows no instances
+	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{})
+	require.NoError(t, err)
+	require.Empty(t, instanceList.Instances, "expected no non-terminated instances")
 }
 
 func TestClientJobMethods(t *testing.T) {
@@ -189,7 +210,9 @@ func TestClientJobMethods(t *testing.T) {
 	defer suite.Cleanup()
 
 	// Get jobs to verify there are none
-	jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+	jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+		Limit: handlers.DefaultPageSize,
+	})
 	require.NoError(t, err)
 	require.Empty(t, jobsList.Jobs)
 
@@ -200,7 +223,9 @@ func TestClientJobMethods(t *testing.T) {
 
 	// Wait for the job to be available
 	err = suite.Retry(func() error {
-		jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+		jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+			Limit: handlers.DefaultPageSize,
+		})
 		if err != nil {
 			return err
 		}
@@ -212,7 +237,9 @@ func TestClientJobMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Grab the job from the list of jobs
-	jobList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+	jobList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+		Limit: handlers.DefaultPageSize,
+	})
 	require.NoError(t, err)
 	require.NotEmpty(t, jobList.Jobs)
 	require.Equal(t, 1, len(jobList.Jobs))
@@ -230,14 +257,14 @@ func TestClientJobMethods(t *testing.T) {
 	// TODO: the job appears to be mismatched?
 
 	// Get instance metadata for the job
-	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID))
+	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, instanceMetadata)
 	// TODO Job ID issue causing this as well.
 	// require.Equal(t, 1, len(instanceMetadata.Instances))
 
 	// Get instances for the job
-	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID))
+	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, instances)
 	// TODO Job ID issue causing this as well.
@@ -262,7 +289,9 @@ func TestClientJobMethods(t *testing.T) {
 
 	// Verify the job is deleted
 	err = suite.Retry(func() error {
-		jobsList, err := suite.APIClient.GetJobs(suite.Context(), handlers.DefaultPageSize, "")
+		jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
+			Limit: handlers.DefaultPageSize,
+		})
 		if err != nil {
 			return err
 		}

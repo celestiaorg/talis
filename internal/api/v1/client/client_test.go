@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -203,4 +204,130 @@ func TestAPIClient_createAgent(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, agent)
 	})
+}
+
+func TestGetQueryParams(t *testing.T) {
+	tests := []struct {
+		name    string
+		opts    *models.ListOptions
+		want    map[string][]string
+		wantErr bool
+	}{
+		{
+			name: "nil options",
+			opts: nil,
+			want: map[string][]string{},
+		},
+		{
+			name: "empty options",
+			opts: &models.ListOptions{},
+			want: map[string][]string{},
+		},
+		{
+			name: "pagination only",
+			opts: &models.ListOptions{
+				Limit:  10,
+				Offset: 20,
+			},
+			want: map[string][]string{
+				"limit":  {"10"},
+				"offset": {"20"},
+			},
+		},
+		{
+			name: "include deleted only",
+			opts: &models.ListOptions{
+				IncludeDeleted: true,
+			},
+			want: map[string][]string{
+				"include_deleted": {"true"},
+			},
+		},
+		{
+			name: "status ready",
+			opts: &models.ListOptions{
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
+			},
+			want: map[string][]string{
+				"status": {"ready"},
+			},
+		},
+		{
+			name: "status terminated",
+			opts: &models.ListOptions{
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusTerminated
+					return &s
+				}(),
+			},
+			want: map[string][]string{
+				"status": {"terminated"},
+			},
+		},
+		{
+			name: "all options with status filter equal",
+			opts: &models.ListOptions{
+				Limit:          10,
+				Offset:         20,
+				IncludeDeleted: true,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterEqual,
+			},
+			want: map[string][]string{
+				"limit":           {"10"},
+				"offset":          {"20"},
+				"include_deleted": {"true"},
+				"status":          {"ready"},
+				"status_filter":   {"equal"},
+			},
+		},
+		{
+			name: "all options with status filter not equal",
+			opts: &models.ListOptions{
+				Limit:          10,
+				Offset:         20,
+				IncludeDeleted: true,
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatusTerminated
+					return &s
+				}(),
+				StatusFilter: models.StatusFilterNotEqual,
+			},
+			want: map[string][]string{
+				"limit":           {"10"},
+				"offset":          {"20"},
+				"include_deleted": {"true"},
+				"status":          {"terminated"},
+				"status_filter":   {"not_equal"},
+			},
+		},
+		{
+			name: "invalid status",
+			opts: &models.ListOptions{
+				Status: func() *models.InstanceStatus {
+					s := models.InstanceStatus(999)
+					return &s
+				}(),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := getQueryParams(tt.opts)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, map[string][]string(got))
+		})
+	}
 }
