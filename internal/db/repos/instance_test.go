@@ -245,7 +245,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 		{
 			name: "with status equal filter",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusReady
 					return &s
 				}(),
@@ -262,7 +262,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 		{
 			name: "with status not equal filter",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusTerminated
 					return &s
 				}(),
@@ -309,7 +309,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				Limit:          10,
 				Offset:         20,
 				IncludeDeleted: true,
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusReady
 					return &s
 				}(),

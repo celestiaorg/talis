@@ -83,11 +83,11 @@ func (r *InstanceRepository) applyListOptions(query *gorm.DB, opts *models.ListO
 	}
 
 	// Apply status filter if provided
-	if opts.Status != nil {
+	if opts.InstanceStatus != nil {
 		if opts.StatusFilter == models.StatusFilterNotEqual {
-			query = query.Where("status != ?", *opts.Status)
+			query = query.Where("status != ?", *opts.InstanceStatus)
 		} else {
-			query = query.Where("status = ?", *opts.Status)
+			query = query.Where("status = ?", *opts.InstanceStatus)
 		}
 	} else if !opts.IncludeDeleted {
 		// By default, only show non-terminated instances if not including deleted

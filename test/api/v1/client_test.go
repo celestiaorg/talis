@@ -176,7 +176,7 @@ func TestClientInstanceMethods(t *testing.T) {
 		terminatedStatus := models.InstanceStatusTerminated
 		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{
 			IncludeDeleted: true,
-			Status:         &terminatedStatus,
+			InstanceStatus: &terminatedStatus,
 		})
 		if err != nil {
 			return err
