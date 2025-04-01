@@ -112,7 +112,7 @@ func TestTaskStatus(t *testing.T) {
 
 func TestTask_Validation(t *testing.T) {
 	now := time.Now()
-	result := json.RawMessage(`{"key": "value"}`)
+	result := json.RawMessage(`{"key":"value"}`)
 
 	validTask := Task{
 		Model: gorm.Model{
