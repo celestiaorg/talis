@@ -76,6 +76,13 @@ func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string
 		Update("status", status).Error
 }
 
+// UpdateIsProvisionedByName updates the provisioning status of an instance by its name
+func (r *InstanceRepository) UpdateIsProvisionedByName(ctx context.Context, name string, isProvisioned bool) error {
+	return r.db.WithContext(ctx).Model(&models.Instance{}).
+		Where(&models.Instance{Name: name}).
+		Update(models.InstanceIsProvisionedField, isProvisioned).Error
+}
+
 // UpdateByName updates instance fields by name
 func (r *InstanceRepository) UpdateByName(ctx context.Context, name string, updates map[string]interface{}) error {
 	return r.db.WithContext(ctx).Model(&models.Instance{}).

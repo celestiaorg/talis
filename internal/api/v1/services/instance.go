@@ -186,9 +186,7 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 			// Update IsProvisioned status for all instances after successful provisioning
 			for _, instance := range pInstances {
-				if err := s.repo.UpdateByName(ctx, instance.Name, map[string]interface{}{
-					"is_provisioned": true,
-				}); err != nil {
+				if err := s.repo.UpdateIsProvisionedByName(ctx, instance.Name, true); err != nil {
 					logger.ErrorWithFields("Failed to update provisioning status", map[string]interface{}{
 						"instance_name": instance.Name,
 						"error":         err,

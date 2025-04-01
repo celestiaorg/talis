@@ -12,10 +12,11 @@ import (
 // Field names for instance model
 const (
 	// InstanceCreatedAtField is the field name for instance creation timestamp
-	InstanceCreatedAtField = "created_at"
-	InstanceDeletedField   = "deleted"
-	InstanceStatusField    = "status"
-	InstancePublicIPField  = "public_ip"
+	InstanceCreatedAtField     = "created_at"
+	InstanceDeletedField       = "deleted"
+	InstanceStatusField        = "status"
+	InstancePublicIPField      = "public_ip"
+	InstanceIsProvisionedField = "is_provisioned"
 )
 
 // InstanceStatus represents the current state of an instance
