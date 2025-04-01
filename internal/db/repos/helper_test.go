@@ -56,16 +56,17 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 
 func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 	instance := &models.Instance{
-		JobID:      1,
-		ProviderID: models.ProviderDO,
-		Name:       "test-instance",
-		PublicIP:   "192.0.2.1",
-		Region:     "nyc1",
-		Size:       "s-1vcpu-1gb",
-		Image:      "ubuntu-20-04-x64",
-		Tags:       []string{"test", "dev"},
-		Status:     models.InstanceStatusPending,
-		CreatedAt:  time.Now(),
+		JobID:         1,
+		ProviderID:    models.ProviderDO,
+		Name:          "test-instance",
+		PublicIP:      "192.0.2.1",
+		Region:        "nyc1",
+		Size:          "s-1vcpu-1gb",
+		Image:         "ubuntu-20-04-x64",
+		Tags:          []string{"test", "dev"},
+		Status:        models.InstanceStatusPending,
+		IsProvisioned: false,
+		CreatedAt:     time.Now(),
 	}
 	err := s.instanceRepo.Create(s.ctx, instance)
 	s.Require().NoError(err)

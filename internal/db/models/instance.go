@@ -12,10 +12,11 @@ import (
 // Field names for instance model
 const (
 	// InstanceCreatedAtField is the field name for instance creation timestamp
-	InstanceCreatedAtField = "created_at"
-	InstanceDeletedField   = "deleted"
-	InstanceStatusField    = "status"
-	InstancePublicIPField  = "public_ip"
+	InstanceCreatedAtField     = "created_at"
+	InstanceDeletedField       = "deleted"
+	InstanceStatusField        = "status"
+	InstancePublicIPField      = "public_ip"
+	InstanceIsProvisionedField = "is_provisioned"
 )
 
 // InstanceStatus represents the current state of an instance
@@ -38,16 +39,17 @@ const (
 // Instance represents a compute instance in the system
 type Instance struct {
 	gorm.Model
-	JobID      uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
-	ProviderID ProviderID     `json:"provider_id" gorm:"not null"`
-	Name       string         `json:"name" gorm:"not null;index"`
-	PublicIP   string         `json:"public_ip" gorm:"varchar(100)"`
-	Region     string         `json:"region" gorm:"varchar(255)"`
-	Size       string         `json:"size" gorm:"varchar(255)"`
-	Image      string         `json:"image" gorm:"varchar(255)"`
-	Tags       pq.StringArray `json:"tags" gorm:"type:text[]"`
-	Status     InstanceStatus `json:"status" gorm:"index"`
-	CreatedAt  time.Time      `json:"created_at" gorm:"index"`
+	JobID         uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
+	ProviderID    ProviderID     `json:"provider_id" gorm:"not null"`
+	Name          string         `json:"name" gorm:"not null;index"`
+	PublicIP      string         `json:"public_ip" gorm:"varchar(100)"`
+	Region        string         `json:"region" gorm:"varchar(255)"`
+	Size          string         `json:"size" gorm:"varchar(255)"`
+	Image         string         `json:"image" gorm:"varchar(255)"`
+	Tags          pq.StringArray `json:"tags" gorm:"type:text[]"`
+	Status        InstanceStatus `json:"status" gorm:"index"`
+	IsProvisioned bool           `json:"is_provisioned" gorm:"default:false"`
+	CreatedAt     time.Time      `json:"created_at" gorm:"index"`
 }
 
 func (s InstanceStatus) String() string {
