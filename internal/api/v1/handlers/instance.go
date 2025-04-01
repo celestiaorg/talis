@@ -73,7 +73,6 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	}
 
 	// Get instance using the service
-	// TODO: Consider passing OwnerID for security purposes
 	instance, err := h.service.GetInstance(c.Context(), models.AdminID, uint(instanceID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
