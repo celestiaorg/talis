@@ -173,15 +173,22 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 
 // Terminate updates the status of an instance to terminated and performs a soft delete
 func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
-	// First update the status to terminated
-	if err := r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: id}}).
-		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error; err != nil {
-		return err
-	}
+	// To prevent race conditions, we use a transaction to wrap the update and delete
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// First update the status to terminated
+		if err := tx.Model(&models.Instance{}).
+			Where(&models.Instance{Model: gorm.Model{ID: id}}).
+			Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error; err != nil {
+			return fmt.Errorf("failed to update instance status: %w", err)
+		}
 
-	// Then perform the soft delete
-	return r.db.WithContext(ctx).Delete(&models.Instance{}, id).Error
+		// Then perform the soft delete
+		if err := tx.Delete(&models.Instance{}, id).Error; err != nil {
+			return fmt.Errorf("failed to soft delete instance: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // GetByJobIDAndNames retrieves instances that belong to a specific job and match the given names
