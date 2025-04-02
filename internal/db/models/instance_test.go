@@ -129,16 +129,17 @@ func TestInstance_Validation(t *testing.T) {
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		JobID:      1,
-		ProviderID: ProviderDO,
-		Name:       "test-instance",
-		PublicIP:   "192.0.2.1",
-		Region:     "nyc1",
-		Size:       "s-1vcpu-1gb",
-		Image:      "ubuntu-20-04-x64",
-		Tags:       pq.StringArray{"tag1", "tag2"},
-		Status:     InstanceStatusReady,
-		CreatedAt:  now,
+		JobID:         1,
+		ProviderID:    ProviderDO,
+		Name:          "test-instance",
+		PublicIP:      "192.0.2.1",
+		Region:        "nyc1",
+		Size:          "s-1vcpu-1gb",
+		Image:         "ubuntu-20-04-x64",
+		Tags:          pq.StringArray{"tag1", "tag2"},
+		Status:        InstanceStatusReady,
+		IsProvisioned: true,
+		CreatedAt:     now,
 	}
 
 	t.Run("Valid instance", func(t *testing.T) {
@@ -160,17 +161,28 @@ func TestInstance_Validation(t *testing.T) {
 		assert.Equal(t, validInstance.Image, unmarshaledInstance.Image)
 		assert.Equal(t, validInstance.Tags, unmarshaledInstance.Tags)
 		assert.Equal(t, validInstance.Status, unmarshaledInstance.Status)
+		assert.Equal(t, validInstance.IsProvisioned, unmarshaledInstance.IsProvisioned)
 		assert.Equal(t, validInstance.CreatedAt.Unix(), unmarshaledInstance.CreatedAt.Unix())
+	})
+
+	t.Run("Default values", func(t *testing.T) {
+		instance := Instance{
+			JobID:      1,
+			ProviderID: ProviderDO,
+			Name:       "test-instance",
+		}
+		assert.False(t, instance.IsProvisioned, "IsProvisioned should be false by default")
 	})
 
 	t.Run("Custom JSON marshaling", func(t *testing.T) {
 		jsonData, err := validInstance.MarshalJSON()
 		assert.NoError(t, err)
 
-		// Verify the custom marshaling includes the ID field
+		// Verify the custom marshaling includes the ID field and IsProvisioned
 		var jsonMap map[string]interface{}
 		err = json.Unmarshal(jsonData, &jsonMap)
 		assert.NoError(t, err)
 		assert.Equal(t, float64(validInstance.ID), jsonMap["id"])
+		assert.Equal(t, validInstance.IsProvisioned, jsonMap["is_provisioned"])
 	})
 }
