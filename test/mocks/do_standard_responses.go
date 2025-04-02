@@ -81,7 +81,6 @@ type StandardDropletResponses struct {
 // StandardKeyResponses contains all standard mock responses for keys
 type StandardKeyResponses struct {
 	// Success responses
-	DefaultKey     *godo.Key
 	DefaultKeyList []godo.Key
 
 	// Error responses
@@ -161,11 +160,6 @@ func newStandardResponses() *StandardResponses {
 			AuthenticationError: ErrAuthentication,
 		},
 		Keys: StandardKeyResponses{
-			DefaultKey: &godo.Key{
-				ID:        DefaultKeyID1,
-				Name:      DefaultKeyName1,
-				PublicKey: DefaultKeyPublicKey1,
-			},
 			DefaultKeyList: []godo.Key{
 				{
 					ID:        DefaultKeyList[0].ID,

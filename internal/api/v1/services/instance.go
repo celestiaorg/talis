@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 

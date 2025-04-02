@@ -1,8 +1,7 @@
 package infrastructure
 
 import (
-	"github.com/celestiaorg/talis/internal/compute/types"
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // --------------------------------------------------
@@ -17,21 +16,21 @@ type InstancesRequest struct {
 	WebhookURL   string            `json:"webhook_url"`
 	Action       string            `json:"action"`
 	ProjectName  string            `json:"project_name"`
-	Provider     models.ProviderID `json:"provider"`
+	Provider     string            `json:"provider"`
 }
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Name              string               `json:"name"`                // Name of the instance
-	Provider          models.ProviderID    `json:"provider"`            // Provider of the compute service
+	Provider          string               `json:"provider"`            // Cloud provider (e.g., "digitalocean")
+	Region            string               `json:"region"`              // Region where instances will be created
+	Size              string               `json:"size"`                // Instance size/type
+	Image             string               `json:"image"`               // OS image to use
+	SSHKeyName        string               `json:"ssh_key_name"`        // Name of the SSH key to use
+	Tags              []string             `json:"tags"`                // Tags to apply to instances
 	NumberOfInstances int                  `json:"number_of_instances"` // Number of instances to create
-	Provision         bool                 `json:"provision"`           // Whether to provision the instance
-	Region            string               `json:"region"`              // Region of the instance
-	Size              string               `json:"size"`                // Size of the instance
-	Image             string               `json:"image"`               // Image of the instance
-	Tags              []string             `json:"tags"`                // Tags of the instance
-	SSHKeyName        string               `json:"ssh_key_name"`        // SSH key name of the instance
-	Volumes           []types.VolumeConfig `json:"volumes,omitempty"`   // Volumes to attach to the instance
+	Name              string               `json:"name"`                // Optional custom name for instances
+	Provision         bool                 `json:"provision"`           // Whether to run Ansible provisioning
+	Volumes           []types.VolumeConfig `json:"volumes"`             // Optional volumes to attach
 }
 
 // VolumeRequest represents the volume configuration in a request

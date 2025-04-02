@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
-	"github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // Infrastructure represents the infrastructure management system.
