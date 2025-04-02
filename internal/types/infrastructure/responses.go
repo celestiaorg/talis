@@ -46,7 +46,7 @@ type InstanceMetadataResponse struct {
 
 // PaginationResponse represents pagination information
 type PaginationResponse struct {
-	Total  int `json:"total"`  // Total number of jobs
+	Total  int `json:"total"`  // Total number of values
 	Page   int `json:"page"`   // Current page number
 	Limit  int `json:"limit"`  // Number of items per page
 	Offset int `json:"offset"` // Offset from start of results
@@ -76,5 +76,6 @@ type GetUserResponse struct {
 
 // GetUsersResponse represents the response from the get users endpoint
 type GetUsersResponse struct {
-	Users []models.User `json:"users"`
+	Users      []models.User      `json:"users"`      // List of Users
+	Pagination PaginationResponse `json:"pagination"` // Pagination information
 }

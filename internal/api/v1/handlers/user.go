@@ -81,27 +81,41 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 // GetUsers retrieves all users or a single user if username is provided
 func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 	username := c.Query("username")
-	if username == "" {
-		// return all users
-		page := c.QueryInt("page", 1)
-		limit := c.QueryInt("limit", DefaultPageSize)
-		paginationOpts := getPaginationOptions(page, limit)
 
-		users, err := h.service.GetAllUsers(c.Context(), paginationOpts)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).
-				JSON(infrastructure.ErrServer(err.Error()))
-		}
-		return c.JSON(infrastructure.GetUsersResponse{
-			Users: users,
-		})
+	if username != "" {
+		return h.getUserByUsername(c, username)
 	}
 
+	// return all users
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", DefaultPageSize)
+	paginationOpts := getPaginationOptions(page, limit)
+
+	users, err := h.service.GetAllUsers(c.Context(), paginationOpts)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
+	}
+	return c.JSON(infrastructure.GetUsersResponse{
+		Users: users,
+		Pagination: infrastructure.PaginationResponse{
+			Total:  len(users),
+			Page:   page,
+			Limit:  limit,
+			Offset: paginationOpts.Offset,
+		},
+	})
+}
+
+// getUserByUsername handles fetching a single user by username
+func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string) error {
 	user, err := h.service.GetUserByUsername(c.Context(), username)
+
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(fiber.StatusNotFound).
 			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByName.Error()))
 	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
