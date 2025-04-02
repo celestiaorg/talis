@@ -132,18 +132,16 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		// Update instance information in database
 		for _, instance := range pInstances {
-			// Update IP and status
-			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP); err != nil {
-				fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
+			// Create update instance with only the fields we want to update
+			updateInstance := &models.Instance{
+				PublicIP: instance.IP,
+				Status:   models.InstanceStatusReady,
+			}
+			if err := s.repo.UpdateByName(ctx, instance.Name, updateInstance); err != nil {
+				fmt.Printf("❌ Failed to update instance %s: %v\n", instance.Name, err)
 				continue
 			}
-			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.IP)
-
-			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
-				fmt.Printf("❌ Failed to update instance %s status: %v\n", instance.Name, err)
-				continue
-			}
-			fmt.Printf("✅ Updated instance %s status to ready\n", instance.Name)
+			fmt.Printf("✅ Updated instance %s with IP %s and status ready\n", instance.Name, instance.IP)
 		}
 
 		// Start Ansible provisioning if requested
