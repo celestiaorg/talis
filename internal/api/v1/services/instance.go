@@ -274,25 +274,15 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 
 			// Execute the deletion for this specific instance
 			_, err = infra.Execute()
-			if err != nil {
-				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-					fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
-					// Instance doesn't exist in DO, safe to mark as deleted
-					if err := s.repo.Terminate(ctx, instance.ID); err != nil {
-						fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
-						continue
-					}
-					fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
-					if deleted, ok := deletionResult["deleted"].([]string); ok {
-						deletionResult["deleted"] = append(deleted, instance.Name)
-					}
-				} else {
-					fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
-					continue
-				}
+			if err != nil && !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
+				fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
+				continue
 			}
 
-			// Deletion was successful, update database
+			// If we get here, either:
+			// 1. The deletion was successful
+			// 2. The instance was already deleted (404/not found error)
+			// In both cases, we want to mark it as terminated in our database
 			if err := s.repo.Terminate(ctx, instance.ID); err != nil {
 				fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 				continue
