@@ -1,6 +1,9 @@
 package infrastructure
 
-import "github.com/celestiaorg/talis/internal/db/models"
+import (
+	"github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/internal/db/models"
+)
 
 // --------------------------------------------------
 // Instance
@@ -19,15 +22,36 @@ type InstancesRequest struct {
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Name              string            `json:"name"`                // Name of the instance
-	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
-	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
-	Provision         bool              `json:"provision"`           // Whether to provision the instance
-	Region            string            `json:"region"`              // Region of the instance
-	Size              string            `json:"size"`                // Size of the instance
-	Image             string            `json:"image"`               // Image of the instance
-	Tags              []string          `json:"tags"`                // Tags of the instance
-	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
+	Name              string               `json:"name"`                // Name of the instance
+	Provider          models.ProviderID    `json:"provider"`            // Provider of the compute service
+	NumberOfInstances int                  `json:"number_of_instances"` // Number of instances to create
+	Provision         bool                 `json:"provision"`           // Whether to provision the instance
+	Region            string               `json:"region"`              // Region of the instance
+	Size              string               `json:"size"`                // Size of the instance
+	Image             string               `json:"image"`               // Image of the instance
+	Tags              []string             `json:"tags"`                // Tags of the instance
+	SSHKeyName        string               `json:"ssh_key_name"`        // SSH key name of the instance
+	Volumes           []types.VolumeConfig `json:"volumes,omitempty"`   // Volumes to attach to the instance
+}
+
+// VolumeRequest represents the volume configuration in a request
+type VolumeRequest struct {
+	Name       string `json:"name"`        // Name of the volume
+	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
+	Region     string `json:"region"`      // Region where to create the volume
+	FileSystem string `json:"filesystem"`  // File system type (optional)
+	MountPoint string `json:"mount_point"` // Where to mount the volume
+}
+
+// ToVolumeConfig converts a VolumeRequest to a types.VolumeConfig
+func (v *VolumeRequest) ToVolumeConfig() types.VolumeConfig {
+	return types.VolumeConfig{
+		Name:       v.Name,
+		SizeGB:     v.SizeGB,
+		Region:     v.Region,
+		FileSystem: v.FileSystem,
+		MountPoint: v.MountPoint,
+	}
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure
@@ -63,15 +87,6 @@ type DeleteInstance struct {
 	Image             string   `json:"image"`               // Image of the instance
 	Tags              []string `json:"tags"`                // Tags of the instance
 	SSHKeyName        string   `json:"ssh_key_name"`        // SSH key name of the instance
-}
-
-// InstanceInfo represents information about a created instance
-type InstanceInfo struct {
-	Name     string            `json:"name"`     // Name of the instance
-	IP       string            `json:"ip"`       // IP address of the instance
-	Provider models.ProviderID `json:"provider"` // Provider of the compute service
-	Region   string            `json:"region"`   // Region of the instance
-	Size     string            `json:"size"`     // Size of the instance
 }
 
 // --------------------------------------------------

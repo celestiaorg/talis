@@ -57,9 +57,10 @@ func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *mode
 
 // UpdateIPByName updates the public IP of an instance by its name
 func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
+	instance := &models.Instance{PublicIP: ip}
 	return r.db.WithContext(ctx).Model(&models.Instance{}).
 		Where(&models.Instance{Name: name}).
-		Update(models.InstancePublicIPField, ip).Error
+		Updates(instance).Error
 }
 
 // UpdateStatus updates the status of an instance
@@ -198,4 +199,14 @@ func (r *InstanceRepository) GetByJobIDAndNames(
 		return nil, fmt.Errorf("failed to get instances: %w", err)
 	}
 	return instances, nil
+}
+
+// GetByName retrieves an instance by its name
+func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*models.Instance, error) {
+	var instance models.Instance
+	err := r.db.WithContext(ctx).Where(&models.Instance{Name: name}).First(&instance).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instance by name %s: %w", name, err)
+	}
+	return &instance, nil
 }

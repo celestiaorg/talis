@@ -103,6 +103,13 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("ssh_key_name is required")
 	}
 
+	// Validate volumes if present
+	for j, vol := range i.Volumes {
+		if err := vol.Validate(i.Region); err != nil {
+			return fmt.Errorf("invalid volume configuration at index %d: %w", j, err)
+		}
+	}
+
 	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
 	return nil
 }

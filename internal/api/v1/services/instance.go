@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
@@ -122,7 +123,7 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 		}
 
 		// Update instance information in database
-		pInstances, ok := result.([]infrastructure.InstanceInfo)
+		pInstances, ok := result.([]types.InstanceInfo)
 		if !ok {
 			fmt.Printf("❌ Invalid result type: %T\n", result)
 			return
@@ -133,11 +134,26 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 		// Update instance information in database
 		for _, instance := range pInstances {
 			// Update IP and status
-			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP); err != nil {
+			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.PublicIP); err != nil {
 				fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
 				continue
 			}
-			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.IP)
+			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.PublicIP)
+
+			// Update volumes
+			if len(instance.Volumes) > 0 {
+				dbInstance, err := s.repo.GetByName(ctx, instance.Name)
+				if err != nil {
+					fmt.Printf("❌ Failed to get instance %s from database: %v\n", instance.Name, err)
+					continue
+				}
+				dbInstance.Volumes = instance.Volumes
+				if err := s.repo.Update(ctx, dbInstance.ID, dbInstance); err != nil {
+					fmt.Printf("❌ Failed to update instance %s volumes: %v\n", instance.Name, err)
+					continue
+				}
+				fmt.Printf("✅ Updated instance %s with volumes: %v\n", instance.Name, instance.Volumes)
+			}
 
 			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
 				fmt.Printf("❌ Failed to update instance %s status: %v\n", instance.Name, err)

@@ -52,6 +52,7 @@ var (
 var (
 	ErrDropletNotFound = fmt.Errorf("DO API: droplet not found")
 	ErrKeyNotFound     = fmt.Errorf("DO API: SSH key not found")
+	ErrVolumeNotFound  = fmt.Errorf("DO API: volume not found")
 	ErrRateLimit       = fmt.Errorf("DO API: rate limit exceeded")
 	ErrAuthentication  = fmt.Errorf("DO API: authentication failed")
 )
@@ -60,6 +61,7 @@ var (
 type StandardResponses struct {
 	Droplets StandardDropletResponses
 	Keys     StandardKeyResponses
+	Volumes  StandardVolumeResponses
 }
 
 // StandardDropletResponses contains all standard mock responses for droplets
@@ -81,6 +83,18 @@ type StandardKeyResponses struct {
 	// Success responses
 	DefaultKey     *godo.Key
 	DefaultKeyList []godo.Key
+
+	// Error responses
+	NotFoundError       error
+	RateLimitError      error
+	AuthenticationError error
+}
+
+// StandardVolumeResponses contains all standard mock responses for volumes
+type StandardVolumeResponses struct {
+	// Success responses
+	DefaultVolume     *godo.Volume
+	DefaultVolumeList []godo.Volume
 
 	// Error responses
 	NotFoundError       error
@@ -165,6 +179,37 @@ func newStandardResponses() *StandardResponses {
 				},
 			},
 			NotFoundError:       ErrKeyNotFound,
+			RateLimitError:      ErrRateLimit,
+			AuthenticationError: ErrAuthentication,
+		},
+		Volumes: StandardVolumeResponses{
+			DefaultVolume: &godo.Volume{
+				ID:            "test-volume-id",
+				Name:          "test-volume",
+				SizeGigaBytes: 100,
+				Region: &godo.Region{
+					Slug: DefaultDropletRegion,
+				},
+			},
+			DefaultVolumeList: []godo.Volume{
+				{
+					ID:            "test-volume-id-1",
+					Name:          "test-volume-1",
+					SizeGigaBytes: 100,
+					Region: &godo.Region{
+						Slug: DefaultDropletRegion,
+					},
+				},
+				{
+					ID:            "test-volume-id-2",
+					Name:          "test-volume-2",
+					SizeGigaBytes: 100,
+					Region: &godo.Region{
+						Slug: DefaultDropletRegion,
+					},
+				},
+			},
+			NotFoundError:       ErrVolumeNotFound,
 			RateLimitError:      ErrRateLimit,
 			AuthenticationError: ErrAuthentication,
 		},

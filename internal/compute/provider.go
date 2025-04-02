@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 
-// ComputeProvider defines the interface for cloud providers
+// ComputeProvider is the interface for compute providers
 type ComputeProvider interface {
 	// ValidateCredentials validates the provider credentials
 	ValidateCredentials() error
@@ -27,27 +27,6 @@ type ComputeProvider interface {
 	DeleteInstance(ctx context.Context, name string, region string) error
 }
 
-// InstanceConfig represents the configuration for creating an instance
-type InstanceConfig struct {
-	Region            string   // Region where to create the instance
-	Size              string   // Size/type of the instance
-	Image             string   // OS image to use
-	SSHKeyID          string   // SSH key name to use
-	Tags              []string // Tags to apply to the instance
-	NumberOfInstances int      // Number of instances to create
-	CustomName        string   // Optional custom name for this specific instance
-}
-
-// InstanceInfo represents information about a created instance
-type InstanceInfo struct {
-	ID       string            // Provider-specific instance ID
-	Name     string            // Instance name
-	PublicIP string            // Public IP address
-	Provider models.ProviderID // Provider name (e.g., "digitalocean")
-	Region   string            // Region where instance was created
-	Size     string            // Instance size/type
-}
-
 // Provisioner is the interface for system configuration
 type Provisioner interface {
 	ConfigureHost(host string, sshKeyPath string) error
@@ -57,7 +36,7 @@ type Provisioner interface {
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
-func NewComputeProvider(provider models.ProviderID) (ComputeProvider, error) {
+func NewComputeProvider(provider models.ProviderID) (types.ComputeProvider, error) {
 	switch provider {
 	case models.ProviderDO:
 		return NewDigitalOceanProvider()
@@ -69,6 +48,6 @@ func NewComputeProvider(provider models.ProviderID) (ComputeProvider, error) {
 }
 
 // NewProvisioner creates a new system provisioner
-func NewProvisioner(jobID string) Provisioner {
+func NewProvisioner(jobID string) types.Provisioner {
 	return NewAnsibleConfigurator(jobID)
 }
