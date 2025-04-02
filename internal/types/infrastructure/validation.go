@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
+	"net/mail"
 	"regexp"
 	"strings"
 )
@@ -149,6 +150,9 @@ func (i *DeleteInstance) Validate() error {
 func (u CreateUserRequest) Validate() error {
 	if u.Username == "" {
 		return fmt.Errorf("username is required")
+	}
+	if _, err := mail.ParseAddress(u.Email); err != nil {
+		return fmt.Errorf("invalid email is required")
 	}
 	return nil
 }
