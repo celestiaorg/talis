@@ -89,3 +89,15 @@ type JobStatus struct {
 	Status    string `json:"status"`     // Status of the job
 	CreatedAt string `json:"created_at"` // Timestamp when the job was created
 }
+
+// --------------------------------------------------
+// User
+// --------------------------------------------------
+
+// CreateUserRequest represents a request to create a new user
+type CreateUserRequest struct {
+	Username     string          `json:"username" gorm:"not null;unique"`
+	Email        string          `json:"email" gorm:""`
+	Role         models.UserRole `json:"role" gorm:"index"`
+	PublicSshKey string          `json:"public_ssh_key" gorm:""`
+}

@@ -65,3 +65,18 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID uint) (*models.
 	}
 	return &user, nil
 }
+
+// GetUsers retrieves all users
+func (r *UserRepository) GetUsers(ctx context.Context, opts *models.ListOptions) ([]models.User, error) {
+	var users []models.User
+	db := r.db.WithContext(ctx)
+	if !opts.IncludeDeleted {
+		db = db.Unscoped().Where("deleted_at IS NULL")
+	}
+
+	err := db.Model(&models.Job{}).
+		Limit(opts.Limit).Offset(opts.Offset).
+		Find(&users).Error
+
+	return users, err
+}

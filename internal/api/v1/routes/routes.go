@@ -64,9 +64,9 @@ const (
 	TerminateJob        = "TerminateJob"
 
 	// User routes
-	GetUserByID       = "GetUserByID"
-	GetUserByUsername = "GetUserByUsername"
-	CreateUser        = "CreateUser"
+	GetUsers    = "GetUsers"
+	GetUserByID = "GetUserByID"
+	CreateUser  = "CreateUser"
 )
 
 // routeCache stores extracted routes for use prior to compilation
@@ -126,7 +126,7 @@ func RegisterRoutes(
 	// ---------------------------
 	// User endpoints
 	users := v1.Group("/users")
-	users.Get("/", userHandler.GetUserByUsername).Name(GetUserByUsername)
+	users.Get("/", userHandler.GetUsers).Name(GetUsers)
 	users.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
 	users.Post("/", userHandler.CreateUser).Name(CreateUser)
 
@@ -297,9 +297,9 @@ func GetUserByIDURL(id string) string {
 	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
 }
 
-// GetUserByUsernameURL returns the URL for getting jobs
-func GetUserByUsernameURL(queryParams url.Values) string {
-	return BuildURL(GetUserByUsername, nil, queryParams)
+// GetUsersURL returns the URL for getting jobs
+func GetUsersURL(queryParams url.Values) string {
+	return BuildURL(GetUsers, nil, queryParams)
 }
 
 // CreateUserURL returns the URL for creating a job

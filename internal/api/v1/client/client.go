@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -48,7 +47,7 @@ type Client interface {
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, id string) (models.User, error)
-	GetUserByUsername(ctx context.Context, opts *models.UserQueryOptions) (models.User, error)
+	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (models.User, error)
 	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
 }
 
@@ -207,15 +206,14 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 
 // Instance methods implementation
 
-func getByUserNameQueryParams(opts *models.UserQueryOptions) (url.Values, error) {
+func getUsersQueryParams(opts *models.UserQueryOptions) (url.Values, error) {
 	q := url.Values{}
 	if opts == nil {
 		return q, nil
 	}
-	if opts.Username == "" {
-		return nil, errors.New("invalid username")
+	if opts.Username != "" {
+		q.Set("username", opts.Username)
 	}
-	q.Set("username", opts.Username)
 	return q, nil
 }
 
@@ -427,13 +425,13 @@ func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, er
 	return response, nil
 }
 
-// GetUserByUsername retrieves a user by username
-func (c *APIClient) GetUserByUsername(ctx context.Context, opts *models.UserQueryOptions) (models.User, error) {
-	q, err := getByUserNameQueryParams(opts)
+// GetUsers retrieves a user by username
+func (c *APIClient) GetUsers(ctx context.Context, opts *models.UserQueryOptions) (models.User, error) {
+	q, err := getUsersQueryParams(opts)
 	if err != nil {
 		return models.User{}, err
 	}
-	endpoint := routes.GetUserByUsernameURL(q)
+	endpoint := routes.GetUsersURL(q)
 	var response models.User
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return models.User{}, err

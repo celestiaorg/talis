@@ -78,12 +78,23 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	})
 }
 
-// GetUserByUsername retrieves a user by their username
-func (h *UserHandler) GetUserByUsername(c *fiber.Ctx) error {
+// GetUsers retrieves all users or a single user if username is provided
+func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 	username := c.Query("username")
 	if username == "" {
-		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput(ErrInvalidUsername.Error()))
+		// return all users
+		page := c.QueryInt("page", 1)
+		limit := c.QueryInt("limit", DefaultPageSize)
+		paginationOpts := getPaginationOptions(page, limit)
+
+		users, err := h.service.GetAllUsers(c.Context(), paginationOpts)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).
+				JSON(infrastructure.ErrServer(err.Error()))
+		}
+		return c.JSON(infrastructure.GetUsersResponse{
+			Users: users,
+		})
 	}
 
 	user, err := h.service.GetUserByUsername(c.Context(), username)

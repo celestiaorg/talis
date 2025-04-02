@@ -69,15 +69,12 @@ type CreateUserResponse struct {
 	UserId uint `json:"id"`
 }
 
-// CreateUserRequest represents a request to create a new user
-type CreateUserRequest struct {
-	Username     string          `json:"username" gorm:"not null;unique"`
-	Email        string          `json:"email" gorm:""`
-	Role         models.UserRole `json:"role" gorm:"index"`
-	PublicSshKey string          `json:"public_ssh_key" gorm:""`
-}
-
 // GetUserResponse represents the response from the get user endpoint
 type GetUserResponse struct {
 	User models.User `json:"user"`
+}
+
+// GetUsersResponse represents the response from the get users endpoint
+type GetUsersResponse struct {
+	Users []models.User `json:"users"`
 }

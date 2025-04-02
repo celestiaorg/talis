@@ -58,3 +58,8 @@ func (s User) GetUserByID(ctx context.Context, userID uint) (*models.User, error
 	}
 	return user, nil
 }
+
+// GetAllUsers retrieves all users
+func (s User) GetAllUsers(ctx context.Context, opts *models.ListOptions) ([]models.User, error) {
+	return s.repo.GetUsers(ctx, opts)
+}
