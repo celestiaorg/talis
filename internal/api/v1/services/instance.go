@@ -148,11 +148,29 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 					continue
 				}
 				dbInstance.Volumes = instance.Volumes
+
+				// Add volume details
+				var volumeDetails []models.VolumeDetail
+				for i, volumeID := range instance.Volumes {
+					// Get the volume configuration from the request
+					if i < len(instances[0].Volumes) {
+						volumeConfig := instances[0].Volumes[i]
+						volumeDetails = append(volumeDetails, models.VolumeDetail{
+							ID:         volumeID,
+							Name:       volumeConfig.Name,
+							SizeGB:     volumeConfig.SizeGB,
+							Region:     volumeConfig.Region,
+							MountPoint: volumeConfig.MountPoint,
+						})
+					}
+				}
+				dbInstance.VolumeDetails = volumeDetails
+
 				if err := s.repo.Update(ctx, dbInstance.ID, dbInstance); err != nil {
 					fmt.Printf("❌ Failed to update instance %s volumes: %v\n", instance.Name, err)
 					continue
 				}
-				fmt.Printf("✅ Updated instance %s with volumes: %v\n", instance.Name, instance.Volumes)
+				fmt.Printf("✅ Updated instance %s with volumes: %v and details: %+v\n", instance.Name, instance.Volumes, volumeDetails)
 			}
 
 			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {

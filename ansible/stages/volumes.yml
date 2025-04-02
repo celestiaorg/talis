@@ -1,0 +1,34 @@
+---
+- name: Get volume information
+  command: lsblk -J
+  register: lsblk_output
+  changed_when: false
+
+- name: Parse volume information
+  set_fact:
+    volumes: "{{ lsblk_output.stdout | from_json }}"
+
+- name: Debug volume information
+  debug:
+    var: volumes
+    verbosity: 2
+
+- name: Create mount points
+  file:
+    path: "/mnt/data"
+    state: directory
+    mode: '0755'
+
+- name: Format volumes if needed
+  filesystem:
+    fstype: ext4
+    dev: "/dev/sda"
+  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+
+- name: Mount volumes
+  mount:
+    path: "/mnt/data"
+    src: "/dev/sda"
+    fstype: ext4
+    state: mounted
+  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0 
