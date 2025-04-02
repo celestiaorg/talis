@@ -27,6 +27,36 @@ type DefaultDOClient struct {
 	client *godo.Client
 }
 
+// ConfigureProvider configures the provider with the given stack
+func (c *DefaultDOClient) ConfigureProvider(stack interface{}) error {
+	return nil
+}
+
+// ValidateCredentials validates the provider credentials
+func (c *DefaultDOClient) ValidateCredentials() error {
+	_, _, err := c.client.Account.Get(context.Background())
+	return err
+}
+
+// GetEnvironmentVars returns the environment variables needed for the provider
+func (c *DefaultDOClient) GetEnvironmentVars() map[string]string {
+	return map[string]string{
+		"DIGITALOCEAN_TOKEN": os.Getenv("DIGITALOCEAN_TOKEN"),
+	}
+}
+
+// CreateInstance creates a new instance
+func (c *DefaultDOClient) CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error) {
+	provider := &DigitalOceanProvider{doClient: c}
+	return provider.CreateInstance(ctx, name, config)
+}
+
+// DeleteInstance deletes an instance
+func (c *DefaultDOClient) DeleteInstance(ctx context.Context, name string, region string) error {
+	provider := &DigitalOceanProvider{doClient: c}
+	return provider.DeleteInstance(ctx, name, region)
+}
+
 // Droplets returns the droplet service
 func (c *DefaultDOClient) Droplets() types.DropletService {
 	return &DefaultDropletService{service: c.client.Droplets}

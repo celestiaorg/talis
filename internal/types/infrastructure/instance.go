@@ -2,18 +2,20 @@ package infrastructure
 
 import (
 	"context"
+
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
-	Region            string         `json:"region"`                // Region where to create the instance
-	Size              string         `json:"size"`                  // Size/type of the instance
-	Image             string         `json:"image"`                 // OS image to use
-	SSHKeyID          string         `json:"ssh_key_id"`            // SSH key name to use
-	Tags              []string       `json:"tags,omitempty"`        // Tags to apply to the instance
-	NumberOfInstances int            `json:"number_of_instances"`   // Number of instances to create
-	CustomName        string         `json:"custom_name,omitempty"` // Optional custom name for this specific instance
-	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
+	Region            string               `json:"region"`                // Region where to create the instance
+	Size              string               `json:"size"`                  // Size/type of the instance
+	Image             string               `json:"image"`                 // OS image to use
+	SSHKeyID          string               `json:"ssh_key_id"`            // SSH key name to use
+	Tags              []string             `json:"tags,omitempty"`        // Tags to apply to the instance
+	NumberOfInstances int                  `json:"number_of_instances"`   // Number of instances to create
+	CustomName        string               `json:"custom_name,omitempty"` // Optional custom name for this specific instance
+	Volumes           []types.VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
 }
 
 // InstanceInfo represents information about a created instance

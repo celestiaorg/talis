@@ -2,19 +2,12 @@ package infrastructure
 
 import (
 	"fmt"
+
+	"github.com/celestiaorg/talis/internal/types"
 )
 
-// VolumeConfig represents the configuration for a volume
-type VolumeConfig struct {
-	Name       string `json:"name"`        // Name of the volume
-	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
-	Region     string `json:"region"`      // Region where to create the volume
-	FileSystem string `json:"filesystem"`  // File system type (optional)
-	MountPoint string `json:"mount_point"` // Where to mount the volume
-}
-
-// Validate checks if the volume configuration is valid
-func (v *VolumeConfig) Validate(instanceRegion string) error {
+// ValidateVolume checks if the volume configuration is valid
+func ValidateVolume(v *types.VolumeConfig, instanceRegion string) error {
 	if v.SizeGB < 15 {
 		return fmt.Errorf("volume size must be at least 15 GB, got %d", v.SizeGB)
 	}
