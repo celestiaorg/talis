@@ -230,6 +230,11 @@ type DigitalOceanProvider struct {
 	doClient types.DOClient
 }
 
+// SetClient sets the DO client for testing
+func (p *DigitalOceanProvider) SetClient(client types.DOClient) {
+	p.doClient = client
+}
+
 // ConfigureProvider is a no-op since we're not using Pulumi anymore
 func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
 	return nil

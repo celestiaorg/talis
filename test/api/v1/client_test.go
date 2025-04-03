@@ -28,8 +28,9 @@ var defaultInstancesRequest = infrastructure.InstancesRequest{
 }
 
 var defaultInstanceRequest1 = infrastructure.InstanceRequest{
-	Provider:          models.ProviderID("digitalocean-mock"),
+	Provider:          string(models.ProviderID("digitalocean-mock")),
 	NumberOfInstances: 1,
+	Name:              "test-instance-1",
 	SSHKeyName:        "test-key",
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
@@ -37,7 +38,7 @@ var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 }
 
 var defaultInstanceRequest2 = infrastructure.InstanceRequest{
-	Provider:          models.ProviderID("digitalocean-mock"),
+	Provider:          string(models.ProviderID("digitalocean-mock")),
 	NumberOfInstances: 1,
 	Name:              "custom-instance",
 	SSHKeyName:        "test-key",

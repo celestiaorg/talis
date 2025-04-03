@@ -57,10 +57,16 @@ func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *mode
 
 // UpdateIPByName updates the public IP of an instance by its name
 func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
-	instance := &models.Instance{PublicIP: ip}
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Name: name}).
-		Updates(instance).Error
+	result := r.db.WithContext(ctx).Model(&models.Instance{}).
+		Where("name = ? AND deleted_at IS NULL", name).
+		Update("public_ip", ip)
+	if result.Error != nil {
+		return fmt.Errorf("failed to update instance IP: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("no instance found with name: %s", name)
+	}
+	return nil
 }
 
 // UpdateStatus updates the status of an instance

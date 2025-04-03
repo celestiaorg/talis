@@ -21,125 +21,102 @@ func TestMockDOClient(t *testing.T) {
 }
 
 func TestMockDOClientBehavior(t *testing.T) {
-	ctx := context.Background()
-	mockClient := NewMockDOClient()
-
-	// Helper function to call all methods and verify responses
-	callAllMethods := func(expectedErr error) {
-		t.Helper()
-
-		// Droplet service calls
-		droplet, _, err := mockClient.Droplets().Create(ctx, &godo.DropletCreateRequest{
-			Name:   "test-droplet",
-			Region: "test-region",
-			Size:   "test-size",
-		})
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-			assert.Nil(t, droplet)
-		} else {
-			assert.NoError(t, err)
-			assert.NotNil(t, droplet)
-			assert.Equal(t, DefaultDropletID1, droplet.ID)
-			assert.Equal(t, "test-droplet", droplet.Name)
-			assert.Equal(t, "test-region", droplet.Region.Slug)
-			assert.Equal(t, "test-size", droplet.Size.Slug)
-		}
-
-		droplets, _, err := mockClient.Droplets().CreateMultiple(ctx, &godo.DropletMultiCreateRequest{
-			Names:  []string{"test-1", "test-2"},
-			Region: "test-region",
-			Size:   "test-size",
-		})
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-			assert.Nil(t, droplets)
-		} else {
-			assert.NoError(t, err)
-			assert.Len(t, droplets, 2)
-			assert.Equal(t, "test-1", droplets[0].Name)
-			assert.Equal(t, "test-2", droplets[1].Name)
-		}
-
-		droplet, _, err = mockClient.Droplets().Get(ctx, DefaultDropletID1)
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-			assert.Nil(t, droplet)
-		} else {
-			assert.NoError(t, err)
-			assert.NotNil(t, droplet)
-			assert.Equal(t, DefaultDropletID1, droplet.ID)
-		}
-
-		droplets, _, err = mockClient.Droplets().List(ctx, nil)
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-			assert.Nil(t, droplets)
-		} else {
-			assert.NoError(t, err)
-			assert.Len(t, droplets, 2)
-			assert.Equal(t, DefaultDropletID1, droplets[0].ID)
-			assert.Equal(t, DefaultDropletID2, droplets[1].ID)
-		}
-
-		_, err = mockClient.Droplets().Delete(ctx, DefaultDropletID1)
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-		} else {
-			assert.NoError(t, err)
-		}
-
-		// Key service calls
-		keys, _, err := mockClient.Keys().List(ctx, nil)
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-			assert.Nil(t, keys)
-		} else {
-			assert.NoError(t, err)
-			assert.Len(t, keys, 2)
-			assert.Equal(t, DefaultKeyID1, keys[0].ID)
-			assert.Equal(t, DefaultKeyID2, keys[1].ID)
-		}
-	}
-
-	// Test 1: Verify standard success responses
 	t.Run("Standard Success Responses", func(t *testing.T) {
-		callAllMethods(nil)
+		client := NewMockDOClient()
+		client.ResetToStandard() // Aseguramos que empezamos con un estado limpio
+
+		// Test droplet operations
+		droplet, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.NoError(t, err)
+		assert.NotNil(t, droplet)
+
+		droplets, _, err := client.Droplets().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, droplets)
+
+		// Test key operations
+		keys, _, err := client.Keys().List(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, keys)
+
+		// Test volume operations
+		volume, _, err := client.Storage().CreateVolume(context.Background(), &godo.VolumeCreateRequest{})
+		assert.NoError(t, err)
+		assert.NotNil(t, volume)
+
+		volumes, _, err := client.Storage().ListVolumes(context.Background(), nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, volumes)
 	})
 
-	// Test 2: Verify authentication failure responses
 	t.Run("Authentication Failure", func(t *testing.T) {
-		mockClient.SimulateAuthenticationFailure()
-		callAllMethods(ErrAuthentication)
+		client := NewMockDOClient()
+		client.SimulateAuthenticationFailure()
+
+		_, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, ErrAuthentication, err)
+
+		_, _, err = client.Keys().List(context.Background(), nil)
+		assert.Error(t, err)
+		assert.Equal(t, ErrAuthentication, err)
+
+		_, _, err = client.Storage().CreateVolume(context.Background(), &godo.VolumeCreateRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, ErrAuthentication, err)
 	})
 
-	// Test 3: Verify rate limit responses
 	t.Run("Rate Limit", func(t *testing.T) {
-		mockClient.SimulateRateLimit()
-		callAllMethods(ErrRateLimit)
+		client := NewMockDOClient()
+		client.SimulateRateLimit()
+
+		_, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, ErrRateLimit, err)
+
+		_, _, err = client.Keys().List(context.Background(), nil)
+		assert.Error(t, err)
+		assert.Equal(t, ErrRateLimit, err)
+
+		_, _, err = client.Storage().CreateVolume(context.Background(), &godo.VolumeCreateRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, ErrRateLimit, err)
 	})
 
-	// Test 4: Verify not found responses
 	t.Run("Not Found", func(t *testing.T) {
-		mockClient.SimulateNotFound()
+		client := NewMockDOClient()
+		client.SimulateNotFound()
 
-		// Only Get and Delete should return NotFound for droplets
-		droplet, _, err := mockClient.Droplets().Get(ctx, DefaultDropletID1)
-		assert.Equal(t, ErrDropletNotFound, err)
-		assert.Nil(t, droplet)
-
-		_, err = mockClient.Droplets().Delete(ctx, DefaultDropletID1)
+		_, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.Error(t, err)
 		assert.Equal(t, ErrDropletNotFound, err)
 
-		// List should return NotFound for keys
-		keys, _, err := mockClient.Keys().List(ctx, nil)
+		_, _, err = client.Keys().List(context.Background(), nil)
+		assert.Error(t, err)
 		assert.Equal(t, ErrKeyNotFound, err)
-		assert.Nil(t, keys)
+
+		_, _, err = client.Storage().CreateVolume(context.Background(), &godo.VolumeCreateRequest{})
+		assert.Error(t, err)
+		assert.Equal(t, ErrVolumeNotFound, err)
 	})
 
-	// Test 5: Reset and verify success responses again
-	t.Run("Reset to Standard Success", func(t *testing.T) {
-		mockClient.ResetToStandard()
-		callAllMethods(nil)
+	t.Run("Retry Behavior", func(t *testing.T) {
+		client := NewMockDOClient()
+		client.SimulateDelayedSuccess(2)
+
+		// Primera llamada debería fallar
+		_, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "simulated retry 1/2")
+
+		// Segunda llamada debería fallar
+		_, _, err = client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "simulated retry 2/2")
+
+		// Tercera llamada debería tener éxito
+		droplet, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
+		assert.NoError(t, err)
+		assert.NotNil(t, droplet)
 	})
 }

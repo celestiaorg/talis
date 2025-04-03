@@ -39,7 +39,7 @@ func NewComputeProvider(provider string) (types.ComputeProvider, error) {
 	switch provider {
 	case "do":
 		return NewDigitalOceanProvider()
-	case "do-mock":
+	case "do-mock", "digitalocean-mock":
 		return mocks.NewMockDOClient(), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)

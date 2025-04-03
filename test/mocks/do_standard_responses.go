@@ -11,8 +11,8 @@ import (
 var (
 	DefaultDropletID1    = 12345
 	DefaultDropletID2    = 12346
-	DefaultDropletName1  = "test-droplet-1"
-	DefaultDropletName2  = "test-droplet-2"
+	DefaultDropletName1  = "test-instance-0"
+	DefaultDropletName2  = "test-instance-1"
 	DefaultDropletIP1    = "192.0.2.1"
 	DefaultDropletIP2    = "192.0.2.2"
 	DefaultDropletRegion = "nyc1"
@@ -33,7 +33,7 @@ var (
 var (
 	DefaultKeyID1        = 67890
 	DefaultKeyID2        = 67891
-	DefaultKeyName1      = "test-key-1"
+	DefaultKeyName1      = "test-key"
 	DefaultKeyName2      = "test-key-2"
 	DefaultKeyPublicKey1 = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
 	DefaultKeyPublicKey2 = "ssh-rsa BBBBB3NzaC1yc2EAAAADAQABAAABAQC..."
