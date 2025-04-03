@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/celestiaorg/talis/internal/types"
 	"github.com/digitalocean/godo"
+
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 const (

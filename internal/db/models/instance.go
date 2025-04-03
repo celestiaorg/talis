@@ -90,7 +90,7 @@ func (vd *VolumeDetails) Scan(value interface{}) error {
 	var singleVolume VolumeDetail
 	err = json.Unmarshal(bytes, &singleVolume)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal as array or object: %v", err)
+		return fmt.Errorf("failed to unmarshal as array or object: %w", err)
 	}
 
 	*vd = []VolumeDetail{singleVolume}
