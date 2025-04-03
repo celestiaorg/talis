@@ -18,7 +18,7 @@ import (
 const testClientTimeout = 5 * time.Second
 
 // SetupServer configures the test suite with a real API server
-func SetupServer(suite *TestSuite) {
+func SetupServer(suite *Suite) {
 	// Create Fiber app with default config
 	suite.App = fiber.New(fiber.Config{
 		DisableStartupMessage: true,

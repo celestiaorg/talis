@@ -18,13 +18,13 @@ import (
 // DefaultTestTimeout is the default timeout for test suites.
 const DefaultTestTimeout = 30 * time.Second
 
-// TestSuite encapsulates all components needed for integration testing.
+// Suite encapsulates all components needed for integration testing.
 // It provides a complete test setup with:
 //   - In-memory database
 //   - Real API server
 //   - Real API client
 //   - Mocked external providers
-type TestSuite struct {
+type Suite struct {
 	t *testing.T // The testing.T instance for this suite
 
 	// Server components
@@ -52,13 +52,13 @@ type TestSuite struct {
 
 // NewTestSuite creates a new test suite with the given options.
 // The suite must be cleaned up after use by calling Cleanup.
-func NewTestSuite(t *testing.T) *TestSuite {
+func NewTestSuite(t *testing.T) *Suite {
 	t.Helper()
 
 	// Create suite with default timeout
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTestTimeout)
 
-	suite := &TestSuite{
+	suite := &Suite{
 		t:          t,
 		ctx:        ctx,
 		cancelFunc: cancel,
@@ -95,7 +95,7 @@ func NewTestSuite(t *testing.T) *TestSuite {
 
 // Cleanup tears down the test suite, releasing all resources.
 // This should be deferred immediately after creating the suite.
-func (s *TestSuite) Cleanup() {
+func (s *Suite) Cleanup() {
 	if s.cleanup != nil {
 		s.cleanup()
 	}
@@ -103,18 +103,18 @@ func (s *TestSuite) Cleanup() {
 
 // Context returns the suite's context, which is automatically
 // canceled when the suite is cleaned up.
-func (s *TestSuite) Context() context.Context {
+func (s *Suite) Context() context.Context {
 	return s.ctx
 }
 
 // Require returns a require.Assertions instance for this suite.
 // This is a convenience method to avoid passing t around.
-func (s *TestSuite) Require() *require.Assertions {
+func (s *Suite) Require() *require.Assertions {
 	return require.New(s.t)
 }
 
 // Retry retries a function until it succeeds or the number of retries is reached.
-func (s *TestSuite) Retry(fn func() error, retries int, interval time.Duration) (err error) {
+func (s *Suite) Retry(fn func() error, retries int, interval time.Duration) (err error) {
 	for i := 0; i < retries; i++ {
 		err = fn()
 		if err == nil {

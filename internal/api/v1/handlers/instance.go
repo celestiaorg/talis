@@ -1,3 +1,4 @@
+// Package handlers provides HTTP request handlers for the API
 package handlers
 
 import (
@@ -72,6 +73,11 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("instance id is required: %v", err)))
 	}
 
+	if instanceID <= 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("instance id must be positive"))
+	}
+
 	// Get instance using the service
 	// TODO: Consider passing OwnerID for security purposes
 	instance, err := h.service.GetInstance(c.Context(), uint(instanceID))
@@ -100,6 +106,11 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
+	// Ensure ownerID is non-negative before converting to uint
+	if ownerID < 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("owner id cannot be negative"))
+	}
 
 	err := h.service.CreateInstance(c.Context(), uint(ownerID), instancesReq.JobName, instancesReq.Instances)
 	if err != nil {
@@ -251,6 +262,11 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 	}
 
 	ownerID := 0 // TODO: get owner id from the JWT token
+	// Ensure ownerID is non-negative before converting to uint
+	if ownerID < 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("owner id cannot be negative"))
+	}
 
 	err := h.service.Terminate(c.Context(), uint(ownerID), deleteReq.JobName, deleteReq.InstanceNames)
 	if err != nil {

@@ -36,7 +36,7 @@ func RunMigrations(db *gorm.DB) error {
 
 // SetupTestDB configures the test suite to use the provided database connection.
 // If nil is provided, a new in-memory database will be created.
-func SetupTestDB(suite *TestSuite, database *gorm.DB) {
+func SetupTestDB(suite *Suite, database *gorm.DB) {
 	if database != nil {
 		suite.DB = database
 	} else {
