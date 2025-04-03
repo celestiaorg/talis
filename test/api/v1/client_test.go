@@ -321,6 +321,7 @@ func TestClientUserMethods(t *testing.T) {
 
 	/////////////////////
 	// t.Run()
+	expectedUserCount := 4 // Update this value if test user creation logic changes
 	users, err := suite.APIClient.GetUsers(suite.Context(), nil)
 	require.NoError(t, err)
 	require.NotNil(t, users)
@@ -391,7 +392,7 @@ func TestClientUserMethods(t *testing.T) {
 	t.Run("Get_All_Users", func(t *testing.T) {
 		users, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{})
 		require.NoError(t, err)
-		require.Equal(t, 4, len(users.Users))
+		require.Equal(t, expectedUserCount, len(users.Users))
 	})
 
 	t.Run("DeleteUser_Success", func(t *testing.T) {
