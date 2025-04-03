@@ -32,7 +32,7 @@ func (s *JobRepositoryTestSuite) TestGetByID() {
 	s.Equal(original.Name, found.Name)
 
 	// Test getting without OwnerID (admin mode)
-	found, err = s.jobRepo.GetByID(s.ctx, 0, original.ID)
+	found, err = s.jobRepo.GetByID(s.ctx, models.AdminID, original.ID)
 	s.NoError(err)
 	s.Equal(original.ID, found.ID)
 
@@ -86,17 +86,8 @@ func (s *JobRepositoryTestSuite) TestUpdateStatus() {
 
 func (s *JobRepositoryTestSuite) TestList() {
 	// Create multiple jobs
-	s.createTestJob()
-	job2 := &models.Job{
-		Name:         "test-job-2",
-		InstanceName: "test-instance-2",
-		ProjectName:  "test-project",
-		OwnerID:      2,
-		Status:       models.JobStatusPending,
-		SSHKeys:      models.SSHKeys{"key1"},
-		CreatedAt:    time.Now(),
-	}
-	s.Require().NoError(s.jobRepo.Create(s.ctx, job2))
+	job1 := s.createTestJob()
+	_ = s.createTestJobForOwner(job1.OwnerID)
 
 	opts := &models.ListOptions{
 		Limit:          100,
@@ -105,37 +96,37 @@ func (s *JobRepositoryTestSuite) TestList() {
 	}
 
 	// Test basic listing
-	jobs, err := s.jobRepo.List(s.ctx, models.JobStatusUnknown, 0, opts)
+	jobs, err := s.jobRepo.List(s.ctx, models.JobStatusUnknown, job1.OwnerID, opts)
 	s.NoError(err)
 	s.Len(jobs, 2)
 
 	// Test listing with specific status
-	jobs, err = s.jobRepo.List(s.ctx, models.JobStatusPending, 0, opts)
+	jobs, err = s.jobRepo.List(s.ctx, models.JobStatusPending, job1.OwnerID, opts)
 	s.NoError(err)
 	s.Len(jobs, 2)
 
-	// Test listing with owner ID
-	jobs, err = s.jobRepo.List(s.ctx, models.JobStatusUnknown, 1, opts)
+	// Test listing with admin ID
+	jobs, err = s.jobRepo.List(s.ctx, models.JobStatusUnknown, models.AdminID, opts)
 	s.NoError(err)
-	s.Len(jobs, 1)
+	s.Len(jobs, 2)
 }
 
 func (s *JobRepositoryTestSuite) TestCount() {
 	// Create multiple jobs
-	s.createTestJob()
-	s.createTestJob()
+	job1 := s.createTestJob()
+	_ = s.createTestJobForOwner(job1.OwnerID)
 
-	count, err := s.jobRepo.Count(s.ctx, models.JobStatusUnknown, 0)
+	count, err := s.jobRepo.Count(s.ctx, models.JobStatusUnknown, job1.OwnerID)
 	s.NoError(err)
 	s.Equal(int64(2), count)
 
 	// Test count with specific status
-	count, err = s.jobRepo.Count(s.ctx, models.JobStatusPending, 0)
+	count, err = s.jobRepo.Count(s.ctx, models.JobStatusPending, job1.OwnerID)
 	s.NoError(err)
 	s.Equal(int64(2), count)
 
 	// Test count with owner ID
-	count, err = s.jobRepo.Count(s.ctx, models.JobStatusUnknown, 1)
+	count, err = s.jobRepo.Count(s.ctx, models.JobStatusUnknown, job1.OwnerID)
 	s.NoError(err)
 	s.Equal(int64(2), count)
 }
@@ -147,7 +138,7 @@ func (s *JobRepositoryTestSuite) TestGetByProjectName() {
 		Name:         "test-job-2",
 		InstanceName: "test-instance-2",
 		ProjectName:  "different-project",
-		OwnerID:      1,
+		OwnerID:      job1.OwnerID,
 		Status:       models.JobStatusPending,
 		SSHKeys:      models.SSHKeys{"key1"},
 		CreatedAt:    time.Now(),

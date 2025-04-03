@@ -2,6 +2,8 @@ package repos
 
 import (
 	"context"
+	"crypto/rand"
+	"math/big"
 	"testing"
 	"time"
 
@@ -22,6 +24,25 @@ type DBRepositoryTestSuite struct {
 	jobRepo      *JobRepository
 	instanceRepo *InstanceRepository
 	userRepo     *UserRepository
+}
+
+// randomOwnerID creates a random owner ID using crypto/rand
+func (s *DBRepositoryTestSuite) randomOwnerID() uint {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000))
+	s.Require().NoError(err, "Failed to generate random owner ID")
+	return uint(n.Uint64() + 1) // +1 to avoid 0
+}
+
+// Retry retries a function until it succeeds or the number of retries is reached.
+func (s *DBRepositoryTestSuite) Retry(fn func() error, retries int, interval time.Duration) (err error) {
+	for i := 0; i < retries; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(interval)
+	}
+	return
 }
 
 func (s *DBRepositoryTestSuite) SetupTest() {
@@ -55,7 +76,12 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 // Helper methods for creating test data
 
 func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
+	return s.createTestInstanceForOwner(s.randomOwnerID())
+}
+
+func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
 	instance := &models.Instance{
+		OwnerID:    ownerID,
 		JobID:      1,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance",
@@ -73,11 +99,15 @@ func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 }
 
 func (s *DBRepositoryTestSuite) createTestJob() *models.Job {
+	return s.createTestJobForOwner(s.randomOwnerID())
+}
+
+func (s *DBRepositoryTestSuite) createTestJobForOwner(ownerID uint) *models.Job {
 	job := &models.Job{
 		Name:         "test-job",
 		InstanceName: "test-instance",
 		ProjectName:  "test-project",
-		OwnerID:      1,
+		OwnerID:      ownerID,
 		Status:       models.JobStatusPending,
 		SSHKeys:      models.SSHKeys{"key1", "key2"},
 		WebhookURL:   "https://example.com/webhook",

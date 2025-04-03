@@ -55,7 +55,7 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	// Now using ParseUint to ensure we only get non-negative values
+	// Using 32-bit limit for ParseUint
 	jobID, err := strconv.ParseUint(jobIDStr, 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
@@ -63,11 +63,7 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 	}
 	// Using uint(jobID) is safe because ParseUint guarantees non-negative values
 
-	// ownerID is guaranteed to be non-negative as it's initialized to 0
-	ownerID := uint(0) // TODO: get owner id from the JWT token, ensuring it's non-negative
-	// No conversion needed since we're already using uint
-
-	status, err := h.jobService.GetJobStatus(c.Context(), ownerID, uint(jobID))
+	status, err := h.jobService.GetJobStatus(c.Context(), models.AdminID, uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -94,10 +90,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	paginationOpts := getPaginationOptions(page)
 
-	// Use uint directly to avoid conversion
-	ownerID := uint(0) // TODO: get owner id from the JWT token, ensuring it's non-negative
-
-	jobs, err := h.jobService.ListJobs(c.Context(), status, ownerID, paginationOpts)
+	jobs, err := h.jobService.ListJobs(c.Context(), status, models.AdminID, paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -126,10 +119,7 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput(err.Error()))
 	}
 
-	// Use uint directly to avoid conversion
-	ownerID := uint(0) // TODO: get owner id from the JWT token, ensuring it's non-negative
-
-	err := h.jobService.CreateJob(c.Context(), ownerID, &jobReq)
+	err := h.jobService.CreateJob(c.Context(), models.AdminID, &jobReq)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
@@ -154,9 +144,7 @@ func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	ownerID := uint(0) // TODO: get owner id from the JWT token, ensuring it's non-negative
-
-	err = h.jobService.TerminateJob(c.Context(), ownerID, uint(jobID))
+	err = h.jobService.TerminateJob(c.Context(), models.AdminID, uint(jobID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))

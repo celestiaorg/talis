@@ -39,6 +39,7 @@ const (
 // Instance represents a compute instance in the system
 type Instance struct {
 	gorm.Model
+	OwnerID    uint           `json:"owner_id" gorm:"not null;index"`
 	JobID      uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
 	ProviderID ProviderID     `json:"provider_id" gorm:"not null"`
 	Name       string         `json:"name" gorm:"not null;index"`
