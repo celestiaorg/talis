@@ -66,10 +66,5 @@ func (s User) GetAllUsers(ctx context.Context, opts *models.ListOptions) ([]mode
 
 // DeleteUser deletes a user
 func (s User) DeleteUser(ctx context.Context, userID uint) error {
-	_, err := s.repo.GetUserByID(ctx, userID)
-	if err != nil {
-		return err
-	}
-
 	return s.repo.DeleteUser(ctx, userID)
 }

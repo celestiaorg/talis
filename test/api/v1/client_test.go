@@ -48,7 +48,7 @@ var defaultInstanceRequest2 = infrastructure.InstanceRequest{
 
 var defaultUser1 = infrastructure.CreateUserRequest{
 	Username: "user1",
-	Email:    "userss1@email.com",
+	Email:    "user1@example.com",
 	Role:     1,
 }
 var defaultUser2 = infrastructure.CreateUserRequest{
@@ -329,7 +329,7 @@ func TestClientUserMethods(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, newUser1.UserId, "User ID should not be empty")
 
-		// Create first user
+		// Create second user
 		newUser2, err := suite.APIClient.CreateUser(suite.Context(), defaultUser2)
 		require.NoError(t, err)
 		require.NotEmpty(t, newUser2.UserId, "User ID should not be empty")
@@ -383,5 +383,30 @@ func TestClientUserMethods(t *testing.T) {
 		// Try to get a non-existent username
 		_, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{Username: "nonexistent_user"})
 		require.Error(t, err, "Getting non-existent username should return error")
+	})
+
+	t.Run("Get_All_Users", func(t *testing.T) {
+		users, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{})
+		require.NoError(t, err)
+		require.Equal(t, 4, len(users.Users))
+	})
+
+	t.Run("DeleteUser_Success", func(t *testing.T) {
+		deletedUsername := "deleted_username_test"
+		user, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+			Username:     deletedUsername,
+			Email:        "deleted@example.com",
+			Role:         1,
+			PublicSshKey: "ssh-rsa deletedKEY",
+		})
+		require.NoError(t, err)
+
+		// Delete a existing user
+		err = suite.APIClient.DeleteUser(suite.Context(), fmt.Sprint(user.UserId))
+		require.NoError(t, err)
+
+		// Delete an non existing user
+		err = suite.APIClient.DeleteUser(suite.Context(), fmt.Sprint(user.UserId))
+		require.NoError(t, err)
 	})
 }

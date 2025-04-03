@@ -135,6 +135,10 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	}
 
 	err = h.service.DeleteUser(c.Context(), uint(userID))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusNotFound).
+			JSON(infrastructure.ErrNotFound("user not found with provided id"))
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
