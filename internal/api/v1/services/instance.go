@@ -184,19 +184,32 @@ func (s *Instance) updateInstanceVolumes(
 	// Update volumes
 	dbInstance.Volumes = volumes
 
-	// Add volume details
+	// Create a map of volume configs by name for easy lookup
+	volumeConfigMap := make(map[string]types.VolumeConfig)
+	for _, config := range volumeConfigs {
+		volumeConfigMap[config.Name] = config
+	}
+
+	// Add volume details by matching IDs with configs
 	var volumeDetails []models.VolumeDetail
-	for i, volumeID := range volumes {
-		// Get the volume configuration from the request
-		if i < len(volumeConfigs) {
-			volumeConfig := volumeConfigs[i]
-			volumeDetails = append(volumeDetails, models.VolumeDetail{
-				ID:         volumeID,
-				Name:       volumeConfig.Name,
-				SizeGB:     volumeConfig.SizeGB,
-				Region:     volumeConfig.Region,
-				MountPoint: volumeConfig.MountPoint,
-			})
+	for _, volumeID := range volumes {
+		// Try to find matching config by parsing volume name from ID
+		matched := false
+		for configName, volumeConfig := range volumeConfigMap {
+			if strings.Contains(strings.ToLower(volumeID), strings.ToLower(configName)) {
+				volumeDetails = append(volumeDetails, models.VolumeDetail{
+					ID:         volumeID,
+					Name:       volumeConfig.Name,
+					SizeGB:     volumeConfig.SizeGB,
+					Region:     volumeConfig.Region,
+					MountPoint: volumeConfig.MountPoint,
+				})
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			logger.Warnf("⚠️ Could not find matching config for volume ID: %s", volumeID)
 		}
 	}
 	dbInstance.VolumeDetails = volumeDetails
