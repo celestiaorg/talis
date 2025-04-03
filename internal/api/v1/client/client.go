@@ -46,7 +46,7 @@ type Client interface {
 	DeleteJob(ctx context.Context, id string) error
 
 	//User Endpoints
-	GetUserByID(ctx context.Context, id string) (models.User, error)
+	GetUserByID(ctx context.Context, id string) (infrastructure.UserResponse, error)
 	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (infrastructure.UserResponse, error)
 	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
 }
@@ -416,11 +416,11 @@ func (c *APIClient) DeleteJob(ctx context.Context, id string) error {
 // User method implementation
 
 // GetUserByID retrieves a user by id
-func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, error) {
+func (c *APIClient) GetUserByID(ctx context.Context, id string) (infrastructure.UserResponse, error) {
 	endpoint := routes.GetUserByIDURL(id)
-	var response models.User
+	var response infrastructure.UserResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return models.User{}, err
+		return infrastructure.UserResponse{}, err
 	}
 	return response, nil
 }
