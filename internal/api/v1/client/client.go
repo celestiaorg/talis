@@ -208,17 +208,25 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 		return q, nil
 	}
 
-	if opts.IncludeDeleted {
-		q.Set("include_deleted", "true")
-	}
+	// Pagination params
 	if opts.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", opts.Limit))
 	}
 	if opts.Offset > 0 {
 		q.Set("offset", fmt.Sprintf("%d", opts.Offset))
 	}
-	if opts.Status != nil {
-		status := *opts.Status
+
+	// Filtering params
+	if opts.IncludeDeleted {
+		q.Set("include_deleted", "true")
+	}
+	if opts.StatusFilter != "" {
+		q.Set("status_filter", string(opts.StatusFilter))
+	}
+
+	// Instance status params
+	if opts.InstanceStatus != nil {
+		status := *opts.InstanceStatus
 		var statusStr string
 		switch status {
 		case models.InstanceStatusUnknown:
@@ -234,12 +242,33 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 		default:
 			return nil, fmt.Errorf("invalid instance status: %d", status)
 		}
-		q.Set("status", statusStr)
+		q.Set("instance_status", statusStr)
 	}
-
-	// Add status_filter if provided, regardless of status value
-	if opts.StatusFilter != "" {
-		q.Set("status_filter", string(opts.StatusFilter))
+	// Job status params
+	if opts.JobStatus != nil {
+		status := *opts.JobStatus
+		var statusStr string
+		switch status {
+		case models.JobStatusUnknown:
+			statusStr = "unknown"
+		case models.JobStatusPending:
+			statusStr = "pending"
+		case models.JobStatusInitializing:
+			statusStr = "initializing"
+		case models.JobStatusProvisioning:
+			statusStr = "provisioning"
+		case models.JobStatusConfiguring:
+			statusStr = "configuring"
+		case models.JobStatusDeleting:
+			statusStr = "deleting"
+		case models.JobStatusCompleted:
+			statusStr = "completed"
+		case models.JobStatusFailed:
+			statusStr = "failed"
+		default:
+			return nil, fmt.Errorf("invalid job status: %v", status)
+		}
+		q.Set("job_status", statusStr)
 	}
 
 	return q, nil

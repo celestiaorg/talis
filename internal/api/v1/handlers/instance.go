@@ -36,11 +36,11 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid instance status: %v", err)))
 		}
-		opts.Status = &status
-	} else if !opts.IncludeDeleted && opts.Status == nil {
+		opts.InstanceStatus = &status
+	} else if !opts.IncludeDeleted && opts.InstanceStatus == nil {
 		// By default, exclude terminated instances if not including deleted
 		defaultStatus := models.InstanceStatusTerminated
-		opts.Status = &defaultStatus
+		opts.InstanceStatus = &defaultStatus
 		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
@@ -121,9 +121,9 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
 	// Only apply default status filter if IncludeDeleted is false
-	if !opts.IncludeDeleted && opts.Status == nil {
+	if !opts.IncludeDeleted && opts.InstanceStatus == nil {
 		defaultStatus := models.InstanceStatusTerminated
-		opts.Status = &defaultStatus
+		opts.InstanceStatus = &defaultStatus
 		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
@@ -169,9 +169,9 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	opts.IncludeDeleted = c.QueryBool("include_deleted", false)
 
 	// Only apply default status filter if IncludeDeleted is false
-	if !opts.IncludeDeleted && opts.Status == nil {
+	if !opts.IncludeDeleted && opts.InstanceStatus == nil {
 		defaultStatus := models.InstanceStatusTerminated
-		opts.Status = &defaultStatus
+		opts.InstanceStatus = &defaultStatus
 		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
@@ -277,7 +277,7 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 				"error": fmt.Sprintf("invalid instance status: %v", err),
 			})
 		}
-		opts.Status = &status
+		opts.InstanceStatus = &status
 	}
 
 	instances, err := h.service.ListInstances(c.Context(), &opts)

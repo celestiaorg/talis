@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -133,14 +134,13 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		// Update instance information in database
 		for _, instance := range pInstances {
-			// Update IP and status
-			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.PublicIP); err != nil {
-				logger.Errorf("❌ Failed to update instance %s IP: %v", instance.Name, err)
-				continue
+			// Create update instance with only the fields we want to update
+			updateInstance := &models.Instance{
+				PublicIP: instance.PublicIP,
+				Status:   models.InstanceStatusReady,
 			}
-			logger.Infof("✅ Updated instance %s with IP %s", instance.Name, instance.PublicIP)
 
-			// Update volumes
+			// Update volumes if present
 			if len(instance.Volumes) > 0 {
 				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instances[0].Volumes); err != nil {
 					logger.Errorf("❌ %v", err)
@@ -148,11 +148,12 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 				}
 			}
 
-			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
-				logger.Errorf("❌ Failed to update instance %s status: %v", instance.Name, err)
+			// Update instance with IP and status
+			if err := s.repo.UpdateByName(ctx, instance.Name, updateInstance); err != nil {
+				logger.Errorf("❌ Failed to update instance %s: %v", instance.Name, err)
 				continue
 			}
-			logger.Infof("✅ Updated instance %s status to ready", instance.Name)
+			logger.Infof("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
 		}
 
 		// Start Ansible provisioning if requested
@@ -201,7 +202,7 @@ func (s *Instance) updateInstanceVolumes(
 	dbInstance.VolumeDetails = volumeDetails
 
 	// Update instance in database
-	if err := s.repo.Update(ctx, dbInstance.ID, dbInstance); err != nil {
+	if err := s.repo.UpdateByName(ctx, instanceName, dbInstance); err != nil {
 		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
 	}
 
@@ -262,6 +263,21 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 	return nil
 }
 
+// deleteRequest represents a single instance deletion request with tracking
+type deleteRequest struct {
+	instance     models.Instance
+	infraRequest *infrastructure.InstancesRequest
+	attempts     int
+	lastError    error
+	maxAttempts  int
+}
+
+// deletionResults tracks the overall results of the deletion operation
+type deletionResults struct {
+	successful []string         // names of successfully deleted instances
+	failed     map[string]error // instance name -> last error for failed deletions
+}
+
 // terminate handles the infrastructure deletion process
 func (s *Instance) terminate(ctx context.Context, jobName string, instances []models.Instance) {
 	go func() {
@@ -270,19 +286,13 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			return
 		}
 
-		// Prepare deletion result
-		deletionResult := map[string]interface{}{
-			"status":  "deleting",
-			"deleted": []string{},
-		}
-
-		// Try to delete each selected instance
-		// TODO: Consider async deletion in multiple goroutines
+		// Create queue of delete requests
+		queue := make([]*deleteRequest, 0, len(instances))
 		for _, instance := range instances {
 			logger.Infof("🗑️ Attempting to delete instance: %s", instance.Name)
 
 			// Create a new infrastructure request for each instance
-			instanceInfraReq := &infrastructure.InstancesRequest{
+			infraReq := &infrastructure.InstancesRequest{
 				JobName: jobName,
 				Instances: []infrastructure.InstanceRequest{
 					{
@@ -296,38 +306,100 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			}
 
 			// TODO: a hacky fix, but has to be addressed properly in another PR
-			if instanceInfraReq.Provider == "" {
-				instanceInfraReq.Provider = instanceInfraReq.Instances[0].Provider
+			if infraReq.Provider == "" {
+				infraReq.Provider = infraReq.Instances[0].Provider
 			}
 
-			// Create infrastructure client for this specific instance
-			infra, err := infrastructure.NewInfrastructure(instanceInfraReq)
+			queue = append(queue, &deleteRequest{
+				instance:     instance,
+				infraRequest: infraReq,
+				maxAttempts:  10,
+			})
+		}
+
+		results := &deletionResults{
+			successful: make([]string, 0),
+			failed:     make(map[string]error),
+		}
+
+		// Process queue until empty or all requests have failed
+		defaultErrorSleep := 100 * time.Millisecond
+	REQUESTLOOP:
+		for len(queue) > 0 {
+			select {
+			case <-ctx.Done():
+				// Context cancelled, mark remaining requests as failed
+				for _, req := range queue {
+					results.failed[req.instance.Name] = fmt.Errorf("operation cancelled: %w", ctx.Err())
+				}
+				queue = nil // Clear the queue
+				break REQUESTLOOP
+			default:
+			}
+
+			request := queue[0]
+			queue = queue[1:] // pop from front
+
+			// Skip if max attempts reached
+			if request.attempts >= request.maxAttempts {
+				results.failed[request.instance.Name] = fmt.Errorf("max attempts reached (%d): %w", request.maxAttempts, request.lastError)
+				continue
+			}
+
+			request.attempts++
+
+			// Try to delete infrastructure
+			infra, err := infrastructure.NewInfrastructure(request.infraRequest)
 			if err != nil {
-				logger.Errorf("❌ Failed to create infrastructure client for instance %s: %v", instance.Name, err)
+				request.lastError = fmt.Errorf("failed to create infrastructure client: %w", err)
+				queue = append(queue, request) // add back to queue
+				time.Sleep(defaultErrorSleep)
 				continue
 			}
 
-			// Execute the deletion for this specific instance
 			_, err = infra.Execute()
-			if err != nil && !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
-				logger.Errorf("❌ Error deleting instance %s: %v", instance.Name, err)
+			// If error exists and it's not a "not found" error, add back to queue
+			if err != nil && !(strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
+				request.lastError = fmt.Errorf("failed to delete infrastructure: %w", err)
+				queue = append(queue, request) // add back to queue
+				time.Sleep(defaultErrorSleep)
 				continue
 			}
 
-			// If we get here, either:
-			// 1. The deletion was successful
-			// 2. The instance was already deleted (404/not found error)
-			// In both cases, we want to mark it as terminated in our database
-			if err := s.repo.Terminate(ctx, instance.ID); err != nil {
-				logger.Errorf("❌ Failed to mark instance %s as terminated in database: %v", instance.Name, err)
+			// Try to update database
+			if err := s.repo.Terminate(ctx, request.instance.ID); err != nil {
+				request.lastError = fmt.Errorf("failed to terminate in database: %w", err)
+				queue = append(queue, request) // add back to queue
+				time.Sleep(defaultErrorSleep)
 				continue
 			}
-			logger.Infof("✅ Marked instance %s as terminated in database", instance.Name)
-			if deleted, ok := deletionResult["deleted"].([]string); ok {
-				deletionResult["deleted"] = append(deleted, instance.Name)
+
+			// Successfully deleted both infrastructure and database record
+			results.successful = append(results.successful, request.instance.Name)
+		}
+
+		// Log final results
+		if len(results.successful) > 0 {
+			logger.Infof("Successfully deleted instances: %v", results.successful)
+		}
+		if len(results.failed) > 0 {
+			logger.Infof("Failed to delete instances:")
+			for name, err := range results.failed {
+				logger.Infof("  %s: %v", name, err)
 			}
 		}
 
-		deletionResult["status"] = "completed"
+		// Create deletion result for API response
+		deletionResult := map[string]interface{}{
+			"status":    "completed",
+			"deleted":   results.successful,
+			"failed":    results.failed,
+			"completed": time.Now().UTC(),
+		}
+
+		// Update final status with result
+		if err := s.jobService.UpdateJobStatus(ctx, instances[0].JobID, models.JobStatusCompleted, deletionResult, ""); err != nil {
+			logger.Errorf("Failed to update final job status: %v", err)
+		}
 	}()
 }
