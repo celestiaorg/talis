@@ -235,7 +235,7 @@ func TestGetQueryParams(t *testing.T) {
 			},
 		},
 		{
-			name: "include deleted only",
+			name: "include deleted true",
 			opts: &models.ListOptions{
 				IncludeDeleted: true,
 			},
@@ -244,74 +244,69 @@ func TestGetQueryParams(t *testing.T) {
 			},
 		},
 		{
-			name: "status ready",
+			name: "include deleted false",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
-					s := models.InstanceStatusReady
-					return &s
-				}(),
+				IncludeDeleted: false,
 			},
-			want: map[string][]string{
-				"status": {"ready"},
-			},
+			want: map[string][]string{},
 		},
 		{
-			name: "status terminated",
+			name: "status filter equal",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
-					s := models.InstanceStatusTerminated
-					return &s
-				}(),
-			},
-			want: map[string][]string{
-				"status": {"terminated"},
-			},
-		},
-		{
-			name: "all options with status filter equal",
-			opts: &models.ListOptions{
-				Limit:          10,
-				Offset:         20,
-				IncludeDeleted: true,
-				Status: func() *models.InstanceStatus {
-					s := models.InstanceStatusReady
-					return &s
-				}(),
 				StatusFilter: models.StatusFilterEqual,
 			},
 			want: map[string][]string{
-				"limit":           {"10"},
-				"offset":          {"20"},
-				"include_deleted": {"true"},
-				"status":          {"ready"},
-				"status_filter":   {"equal"},
+				"status_filter": {"equal"},
 			},
 		},
 		{
-			name: "all options with status filter not equal",
+			name: "status filter not equal",
 			opts: &models.ListOptions{
-				Limit:          10,
-				Offset:         20,
-				IncludeDeleted: true,
-				Status: func() *models.InstanceStatus {
-					s := models.InstanceStatusTerminated
-					return &s
-				}(),
 				StatusFilter: models.StatusFilterNotEqual,
 			},
 			want: map[string][]string{
-				"limit":           {"10"},
-				"offset":          {"20"},
-				"include_deleted": {"true"},
-				"status":          {"terminated"},
-				"status_filter":   {"not_equal"},
+				"status_filter": {"not_equal"},
 			},
 		},
 		{
-			name: "invalid status",
+			name: "instance status test",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
+					s := models.InstanceStatusReady
+					return &s
+				}(),
+			},
+			want: map[string][]string{
+				"instance_status": {"ready"},
+			},
+		},
+		{
+			name: "job status test",
+			opts: &models.ListOptions{
+				JobStatus: func() *models.JobStatus {
+					s := models.JobStatusCompleted
+					return &s
+				}(),
+			},
+			want: map[string][]string{
+				"job_status": {"completed"},
+			},
+		},
+		{
+			name: "invalid instance status",
+			opts: &models.ListOptions{
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatus(999)
+					return &s
+				}(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid job status",
+			opts: &models.ListOptions{
+				JobStatus: func() *models.JobStatus {
+					s := models.JobStatus("invalid")
 					return &s
 				}(),
 			},
@@ -323,11 +318,11 @@ func TestGetQueryParams(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := getQueryParams(tt.opts)
 			if tt.wantErr {
-				require.Error(t, err)
+				require.Error(t, err, tt.name)
 				return
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, map[string][]string(got))
+			require.NoError(t, err, tt.name)
+			assert.Equal(t, tt.want, map[string][]string(got), tt.name)
 		})
 	}
 }
