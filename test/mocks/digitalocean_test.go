@@ -23,7 +23,7 @@ func TestMockDOClient(t *testing.T) {
 func TestMockDOClientBehavior(t *testing.T) {
 	t.Run("Standard Success Responses", func(t *testing.T) {
 		client := NewMockDOClient()
-		client.ResetToStandard() // Aseguramos que empezamos con un estado limpio
+		client.ResetToStandard()
 
 		// Test droplet operations
 		droplet, _, err := client.Droplets().Create(context.Background(), &godo.DropletCreateRequest{})
