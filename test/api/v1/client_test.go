@@ -51,11 +51,6 @@ var defaultUser1 = infrastructure.CreateUserRequest{
 	Email:    "userss1@email.com",
 	Role:     1,
 }
-var defaultUser2 = infrastructure.CreateUserRequest{
-	Username: "user2",
-	Email:    "users22@email.com",
-	Role:     1,
-}
 
 // This file contains the comprehensive test suite for the API client.
 
