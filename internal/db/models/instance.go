@@ -106,7 +106,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 		ID uint `json:"id"`
 		Alias
 	}{
-		ID:    i.Model.ID,
+		ID:    i.ID,
 		Alias: Alias(i),
 	})
 }

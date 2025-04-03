@@ -26,6 +26,10 @@ type AnsibleConfigurator struct {
 	instances map[string]string
 	// sshKeyPath stores the SSH key path for all instances
 	sshKeyPath string
+	// payloads stores the payloads for all instances
+	payloads map[string]string
+	// payloadPaths stores the payload paths for payloads
+	payloadPaths map[string]string
 	// mutex protects the instances map
 	mutex sync.Mutex
 }
@@ -33,9 +37,25 @@ type AnsibleConfigurator struct {
 // NewAnsibleConfigurator creates a new Ansible configurator
 func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	return &AnsibleConfigurator{
-		jobID:     jobID,
-		instances: make(map[string]string),
+		jobID:        jobID,
+		instances:    make(map[string]string),
+		payloads:     make(map[string]string),
+		payloadPaths: make(map[string]string),
 	}
+}
+
+// SetPayload sets a payload for a specific instance
+func (a *AnsibleConfigurator) SetPayload(instanceName string, payload string) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.payloads[instanceName] = payload
+}
+
+// SetPayloadPath sets the destination path for a payload
+func (a *AnsibleConfigurator) SetPayloadPath(instanceName string, path string) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.payloadPaths[instanceName] = path
 }
 
 // CreateInventory creates the inventory file with all instances
