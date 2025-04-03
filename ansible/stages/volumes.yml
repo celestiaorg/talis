@@ -13,31 +13,37 @@
     var: volumes
     verbosity: 2
 
+- name: Set volume facts
+  set_fact:
+    volume_device: "{{ volume_device | default('/dev/sda') }}"
+    volume_mount_point: "{{ volume_mount_point | default('/mnt/data') }}"
+    volume_fstype: "{{ volume_fstype | default('ext4') }}"
+
 - name: Create mount points
   file:
-    path: "/mnt/data"
+    path: "{{ volume_mount_point }}"
     state: directory
     mode: '0755'
 
 - name: Check if filesystem exists on volume
-  command: blkid -s TYPE -o value /dev/sda
+  command: "blkid -s TYPE -o value {{ volume_device }}"
   register: blkid_output
   changed_when: false
   failed_when: false
-  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+  when: volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0
 
 - name: Format volumes if needed
   filesystem:
-    fstype: ext4
-    dev: "/dev/sda"
+    fstype: "{{ volume_fstype }}"
+    dev: "{{ volume_device }}"
   when: 
-    - volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+    - volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0
     - blkid_output.stdout == ""
 
 - name: Mount volumes
   mount:
-    path: "/mnt/data"
-    src: "/dev/sda"
-    fstype: ext4
+    path: "{{ volume_mount_point }}"
+    src: "{{ volume_device }}"
+    fstype: "{{ volume_fstype }}"
     state: mounted
-  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+  when: volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0
