@@ -47,7 +47,7 @@ type Client interface {
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, id string) (models.User, error)
-	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (models.User, error)
+	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (infrastructure.UserResponse, error)
 	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
 }
 
@@ -426,15 +426,15 @@ func (c *APIClient) GetUserByID(ctx context.Context, id string) (models.User, er
 }
 
 // GetUsers retrieves a user by username
-func (c *APIClient) GetUsers(ctx context.Context, opts *models.UserQueryOptions) (models.User, error) {
+func (c *APIClient) GetUsers(ctx context.Context, opts *models.UserQueryOptions) (infrastructure.UserResponse, error) {
 	q, err := getUsersQueryParams(opts)
 	if err != nil {
-		return models.User{}, err
+		return infrastructure.UserResponse{}, err
 	}
 	endpoint := routes.GetUsersURL(q)
-	var response models.User
+	var response infrastructure.UserResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return models.User{}, err
+		return infrastructure.UserResponse{}, err
 	}
 	return response, nil
 }

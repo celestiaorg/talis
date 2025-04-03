@@ -69,13 +69,14 @@ type CreateUserResponse struct {
 	UserId uint `json:"id"`
 }
 
-// GetUserResponse represents the response from the get user endpoint
-type GetUserResponse struct {
-	User models.User `json:"user"`
-}
+// UserResponse is a flexible response type for both single and multiple user scenarios
+type UserResponse struct {
+	// This can be a single user or null when returning multiple users
+	User models.User `json:"user,omitempty"`
 
-// GetUsersResponse represents the response from the get users endpoint
-type GetUsersResponse struct {
-	Users      []models.User      `json:"users"`      // List of Users
-	Pagination PaginationResponse `json:"pagination"` // Pagination information
+	// This can be an array of users or null when returning a single user
+	Users []models.User `json:"users,omitempty"`
+
+	// Pagination info included only when returning multiple users
+	Pagination PaginationResponse `json:"pagination,omitempty"`
 }

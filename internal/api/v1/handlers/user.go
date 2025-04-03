@@ -50,9 +50,9 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(infrastructure.Success(&infrastructure.CreateUserResponse{
+		JSON(infrastructure.CreateUserResponse{
 			UserId: id,
-		}))
+		})
 }
 
 // GetUserByID retrieves a user by their ID
@@ -73,7 +73,7 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.GetUserResponse{
+	return c.JSON(infrastructure.UserResponse{
 		User: *user,
 	})
 }
@@ -96,7 +96,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(infrastructure.ErrServer(err.Error()))
 	}
-	return c.JSON(infrastructure.GetUsersResponse{
+	return c.JSON(infrastructure.UserResponse{
 		Users: users,
 		Pagination: infrastructure.PaginationResponse{
 			Total:  len(users),
@@ -121,7 +121,7 @@ func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string) error {
 			JSON(infrastructure.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.GetUserResponse{
+	return c.JSON(infrastructure.UserResponse{
 		User: *user,
 	})
 }
