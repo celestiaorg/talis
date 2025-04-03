@@ -11,8 +11,8 @@ import (
 var (
 	DefaultDropletID1    = 12345
 	DefaultDropletID2    = 12346
-	DefaultDropletName1  = "test-instance-0"
-	DefaultDropletName2  = "test-instance-1"
+	DefaultDropletName1  = "test-droplet-1"
+	DefaultDropletName2  = "test-droplet-2"
 	DefaultDropletIP1    = "192.0.2.1"
 	DefaultDropletIP2    = "192.0.2.2"
 	DefaultDropletRegion = "nyc1"
