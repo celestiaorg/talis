@@ -85,16 +85,14 @@ func (s *Instance) GetInstance(ctx context.Context, id uint) (*models.Instance, 
 
 // provisionInstances provisions the job asynchronously
 func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []infrastructure.InstanceRequest) {
+	// TODO: do something with the logs as now it makes the server logs messy
 	go func() {
-		logger.Info("🚀 Starting async infrastructure creation...")
+		fmt.Println("🚀 Starting async infrastructure creation...")
 
 		// Get the job name from the database
 		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID) // ownerID 0 for now since we're not using it yet
 		if err != nil {
-			logger.ErrorWithFields("Failed to get job details", map[string]interface{}{
-				"job_id": jobID,
-				"error":  err,
-			})
+			fmt.Printf("❌ Failed to get job details: %v\n", err)
 			return
 		}
 
@@ -107,10 +105,7 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			Provider:    instances[0].Provider, // Use the provider directly from the instance
 		})
 		if err != nil {
-			logger.ErrorWithFields("Failed to create infrastructure", map[string]interface{}{
-				"job_id": jobID,
-				"error":  err,
-			})
+			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
 			return
 		}
 
@@ -119,12 +114,9 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			// Check if error is due to resource not found
 			if strings.Contains(err.Error(), "404") &&
 				strings.Contains(err.Error(), "could not be found") {
-				logger.Warn("⚠️ Warning: Some old resources were not found (already deleted)")
+				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
 			} else {
-				logger.ErrorWithFields("Failed to execute infrastructure", map[string]interface{}{
-					"job_id": jobID,
-					"error":  err,
-				})
+				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
 				return
 			}
 		}
@@ -132,100 +124,52 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 		// Update instance information in database
 		pInstances, ok := result.([]infrastructure.InstanceInfo)
 		if !ok {
-			logger.ErrorWithFields("Invalid result type", map[string]interface{}{
-				"job_id":      jobID,
-				"result_type": fmt.Sprintf("%T", result),
-			})
+			fmt.Printf("❌ Invalid result type: %T\n", result)
 			return
 		}
 
-		logger.InfoWithFields("Created instances", map[string]interface{}{
-			"job_id":    jobID,
-			"instances": pInstances,
-		})
+		fmt.Printf("📝 Created instances: %+v\n", pInstances)
 
 		// Update instance information in database
 		for _, instance := range pInstances {
 			// Update IP and status
 			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP); err != nil {
-				logger.ErrorWithFields("Failed to update instance IP", map[string]interface{}{
-					"instance_name": instance.Name,
-					"ip":            instance.IP,
-					"error":         err,
-				})
+				fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
 				continue
 			}
-			logger.InfoWithFields("Updated instance IP", map[string]interface{}{
-				"instance_name": instance.Name,
-				"ip":            instance.IP,
-			})
+			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.IP)
 
 			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
-				logger.ErrorWithFields("Failed to update instance status", map[string]interface{}{
-					"instance_name": instance.Name,
-					"status":        "ready",
-					"error":         err,
-				})
+				fmt.Printf("❌ Failed to update instance %s status: %v\n", instance.Name, err)
 				continue
 			}
-			logger.InfoWithFields("Updated instance status", map[string]interface{}{
-				"instance_name": instance.Name,
-				"status":        "ready",
-			})
+			fmt.Printf("✅ Updated instance %s status to ready\n", instance.Name)
 		}
 
 		// Start Ansible provisioning if requested
 		if instances[0].Provision {
 			if err := infra.RunProvisioning(pInstances); err != nil {
-				logger.ErrorWithFields("Failed to run provisioning", map[string]interface{}{
-					"job_id": jobID,
-					"error":  err,
-				})
+				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
 				return
-			}
-
-			// Update IsProvisioned status for all instances after successful provisioning
-			for _, instance := range pInstances {
-				if err := s.repo.UpdateIsProvisionedByName(ctx, instance.Name, true); err != nil {
-					logger.ErrorWithFields("Failed to update provisioning status", map[string]interface{}{
-						"instance_name": instance.Name,
-						"error":         err,
-					})
-					continue
-				}
-				logger.InfoWithFields("Updated instance provisioning status", map[string]interface{}{
-					"instance_name":  instance.Name,
-					"is_provisioned": true,
-				})
 			}
 		}
 
-		logger.InfoWithFields("Infrastructure creation completed", map[string]interface{}{
-			"job_id": jobID,
-		})
+		fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", jobID)
 	}()
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job
 func (s *Instance) GetInstancesByJobID(ctx context.Context, jobID uint) ([]models.Instance, error) {
-	logger.InfoWithFields("Getting instances from database", map[string]interface{}{
-		"job_id": jobID,
-	})
+	fmt.Printf("📥 Getting instances for job ID %d from database...\n", jobID)
 
 	// Get instances for the specific job
 	instances, err := s.repo.GetByJobID(ctx, jobID)
 	if err != nil {
-		logger.ErrorWithFields("Error getting instances", map[string]interface{}{
-			"job_id": jobID,
-			"error":  err,
-		})
+		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
 		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
 	}
 
-	logger.InfoWithFields("Retrieved instances from database", map[string]interface{}{
-		"job_id":          jobID,
-		"instances_count": len(instances),
-	})
+	fmt.Printf("✅ Retrieved %d instances for job %d from database\n", len(instances), jobID)
 	return instances, nil
 }
 
@@ -271,7 +215,7 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 func (s *Instance) terminate(ctx context.Context, jobName string, instances []models.Instance) {
 	go func() {
 		if len(instances) == 0 {
-			logger.Error("No instances found to terminate")
+			fmt.Printf("❌ No instances found to terminate\n")
 			return
 		}
 
@@ -284,9 +228,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 		// Try to delete each selected instance
 		// TODO: Consider async deletion in multiple goroutines
 		for _, instance := range instances {
-			logger.InfoWithFields("Attempting to delete instance", map[string]interface{}{
-				"instance_name": instance.Name,
-			})
+			fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
 
 			// Create a new infrastructure request for each instance
 			instanceInfraReq := &infrastructure.InstancesRequest{
@@ -310,10 +252,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			// Create infrastructure client for this specific instance
 			infra, err := infrastructure.NewInfrastructure(instanceInfraReq)
 			if err != nil {
-				logger.ErrorWithFields("Failed to create infrastructure client", map[string]interface{}{
-					"instance_name": instance.Name,
-					"error":         err,
-				})
+				fmt.Printf("❌ Failed to create infrastructure client for instance %s: %v\n", instance.Name, err)
 				continue
 			}
 
@@ -321,43 +260,28 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			_, err = infra.Execute()
 			if err != nil {
 				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-					logger.WarnWithFields("Instance was already deleted", map[string]interface{}{
-						"instance_name": instance.Name,
-					})
+					fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
 					// Instance doesn't exist in DO, safe to mark as deleted
 					if err := s.repo.Terminate(ctx, instance.ID); err != nil {
-						logger.ErrorWithFields("Failed to mark instance as terminated in database", map[string]interface{}{
-							"instance_name": instance.Name,
-							"error":         err,
-						})
+						fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 						continue
 					}
-					logger.InfoWithFields("Marked instance as terminated in database", map[string]interface{}{
-						"instance_name": instance.Name,
-					})
+					fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
 					if deleted, ok := deletionResult["deleted"].([]string); ok {
 						deletionResult["deleted"] = append(deleted, instance.Name)
 					}
 				} else {
-					logger.ErrorWithFields("Error deleting instance", map[string]interface{}{
-						"instance_name": instance.Name,
-						"error":         err,
-					})
+					fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
 					continue
 				}
 			}
 
 			// Deletion was successful, update database
 			if err := s.repo.Terminate(ctx, instance.ID); err != nil {
-				logger.ErrorWithFields("Failed to mark instance as terminated in database", map[string]interface{}{
-					"instance_name": instance.Name,
-					"error":         err,
-				})
+				fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 				continue
 			}
-			logger.InfoWithFields("Marked instance as terminated in database", map[string]interface{}{
-				"instance_name": instance.Name,
-			})
+			fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
 			if deleted, ok := deletionResult["deleted"].([]string); ok {
 				deletionResult["deleted"] = append(deleted, instance.Name)
 			}
