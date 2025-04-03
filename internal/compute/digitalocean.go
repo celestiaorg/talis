@@ -149,26 +149,19 @@ func (s *DefaultStorageService) GetVolumeAction(ctx context.Context, volumeID st
 	return s.actions.Get(ctx, volumeID, actionID)
 }
 
-// AttachVolume attaches a block storage volume to a droplet and waits for completion.
-// The operation is considered complete when the volume is successfully attached
-// or when it fails after maximum retries.
-func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error) {
-	if s.actions == nil {
-		return nil, fmt.Errorf("storage actions service not initialized")
-	}
-
-	action, resp, err := s.actions.Attach(ctx, volumeID, dropletID)
-	if err != nil {
-		return resp, fmt.Errorf("failed to attach volume: %w", err)
-	}
-
+// waitForVolumeAction waits for a volume action to complete with retries
+func (s *DefaultStorageService) waitForVolumeAction(
+	ctx context.Context,
+	volumeID string,
+	actionID int,
+	actionType string,
+) (*godo.Response, error) {
 	// Wait a few seconds before checking the action status
 	time.Sleep(5 * time.Second)
 
-	// Wait for the attach action to complete
 	maxRetries := 10
 	for i := 0; i < maxRetries; i++ {
-		action, resp, err = s.actions.Get(ctx, volumeID, action.ID)
+		action, resp, err := s.actions.Get(ctx, volumeID, actionID)
 		if err != nil {
 			// If we get a 404, wait and retry
 			if resp != nil && resp.StatusCode == 404 {
@@ -183,13 +176,29 @@ func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID strin
 		}
 
 		if action.Status == "errored" {
-			return resp, fmt.Errorf("volume attach action errored")
+			return resp, fmt.Errorf("volume %s action errored", actionType)
 		}
 
 		time.Sleep(5 * time.Second)
 	}
 
-	return resp, fmt.Errorf("volume attach action did not complete after %d retries", maxRetries)
+	return nil, fmt.Errorf("volume %s action did not complete after %d retries", actionType, maxRetries)
+}
+
+// AttachVolume attaches a block storage volume to a droplet and waits for completion.
+// The operation is considered complete when the volume is successfully attached
+// or when it fails after maximum retries.
+func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error) {
+	if s.actions == nil {
+		return nil, fmt.Errorf("storage actions service not initialized")
+	}
+
+	action, resp, err := s.actions.Attach(ctx, volumeID, dropletID)
+	if err != nil {
+		return resp, fmt.Errorf("failed to attach volume: %w", err)
+	}
+
+	return s.waitForVolumeAction(ctx, volumeID, action.ID, "attach")
 }
 
 // DetachVolume detaches a block storage volume from a droplet and waits for completion.
@@ -205,31 +214,7 @@ func (s *DefaultStorageService) DetachVolume(ctx context.Context, volumeID strin
 		return resp, fmt.Errorf("failed to detach volume: %w", err)
 	}
 
-	// Wait for the detach action to complete
-	maxRetries := 10
-	for i := 0; i < maxRetries; i++ {
-		action, resp, err = s.actions.Get(ctx, volumeID, action.ID)
-		if err != nil {
-			// If we get a 404, wait and retry
-			if resp != nil && resp.StatusCode == 404 {
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			return resp, fmt.Errorf("failed to get volume action status: %w", err)
-		}
-
-		if action.Status == "completed" {
-			return resp, nil
-		}
-
-		if action.Status == "errored" {
-			return resp, fmt.Errorf("volume detach action errored")
-		}
-
-		time.Sleep(5 * time.Second)
-	}
-
-	return resp, fmt.Errorf("volume detach action did not complete after %d retries", maxRetries)
+	return s.waitForVolumeAction(ctx, volumeID, action.ID, "detach")
 }
 
 // DigitalOceanProvider implements the ComputeProvider interface
