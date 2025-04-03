@@ -57,7 +57,7 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 	instance := &models.Instance{
 		JobID:      1,
-		ProviderID: models.ProviderDO,
+		ProviderID: string(models.ProviderDO),
 		Name:       "test-instance",
 		PublicIP:   "192.0.2.1",
 		Region:     "nyc1",
