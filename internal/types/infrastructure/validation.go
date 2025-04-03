@@ -153,7 +153,7 @@ func (u CreateUserRequest) Validate() error {
 	}
 	if u.Email != "" {
 		if _, err := mail.ParseAddress(u.Email); err != nil {
-			return fmt.Errorf("invalid email is required")
+			return fmt.Errorf("invalid email format")
 		}
 
 	}

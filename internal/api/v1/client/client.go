@@ -49,6 +49,7 @@ type Client interface {
 	GetUserByID(ctx context.Context, id string) (infrastructure.UserResponse, error)
 	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (infrastructure.UserResponse, error)
 	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
+	DeleteUser(ctx context.Context, id string) error
 }
 
 // ClientOptions contains configuration options for the API client
@@ -447,4 +448,10 @@ func (c *APIClient) CreateUser(ctx context.Context, req infrastructure.CreateUse
 		return infrastructure.CreateUserResponse{}, err
 	}
 	return response, nil
+}
+
+// DeleteUser user deletes a user
+func (c *APIClient) DeleteUser(ctx context.Context, id string) error {
+	endpoint := routes.DeleteUserURL(id)
+	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
 }

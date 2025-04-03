@@ -294,22 +294,22 @@ func DeleteJobURL(id string) string {
 
 // User Routes
 
-// GetUserByIDURL returns the URL for getting a job by ID
+// GetUserByIDURL returns the URL for getting a user by ID
 func GetUserByIDURL(id string) string {
 	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
 }
 
-// GetUsersURL returns the URL for getting jobs
+// GetUsersURL returns the URL for getting a user
 func GetUsersURL(queryParams url.Values) string {
 	return BuildURL(GetUsers, nil, queryParams)
 }
 
-// CreateUserURL returns the URL for creating a job
+// CreateUserURL returns the URL for creating a user
 func CreateUserURL() string {
 	return BuildURL(CreateUser, nil, nil)
 }
 
-// DeleteUserURL returns the URL for deleting a job by ID
+// DeleteUserURL returns the URL for deleting a user by ID
 func DeleteUserURL(id string) string {
 	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
 }
