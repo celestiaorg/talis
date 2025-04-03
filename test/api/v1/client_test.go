@@ -51,6 +51,9 @@ var defaultUser1 = infrastructure.CreateUserRequest{
 	Email:    "userss1@email.com",
 	Role:     1,
 }
+var defaultUser2 = infrastructure.CreateUserRequest{
+	Username: "user1",
+}
 
 // This file contains the comprehensive test suite for the API client.
 
@@ -334,25 +337,23 @@ func TestClientUserMethods(t *testing.T) {
 		require.Error(t, err, "Creating user with duplicate username should fail")
 	})
 
-	// t.Run("GetUserByID_Success", func(t *testing.T) {
-	// 	// Create a user first
-	// 	newUser, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
-	// 		Username:     "testuser_getbyid",
-	// 		Email:        "getbyid@example.com",
-	// 		Role:         1,
-	// 		PublicSshKey: "ssh-rsa TESTKEY",
-	// 	})
-	// 	require.NoError(t, err)
+	t.Run("GetUserByID_Success", func(t *testing.T) {
+		// Create a user first
+		newUser, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+			Username:     "testuser_getbyid",
+			Email:        "getbyid@example.com",
+			Role:         1,
+			PublicSshKey: "ssh-rsa TESTKEY",
+		})
+		require.NoError(t, err)
 
-	// 	// Get the user by ID
-	// 	t.Log("")
-	// 	t.Log(fmt.Sprint(newUser.UserId))
-	// 	user, err := suite.APIClient.GetUserByID(suite.Context(), "2")
-	// 	require.NoError(t, err)
-	// 	require.NotNil(t, user)
-	// 	require.Equal(t, "testuser_getbyid", user.Username)
-	// 	require.Equal(t, "getbyid@example.com", user.Email)
-	// })
+		// Get the user by ID
+		resp, err := suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(newUser.UserId))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, "testuser_getbyid", resp.User.Username)
+		require.Equal(t, "getbyid@example.com", resp.User.Email)
+	})
 
 	t.Run("GetUserByUsername_Success", func(t *testing.T) {
 		// Create a user first
