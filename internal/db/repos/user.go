@@ -83,5 +83,10 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *models.ListOptions)
 
 // DeleteUser deletes a user
 func (r *UserRepository) DeleteUser(ctx context.Context, userID uint) error {
+	var user models.User
+	err := r.db.WithContext(ctx).First(&user, userID).Error
+	if err != nil {
+		return err
+	}
 	return r.db.WithContext(ctx).Delete(&models.User{}, userID).Error
 }
