@@ -20,6 +20,7 @@ type InstancesRequest struct {
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
 	Name              string            `json:"name"`                // Name of the instance
+	OwnerID           uint              `json:"owner_id"`            // Owner ID of the instance
 	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
 	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
 	Provision         bool              `json:"provision"`           // Whether to provision the instance
@@ -72,6 +73,7 @@ type InstanceInfo struct {
 	Provider models.ProviderID `json:"provider"` // Provider of the compute service
 	Region   string            `json:"region"`   // Region of the instance
 	Size     string            `json:"size"`     // Size of the instance
+	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
 }
 
 // --------------------------------------------------
@@ -80,7 +82,8 @@ type InstanceInfo struct {
 
 // JobRequest represents the infrastructure request
 type JobRequest struct {
-	Name string `json:"name"`
+	Name    string `json:"name"`
+	OwnerID uint   `json:"owner_id"`
 }
 
 // JobStatus represents the status of an infrastructure job

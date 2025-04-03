@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 
 	"gorm.io/gorm"
 )
@@ -46,4 +47,15 @@ func ParseUserRole(str string) (UserRole, error) {
 		}
 	}
 	return UserRoleUser, fmt.Errorf("invalid user role: %s", str)
+}
+
+// AdminID represents the special ID for admin-level access
+const AdminID uint = math.MaxUint32
+
+// ValidateOwnerID ensures the ownerID is valid
+func ValidateOwnerID(ownerID uint) error {
+	if ownerID == 0 {
+		return fmt.Errorf("owner_id cannot be 0")
+	}
+	return nil
 }

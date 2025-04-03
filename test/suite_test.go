@@ -56,15 +56,16 @@ func TestTestEnvironment_Database(t *testing.T) {
 
 		// Verify instance repository is working
 		instance := &models.Instance{
-			Name:   "test-instance",
-			JobID:  job.ID,
-			Status: models.InstanceStatusPending,
+			Name:    "test-instance",
+			JobID:   job.ID,
+			OwnerID: job.OwnerID,
+			Status:  models.InstanceStatusPending,
 		}
 		result = env.DB.Create(instance)
 		assert.NoError(t, result.Error, "should create instance without error")
 		assert.NotZero(t, instance.ID, "instance should have an ID")
 
-		savedInstance, err := env.InstanceRepo.GetByID(env.ctx, instance.JobID, instance.ID)
+		savedInstance, err := env.InstanceRepo.GetByID(env.ctx, instance.OwnerID, instance.JobID, instance.ID)
 		assert.NoError(t, err, "should get instance without error")
 		assert.Equal(t, instance.Name, savedInstance.Name, "instance names should match")
 

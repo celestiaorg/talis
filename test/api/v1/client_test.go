@@ -14,7 +14,8 @@ import (
 )
 
 var defaultJobRequest = infrastructure.JobRequest{
-	Name: "test-job",
+	Name:    "test-job",
+	OwnerID: models.AdminID,
 }
 
 var defaultInstancesRequest = infrastructure.InstancesRequest{
@@ -29,6 +30,7 @@ var defaultInstancesRequest = infrastructure.InstancesRequest{
 
 var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
+	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
 	SSHKeyName:        "test-key",
 	Region:            "nyc1",
@@ -38,6 +40,7 @@ var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 
 var defaultInstanceRequest2 = infrastructure.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
+	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
 	Name:              "custom-instance",
 	SSHKeyName:        "test-key",
@@ -128,11 +131,11 @@ func TestClientInstanceMethods(t *testing.T) {
 	err = suite.APIClient.CreateJob(suite.Context(), jobRequest)
 	require.NoError(t, err)
 
-	// Create an instance
+	// Create 2 instances
 	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
 	require.NoError(t, err)
 
-	// Wait for the instance to be available
+	// Wait for the instances to be available
 	err = suite.Retry(func() error {
 		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 		if err != nil {
@@ -174,7 +177,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	// Delete both instances
 	deleteRequest := infrastructure.DeleteInstanceRequest{
 		JobName:       jobRequest.Name,
-		InstanceNames: []string{actualInstances[1].Name, actualInstances[0].Name},
+		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
 	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
@@ -185,7 +188,7 @@ func TestClientInstanceMethods(t *testing.T) {
 		terminatedStatus := models.InstanceStatusTerminated
 		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{
 			IncludeDeleted: true,
-			Status:         &terminatedStatus,
+			InstanceStatus: &terminatedStatus,
 		})
 		if err != nil {
 			return err
