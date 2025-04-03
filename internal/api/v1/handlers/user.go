@@ -125,3 +125,21 @@ func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string) error {
 		User: *user,
 	})
 }
+
+// DeleteUser handles the request to terminate a user
+func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
+	userID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
+	}
+
+	err = h.service.DeleteUser(c.Context(), uint(userID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).
+			JSON(infrastructure.ErrServer(err.Error()))
+	}
+
+	return c.Status(fiber.StatusOK).
+		JSON(infrastructure.Success("user deleted successfully"))
+}

@@ -67,6 +67,7 @@ const (
 	GetUsers    = "GetUsers"
 	GetUserByID = "GetUserByID"
 	CreateUser  = "CreateUser"
+	DeleteUser  = "DeleteUser"
 )
 
 // routeCache stores extracted routes for use prior to compilation
@@ -129,6 +130,7 @@ func RegisterRoutes(
 	users.Get("/", userHandler.GetUsers).Name(GetUsers)
 	users.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
 	users.Post("/", userHandler.CreateUser).Name(CreateUser)
+	users.Delete("/:id", userHandler.DeleteUser).Name(DeleteUser)
 
 }
 
@@ -305,4 +307,9 @@ func GetUsersURL(queryParams url.Values) string {
 // CreateUserURL returns the URL for creating a job
 func CreateUserURL() string {
 	return BuildURL(CreateUser, nil, nil)
+}
+
+// DeleteUserURL returns the URL for deleting a job by ID
+func DeleteUserURL(id string) string {
+	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
 }

@@ -63,3 +63,12 @@ func (s User) GetUserByID(ctx context.Context, userID uint) (*models.User, error
 func (s User) GetAllUsers(ctx context.Context, opts *models.ListOptions) ([]models.User, error) {
 	return s.repo.GetUsers(ctx, opts)
 }
+
+func (s User) DeleteUser(ctx context.Context, userID uint) error {
+	_, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.DeleteUser(ctx, userID)
+}

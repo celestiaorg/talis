@@ -74,9 +74,13 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *models.ListOptions)
 		db = db.Unscoped().Where("deleted_at IS NULL")
 	}
 
-	err := db.Model(&models.Job{}).
+	err := db.Model(&models.User{}).
 		Limit(opts.Limit).Offset(opts.Offset).
 		Find(&users).Error
 
 	return users, err
+}
+
+func (r *UserRepository) DeleteUser(ctx context.Context, userID uint) error {
+	return r.db.WithContext(ctx).Delete(&models.User{}, userID).Error
 }
