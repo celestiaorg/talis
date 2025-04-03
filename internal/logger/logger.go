@@ -1,3 +1,4 @@
+// Package logger provides structured logging functionality for the application
 package logger
 
 import (

@@ -82,3 +82,25 @@ func (s *TaskStatus) UnmarshalJSON(data []byte) error {
 func (s *TaskStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
+
+// Validate ensures that the task data is valid
+func (t *Task) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("task name cannot be empty")
+	}
+
+	// Validate status
+	if _, err := ParseTaskStatus(string(t.Status)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// BeforeCreate is a GORM hook that runs before creating a new task
+func (t *Task) BeforeCreate(_ *gorm.DB) error {
+	if t.Status == "" {
+		t.Status = TaskStatusPending
+	}
+	return t.Validate()
+}

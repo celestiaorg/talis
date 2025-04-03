@@ -1,3 +1,4 @@
+// Package commands implements the CLI commands for the application
 package commands
 
 import (
@@ -27,7 +28,7 @@ var infraCmd = &cobra.Command{
 var createInfraCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create new infrastructure",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println("BROKEN")
 		os.Exit(1)
 		// var req infrastructure.InstanceCreateRequest
@@ -143,7 +144,7 @@ var createInfraCmd = &cobra.Command{
 var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println("BROKEN")
 		os.Exit(1)
 		// var req infrastructure.DeleteInstanceRequest

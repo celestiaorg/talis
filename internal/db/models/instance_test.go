@@ -17,7 +17,7 @@ func TestInstanceStatus(t *testing.T) {
 		stringValue   string
 		jsonValue     string
 		validForParse bool
-		validForJson  bool
+		validForJSON  bool
 		statusIndex   int
 	}{
 		{
@@ -26,7 +26,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "unknown",
 			jsonValue:     `"unknown"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   0,
 		},
 		{
@@ -35,7 +35,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "pending",
 			jsonValue:     `"pending"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   1,
 		},
 		{
@@ -44,7 +44,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "provisioning",
 			jsonValue:     `"provisioning"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   2,
 		},
 		{
@@ -53,7 +53,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "ready",
 			jsonValue:     `"ready"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   3,
 		},
 		{
@@ -62,7 +62,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "terminated",
 			jsonValue:     `"terminated"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   4,
 		},
 		{
@@ -70,14 +70,14 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "invalid_status",
 			jsonValue:     `"invalid_status"`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 			statusIndex:   -1,
 		},
 		{
 			name:          "Invalid JSON",
 			jsonValue:     `invalid`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 			statusIndex:   -1,
 		},
 	}
@@ -111,7 +111,7 @@ func TestInstanceStatus(t *testing.T) {
 			// Test JSON unmarshaling
 			var unmarshaledStatus InstanceStatus
 			err = unmarshaledStatus.UnmarshalJSON([]byte(tt.jsonValue))
-			if tt.validForJson {
+			if tt.validForJSON {
 				assert.NoError(t, err, "Unmarshal should not return error")
 				assert.Equal(t, tt.status, unmarshaledStatus, "Unmarshal produced incorrect status")
 			} else {

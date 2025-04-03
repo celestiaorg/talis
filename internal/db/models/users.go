@@ -23,7 +23,7 @@ type User struct {
 	Username     string   `json:"username" gorm:"not null;unique"`
 	Email        string   `json:"email" gorm:""`
 	Role         UserRole `json:"role" gorm:"index"`
-	PublicSshKey string   `json:"public_ssh_key" gorm:""`
+	PublicSSHKey string   `json:"public_ssh_key" gorm:""`
 	CreatedAt    string   `json:"created_at" gorm:""`
 	UpdatedAt    string   `json:"updated_at" gorm:""`
 }

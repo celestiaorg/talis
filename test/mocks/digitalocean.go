@@ -1,3 +1,4 @@
+// Package mocks provides mock implementations for external services and APIs used in testing
 package mocks
 
 import (

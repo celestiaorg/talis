@@ -13,7 +13,7 @@ func TestProviderID(t *testing.T) {
 		stringValue   string
 		jsonValue     string
 		validForParse bool
-		validForJson  bool
+		validForJSON  bool
 	}{
 		{
 			name:          "AWS provider",
@@ -21,7 +21,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "aws",
 			jsonValue:     `"aws"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "GCP provider",
@@ -29,7 +29,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "gcp",
 			jsonValue:     `"gcp"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Azure provider",
@@ -37,7 +37,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "azure",
 			jsonValue:     `"azure"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "DigitalOcean provider",
@@ -45,7 +45,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "do",
 			jsonValue:     `"do"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Scaleway provider",
@@ -53,7 +53,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "scw",
 			jsonValue:     `"scw"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Vultr provider",
@@ -61,7 +61,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "vultr",
 			jsonValue:     `"vultr"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Linode provider",
@@ -69,7 +69,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "linode",
 			jsonValue:     `"linode"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Hetzner provider",
@@ -77,7 +77,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "hetzner",
 			jsonValue:     `"hetzner"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "OVH provider",
@@ -85,7 +85,7 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "ovh",
 			jsonValue:     `"ovh"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Empty provider",
@@ -93,13 +93,13 @@ func TestProviderID(t *testing.T) {
 			stringValue:   "",
 			jsonValue:     `""`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Invalid JSON",
 			jsonValue:     `invalid`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 		},
 	}
 
@@ -109,7 +109,7 @@ func TestProviderID(t *testing.T) {
 			assert.Equal(t, tt.stringValue, tt.provider.String(), "String() method failed")
 
 			// Test JSON marshaling
-			if tt.validForJson {
+			if tt.validForJSON {
 				bytes, err := tt.provider.MarshalJSON()
 				assert.NoError(t, err, "Marshal should not return error")
 				assert.Equal(t, tt.jsonValue, string(bytes), "Marshal produced incorrect JSON")
@@ -118,7 +118,7 @@ func TestProviderID(t *testing.T) {
 			// Test JSON unmarshaling
 			var unmarshaledProvider ProviderID
 			err := unmarshaledProvider.UnmarshalJSON([]byte(tt.jsonValue))
-			if tt.validForJson {
+			if tt.validForJSON {
 				assert.NoError(t, err, "Unmarshal should not return error")
 				assert.Equal(t, tt.provider, unmarshaledProvider, "Unmarshal produced incorrect provider")
 			} else {

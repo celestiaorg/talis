@@ -72,7 +72,7 @@ func TestUser_Validation(t *testing.T) {
 		Username:     "testuser",
 		Email:        "test@example.com",
 		Role:         UserRoleAdmin,
-		PublicSshKey: "ssh-rsa AAAAB3NzaC1yc2E...",
+		PublicSSHKey: "ssh-rsa AAAAB3NzaC1yc2E...",
 		CreatedAt:    timeStr,
 		UpdatedAt:    timeStr,
 	}
@@ -90,7 +90,7 @@ func TestUser_Validation(t *testing.T) {
 		assert.Equal(t, validUser.Username, unmarshaledUser.Username)
 		assert.Equal(t, validUser.Email, unmarshaledUser.Email)
 		assert.Equal(t, validUser.Role, unmarshaledUser.Role)
-		assert.Equal(t, validUser.PublicSshKey, unmarshaledUser.PublicSshKey)
+		assert.Equal(t, validUser.PublicSSHKey, unmarshaledUser.PublicSSHKey)
 		assert.Equal(t, validUser.CreatedAt, unmarshaledUser.CreatedAt)
 		assert.Equal(t, validUser.UpdatedAt, unmarshaledUser.UpdatedAt)
 	})
@@ -136,12 +136,12 @@ func TestUser_Validation(t *testing.T) {
 	t.Run("SSH key validation", func(t *testing.T) {
 		// Test empty SSH key
 		invalidUser := validUser
-		invalidUser.PublicSshKey = ""
+		invalidUser.PublicSSHKey = ""
 		_, err := json.Marshal(invalidUser)
 		assert.NoError(t, err, "Should be able to marshal user with empty SSH key")
 
 		// Test invalid SSH key format
-		invalidUser.PublicSshKey = "invalid_ssh_key"
+		invalidUser.PublicSSHKey = "invalid_ssh_key"
 		_, err = json.Marshal(invalidUser)
 		assert.NoError(t, err, "Should be able to marshal user with invalid SSH key format")
 	})
