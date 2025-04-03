@@ -31,4 +31,4 @@
     src: "/dev/sda"
     fstype: ext4
     state: mounted
-  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0 
+  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
