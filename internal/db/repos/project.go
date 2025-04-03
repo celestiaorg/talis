@@ -1,3 +1,4 @@
+// Package repos provides database repository implementations
 package repos
 
 import (
