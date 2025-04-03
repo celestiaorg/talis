@@ -28,6 +28,8 @@ type AnsibleConfigurator struct {
 	sshKeyPath string
 	// payloads stores the payloads for all instances
 	payloads map[string]string
+	// payloadPaths stores the payload paths for payloads
+	payloadPaths map[string]string
 	// mutex protects the instances map
 	mutex sync.Mutex
 }
@@ -35,9 +37,10 @@ type AnsibleConfigurator struct {
 // NewAnsibleConfigurator creates a new Ansible configurator
 func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	return &AnsibleConfigurator{
-		jobID:     jobID,
-		instances: make(map[string]string),
-		payloads:  make(map[string]string),
+		jobID:        jobID,
+		instances:    make(map[string]string),
+		payloads:     make(map[string]string),
+		payloadPaths: make(map[string]string),
 	}
 }
 
@@ -55,16 +58,52 @@ func (a *AnsibleConfigurator) getPayload(instanceName string) string {
 	return a.payloads[instanceName]
 }
 
-// deliverPayload transfers the payload to the target instance
+// SetPayloadPath sets the destination path for a payload
+func (a *AnsibleConfigurator) SetPayloadPath(instanceName string, path string) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.payloadPaths[instanceName] = path
+}
+
+// getPayloadPath gets the destination path for a payload
+func (a *AnsibleConfigurator) getPayloadPath(instanceName string) string {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	path, ok := a.payloadPaths[instanceName]
+	if !ok || path == "" {
+		// Default path if none specified
+		return "/tmp"
+	}
+	return path
+}
+
+// / deliverPayload transfers the payload to the target instance
 func (a *AnsibleConfigurator) deliverPayload(host string, sshKeyPath string, payload string) error {
 	fmt.Printf("📦 Delivering payload to %s...\n", host)
+
+	// Get the instance name from the host
+	var instanceName string
+	for name, h := range a.instances {
+		if h == host {
+			instanceName = name
+			break
+		}
+	}
+
+	// Get destination path (default to /root/payload.bin if not specified)
+	destPath := a.getPayloadPath(instanceName)
+	fmt.Printf("📁 Destination path: %s\n", destPath)
 
 	// Create a temporary file for the payload
 	tmpFile, err := os.CreateTemp("", "payload-*.bin")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		if removeErr := os.Remove(tmpFile.Name()); removeErr != nil {
+			err = fmt.Errorf("failed to remove temporary file: %w", removeErr)
+		}
+	}()
 
 	// Write the payload to the temporary file
 	if _, err := tmpFile.WriteString(payload); err != nil {
@@ -80,7 +119,7 @@ func (a *AnsibleConfigurator) deliverPayload(host string, sshKeyPath string, pay
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "UserKnownHostsFile=/dev/null",
 		tmpFile.Name(),
-		fmt.Sprintf("root@%s:/root/payload.bin", host),
+		fmt.Sprintf("root@%s:%s", host, destPath),
 	}
 
 	// #nosec G204 -- command arguments are constructed from validated inputs
@@ -90,7 +129,7 @@ func (a *AnsibleConfigurator) deliverPayload(host string, sshKeyPath string, pay
 		return fmt.Errorf("failed to transfer payload: %w", err)
 	}
 
-	fmt.Printf("✅ Payload delivered to %s\n", host)
+	fmt.Printf("✅ Payload delivered to %s at %s\n", host, destPath)
 	return nil
 }
 

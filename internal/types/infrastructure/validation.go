@@ -105,6 +105,19 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("payload exceeds maximum size of 100MB")
 	}
 
+	// Validate payload path if provided
+	if i.PayloadPath != "" {
+		// Ensure path starts with / (absolute path)
+		if !strings.HasPrefix(i.PayloadPath, "/") {
+			return fmt.Errorf("payload_path must be an absolute path (start with /)")
+		}
+
+		// Basic path validation - no relative path components
+		if strings.Contains(i.PayloadPath, "..") {
+			return fmt.Errorf("payload_path cannot contain relative path components (..)")
+		}
+	}
+
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
 	}

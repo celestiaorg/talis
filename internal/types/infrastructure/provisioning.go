@@ -59,6 +59,9 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 			if instanceName != "" {
 				if provisioner, ok := i.provisioner.(*compute.AnsibleConfigurator); ok {
 					provisioner.SetPayload(instanceName, instanceReq.Payload)
+
+					// Set payload path for the instance
+					provisioner.SetPayloadPath(instanceName, instanceReq.PayloadPath)
 				}
 			}
 		}

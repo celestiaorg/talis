@@ -55,6 +55,7 @@ type Provisioner interface {
 	CreateInventory(instances map[string]string, keyPath string) error
 	RunAnsiblePlaybook(inventoryName string) error
 	SetPayload(instanceName string, payload string)
+	SetPayloadPath(instanceName string, path string)
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
