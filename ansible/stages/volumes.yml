@@ -19,11 +19,20 @@
     state: directory
     mode: '0755'
 
+- name: Check if filesystem exists on volume
+  command: blkid -s TYPE -o value /dev/sda
+  register: blkid_output
+  changed_when: false
+  failed_when: false
+  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+
 - name: Format volumes if needed
   filesystem:
     fstype: ext4
     dev: "/dev/sda"
-  when: volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+  when: 
+    - volumes.blockdevices | selectattr('name', 'equalto', 'sda') | list | length > 0
+    - blkid_output.stdout == ""
 
 - name: Mount volumes
   mount:
