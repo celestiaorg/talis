@@ -1,4 +1,3 @@
----
 version: 2
 run:
   timeout: 5m
@@ -13,9 +12,18 @@ linters:
     - ineffassign
     - misspell
     - revive
-    - staticcheck
+    - staticcheck  # in v2.0.0+, staticcheck includes gosimple and stylecheck functionality
     - unconvert
     - unused
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+checks:
+  enable:
+    - typecheck
 
 issues:
   exclude-use-default: false
