@@ -1,4 +1,4 @@
-version: 2
+---
 run:
   timeout: 5m
   modules-download-mode: readonly
@@ -7,23 +7,18 @@ linters:
   enable:
     - errorlint
     - errcheck
+    - gofmt
+    - goimports
     - gosec
+    - gosimple
     - govet
     - ineffassign
     - misspell
     - revive
-    - staticcheck  # in v2.0.0+, staticcheck includes gosimple and stylecheck functionality
+    - staticcheck
+    - typecheck
     - unconvert
     - unused
-
-formatters:
-  enable:
-    - gofmt
-    - goimports
-
-checks:
-  enable:
-    - typecheck
 
 issues:
   exclude-use-default: false
