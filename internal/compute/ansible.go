@@ -77,62 +77,6 @@ func (a *AnsibleConfigurator) getPayloadPath(instanceName string) string {
 	return path
 }
 
-// / deliverPayload transfers the payload to the target instance
-func (a *AnsibleConfigurator) deliverPayload(host string, sshKeyPath string, payload string) error {
-	fmt.Printf("📦 Delivering payload to %s...\n", host)
-
-	// Get the instance name from the host
-	var instanceName string
-	for name, h := range a.instances {
-		if h == host {
-			instanceName = name
-			break
-		}
-	}
-
-	// Get destination path (default to /root/payload.bin if not specified)
-	destPath := a.getPayloadPath(instanceName)
-	fmt.Printf("📁 Destination path: %s\n", destPath)
-
-	// Create a temporary file for the payload
-	tmpFile, err := os.CreateTemp("", "payload-*.bin")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
-	}
-	defer func() {
-		if removeErr := os.Remove(tmpFile.Name()); removeErr != nil {
-			err = fmt.Errorf("failed to remove temporary file: %w", removeErr)
-		}
-	}()
-
-	// Write the payload to the temporary file
-	if _, err := tmpFile.WriteString(payload); err != nil {
-		return fmt.Errorf("failed to write payload to temporary file: %w", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temporary file: %w", err)
-	}
-
-	// Transfer the payload to the instance
-	args := []string{
-		"-i", sshKeyPath,
-		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=/dev/null",
-		tmpFile.Name(),
-		fmt.Sprintf("root@%s:%s", host, destPath),
-	}
-
-	// #nosec G204 -- command arguments are constructed from validated inputs
-	scpCmd := exec.Command("scp", args...)
-
-	if err := scpCmd.Run(); err != nil {
-		return fmt.Errorf("failed to transfer payload: %w", err)
-	}
-
-	fmt.Printf("✅ Payload delivered to %s at %s\n", host, destPath)
-	return nil
-}
-
 // CreateInventory creates the inventory file with all instances
 func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error {
 	fmt.Printf("📝 Creating inventory for job %s...\n", a.jobID)
@@ -259,13 +203,6 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 
 		fmt.Printf("  Retrying SSH connection to %s in 10 seconds... (%d/30)\n", host, i+1)
 		time.Sleep(10 * time.Second)
-	}
-
-	// If there is a payload to delivery, transfer it to the instance
-	if payload := a.getPayload(instanceName); payload != "" {
-		if err := a.deliverPayload(host, sshKeyPath, payload); err != nil {
-			return fmt.Errorf("failed to transfer payload to %s: %w", host, err)
-		}
 	}
 
 	return nil
