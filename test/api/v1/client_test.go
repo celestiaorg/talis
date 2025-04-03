@@ -46,6 +46,17 @@ var defaultInstanceRequest2 = infrastructure.InstanceRequest{
 	Image:             "ubuntu-20-04-x64",
 }
 
+var defaultUser1 = infrastructure.CreateUserRequest{
+	Username: "user1",
+	Email:    "userss1@email.com",
+	Role:     1,
+}
+var defaultUser2 = infrastructure.CreateUserRequest{
+	Username: "user2",
+	Email:    "users22@email.com",
+	Role:     1,
+}
+
 // This file contains the comprehensive test suite for the API client.
 
 // TestClientAdminMethods tests the admin methods of the API client.
@@ -301,4 +312,75 @@ func TestClientJobMethods(t *testing.T) {
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
+}
+
+func TestClientUserMethods(t *testing.T) {
+	suite := test.NewTestSuite(t)
+	defer suite.Cleanup()
+
+	/////////////////////
+	// t.Run()
+	users, err := suite.APIClient.GetUsers(suite.Context(), nil)
+	require.NoError(t, err)
+	require.NotNil(t, users)
+	require.Empty(t, users.Users, "Expected no users in a fresh database")
+
+	t.Run("CreateUser_Success", func(t *testing.T) {
+		// Create first user
+		newUser1, err := suite.APIClient.CreateUser(suite.Context(), defaultUser1)
+		require.NoError(t, err)
+		require.NotEmpty(t, newUser1.UserId, "User ID should not be empty")
+	})
+
+	t.Run("CreateUser_DuplicateUsername", func(t *testing.T) {
+		// Try to create a user with the same username
+		duplicateUser := defaultUser1
+		_, err := suite.APIClient.CreateUser(suite.Context(), duplicateUser)
+		require.Error(t, err, "Creating user with duplicate username should fail")
+	})
+
+	// t.Run("GetUserByID_Success", func(t *testing.T) {
+	// 	// Create a user first
+	// 	newUser, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+	// 		Username:     "testuser_getbyid",
+	// 		Email:        "getbyid@example.com",
+	// 		Role:         1,
+	// 		PublicSshKey: "ssh-rsa TESTKEY",
+	// 	})
+	// 	require.NoError(t, err)
+
+	// 	// Get the user by ID
+	// 	t.Log("")
+	// 	t.Log(fmt.Sprint(newUser.UserId))
+	// 	user, err := suite.APIClient.GetUserByID(suite.Context(), "2")
+	// 	require.NoError(t, err)
+	// 	require.NotNil(t, user)
+	// 	require.Equal(t, "testuser_getbyid", user.Username)
+	// 	require.Equal(t, "getbyid@example.com", user.Email)
+	// })
+
+	t.Run("GetUserByUsername_Success", func(t *testing.T) {
+		// Create a user first
+		uniqueUsername := "unique_username_test"
+		_, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+			Username:     uniqueUsername,
+			Email:        "unique@example.com",
+			Role:         1,
+			PublicSshKey: "ssh-rsa UNIQUEKEY",
+		})
+		require.NoError(t, err)
+
+		// Get the user by username
+		userResp, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{Username: uniqueUsername})
+		require.NoError(t, err)
+		require.NotNil(t, userResp.User)
+		require.Equal(t, uniqueUsername, userResp.User.Username)
+		require.Equal(t, "unique@example.com", userResp.User.Email)
+	})
+
+	t.Run("GetUserByUsername_NotFound", func(t *testing.T) {
+		// Try to get a non-existent username
+		_, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{Username: "nonexistent_user"})
+		require.Error(t, err, "Getting non-existent username should return error")
+	})
 }
