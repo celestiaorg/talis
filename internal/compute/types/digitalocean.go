@@ -1,3 +1,4 @@
+// Package types provides interface definitions for compute providers
 package types
 
 import (

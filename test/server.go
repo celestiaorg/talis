@@ -43,7 +43,7 @@ func SetupServer(suite *TestSuite) {
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))
 
 	// Create API client with test configuration
-	client, err := client.NewClient(&client.ClientOptions{
+	client, err := client.NewClient(&client.Options{
 		BaseURL: suite.Server.URL,
 		Timeout: testClientTimeout,
 	})

@@ -20,7 +20,7 @@ type MockDOClient struct {
 }
 
 // ConfigureProvider is a no-op to satisfy the ComputeProvider interface
-func (c *MockDOClient) ConfigureProvider(stack interface{}) error {
+func (c *MockDOClient) ConfigureProvider(_ interface{}) error {
 	return nil
 }
 
@@ -38,7 +38,7 @@ func (c *MockDOClient) CreateInstance(ctx context.Context, name string, config t
 }
 
 // DeleteInstance is a mock implementation of the DeleteInstance method
-func (c *MockDOClient) DeleteInstance(ctx context.Context, name string, region string) error {
+func (c *MockDOClient) DeleteInstance(ctx context.Context, _ string, _ string) error {
 	_, err := c.MockDropletService.Delete(ctx, DefaultDropletID1)
 	return err
 }

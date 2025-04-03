@@ -1,3 +1,4 @@
+// Package test provides utilities for setting up and running tests
 package test
 
 import (

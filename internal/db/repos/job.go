@@ -132,11 +132,11 @@ func (r *JobRepository) Count(ctx context.Context, status models.JobStatus, Owne
 	return count, err
 }
 
-// Query executes a custom query against the job table
-func (r *JobRepository) Query(ctx context.Context, query string, args ...interface{}) ([]models.Job, error) {
+// Query executes a raw SQL query against the jobs table
+func (r *JobRepository) Query(_ context.Context, query string, args ...interface{}) ([]models.Job, error) {
 	var jobs []models.Job
-	err := r.db.Raw(query, args...).Scan(&jobs).Error
-	return jobs, err
+	result := r.db.Raw(query, args...).Scan(&jobs)
+	return jobs, result.Error
 }
 
 // GetByProjectName retrieves a job by its project name

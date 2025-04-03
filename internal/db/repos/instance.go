@@ -132,18 +132,18 @@ func (r *InstanceRepository) Count(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-// Query executes a custom query against the instance table
-func (r *InstanceRepository) Query(ctx context.Context, query string, args ...interface{}) ([]models.Instance, error) {
+// Query executes a raw SQL query against the jobs table
+func (r *InstanceRepository) Query(_ context.Context, query string, args ...interface{}) ([]models.Instance, error) {
 	var instances []models.Instance
-	err := r.db.Raw(query, args...).Scan(&instances).Error
-	return instances, err
+	result := r.db.Raw(query, args...).Scan(&instances)
+	return instances, result.Error
 }
 
-// Get retrieves an instance by ID
-func (r *InstanceRepository) Get(ctx context.Context, id uint) (*models.Instance, error) {
+// Get retrieves a job by ID
+func (r *InstanceRepository) Get(_ context.Context, id uint) (*models.Instance, error) {
 	var instance models.Instance
 	if err := r.db.First(&instance, id).Error; err != nil {
-		return nil, fmt.Errorf("failed to get instance: %w", err)
+		return nil, err
 	}
 	return &instance, nil
 }

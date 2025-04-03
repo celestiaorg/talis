@@ -19,7 +19,7 @@ import (
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name       string
-		opts       *ClientOptions
+		opts       *Options
 		wantErr    bool
 		validateFn func(t *testing.T, client Client)
 	}{
@@ -40,7 +40,7 @@ func TestNewClient(t *testing.T) {
 		},
 		{
 			name: "valid options",
-			opts: &ClientOptions{
+			opts: &Options{
 				BaseURL: "http://example.com",
 				Timeout: 10 * time.Second,
 			},
@@ -56,7 +56,7 @@ func TestNewClient(t *testing.T) {
 		},
 		{
 			name: "invalid base URL",
-			opts: &ClientOptions{
+			opts: &Options{
 				BaseURL: "://invalid-url",
 			},
 			wantErr:    true,
@@ -108,7 +108,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 	defer server.Close()
 
 	// Create a client with the test server URL
-	client, err := NewClient(&ClientOptions{
+	client, err := NewClient(&Options{
 		BaseURL: server.URL,
 	})
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 }
 
 func TestAPIClient_createAgent(t *testing.T) {
-	client, err := NewClient(&ClientOptions{
+	client, err := NewClient(&Options{
 		BaseURL: "http://example.com",
 	})
 	require.NoError(t, err)
