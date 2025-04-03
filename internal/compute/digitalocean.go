@@ -128,26 +128,35 @@ type DefaultStorageService struct {
 	actions godo.StorageActionsService
 }
 
+// CreateVolume creates a new block storage volume in DigitalOcean.
+// It directly maps to the DigitalOcean API for volume creation.
 func (s *DefaultStorageService) CreateVolume(ctx context.Context, request *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
 	return s.service.CreateVolume(ctx, request)
 }
 
+// DeleteVolume deletes a block storage volume from DigitalOcean by its ID.
 func (s *DefaultStorageService) DeleteVolume(ctx context.Context, id string) (*godo.Response, error) {
 	return s.service.DeleteVolume(ctx, id)
 }
 
+// ListVolumes retrieves all block storage volumes associated with the account.
 func (s *DefaultStorageService) ListVolumes(ctx context.Context, opt *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
 	return s.service.ListVolumes(ctx, opt)
 }
 
+// GetVolume retrieves information about a specific block storage volume.
 func (s *DefaultStorageService) GetVolume(ctx context.Context, id string) (*godo.Volume, *godo.Response, error) {
 	return s.service.GetVolume(ctx, id)
 }
 
+// GetVolumeAction retrieves the status of a volume action.
 func (s *DefaultStorageService) GetVolumeAction(ctx context.Context, volumeID string, actionID int) (*godo.Action, *godo.Response, error) {
 	return s.actions.Get(ctx, volumeID, actionID)
 }
 
+// AttachVolume attaches a block storage volume to a droplet and waits for completion.
+// The operation is considered complete when the volume is successfully attached
+// or when it fails after maximum retries.
 func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error) {
 	if s.actions == nil {
 		return nil, fmt.Errorf("storage actions service not initialized")
@@ -188,6 +197,9 @@ func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID strin
 	return resp, fmt.Errorf("volume attach action did not complete after %d retries", maxRetries)
 }
 
+// DetachVolume detaches a block storage volume from a droplet and waits for completion.
+// The operation is considered complete when the volume is successfully detached
+// or when it fails after maximum retries.
 func (s *DefaultStorageService) DetachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error) {
 	if s.actions == nil {
 		return nil, fmt.Errorf("storage actions service not initialized")
