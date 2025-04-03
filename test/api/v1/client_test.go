@@ -52,7 +52,7 @@ var defaultUser1 = infrastructure.CreateUserRequest{
 	Role:     1,
 }
 var defaultUser2 = infrastructure.CreateUserRequest{
-	Username: "user1",
+	Username: "user12",
 }
 
 // This file contains the comprehensive test suite for the API client.
@@ -328,6 +328,11 @@ func TestClientUserMethods(t *testing.T) {
 		newUser1, err := suite.APIClient.CreateUser(suite.Context(), defaultUser1)
 		require.NoError(t, err)
 		require.NotEmpty(t, newUser1.UserId, "User ID should not be empty")
+
+		// Create first user
+		newUser2, err := suite.APIClient.CreateUser(suite.Context(), defaultUser2)
+		require.NoError(t, err)
+		require.NotEmpty(t, newUser2.UserId, "User ID should not be empty")
 	})
 
 	t.Run("CreateUser_DuplicateUsername", func(t *testing.T) {
