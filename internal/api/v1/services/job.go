@@ -78,7 +78,7 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 		fmt.Printf("🗑️ Starting async deletion for job %d\n", job.ID)
 
 		// Get instances from database for this job, ordered by creation time
-		instances, err := s.instanceRepo.GetByJobIDOrdered(ctx, job.ID)
+		instances, err := s.instanceRepo.GetByJobIDOrdered(ctx, job.OwnerID, job.ID)
 		if err != nil {
 			fmt.Printf("❌ Failed to get instances: %v\n", err)
 			return
@@ -127,7 +127,7 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 					fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
 					// Instance doesn't exist in DO, safe to mark as deleted
-					if err := s.instanceRepo.Terminate(ctx, instance.ID); err != nil {
+					if err := s.instanceRepo.Terminate(ctx, instance.OwnerID, instance.ID); err != nil {
 						fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 					} else {
 						fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
@@ -141,7 +141,7 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 				}
 			} else {
 				// Deletion was successful, update database
-				if err := s.instanceRepo.Terminate(ctx, instance.ID); err != nil {
+				if err := s.instanceRepo.Terminate(ctx, instance.OwnerID, instance.ID); err != nil {
 					fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
 				} else {
 					fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
