@@ -142,35 +142,10 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 			// Update volumes
 			if len(instance.Volumes) > 0 {
-				dbInstance, err := s.repo.GetByName(ctx, instance.Name)
-				if err != nil {
-					fmt.Printf("❌ Failed to get instance %s from database: %v\n", instance.Name, err)
+				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instances[0].Volumes); err != nil {
+					fmt.Printf("❌ %v\n", err)
 					continue
 				}
-				dbInstance.Volumes = instance.Volumes
-
-				// Add volume details
-				var volumeDetails []models.VolumeDetail
-				for i, volumeID := range instance.Volumes {
-					// Get the volume configuration from the request
-					if i < len(instances[0].Volumes) {
-						volumeConfig := instances[0].Volumes[i]
-						volumeDetails = append(volumeDetails, models.VolumeDetail{
-							ID:         volumeID,
-							Name:       volumeConfig.Name,
-							SizeGB:     volumeConfig.SizeGB,
-							Region:     volumeConfig.Region,
-							MountPoint: volumeConfig.MountPoint,
-						})
-					}
-				}
-				dbInstance.VolumeDetails = volumeDetails
-
-				if err := s.repo.Update(ctx, dbInstance.ID, dbInstance); err != nil {
-					fmt.Printf("❌ Failed to update instance %s volumes: %v\n", instance.Name, err)
-					continue
-				}
-				fmt.Printf("✅ Updated instance %s with volumes: %v and details: %+v\n", instance.Name, instance.Volumes, volumeDetails)
 			}
 
 			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
@@ -190,6 +165,48 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", jobID)
 	}()
+}
+
+// updateInstanceVolumes updates the volumes and volume details for an instance
+func (s *Instance) updateInstanceVolumes(
+	ctx context.Context,
+	instanceName string,
+	volumes []string,
+	volumeConfigs []types.VolumeConfig,
+) error {
+	// Get instance from database
+	dbInstance, err := s.repo.GetByName(ctx, instanceName)
+	if err != nil {
+		return fmt.Errorf("failed to get instance %s from database: %w", instanceName, err)
+	}
+
+	// Update volumes
+	dbInstance.Volumes = volumes
+
+	// Add volume details
+	var volumeDetails []models.VolumeDetail
+	for i, volumeID := range volumes {
+		// Get the volume configuration from the request
+		if i < len(volumeConfigs) {
+			volumeConfig := volumeConfigs[i]
+			volumeDetails = append(volumeDetails, models.VolumeDetail{
+				ID:         volumeID,
+				Name:       volumeConfig.Name,
+				SizeGB:     volumeConfig.SizeGB,
+				Region:     volumeConfig.Region,
+				MountPoint: volumeConfig.MountPoint,
+			})
+		}
+	}
+	dbInstance.VolumeDetails = volumeDetails
+
+	// Update instance in database
+	if err := s.repo.Update(ctx, dbInstance.ID, dbInstance); err != nil {
+		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
+	}
+
+	fmt.Printf("✅ Updated instance %s with volumes: %v and details: %+v\n", instanceName, volumes, volumeDetails)
+	return nil
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job
