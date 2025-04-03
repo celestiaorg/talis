@@ -119,11 +119,11 @@ func TestClientInstanceMethods(t *testing.T) {
 	err = suite.APIClient.CreateJob(suite.Context(), jobRequest)
 	require.NoError(t, err)
 
-	// Create an instance
+	// Create 2 instances
 	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
 	require.NoError(t, err)
 
-	// Wait for the instance to be available
+	// Wait for the instances to be available
 	err = suite.Retry(func() error {
 		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 		if err != nil {
@@ -165,7 +165,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	// Delete both instances
 	deleteRequest := infrastructure.DeleteInstanceRequest{
 		JobName:       jobRequest.Name,
-		InstanceNames: []string{actualInstances[1].Name, actualInstances[0].Name},
+		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
 	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestClientInstanceMethods(t *testing.T) {
 		terminatedStatus := models.InstanceStatusTerminated
 		instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{
 			IncludeDeleted: true,
-			Status:         &terminatedStatus,
+			InstanceStatus: &terminatedStatus,
 		})
 		if err != nil {
 			return err

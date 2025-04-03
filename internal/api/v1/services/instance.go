@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -132,18 +133,16 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		// Update instance information in database
 		for _, instance := range pInstances {
-			// Update IP and status
-			if err := s.repo.UpdateIPByName(ctx, instance.Name, instance.IP); err != nil {
-				fmt.Printf("❌ Failed to update instance %s IP: %v\n", instance.Name, err)
+			// Create update instance with only the fields we want to update
+			updateInstance := &models.Instance{
+				PublicIP: instance.IP,
+				Status:   models.InstanceStatusReady,
+			}
+			if err := s.repo.UpdateByName(ctx, instance.Name, updateInstance); err != nil {
+				fmt.Printf("❌ Failed to update instance %s: %v\n", instance.Name, err)
 				continue
 			}
-			fmt.Printf("✅ Updated instance %s with IP %s\n", instance.Name, instance.IP)
-
-			if err := s.repo.UpdateStatusByName(ctx, instance.Name, models.InstanceStatusReady); err != nil {
-				fmt.Printf("❌ Failed to update instance %s status: %v\n", instance.Name, err)
-				continue
-			}
-			fmt.Printf("✅ Updated instance %s status to ready\n", instance.Name)
+			fmt.Printf("✅ Updated instance %s with IP %s and status ready\n", instance.Name, instance.IP)
 		}
 
 		// Start Ansible provisioning if requested
@@ -211,27 +210,33 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 	return nil
 }
 
-// handleInfrastructureDeletion handles the infrastructure deletion process
+// deleteRequest represents a single instance deletion request with tracking
+type deleteRequest struct {
+	instance     models.Instance
+	infraRequest *infrastructure.InstancesRequest
+	attempts     int
+	lastError    error
+	maxAttempts  int
+}
+
+// deletionResults tracks the overall results of the deletion operation
+type deletionResults struct {
+	successful []string         // names of successfully deleted instances
+	failed     map[string]error // instance name -> last error for failed deletions
+}
+
+// terminate handles the infrastructure deletion process
 func (s *Instance) terminate(ctx context.Context, jobName string, instances []models.Instance) {
 	go func() {
 		if len(instances) == 0 {
-			fmt.Printf("❌ No instances found to terminate\n")
+			fmt.Printf("❌ No instances provided to terminate\n")
 			return
 		}
 
-		// Prepare deletion result
-		deletionResult := map[string]interface{}{
-			"status":  "deleting",
-			"deleted": []string{},
-		}
-
-		// Try to delete each selected instance
-		// TODO: Consider async deletion in multiple goroutines
+		// Create queue of delete requests
+		queue := make([]*deleteRequest, 0, len(instances))
 		for _, instance := range instances {
-			fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
-
-			// Create a new infrastructure request for each instance
-			instanceInfraReq := &infrastructure.InstancesRequest{
+			infraReq := &infrastructure.InstancesRequest{
 				JobName: jobName,
 				Instances: []infrastructure.InstanceRequest{
 					{
@@ -243,50 +248,101 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 				},
 				Action: "delete",
 			}
-
 			// TODO: a hacky fix, but has to be addressed properly in another PR
-			if instanceInfraReq.Provider == "" {
-				instanceInfraReq.Provider = instanceInfraReq.Instances[0].Provider
+			if infraReq.Provider == "" {
+				infraReq.Provider = infraReq.Instances[0].Provider
 			}
 
-			// Create infrastructure client for this specific instance
-			infra, err := infrastructure.NewInfrastructure(instanceInfraReq)
-			if err != nil {
-				fmt.Printf("❌ Failed to create infrastructure client for instance %s: %v\n", instance.Name, err)
-				continue
-			}
+			queue = append(queue, &deleteRequest{
+				instance:     instance,
+				infraRequest: infraReq,
+				maxAttempts:  10,
+			})
+		}
 
-			// Execute the deletion for this specific instance
-			_, err = infra.Execute()
-			if err != nil {
-				if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-					fmt.Printf("⚠️ Warning: Instance %s was already deleted\n", instance.Name)
-					// Instance doesn't exist in DO, safe to mark as deleted
-					if err := s.repo.Terminate(ctx, instance.ID); err != nil {
-						fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
-						continue
-					}
-					fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
-					if deleted, ok := deletionResult["deleted"].([]string); ok {
-						deletionResult["deleted"] = append(deleted, instance.Name)
-					}
-				} else {
-					fmt.Printf("❌ Error deleting instance %s: %v\n", instance.Name, err)
-					continue
+		results := &deletionResults{
+			successful: make([]string, 0),
+			failed:     make(map[string]error),
+		}
+
+		// Process queue until empty or all requests have failed
+		defaultErrorSleep := 100 * time.Millisecond
+	REQUESTLOOP:
+		for len(queue) > 0 {
+			select {
+			case <-ctx.Done():
+				// Context cancelled, mark remaining requests as failed
+				for _, req := range queue {
+					results.failed[req.instance.Name] = fmt.Errorf("operation cancelled: %w", ctx.Err())
 				}
+				queue = nil // Clear the queue
+				break REQUESTLOOP
+			default:
 			}
 
-			// Deletion was successful, update database
-			if err := s.repo.Terminate(ctx, instance.ID); err != nil {
-				fmt.Printf("❌ Failed to mark instance %s as terminated in database: %v\n", instance.Name, err)
+			request := queue[0]
+			queue = queue[1:] // pop from front
+
+			// Skip if max attempts reached
+			if request.attempts >= request.maxAttempts {
+				results.failed[request.instance.Name] = fmt.Errorf("max attempts reached (%d): %w", request.maxAttempts, request.lastError)
 				continue
 			}
-			fmt.Printf("✅ Marked instance %s as terminated in database\n", instance.Name)
-			if deleted, ok := deletionResult["deleted"].([]string); ok {
-				deletionResult["deleted"] = append(deleted, instance.Name)
+
+			request.attempts++
+
+			// Try to delete infrastructure
+			infra, err := infrastructure.NewInfrastructure(request.infraRequest)
+			if err != nil {
+				request.lastError = fmt.Errorf("failed to create infrastructure client: %w", err)
+				queue = append(queue, request) // add back to queue
+				time.Sleep(defaultErrorSleep)
+				continue
+			}
+
+			_, err = infra.Execute()
+			// If error exists and it's not a "not found" error, add back to queue
+			if err != nil && !(strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
+				request.lastError = fmt.Errorf("failed to delete infrastructure: %w", err)
+				queue = append(queue, request) // add back to queue
+				time.Sleep(defaultErrorSleep)
+				continue
+			}
+
+			// Try to update database
+			if err := s.repo.Terminate(ctx, request.instance.ID); err != nil {
+				request.lastError = fmt.Errorf("failed to terminate in database: %w", err)
+				queue = append(queue, request) // add back to queue
+				time.Sleep(defaultErrorSleep)
+				continue
+			}
+
+			// Successfully deleted both infrastructure and database record
+			results.successful = append(results.successful, request.instance.Name)
+		}
+
+		// Log final results
+		if len(results.successful) > 0 {
+			logger.Infof("Successfully deleted instances: %v", results.successful)
+		}
+		if len(results.failed) > 0 {
+			logger.Infof("Failed to delete instances:")
+			for name, err := range results.failed {
+				logger.Infof("  %s: %v", name, err)
 			}
 		}
 
-		deletionResult["status"] = "completed"
+		// Update deletion result for API response
+		deletionResult := map[string]interface{}{
+			"status":    "completed",
+			"deleted":   results.successful,
+			"failed":    results.failed,
+			"completed": time.Now().UTC(),
+		}
+
+		// Update final status with result
+		if err := s.jobService.UpdateJobStatus(ctx, instances[0].JobID, models.JobStatusCompleted, deletionResult, ""); err != nil {
+			logger.Errorf("Failed to update final job status: %v", err)
+		}
 	}()
 }

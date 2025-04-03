@@ -50,30 +50,35 @@ func (r *InstanceRepository) GetByNames(ctx context.Context, names []string) ([]
 	return instances, nil
 }
 
-// Update updates an instance
-func (r *InstanceRepository) Update(ctx context.Context, ID uint, instance *models.Instance) error {
-	return r.db.WithContext(ctx).Where(&models.Instance{Model: gorm.Model{ID: ID}}).Updates(instance).Error
+// UpdateByID updates an instance by its ID. Only non-zero fields in the instance parameter will be updated.
+// GORM's Updates method will:
+// - Only update fields with non-zero values in the instance parameter
+// - Ignore zero-value fields (null, 0, "", false)
+// - Not update fields marked with gorm:"-" tag
+// - Not update CreatedAt field
+// - Automatically update UpdatedAt if it exists
+func (r *InstanceRepository) UpdateByID(ctx context.Context, id uint, instance *models.Instance) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Instance{}).
+			Where(&models.Instance{Model: gorm.Model{ID: id}}).
+			Updates(instance).Error; err != nil {
+			return fmt.Errorf("failed to update instance by ID: %w", err)
+		}
+		return nil
+	})
 }
 
-// UpdateIPByName updates the public IP of an instance by its name
-func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Name: name}).
-		Update(models.InstancePublicIPField, ip).Error
-}
-
-// UpdateStatus updates the status of an instance
-func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status models.InstanceStatus) error {
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: ID}}).
-		Update("status", status).Error
-}
-
-// UpdateStatusByName updates the status of an instance by its name
-func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string, status models.InstanceStatus) error {
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Name: name}).
-		Update("status", status).Error
+// UpdateByName updates an instance by its name. Only non-zero fields in the instance parameter will be updated.
+// See UpdateByID method for details on how GORM handles field updates.
+func (r *InstanceRepository) UpdateByName(ctx context.Context, name string, instance *models.Instance) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.Instance{}).
+			Where(&models.Instance{Name: name}).
+			Updates(instance).Error; err != nil {
+			return fmt.Errorf("failed to update instance by name: %w", err)
+		}
+		return nil
+	})
 }
 
 // applyListOptions applies the list options to the given query
@@ -83,11 +88,11 @@ func (r *InstanceRepository) applyListOptions(query *gorm.DB, opts *models.ListO
 	}
 
 	// Apply status filter if provided
-	if opts.Status != nil {
+	if opts.InstanceStatus != nil {
 		if opts.StatusFilter == models.StatusFilterNotEqual {
-			query = query.Where("status != ?", *opts.Status)
+			query = query.Where("status != ?", *opts.InstanceStatus)
 		} else {
-			query = query.Where("status = ?", *opts.Status)
+			query = query.Where("status = ?", *opts.InstanceStatus)
 		}
 	} else if !opts.IncludeDeleted {
 		// By default, only show non-terminated instances if not including deleted
@@ -173,15 +178,22 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, jobID uint) 
 
 // Terminate updates the status of an instance to terminated and performs a soft delete
 func (r *InstanceRepository) Terminate(ctx context.Context, id uint) error {
-	// First update the status to terminated
-	if err := r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: id}}).
-		Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error; err != nil {
-		return err
-	}
+	// To prevent race conditions, we use a transaction to wrap the update and delete
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// First update the status to terminated
+		if err := tx.Model(&models.Instance{}).
+			Where(&models.Instance{Model: gorm.Model{ID: id}}).
+			Update(models.InstanceStatusField, models.InstanceStatusTerminated).Error; err != nil {
+			return fmt.Errorf("failed to update instance status: %w", err)
+		}
 
-	// Then perform the soft delete
-	return r.db.WithContext(ctx).Delete(&models.Instance{}, id).Error
+		// Then perform the soft delete
+		if err := tx.Delete(&models.Instance{}, id).Error; err != nil {
+			return fmt.Errorf("failed to soft delete instance: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // GetByJobIDAndNames retrieves instances that belong to a specific job and match the given names

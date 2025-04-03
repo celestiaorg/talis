@@ -75,9 +75,11 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	instance := s.createTestInstance()
 
 	// Update instance
-	instance.PublicIP = "192.0.2.100"
-	instance.Status = models.InstanceStatusReady
-	err := s.instanceRepo.Update(s.ctx, instance.ID, instance)
+	updateInstance := &models.Instance{
+		PublicIP: "192.0.2.100",
+		Status:   models.InstanceStatusReady,
+	}
+	err := s.instanceRepo.UpdateByID(s.ctx, instance.ID, updateInstance)
 	s.NoError(err)
 
 	// Verify update
@@ -85,40 +87,46 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	s.NoError(err)
 	s.Equal("192.0.2.100", updated.PublicIP)
 	s.Equal(models.InstanceStatusReady, updated.Status)
-}
 
-func (s *InstanceRepositoryTestSuite) TestUpdateIPByName() {
-	instance := s.createTestInstance()
-	newIP := "192.0.2.200"
-
-	err := s.instanceRepo.UpdateIPByName(s.ctx, instance.Name, newIP)
+	// Test updating IP
+	updateIP := &models.Instance{
+		PublicIP: "192.0.2.200",
+	}
+	err = s.instanceRepo.UpdateByName(s.ctx, instance.Name, updateIP)
 	s.NoError(err)
 
-	updated, err := s.instanceRepo.GetByID(s.ctx, instance.JobID, instance.ID)
+	// Verify IP update
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.JobID, instance.ID)
 	s.NoError(err)
-	s.Equal(newIP, updated.PublicIP)
-}
+	s.Equal("192.0.2.200", updated.PublicIP)
 
-func (s *InstanceRepositoryTestSuite) TestUpdateStatus() {
-	instance := s.createTestInstance()
-
-	err := s.instanceRepo.UpdateStatus(s.ctx, instance.ID, models.InstanceStatusReady)
-	s.NoError(err)
-
-	updated, err := s.instanceRepo.GetByID(s.ctx, instance.JobID, instance.ID)
-	s.NoError(err)
-	s.Equal(models.InstanceStatusReady, updated.Status)
-}
-
-func (s *InstanceRepositoryTestSuite) TestUpdateStatusByName() {
-	instance := s.createTestInstance()
-
-	err := s.instanceRepo.UpdateStatusByName(s.ctx, instance.Name, models.InstanceStatusReady)
+	// Test updating status
+	updateStatus := &models.Instance{
+		Status: models.InstanceStatusReady,
+	}
+	err = s.instanceRepo.UpdateByName(s.ctx, instance.Name, updateStatus)
 	s.NoError(err)
 
-	updated, err := s.instanceRepo.GetByID(s.ctx, instance.JobID, instance.ID)
+	// Verify status update
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.JobID, instance.ID)
 	s.NoError(err)
 	s.Equal(models.InstanceStatusReady, updated.Status)
+
+	// Test updating multiple fields at once
+	updateMultiple := &models.Instance{
+		PublicIP: "192.0.2.300",
+		Status:   models.InstanceStatusProvisioning,
+		Region:   "sfo3",
+	}
+	err = s.instanceRepo.UpdateByName(s.ctx, instance.Name, updateMultiple)
+	s.NoError(err)
+
+	// Verify multiple updates
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.JobID, instance.ID)
+	s.NoError(err)
+	s.Equal("192.0.2.300", updated.PublicIP)
+	s.Equal(models.InstanceStatusProvisioning, updated.Status)
+	s.Equal("sfo3", updated.Region)
 }
 
 func (s *InstanceRepositoryTestSuite) TestList() {
@@ -245,7 +253,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 		{
 			name: "with status equal filter",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusReady
 					return &s
 				}(),
@@ -262,7 +270,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 		{
 			name: "with status not equal filter",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusTerminated
 					return &s
 				}(),
@@ -309,7 +317,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				Limit:          10,
 				Offset:         20,
 				IncludeDeleted: true,
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusReady
 					return &s
 				}(),
