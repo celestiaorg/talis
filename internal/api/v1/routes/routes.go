@@ -166,7 +166,7 @@ func BuildURL(routeName string, params map[string]string, queryParams url.Values
 
 	// Replace parameters in the route
 	for param, value := range params {
-		route = strings.Replace(route, ":"+param, value, -1)
+		route = strings.ReplaceAll(route, ":"+param, value)
 	}
 
 	// Remove trailing slash if it's a base endpoint with no parameters

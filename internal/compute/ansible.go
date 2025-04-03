@@ -51,30 +51,11 @@ func (a *AnsibleConfigurator) SetPayload(instanceName string, payload string) {
 	a.payloads[instanceName] = payload
 }
 
-// getPayload gets the payload for a specific instance
-func (a *AnsibleConfigurator) getPayload(instanceName string) string {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	return a.payloads[instanceName]
-}
-
 // SetPayloadPath sets the destination path for a payload
 func (a *AnsibleConfigurator) SetPayloadPath(instanceName string, path string) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.payloadPaths[instanceName] = path
-}
-
-// getPayloadPath gets the destination path for a payload
-func (a *AnsibleConfigurator) getPayloadPath(instanceName string) string {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	path, ok := a.payloadPaths[instanceName]
-	if !ok || path == "" {
-		// Default path if none specified
-		return "/tmp"
-	}
-	return path
 }
 
 // CreateInventory creates the inventory file with all instances
