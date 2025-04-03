@@ -25,6 +25,7 @@ func RunMigrations(db *gorm.DB) error {
 	err := db.AutoMigrate(
 		&models.Job{},
 		&models.Instance{},
+		&models.User{},
 		// Add other models as needed
 	)
 	if err != nil {

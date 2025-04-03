@@ -67,6 +67,24 @@ func TestTestEnvironment_Database(t *testing.T) {
 		savedInstance, err := env.InstanceRepo.GetByID(env.ctx, instance.JobID, instance.ID)
 		assert.NoError(t, err, "should get instance without error")
 		assert.Equal(t, instance.Name, savedInstance.Name, "instance names should match")
+
+		// Verify user repository is working
+		user := &models.User{
+			Username: "user1",
+			Email:    "user1@email.com",
+			Role:     1,
+		}
+		result = env.DB.Create(user)
+		assert.NoError(t, result.Error, "should create user without error")
+		assert.NotZero(t, user.ID, "user should have an ID")
+
+		usr, err := env.UserRepo.GetUserByID(env.ctx, user.ID)
+		assert.NoError(t, err, "should get user without error")
+		assert.Equal(t, usr.Username, user.Username, "user usernames should match")
+
+		usr, err = env.UserRepo.GetUserByUsername(env.ctx, user.Username)
+		assert.NoError(t, err, "should get user without error")
+		assert.Equal(t, usr.Username, user.Username, "user usernames should match")
 	})
 }
 
