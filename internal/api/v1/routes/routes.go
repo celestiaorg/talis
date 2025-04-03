@@ -1,3 +1,4 @@
+// Package routes defines the API routes and URL structure
 package routes
 
 import (
@@ -283,8 +284,8 @@ func GetJobMetadataURL(id string, queryParams url.Values) string {
 }
 
 // GetJobInstancesURL returns the URL for getting job instances
-func GetJobInstancesURL(jobId string, queryParams url.Values) string {
-	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobId}, queryParams)
+func GetJobInstancesURL(jobID string, queryParams url.Values) string {
+	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobID}, queryParams)
 }
 
 // GetJobStatusURL returns the URL for getting job status by ID
