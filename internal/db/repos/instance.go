@@ -74,98 +74,57 @@ func (r *InstanceRepository) GetByNames(ctx context.Context, ownerID uint, names
 	return instances, nil
 }
 
-// Update updates an instance
-func (r *InstanceRepository) Update(ctx context.Context, ownerID, ID uint, instance *models.Instance) error {
+// UpdateByID updates an instance by its ID. Only non-zero fields in the instance parameter will be updated.
+// GORM's Updates method will:
+// - Only update fields with non-zero values in the instance parameter
+// - Ignore zero-value fields (null, 0, "", false)
+// - Not update fields marked with gorm:"-" tag
+// - Not update CreatedAt field
+// - Automatically update UpdatedAt if it exists
+func (r *InstanceRepository) UpdateByID(ctx context.Context, ownerID, id uint, instance *models.Instance) error {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Where(&models.Instance{Model: gorm.Model{ID: ID}})
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&models.Instance{}).Where(&models.Instance{Model: gorm.Model{ID: id}})
+		if ownerID != models.AdminID {
+			query = query.Where(&models.Instance{OwnerID: ownerID})
+		}
 
-	result := query.Updates(instance)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("instance not found or not owned by user")
-	}
-	return nil
+		result := query.Updates(instance)
+		if err := result.Error; err != nil {
+			return fmt.Errorf("failed to update instance by ID: %w", err)
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("instance not found or not owned by user")
+		}
+		return nil
+	})
 }
 
-// UpdateIPByName updates the public IP of an instance by its name
-func (r *InstanceRepository) UpdateIPByName(ctx context.Context, ownerID uint, name string, ip string) error {
+// UpdateByName updates an instance by its name. Only non-zero fields in the instance parameter will be updated.
+// See UpdateByID method for details on how GORM handles field updates.
+func (r *InstanceRepository) UpdateByName(ctx context.Context, ownerID uint, name string, instance *models.Instance) error {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Model(&models.Instance{}).
-		Where(&models.Instance{Name: name})
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&models.Instance{}).Where(&models.Instance{Name: name})
+		if ownerID != models.AdminID {
+			query = query.Where(&models.Instance{OwnerID: ownerID})
+		}
 
-	result := query.Update(models.InstancePublicIPField, ip)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("instance not found or not owned by user")
-	}
-	return nil
-}
-
-// UpdateStatus updates the status of an instance
-func (r *InstanceRepository) UpdateStatus(ctx context.Context, ownerID, ID uint, status models.InstanceStatus) error {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return fmt.Errorf("invalid owner_id: %w", err)
-	}
-
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: ID}})
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
-
-	result := query.Update("status", status)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("instance not found or not owned by user")
-	}
-	return nil
-}
-
-// UpdateStatusByName updates the status of an instance by its name
-func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, ownerID uint, name string, status models.InstanceStatus) error {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return fmt.Errorf("invalid owner_id: %w", err)
-	}
-
-	query := r.db.WithContext(ctx).
-		Model(&models.Instance{}).
-		Where(&models.Instance{Name: name})
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
-
-	result := query.Update("status", status)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("instance not found or not owned by user")
-	}
-	return nil
+		result := query.Updates(instance)
+		if err := result.Error; err != nil {
+			return fmt.Errorf("failed to update instance by name: %w", err)
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("instance not found or not owned by user")
+		}
+		return nil
+	})
 }
 
 // List retrieves a paginated list of instances
@@ -176,11 +135,11 @@ func (r *InstanceRepository) applyListOptions(query *gorm.DB, opts *models.ListO
 	}
 
 	// Apply status filter if provided
-	if opts.Status != nil {
+	if opts.InstanceStatus != nil {
 		if opts.StatusFilter == models.StatusFilterNotEqual {
-			query = query.Where("status != ?", *opts.Status)
+			query = query.Where("status != ?", *opts.InstanceStatus)
 		} else {
-			query = query.Where("status = ?", *opts.Status)
+			query = query.Where("status = ?", *opts.InstanceStatus)
 		}
 	} else if !opts.IncludeDeleted {
 		// By default, only show non-terminated instances if not including deleted
@@ -324,25 +283,28 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
 
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: id}})
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
+	// To prevent race conditions, we use a transaction to wrap the update and delete
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// First update the status to terminated
+		query := tx.Model(&models.Instance{}).Where(&models.Instance{Model: gorm.Model{ID: id}})
+		if ownerID != models.AdminID {
+			query = query.Where(&models.Instance{OwnerID: ownerID})
+		}
+		result := query.Update(models.InstanceStatusField, models.InstanceStatusTerminated)
+		if err := result.Error; err != nil {
+			return fmt.Errorf("failed to update instance status: %w", err)
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("instance not found or not owned by user")
+		}
 
-	// First update the status to terminated
-	result := query.Update(models.InstanceStatusField, models.InstanceStatusTerminated)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("instance not found or not owned by user")
-	}
+		// Then perform the soft delete
+		if err := tx.Delete(&models.Instance{}, id).Error; err != nil {
+			return fmt.Errorf("failed to soft delete instance: %w", err)
+		}
 
-	// Then perform the soft delete
-	return r.db.WithContext(ctx).Delete(&models.Instance{}, id).Error
+		return nil
+	})
 }
 
 // GetByJobIDAndNames retrieves instances that belong to a specific job and match the given names

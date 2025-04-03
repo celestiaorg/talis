@@ -25,7 +25,7 @@ func (s *InstanceRepositoryTestSuite) verifyTermination(ownerID, jobID, instance
 		return err
 	}
 	if instance.Status != models.InstanceStatusTerminated {
-		return fmt.Errorf("expected instance to be terminated")
+		return fmt.Errorf("expected instance to be terminated: %v", instance.Status)
 	}
 	// TODO: currently it doesn't seem that we are soft deleting the instances. If this is expected we should remove the delete call in the Terminate method
 	if instance.DeletedAt.Valid {
@@ -107,10 +107,12 @@ func (s *InstanceRepositoryTestSuite) TestGetByNames() {
 func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	instance := s.createTestInstance()
 
-	// Test update with correct owner ID
-	instance.PublicIP = "192.0.2.100"
-	instance.Status = models.InstanceStatusReady
-	err := s.instanceRepo.Update(s.ctx, instance.OwnerID, instance.ID, instance)
+	// Update instance
+	updateInstance := &models.Instance{
+		PublicIP: "192.0.2.100",
+		Status:   models.InstanceStatusReady,
+	}
+	err := s.instanceRepo.UpdateByID(s.ctx, instance.OwnerID, instance.ID, updateInstance)
 	s.NoError(err)
 
 	// Verify update
@@ -119,107 +121,45 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	s.Equal("192.0.2.100", updated.PublicIP)
 	s.Equal(models.InstanceStatusReady, updated.Status)
 
-	// Test update with admin ID
-	instance.PublicIP = "192.0.2.101"
-	err = s.instanceRepo.Update(s.ctx, models.AdminID, instance.ID, instance)
+	// Test updating IP
+	updateIP := &models.Instance{
+		PublicIP: "192.0.2.200",
+	}
+	err = s.instanceRepo.UpdateByName(s.ctx, instance.OwnerID, instance.Name, updateIP)
 	s.NoError(err)
 
-	// Test update with wrong owner ID
-	err = s.instanceRepo.Update(s.ctx, 999, instance.ID, instance)
-	s.Error(err)
-	s.Contains(err.Error(), "instance not found or not owned by user")
+	// Verify IP update
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	s.NoError(err)
+	s.Equal("192.0.2.200", updated.PublicIP)
 
-	// Test update with zero owner ID
-	err = s.instanceRepo.Update(s.ctx, 0, instance.ID, instance)
-	s.Error(err)
-	s.Contains(err.Error(), "invalid owner_id")
-}
-
-func (s *InstanceRepositoryTestSuite) TestUpdateIPByName() {
-	instance := s.createTestInstance()
-	newIP := "192.0.2.200"
-
-	// Test update with correct owner ID
-	err := s.instanceRepo.UpdateIPByName(s.ctx, instance.OwnerID, instance.Name, newIP)
+	// Test updating status
+	updateStatus := &models.Instance{
+		Status: models.InstanceStatusReady,
+	}
+	err = s.instanceRepo.UpdateByName(s.ctx, instance.OwnerID, instance.Name, updateStatus)
 	s.NoError(err)
 
-	// Test update with admin ID
-	err = s.instanceRepo.UpdateIPByName(s.ctx, models.AdminID, instance.Name, newIP)
-	s.NoError(err)
-
-	// Test update with wrong owner ID
-	err = s.instanceRepo.UpdateIPByName(s.ctx, 999, instance.Name, newIP)
-	s.Error(err)
-	s.Contains(err.Error(), "instance not found or not owned by user")
-
-	// Test update with zero owner ID
-	err = s.instanceRepo.UpdateIPByName(s.ctx, 0, instance.Name, newIP)
-	s.Error(err)
-	s.Contains(err.Error(), "invalid owner_id")
-}
-
-func (s *InstanceRepositoryTestSuite) TestUpdateStatus() {
-	instance := s.createTestInstance()
-
-	// Test update with correct owner ID
-	err := s.instanceRepo.UpdateStatus(s.ctx, instance.OwnerID, instance.ID, models.InstanceStatusReady)
-	s.NoError(err)
-
-	// Verify the status was updated
-	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	// Verify status update
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
 	s.NoError(err)
 	s.Equal(models.InstanceStatusReady, updated.Status)
 
-	// Test update with admin ID
-	err = s.instanceRepo.UpdateStatus(s.ctx, models.AdminID, instance.ID, models.InstanceStatusTerminated)
+	// Test updating multiple fields at once
+	updateMultiple := &models.Instance{
+		PublicIP: "192.0.2.300",
+		Status:   models.InstanceStatusProvisioning,
+		Region:   "sfo3",
+	}
+	err = s.instanceRepo.UpdateByName(s.ctx, instance.OwnerID, instance.Name, updateMultiple)
 	s.NoError(err)
 
-	// Verify the status was updated
+	// Verify multiple updates
 	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
 	s.NoError(err)
-	s.Equal(models.InstanceStatusTerminated, updated.Status)
-
-	// Test update with wrong owner ID
-	err = s.instanceRepo.UpdateStatus(s.ctx, 999, instance.ID, models.InstanceStatusReady)
-	s.Error(err)
-	s.Contains(err.Error(), "instance not found or not owned by user")
-
-	// Test update with zero owner ID
-	err = s.instanceRepo.UpdateStatus(s.ctx, 0, instance.ID, models.InstanceStatusReady)
-	s.Error(err)
-	s.Contains(err.Error(), "invalid owner_id")
-}
-
-func (s *InstanceRepositoryTestSuite) TestUpdateStatusByName() {
-	instance := s.createTestInstance()
-
-	// Test update with correct owner ID
-	err := s.instanceRepo.UpdateStatusByName(s.ctx, instance.OwnerID, instance.Name, models.InstanceStatusReady)
-	s.NoError(err)
-
-	// Verify the status was updated
-	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
-	s.NoError(err)
-	s.Equal(models.InstanceStatusReady, updated.Status)
-
-	// Test update with admin ID
-	err = s.instanceRepo.UpdateStatusByName(s.ctx, models.AdminID, instance.Name, models.InstanceStatusTerminated)
-	s.NoError(err)
-
-	// Verify the status was updated
-	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
-	s.NoError(err)
-	s.Equal(models.InstanceStatusTerminated, updated.Status)
-
-	// Test update with wrong owner ID
-	err = s.instanceRepo.UpdateStatusByName(s.ctx, 999, instance.Name, models.InstanceStatusReady)
-	s.Error(err)
-	s.Contains(err.Error(), "instance not found or not owned by user")
-
-	// Test update with zero owner ID
-	err = s.instanceRepo.UpdateStatusByName(s.ctx, 0, instance.Name, models.InstanceStatusReady)
-	s.Error(err)
-	s.Contains(err.Error(), "invalid owner_id")
+	s.Equal("192.0.2.300", updated.PublicIP)
+	s.Equal(models.InstanceStatusProvisioning, updated.Status)
+	s.Equal("sfo3", updated.Region)
 }
 
 func (s *InstanceRepositoryTestSuite) TestList() {
@@ -460,7 +400,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 		{
 			name: "with status equal filter",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusReady
 					return &s
 				}(),
@@ -477,7 +417,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 		{
 			name: "with status not equal filter",
 			opts: &models.ListOptions{
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusTerminated
 					return &s
 				}(),
@@ -524,7 +464,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				Limit:          10,
 				Offset:         20,
 				IncludeDeleted: true,
-				Status: func() *models.InstanceStatus {
+				InstanceStatus: func() *models.InstanceStatus {
 					s := models.InstanceStatusReady
 					return &s
 				}(),

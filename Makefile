@@ -15,6 +15,7 @@ GOBUILD := $(GO) build
 PKG ?= ./...
 TEST ?= .
 TEST_FLAGS ?= -v
+COUNT ?= 1
 
 # Build flags
 LDFLAGS := -ldflags="-s -w"
@@ -53,7 +54,7 @@ clean:
 #   make test PKG=./internal/auth TEST=TestLogin  # Run TestLogin in auth package
 test:
 	@echo "Running tests..."
-	$(GOTEST) $(TEST_FLAGS) -run="$(TEST)" $(PKG)
+	$(GOTEST) $(TEST_FLAGS) -run="$(TEST)" -count=$(COUNT) $(PKG)
 .PHONY: test
 
 ## fmt: Format code
