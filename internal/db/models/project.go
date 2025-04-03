@@ -6,10 +6,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// Project represents a project in the system
+// Project represents a collection of related tasks and instances
 type Project struct {
 	gorm.Model
-	ID          uint      `json:"-" gorm:"primaryKey"`
 	OwnerID     uint      `json:"-" gorm:"not null; index"`
 	Name        string    `json:"name" gorm:"not null; index"`
 	Description string    `json:"description" gorm:"type:text"`

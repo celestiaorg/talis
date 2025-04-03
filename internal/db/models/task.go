@@ -13,19 +13,19 @@ type TaskStatus string
 
 // Task status constants
 const (
-	// TaskStatusUnknown represents an unknown task status
+	// TaskStatusUnknown represents an unknown or invalid task status
 	TaskStatusUnknown TaskStatus = "unknown"
-	// TaskStatusPending represents a task that is waiting to be executed
+	// TaskStatusPending indicates the task is waiting to be processed
 	TaskStatusPending TaskStatus = "pending"
-	// TaskStatusRunning represents a task that is currently executing
+	// TaskStatusRunning indicates the task is currently being processed
 	TaskStatusRunning TaskStatus = "running"
-	// TaskStatusComplete represents a task that has finished successfully
-	TaskStatusComplete TaskStatus = "complete"
-	// TaskStatusFailed represents a task that has failed to execute
+	// TaskStatusCompleted indicates the task has been successfully completed
+	TaskStatusCompleted TaskStatus = "completed"
+	// TaskStatusFailed indicates the task has failed
 	TaskStatusFailed TaskStatus = "failed"
 )
 
-// Task represents a unit of work within a project
+// Task represents an asynchronous operation that can be tracked
 type Task struct {
 	gorm.Model
 	ProjectID   uint            `json:"-" gorm:"not null; index"`
@@ -39,12 +39,12 @@ type Task struct {
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
 }
 
+// String returns the string representation of the task status
 func (s TaskStatus) String() string {
 	return string(s)
 }
 
-
-// ParseTaskStatus converts a string to a TaskStatus
+// ParseTaskStatus converts a string to a TaskStatus type
 func ParseTaskStatus(str string) (TaskStatus, error) {
 	switch str {
 	case string(TaskStatusUnknown):
@@ -53,8 +53,8 @@ func ParseTaskStatus(str string) (TaskStatus, error) {
 		return TaskStatusPending, nil
 	case string(TaskStatusRunning):
 		return TaskStatusRunning, nil
-	case string(TaskStatusComplete):
-		return TaskStatusComplete, nil
+	case string(TaskStatusCompleted):
+		return TaskStatusCompleted, nil
 	case string(TaskStatusFailed):
 		return TaskStatusFailed, nil
 	default:
@@ -62,7 +62,7 @@ func ParseTaskStatus(str string) (TaskStatus, error) {
 	}
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for TaskStatus
+// UnmarshalJSON implements json.Unmarshaler for TaskStatus
 func (s *TaskStatus) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {
@@ -78,7 +78,7 @@ func (s *TaskStatus) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON implements the json.Marshaler interface for TaskStatus
+// MarshalJSON implements json.Marshaler for TaskStatus
 func (s *TaskStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }

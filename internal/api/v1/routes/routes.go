@@ -311,42 +311,42 @@ func DeleteJobURL(id string) string {
 
 // CreateProjectURL returns the URL for creating a project
 func CreateProjectURL() string {
-	return BuildURL(CreateProject, nil)
+	return BuildURL(CreateProject, nil, nil)
 }
 
 // ListProjectsURL returns the URL for listing projects
 func ListProjectsURL() string {
-	return BuildURL(ListProjects, nil)
+	return BuildURL(ListProjects, nil, nil)
 }
 
 // GetProjectURL returns the URL for getting a project by ID
 func GetProjectURL(id string) string {
-	return BuildURL(GetProject, map[string]string{"id": id})
+	return BuildURL(GetProject, map[string]string{"name": id}, nil)
 }
 
 // DeleteProjectURL returns the URL for deleting a project by ID
 func DeleteProjectURL(id string) string {
-	return BuildURL(DeleteProject, map[string]string{"id": id})
+	return BuildURL(DeleteProject, map[string]string{"name": id}, nil)
 }
 
 // Task Routes
 
 // ListProjectTasksURL returns the URL for listing tasks in a project
 func ListProjectTasksURL(projectName string) string {
-	return BuildURL(ListProjectTasks, map[string]string{"name": projectName})
+	return BuildURL(ListProjectTasks, map[string]string{"name": projectName}, nil)
 }
 
 // GetTaskURL returns the URL for getting a task by name
 func GetTaskURL(projectName string, taskName string) string {
-	return BuildURL(GetTask, map[string]string{"name": projectName, "taskName": taskName})
+	return BuildURL(GetTask, map[string]string{"name": projectName, "taskName": taskName}, nil)
 }
 
 // UpdateTaskStatusURL returns the URL for updating a task status
 func UpdateTaskStatusURL(projectName string, taskName string) string {
-	return BuildURL(UpdateTaskStatus, map[string]string{"name": projectName, "taskName": taskName})
+	return BuildURL(UpdateTaskStatus, map[string]string{"name": projectName, "taskName": taskName}, nil)
 }
 
 // DeleteTaskURL returns the URL for deleting a task
 func DeleteTaskURL(projectName string, taskName string) string {
-	return BuildURL(DeleteTask, map[string]string{"name": projectName, "taskName": taskName})
+	return BuildURL(DeleteTask, map[string]string{"name": projectName, "taskName": taskName}, nil)
 }
