@@ -28,6 +28,7 @@ type InstanceRequest struct {
 	Image             string            `json:"image"`               // Image of the instance
 	Tags              []string          `json:"tags"`                // Tags of the instance
 	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
+	Payload           string            `json:"payload"`             // Payload of the instance (URL or base64 content)
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure

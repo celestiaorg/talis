@@ -99,6 +99,12 @@ func (i *InstanceRequest) Validate() error {
 	if i.Image == "" {
 		return fmt.Errorf("image is required")
 	}
+
+	// Validate payload if provided
+	if i.Payload != "" && len(i.Payload) > 1024*1024*100 { // 100MB limit
+		return fmt.Errorf("payload exceeds maximum size of 100MB")
+	}
+
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
 	}

@@ -54,6 +54,7 @@ type Provisioner interface {
 	ConfigureHosts(hosts []string, sshKeyPath string) error
 	CreateInventory(instances map[string]string, keyPath string) error
 	RunAnsiblePlaybook(inventoryName string) error
+	SetPayload(instanceName string, payload string)
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name

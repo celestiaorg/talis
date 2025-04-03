@@ -26,6 +26,8 @@ type AnsibleConfigurator struct {
 	instances map[string]string
 	// sshKeyPath stores the SSH key path for all instances
 	sshKeyPath string
+	// payloads stores the payloads for all instances
+	payloads map[string]string
 	// mutex protects the instances map
 	mutex sync.Mutex
 }
@@ -35,7 +37,61 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	return &AnsibleConfigurator{
 		jobID:     jobID,
 		instances: make(map[string]string),
+		payloads:  make(map[string]string),
 	}
+}
+
+// SetPayload sets a payload for a specific instance
+func (a *AnsibleConfigurator) SetPayload(instanceName string, payload string) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.payloads[instanceName] = payload
+}
+
+// getPayload gets the payload for a specific instance
+func (a *AnsibleConfigurator) getPayload(instanceName string) string {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.payloads[instanceName]
+}
+
+// deliverPayload transfers the payload to the target instance
+func (a *AnsibleConfigurator) deliverPayload(host string, sshKeyPath string, payload string) error {
+	fmt.Printf("📦 Delivering payload to %s...\n", host)
+
+	// Create a temporary file for the payload
+	tmpFile, err := os.CreateTemp("", "payload-*.bin")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Write the payload to the temporary file
+	if _, err := tmpFile.WriteString(payload); err != nil {
+		return fmt.Errorf("failed to write payload to temporary file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temporary file: %w", err)
+	}
+
+	// Transfer the payload to the instance
+	args := []string{
+		"-i", sshKeyPath,
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		tmpFile.Name(),
+		fmt.Sprintf("root@%s:/root/payload.bin", host),
+	}
+
+	// #nosec G204 -- command arguments are constructed from validated inputs
+	scpCmd := exec.Command("scp", args...)
+
+	if err := scpCmd.Run(); err != nil {
+		return fmt.Errorf("failed to transfer payload: %w", err)
+	}
+
+	fmt.Printf("✅ Payload delivered to %s\n", host)
+	return nil
 }
 
 // CreateInventory creates the inventory file with all instances
@@ -164,6 +220,13 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 
 		fmt.Printf("  Retrying SSH connection to %s in 10 seconds... (%d/30)\n", host, i+1)
 		time.Sleep(10 * time.Second)
+	}
+
+	// If there is a payload to delivery, transfer it to the instance
+	if payload := a.getPayload(instanceName); payload != "" {
+		if err := a.deliverPayload(host, sshKeyPath, payload); err != nil {
+			return fmt.Errorf("failed to transfer payload to %s: %w", host, err)
+		}
 	}
 
 	return nil

@@ -3,7 +3,10 @@ package infrastructure
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
+
+	"github.com/celestiaorg/talis/internal/compute"
 )
 
 // RunProvisioning applies Ansible configuration to all instances
@@ -34,6 +37,31 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
 	if err := i.provisioner.CreateInventory(instanceMap, sshKeyPath); err != nil {
 		return fmt.Errorf("failed to create inventory: %w", err)
+	}
+
+	// Set payloads for instances if provided
+	for idx, instanceReq := range i.instances {
+		if instanceReq.Payload != "" && idx < len(instances) {
+			// Find the corresponding created instance
+			var instanceName string
+			if instanceReq.Name != "" {
+				instanceName = instanceReq.Name
+			} else {
+				// Use the generated name
+				for _, instance := range instances {
+					if strings.Contains(instance.Name, fmt.Sprintf("%s-%d", i.name, idx)) {
+						instanceName = instance.Name
+						break
+					}
+				}
+			}
+
+			if instanceName != "" {
+				if provisioner, ok := i.provisioner.(*compute.AnsibleConfigurator); ok {
+					provisioner.SetPayload(instanceName, instanceReq.Payload)
+				}
+			}
+		}
 	}
 
 	// Configure hosts in parallel
