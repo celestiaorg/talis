@@ -36,7 +36,7 @@
   filesystem:
     fstype: "{{ volume_fstype }}"
     dev: "{{ volume_device }}"
-  when: 
+  when:
     - volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0
     - blkid_output.stdout == ""
 
