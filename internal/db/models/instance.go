@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"database/sql/driver"
-
 	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
@@ -52,57 +50,6 @@ type Instance struct {
 	Volumes       pq.StringArray `json:"volumes" gorm:"type:text[]"`
 	VolumeDetails VolumeDetails  `json:"volume_details" gorm:"type:jsonb"`
 	CreatedAt     time.Time      `json:"created_at" gorm:"index"`
-}
-
-// VolumeDetail contains information about an attached volume
-type VolumeDetail struct {
-	ID         string `json:"id"`          // Volume ID
-	Name       string `json:"name"`        // Volume name
-	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
-	MountPoint string `json:"mount_point"` // Where the volume is mounted
-}
-
-// VolumeDetails type for handling JSONB in database
-type VolumeDetails []VolumeDetail
-
-// Scan implements the sql.Scanner interface
-func (vd *VolumeDetails) Scan(value interface{}) error {
-	if value == nil {
-		*vd = nil
-		return nil
-	}
-
-	bytes, ok := value.([]byte)
-	if !ok {
-		return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
-	}
-
-	// Try first as array
-	var temp []VolumeDetail
-	err := json.Unmarshal(bytes, &temp)
-	if err == nil {
-		*vd = temp
-		return nil
-	}
-
-	// If array fails, try as single object
-	var singleVolume VolumeDetail
-	err = json.Unmarshal(bytes, &singleVolume)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal as array or object: %w", err)
-	}
-
-	*vd = []VolumeDetail{singleVolume}
-	return nil
-}
-
-// Value implements the driver.Valuer interface
-func (vd VolumeDetails) Value() (driver.Value, error) {
-	if vd == nil {
-		return nil, nil
-	}
-
-	return json.Marshal(vd)
 }
 
 func (s InstanceStatus) String() string {

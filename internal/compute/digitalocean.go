@@ -585,11 +585,12 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		volumeName := fmt.Sprintf("%s-%s", vol.Name, suffix)
 
 		// Create volume in the same region as the instance
-		logger.Infof("📦 Creating volume %s with size %dGB in region %s", volumeName, vol.SizeGB, config.Region)
+		logger.Infof("📦 Creating volume %s with size %dGiB in region %s", volumeName, vol.SizeGB, config.Region)
 		createRequest := &godo.VolumeCreateRequest{
 			Name:          volumeName,
 			Region:        config.Region,
 			SizeGigaBytes: int64(vol.SizeGB),
+			Description:   fmt.Sprintf("Volume for instance %s", name),
 		}
 
 		volume, resp, err := p.doClient.Storage().CreateVolume(ctx, createRequest)
@@ -607,8 +608,8 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		// Store volume details in the DB
 		volumeDetails := types.VolumeDetails{
 			ID:         volume.ID,
-			Name:       vol.Name,
-			Region:     config.Region,
+			Name:       volume.Name,
+			Region:     volume.Region.Slug,
 			SizeGB:     vol.SizeGB,
 			MountPoint: vol.MountPoint,
 		}

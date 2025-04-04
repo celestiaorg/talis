@@ -8,12 +8,9 @@ import (
 
 // ValidateVolume checks if the volume configuration is valid
 func ValidateVolume(v *types.VolumeConfig, instanceRegion string) error {
-	if v.SizeGB < 1 {
-		return fmt.Errorf("volume size must be at least 1 GB, got %d", v.SizeGB)
-	}
 	// Allow empty region (will be set to instance region) or validate it matches
 	if v.Region != "" && v.Region != instanceRegion {
-		return fmt.Errorf("volume region %s must match instance region %s", v.Region, instanceRegion)
+		return fmt.Errorf("volume region %s does not match instance region %s", v.Region, instanceRegion)
 	}
 	return nil
 }
