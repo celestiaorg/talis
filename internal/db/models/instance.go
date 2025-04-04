@@ -1,3 +1,4 @@
+// Package models contains database models and related utility functions
 package models
 
 import (
@@ -101,12 +102,6 @@ func (s *InstanceStatus) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface for Instance
 func (i Instance) MarshalJSON() ([]byte, error) {
-	type Alias Instance
-	return json.Marshal(struct {
-		ID uint `json:"id"`
-		Alias
-	}{
-		ID:    i.Model.ID,
-		Alias: Alias(i),
-	})
+	type Alias Instance // Create an alias to avoid infinite recursion
+	return json.Marshal(Alias(i))
 }

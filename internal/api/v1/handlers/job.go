@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"strconv"
 
 	fiber "github.com/gofiber/fiber/v2"
@@ -56,11 +55,13 @@ func (h *JobHandler) GetJobStatus(c *fiber.Ctx) error {
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
-	jobID, err := strconv.ParseUint(jobIDStr, 10, 64)
+	// Using 32-bit limit for ParseUint
+	jobID, err := strconv.ParseUint(jobIDStr, 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
+	// Using uint(jobID) is safe because ParseUint guarantees non-negative values
 
 	status, err := h.jobService.GetJobStatus(c.Context(), models.AdminID, uint(jobID))
 	if err != nil {
@@ -87,8 +88,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 	}
 
 	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", DefaultPageSize)
-	paginationOpts := getPaginationOptions(page, limit)
+	paginationOpts := getPaginationOptions(page)
 
 	jobs, err := h.jobService.ListJobs(c.Context(), status, models.AdminID, paginationOpts)
 	if err != nil {
@@ -100,10 +100,7 @@ func (h *JobHandler) ListJobs(c *fiber.Ctx) error {
 		Slug: infrastructure.SuccessSlug,
 		Jobs: jobs,
 		Pagination: infrastructure.PaginationResponse{
-			Total:  len(jobs),
-			Page:   page,
-			Limit:  limit,
-			Offset: paginationOpts.Offset,
+			Total: len(jobs),
 		},
 	})
 }
@@ -135,10 +132,16 @@ func (h *JobHandler) CreateJob(c *fiber.Ctx) error {
 // TerminateJob handles the request to terminate a job
 func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 	// TODO: this should be job name as jobID is a db internal thing
-	jobID, err := c.ParamsInt("id")
+	jobIDStr := c.Params("id")
+	if jobIDStr == "" {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
+	}
+
+	jobID, err := strconv.ParseUint(jobIDStr, 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("invalid job id: %v", err)))
+			JSON(infrastructure.ErrInvalidInput("invalid job id"))
 	}
 
 	err = h.jobService.TerminateJob(c.Context(), models.AdminID, uint(jobID))
@@ -152,7 +155,7 @@ func (h *JobHandler) TerminateJob(c *fiber.Ctx) error {
 }
 
 // UpdateJob handles the request to update a job
-func (h *JobHandler) UpdateJob(c *fiber.Ctx) error {
+func (h *JobHandler) UpdateJob(_ *fiber.Ctx) error {
 	// Implementation for updating a job
 	return nil
 }

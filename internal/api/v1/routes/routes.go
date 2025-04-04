@@ -1,3 +1,4 @@
+// Package routes defines the API routes and URL structure
 package routes
 
 import (
@@ -6,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
 )
@@ -63,11 +64,26 @@ const (
 	UpdateJob           = "UpdateJob"
 	TerminateJob        = "TerminateJob"
 
+
 	// User routes
 	GetUsers    = "GetUsers"
 	GetUserByID = "GetUserByID"
 	CreateUser  = "CreateUser"
 	DeleteUser  = "DeleteUser"
+
+	// Project routes
+	CreateProject       = "CreateProject"
+	ListProjects        = "ListProjects"
+	GetProject          = "GetProject"
+	DeleteProject       = "DeleteProject"
+	GetProjectInstances = "GetProjectInstances"
+
+	// Task routes
+	CreateTask       = "CreateTask"
+	ListProjectTasks = "ListProjectTasks"
+	GetTask          = "GetTask"
+	UpdateTaskStatus = "UpdateTaskStatus"
+	DeleteTask       = "DeleteTask"
 )
 
 // routeCache stores extracted routes for use prior to compilation
@@ -86,6 +102,8 @@ func RegisterRoutes(
 	instanceHandler *handlers.InstanceHandler,
 	jobHandler *handlers.JobHandler,
 	userHandler *handlers.UserHandler,
+	projectHandler *handlers.ProjectHandler,
+	taskHandler *handlers.TaskHandler,
 ) {
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
@@ -132,6 +150,19 @@ func RegisterRoutes(
 	users.Post("/", userHandler.CreateUser).Name(CreateUser)
 	users.Delete("/:id", userHandler.DeleteUser).Name(DeleteUser)
 
+	// Project routes
+	projects := v1.Group("/projects")
+	projects.Post("/", projectHandler.CreateProject).Name(CreateProject)
+	projects.Get("/", projectHandler.ListProjects).Name(ListProjects)
+	projects.Get("/:name", projectHandler.GetProject).Name(GetProject)
+	projects.Get("/:name/instances", projectHandler.ListProjectInstances).Name(GetProjectInstances)
+	projects.Delete("/:name", projectHandler.DeleteProject).Name(DeleteProject)
+
+	// Task routes
+	projects.Get("/:name/tasks", taskHandler.ListProjectTasks).Name(ListProjectTasks)
+	projects.Get("/:name/tasks/:taskName", taskHandler.GetTask).Name(GetTask)
+	projects.Put("/:name/tasks/:taskName/status", taskHandler.UpdateTaskStatus).Name(UpdateTaskStatus)
+	projects.Delete("/:name/tasks/:taskName", taskHandler.DeleteTask).Name(DeleteTask)
 }
 
 // initRouteCache initializes the route cache by creating a mock app and extracting routes
@@ -146,9 +177,11 @@ func initRouteCache() {
 		mockInstanceHandler := &handlers.InstanceHandler{}
 		mockJobHandler := &handlers.JobHandler{}
 		mockUserHandler := &handlers.UserHandler{}
-
+		mockProjectHandler := &handlers.ProjectHandler{}
+		mockTaskHandler := &handlers.TaskHandler{}
+    
 		// Register routes with mock handlers
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockUserHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockProjectHandler, mockTaskHandler, mockUserHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -183,7 +216,7 @@ func BuildURL(routeName string, params map[string]string, queryParams url.Values
 
 	// Replace parameters in the route
 	for param, value := range params {
-		route = strings.Replace(route, ":"+param, value, -1)
+		route = strings.ReplaceAll(route, ":"+param, value)
 	}
 
 	// Remove trailing slash if it's a base endpoint with no parameters
@@ -268,8 +301,8 @@ func GetJobMetadataURL(id string, queryParams url.Values) string {
 }
 
 // GetJobInstancesURL returns the URL for getting job instances
-func GetJobInstancesURL(jobId string, queryParams url.Values) string {
-	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobId}, queryParams)
+func GetJobInstancesURL(jobID string, queryParams url.Values) string {
+	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobID}, queryParams)
 }
 
 // GetJobStatusURL returns the URL for getting job status by ID
@@ -312,4 +345,47 @@ func CreateUserURL() string {
 // DeleteUserURL returns the URL for deleting a user by ID
 func DeleteUserURL(id string) string {
 	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
+
+// Project Routes
+
+// CreateProjectURL returns the URL for creating a project
+func CreateProjectURL() string {
+	return BuildURL(CreateProject, nil, nil)
+}
+
+// ListProjectsURL returns the URL for listing projects
+func ListProjectsURL() string {
+	return BuildURL(ListProjects, nil, nil)
+}
+
+// GetProjectURL returns the URL for getting a project by ID
+func GetProjectURL(id string) string {
+	return BuildURL(GetProject, map[string]string{"name": id}, nil)
+}
+
+// DeleteProjectURL returns the URL for deleting a project by ID
+func DeleteProjectURL(id string) string {
+	return BuildURL(DeleteProject, map[string]string{"name": id}, nil)
+}
+
+// Task Routes
+
+// ListProjectTasksURL returns the URL for listing tasks in a project
+func ListProjectTasksURL(projectName string) string {
+	return BuildURL(ListProjectTasks, map[string]string{"name": projectName}, nil)
+}
+
+// GetTaskURL returns the URL for getting a task by name
+func GetTaskURL(projectName string, taskName string) string {
+	return BuildURL(GetTask, map[string]string{"name": projectName, "taskName": taskName}, nil)
+}
+
+// UpdateTaskStatusURL returns the URL for updating a task status
+func UpdateTaskStatusURL(projectName string, taskName string) string {
+	return BuildURL(UpdateTaskStatus, map[string]string{"name": projectName, "taskName": taskName}, nil)
+}
+
+// DeleteTaskURL returns the URL for deleting a task
+func DeleteTaskURL(projectName string, taskName string) string {
+	return BuildURL(DeleteTask, map[string]string{"name": projectName, "taskName": taskName}, nil)
 }

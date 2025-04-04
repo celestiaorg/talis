@@ -14,7 +14,7 @@ func TestSSHKeys(t *testing.T) {
 		name         string
 		keys         SSHKeys
 		jsonValue    string
-		validForJson bool
+		validForJSON bool
 		expectedKeys SSHKeys
 		dbValue      interface{}
 		validForScan bool
@@ -23,7 +23,7 @@ func TestSSHKeys(t *testing.T) {
 			name:         "Valid SSH keys",
 			keys:         SSHKeys{"key1", "key2"},
 			jsonValue:    `["key1","key2"]`,
-			validForJson: true,
+			validForJSON: true,
 			expectedKeys: SSHKeys{"key1", "key2"},
 			dbValue:      []byte(`["key1","key2"]`),
 			validForScan: true,
@@ -32,7 +32,7 @@ func TestSSHKeys(t *testing.T) {
 			name:         "Empty SSH keys",
 			keys:         SSHKeys{},
 			jsonValue:    `[]`,
-			validForJson: true,
+			validForJSON: true,
 			expectedKeys: SSHKeys{},
 			dbValue:      []byte(`[]`),
 			validForScan: true,
@@ -41,7 +41,7 @@ func TestSSHKeys(t *testing.T) {
 			name:         "Nil SSH keys",
 			keys:         nil,
 			jsonValue:    `null`,
-			validForJson: true,
+			validForJSON: true,
 			expectedKeys: nil,
 			dbValue:      nil,
 			validForScan: true,
@@ -49,7 +49,7 @@ func TestSSHKeys(t *testing.T) {
 		{
 			name:         "Invalid JSON",
 			jsonValue:    `invalid`,
-			validForJson: false,
+			validForJSON: false,
 			dbValue:      []byte(`invalid`),
 			validForScan: false,
 		},
@@ -67,7 +67,7 @@ func TestSSHKeys(t *testing.T) {
 			// Test JSON unmarshaling
 			var unmarshaledKeys SSHKeys
 			err := unmarshaledKeys.UnmarshalJSON([]byte(tt.jsonValue))
-			if tt.validForJson {
+			if tt.validForJSON {
 				assert.NoError(t, err, "Unmarshal should not return error")
 				assert.Equal(t, tt.expectedKeys, unmarshaledKeys, "Unmarshal produced incorrect keys")
 			} else {
@@ -101,7 +101,7 @@ func TestJobStatus(t *testing.T) {
 		stringValue   string
 		jsonValue     string
 		validForParse bool
-		validForJson  bool
+		validForJSON  bool
 	}{
 		{
 			name:          "Unknown status",
@@ -109,7 +109,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "unknown",
 			jsonValue:     `"unknown"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Pending status",
@@ -117,7 +117,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "pending",
 			jsonValue:     `"pending"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Initializing status",
@@ -125,7 +125,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "initializing",
 			jsonValue:     `"initializing"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Provisioning status",
@@ -133,7 +133,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "provisioning",
 			jsonValue:     `"provisioning"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Configuring status",
@@ -141,7 +141,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "configuring",
 			jsonValue:     `"configuring"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Deleting status",
@@ -149,7 +149,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "deleting",
 			jsonValue:     `"deleting"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Completed status",
@@ -157,7 +157,7 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "completed",
 			jsonValue:     `"completed"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Failed status",
@@ -165,20 +165,20 @@ func TestJobStatus(t *testing.T) {
 			stringValue:   "failed",
 			jsonValue:     `"failed"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Invalid status",
 			stringValue:   "invalid_status",
 			jsonValue:     `"invalid_status"`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 		},
 		{
 			name:          "Invalid JSON",
 			jsonValue:     `invalid`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 		},
 	}
 
@@ -209,7 +209,7 @@ func TestJobStatus(t *testing.T) {
 			// Test JSON unmarshaling
 			var unmarshaledStatus JobStatus
 			err = unmarshaledStatus.UnmarshalJSON([]byte(tt.jsonValue))
-			if tt.validForJson {
+			if tt.validForJSON {
 				assert.NoError(t, err, "Unmarshal should not return error")
 				assert.Equal(t, tt.status, unmarshaledStatus, "Unmarshal produced incorrect status")
 			} else {

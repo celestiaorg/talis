@@ -1,3 +1,4 @@
+// Package main provides the entry point for the server application
 package main
 
 import (
@@ -5,9 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	log "github.com/celestiaorg/talis/internal/logger"
-
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
@@ -15,6 +14,7 @@ import (
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	log "github.com/celestiaorg/talis/internal/logger"
 )
 
 func main() {
@@ -54,16 +54,22 @@ func main() {
 	jobRepo := repos.NewJobRepository(DB)
 	instanceRepo := repos.NewInstanceRepository(DB)
 	userRepo := repos.NewUserRepository(DB)
+	projectRepo := repos.NewProjectRepository(DB)
+	taskRepo := repos.NewTaskRepository(DB)
 
 	// Initialize services
 	jobService := services.NewJobService(jobRepo, instanceRepo)
 	instanceService := services.NewInstanceService(instanceRepo, jobService)
 	userService := services.NewUserService(userRepo)
+	projectService := services.NewProjectService(projectRepo)
+	taskService := services.NewTaskService(taskRepo, projectRepo)
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	userHandler := handlers.NewUserHandler(userService)
+	projectHandler := handlers.NewProjectHandler(projectService)
+	taskHandler := handlers.NewTaskHandler(taskService)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -74,7 +80,7 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes
-	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler)
+	routes.RegisterRoutes(app, instanceHandler, jobHandler, projectHandler, taskHandler, userhandler)
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")

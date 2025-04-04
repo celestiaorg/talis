@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,4 +16,10 @@ type Project struct {
 	Config      string    `json:"config" gorm:"type:text"`
 	Tasks       []Task    `json:"tasks" gorm:"foreignKey:ProjectID"`
 	CreatedAt   time.Time `json:"created_at" gorm:"index"`
+}
+
+// MarshalJSON implements the json.Marshaler interface for Project
+func (p Project) MarshalJSON() ([]byte, error) {
+	type Alias Project // Create an alias to avoid infinite recursion
+	return json.Marshal(Alias(p))
 }

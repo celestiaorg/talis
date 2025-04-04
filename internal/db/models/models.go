@@ -1,5 +1,10 @@
 package models
 
+const (
+	// DefaultLimit is the max number of rows that are retrieved from the DB per listing API call
+	DefaultLimit = 50
+)
+
 // StatusFilter represents how to filter db items by status
 type StatusFilter string
 

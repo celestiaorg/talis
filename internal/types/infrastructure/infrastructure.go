@@ -19,10 +19,10 @@ import (
 // It coordinates the creation and deletion of cloud resources across different providers
 // and handles the provisioning of those resources using configuration management tools.
 type Infrastructure struct {
-	name        string                  // Name of the infrastructure
-	projectName string                  // Name of the project
-	instances   []InstanceRequest       // Instance configuration
-	provider    compute.ComputeProvider // Compute provider implementation
+	name        string            // Name of the infrastructure
+	projectName string            // Name of the project
+	instances   []InstanceRequest // Instance configuration
+	provider    compute.Provider  // Compute provider implementation
 	provisioner compute.Provisioner
 	jobID       string
 	action      string // Action to perform (create/delete)

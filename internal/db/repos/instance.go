@@ -1,3 +1,4 @@
+// Package repos provides repository implementations for database operations
 package repos
 
 import (
@@ -210,8 +211,8 @@ func (r *InstanceRepository) Query(ctx context.Context, ownerID uint, query stri
 	}
 
 	var instances []models.Instance
-	err := r.db.Raw(query, args...).Scan(&instances).Error
-	return instances, err
+	result := r.db.WithContext(ctx).Raw(query, args...).Scan(&instances)
+	return instances, result.Error
 }
 
 // Get retrieves an instance by ID
