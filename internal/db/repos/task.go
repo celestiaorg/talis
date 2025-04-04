@@ -3,8 +3,9 @@ package repos
 import (
 	"context"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"gorm.io/gorm"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // TaskRepository handles database operations for tasks

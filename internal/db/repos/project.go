@@ -4,8 +4,9 @@ package repos
 import (
 	"context"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"gorm.io/gorm"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // ProjectRepository handles database operations for projects
