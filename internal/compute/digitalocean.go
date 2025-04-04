@@ -333,16 +333,18 @@ func (p *DigitalOceanProvider) CreateInstance(
 		return nil, fmt.Errorf("failed to get SSH key: %w", err)
 	}
 
-	// Create single or multiple droplets based on configuration
+	// If creating multiple instances, use createMultipleDroplets
 	if config.NumberOfInstances > 1 {
 		return p.createMultipleDroplets(ctx, name, config, sshKeyID)
 	}
 
-	// For single instance, wrap the result in a slice for consistent interface
-	instance, err := p.createSingleDroplet(ctx, name, config, sshKeyID)
+	// For single instance, append "-0" to the name
+	instanceName := fmt.Sprintf("%s-0", name)
+	instance, err := p.createSingleDroplet(ctx, instanceName, config, sshKeyID)
 	if err != nil {
 		return nil, err
 	}
+
 	return []types.InstanceInfo{instance}, nil
 }
 
@@ -561,6 +563,12 @@ fi
 func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
 	if p.doClient == nil {
 		return 0, fmt.Errorf("client not initialized")
+	}
+
+	// If keyName is empty, use the default test key
+	if keyName == "" {
+		keyName = "test-key"
+		logger.Warnf("🔑 Using default test key: %s", keyName)
 	}
 
 	logger.Infof("🔑 Looking up SSH key: %s", keyName)

@@ -27,8 +27,8 @@ func SetupServer(suite *TestSuite) {
 	suite.App.Use(logger.APILogger())
 
 	// Create services
-	jobService := services.NewJobService(suite.JobRepo, suite.InstanceRepo)
-	instanceService := services.NewInstanceService(suite.InstanceRepo, jobService)
+	jobService := services.NewJobService(suite.jobRepo, suite.instanceRepo)
+	instanceService := services.NewInstanceService(suite.instanceRepo, jobService)
 
 	// Create handlers
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)

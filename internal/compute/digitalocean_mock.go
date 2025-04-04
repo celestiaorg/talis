@@ -86,6 +86,19 @@ func (m *MockDOClient) CreateInstance(ctx context.Context, name string, config t
 		return nil, m.MockDropletService.std.Droplets.NotFoundError
 	}
 
+	// Check for retries
+	if m.MockDropletService.retriesRemaining > 0 {
+		m.MockDropletService.currentRetry++
+		if m.MockDropletService.currentRetry < m.MockDropletService.maxRetries {
+			return nil, fmt.Errorf("simulated retry %d/%d", m.MockDropletService.currentRetry, m.MockDropletService.maxRetries)
+		}
+	}
+
+	// If SSHKeyID is empty, use the default test key
+	if config.SSHKeyID == "" {
+		config.SSHKeyID = "test-key"
+	}
+
 	var instances []types.InstanceInfo
 	for i := 0; i < config.NumberOfInstances; i++ {
 		instanceName := fmt.Sprintf("%s-%d", name, i)
@@ -95,7 +108,7 @@ func (m *MockDOClient) CreateInstance(ctx context.Context, name string, config t
 			Provider: "digitalocean-mock",
 			Region:   config.Region,
 			Size:     config.Size,
-			PublicIP: fmt.Sprintf("192.168.1.%d", i+100),
+			PublicIP: fmt.Sprintf("192.0.2.%d", i+1),
 		}
 		instances = append(instances, instance)
 		m.droplets = append(m.droplets, instance)
@@ -222,18 +235,21 @@ type MockDropletService struct {
 	std              *StandardResponses
 	retriesRemaining int
 	maxRetries       int
+	currentRetry     int
 }
 
 // SimulateDelayedSuccess simulates a success after a number of retries
 func (s *MockDropletService) SimulateDelayedSuccess(retries int) {
 	s.retriesRemaining = retries
 	s.maxRetries = retries
+	s.currentRetry = 0
 }
 
 // SimulateMaxRetries simulates reaching the maximum number of retries
 func (s *MockDropletService) SimulateMaxRetries() {
 	s.retriesRemaining = defaultMaxRetries
 	s.maxRetries = defaultMaxRetries
+	s.currentRetry = 0
 }
 
 // Create creates a new droplet
@@ -249,8 +265,10 @@ func (s *MockDropletService) Create(ctx context.Context, createRequest *godo.Dro
 	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
 	}
 
 	droplet := *s.std.Droplets.DefaultDroplet
@@ -270,6 +288,13 @@ func (s *MockDropletService) CreateMultiple(ctx context.Context, createRequest *
 		return nil, nil, s.std.Droplets.NotFoundError
 	}
 
+	if s.retriesRemaining > 0 {
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
 	var droplets []godo.Droplet
 	for i, name := range createRequest.Names {
 		droplet := *s.std.Droplets.DefaultDroplet
@@ -282,25 +307,15 @@ func (s *MockDropletService) CreateMultiple(ctx context.Context, createRequest *
 
 // Get gets a droplet
 func (s *MockDropletService) Get(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+	if s.std.Droplets.NotFoundError != nil {
+		return nil, nil, fmt.Errorf("DO API: droplet not found")
+	}
+	if s.std.Droplets.RateLimitError != nil {
+		return nil, nil, s.std.Droplets.RateLimitError
+	}
 	if s.std.Droplets.AuthenticationError != nil {
 		return nil, nil, s.std.Droplets.AuthenticationError
 	}
-
-	// If we have retries remaining, simulate a rate limit error
-	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		if s.std.Droplets.RateLimitError != nil {
-			return nil, nil, s.std.Droplets.RateLimitError
-		}
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
-	}
-
-	// If not found error is set, return it
-	if s.std.Droplets.NotFoundError != nil {
-		return nil, nil, s.std.Droplets.NotFoundError
-	}
-
-	// If no errors, return success
 	return s.std.Droplets.DefaultDroplet, nil, nil
 }
 
@@ -310,21 +325,20 @@ func (s *MockDropletService) Delete(ctx context.Context, dropletID int) (*godo.R
 		return nil, s.std.Droplets.AuthenticationError
 	}
 
-	// If we have retries remaining, simulate a rate limit error
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		if s.std.Droplets.RateLimitError != nil {
-			return nil, s.std.Droplets.RateLimitError
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Droplets.RateLimitError != nil {
+				return nil, s.std.Droplets.RateLimitError
+			}
+			return nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
 		}
-		return nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
 	}
 
-	// If not found error is set, return it
 	if s.std.Droplets.NotFoundError != nil {
 		return nil, s.std.Droplets.NotFoundError
 	}
 
-	// If no errors, return success
 	return nil, nil
 }
 
@@ -334,21 +348,20 @@ func (s *MockDropletService) List(ctx context.Context, opt *godo.ListOptions) ([
 		return nil, nil, s.std.Droplets.AuthenticationError
 	}
 
-	// If we have retries remaining, simulate a rate limit error
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		if s.std.Droplets.RateLimitError != nil {
-			return nil, nil, s.std.Droplets.RateLimitError
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Droplets.RateLimitError != nil {
+				return nil, nil, s.std.Droplets.RateLimitError
+			}
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
 		}
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
 	}
 
-	// If not found error is set, return it
 	if s.std.Droplets.NotFoundError != nil {
 		return nil, nil, s.std.Droplets.NotFoundError
 	}
 
-	// If no errors, return success
 	return s.std.Droplets.DefaultDropletList, nil, nil
 }
 
@@ -357,18 +370,21 @@ type MockKeyService struct {
 	std              *StandardResponses
 	retriesRemaining int
 	maxRetries       int
+	currentRetry     int
 }
 
 // SimulateDelayedSuccess simulates a success after a number of retries
 func (s *MockKeyService) SimulateDelayedSuccess(retries int) {
 	s.retriesRemaining = retries
 	s.maxRetries = retries
+	s.currentRetry = 0
 }
 
 // SimulateMaxRetries simulates reaching the maximum number of retries
 func (s *MockKeyService) SimulateMaxRetries() {
 	s.retriesRemaining = defaultMaxRetries
 	s.maxRetries = defaultMaxRetries
+	s.currentRetry = 0
 }
 
 // List lists all SSH keys
@@ -377,12 +393,13 @@ func (s *MockKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]god
 		return nil, nil, s.std.Keys.AuthenticationError
 	}
 
-	// If we have retries remaining, simulate a rate limit error
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		// Return rate limit error for all but the last retry
-		if s.retriesRemaining > 0 {
-			return nil, nil, s.std.Keys.RateLimitError
+		s.currentRetry++
+		if s.currentRetry < s.maxRetries {
+			if s.std.Keys.RateLimitError != nil {
+				return nil, nil, s.std.Keys.RateLimitError
+			}
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
 		}
 	}
 
@@ -398,18 +415,21 @@ type MockStorageService struct {
 	std              *StandardResponses
 	retriesRemaining int
 	maxRetries       int
+	currentRetry     int
 }
 
 // SimulateDelayedSuccess simulates a success after a number of retries
 func (s *MockStorageService) SimulateDelayedSuccess(retries int) {
 	s.retriesRemaining = retries
 	s.maxRetries = retries
+	s.currentRetry = 0
 }
 
 // SimulateMaxRetries simulates reaching the maximum number of retries
 func (s *MockStorageService) SimulateMaxRetries() {
 	s.retriesRemaining = defaultMaxRetries
 	s.maxRetries = defaultMaxRetries
+	s.currentRetry = 0
 }
 
 // CreateVolume creates a new volume
@@ -417,16 +437,19 @@ func (s *MockStorageService) CreateVolume(ctx context.Context, request *godo.Vol
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, nil, s.std.Volumes.RateLimitError
-	}
-	if s.std.Volumes.NotFoundError != nil {
-		return nil, nil, s.std.Volumes.NotFoundError
-	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry < s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, nil, s.std.Volumes.RateLimitError
+			}
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
+	if s.std.Volumes.NotFoundError != nil {
+		return nil, nil, s.std.Volumes.NotFoundError
 	}
 
 	return s.std.Volumes.DefaultVolume, nil, nil
@@ -437,16 +460,19 @@ func (s *MockStorageService) DeleteVolume(ctx context.Context, id string) (*godo
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, s.std.Volumes.RateLimitError
-	}
-	if s.std.Volumes.NotFoundError != nil {
-		return nil, s.std.Volumes.NotFoundError
-	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, s.std.Volumes.RateLimitError
+			}
+			return nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
+	if s.std.Volumes.NotFoundError != nil {
+		return nil, s.std.Volumes.NotFoundError
 	}
 
 	return nil, nil
@@ -457,16 +483,19 @@ func (s *MockStorageService) ListVolumes(ctx context.Context, opt *godo.ListVolu
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, nil, s.std.Volumes.RateLimitError
-	}
-	if s.std.Volumes.NotFoundError != nil {
-		return nil, nil, s.std.Volumes.NotFoundError
-	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, nil, s.std.Volumes.RateLimitError
+			}
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
+	if s.std.Volumes.NotFoundError != nil {
+		return nil, nil, s.std.Volumes.NotFoundError
 	}
 
 	return s.std.Volumes.DefaultVolumeList, nil, nil
@@ -477,16 +506,19 @@ func (s *MockStorageService) GetVolume(ctx context.Context, id string) (*godo.Vo
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, nil, s.std.Volumes.RateLimitError
-	}
-	if s.std.Volumes.NotFoundError != nil {
-		return nil, nil, s.std.Volumes.NotFoundError
-	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, nil, s.std.Volumes.RateLimitError
+			}
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
+	if s.std.Volumes.NotFoundError != nil {
+		return nil, nil, s.std.Volumes.NotFoundError
 	}
 
 	return s.std.Volumes.DefaultVolume, nil, nil
@@ -497,22 +529,22 @@ func (s *MockStorageService) GetVolumeAction(ctx context.Context, volumeID strin
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, nil, s.std.Volumes.RateLimitError
+
+	if s.retriesRemaining > 0 {
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, nil, s.std.Volumes.RateLimitError
+			}
+			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
 	}
+
 	if s.std.Volumes.NotFoundError != nil {
 		return nil, nil, s.std.Volumes.NotFoundError
 	}
 
-	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
-	}
-
-	return &godo.Action{
-		ID:     actionID,
-		Status: "completed",
-	}, nil, nil
+	return &godo.Action{Status: "completed"}, nil, nil
 }
 
 // AttachVolume attaches a volume to a droplet
@@ -520,16 +552,19 @@ func (s *MockStorageService) AttachVolume(ctx context.Context, volumeID string, 
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, s.std.Volumes.RateLimitError
-	}
-	if s.std.Volumes.NotFoundError != nil {
-		return nil, s.std.Volumes.NotFoundError
-	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, s.std.Volumes.RateLimitError
+			}
+			return nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
+	if s.std.Volumes.NotFoundError != nil {
+		return nil, s.std.Volumes.NotFoundError
 	}
 
 	return nil, nil
@@ -540,16 +575,19 @@ func (s *MockStorageService) DetachVolume(ctx context.Context, volumeID string, 
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
-	if s.std.Volumes.RateLimitError != nil {
-		return nil, s.std.Volumes.RateLimitError
-	}
-	if s.std.Volumes.NotFoundError != nil {
-		return nil, s.std.Volumes.NotFoundError
-	}
 
 	if s.retriesRemaining > 0 {
-		s.retriesRemaining--
-		return nil, fmt.Errorf("simulated retry %d/%d", s.maxRetries-s.retriesRemaining, s.maxRetries)
+		s.currentRetry++
+		if s.currentRetry <= s.maxRetries {
+			if s.std.Volumes.RateLimitError != nil {
+				return nil, s.std.Volumes.RateLimitError
+			}
+			return nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
+		}
+	}
+
+	if s.std.Volumes.NotFoundError != nil {
+		return nil, s.std.Volumes.NotFoundError
 	}
 
 	return nil, nil
@@ -561,6 +599,7 @@ func NewMockDropletService(std *StandardResponses) *MockDropletService {
 		std:              std,
 		retriesRemaining: 0,
 		maxRetries:       0,
+		currentRetry:     0,
 	}
 }
 
@@ -570,6 +609,7 @@ func NewMockKeyService(std *StandardResponses) *MockKeyService {
 		std:              std,
 		retriesRemaining: 0,
 		maxRetries:       0,
+		currentRetry:     0,
 	}
 }
 
@@ -579,6 +619,7 @@ func NewMockStorageService(std *StandardResponses) *MockStorageService {
 		std:              std,
 		retriesRemaining: 0,
 		maxRetries:       0,
+		currentRetry:     0,
 	}
 }
 
@@ -632,7 +673,7 @@ func newStandardResponses() *StandardResponses {
 					V4: []godo.NetworkV4{
 						{
 							Type:      "public",
-							IPAddress: "192.168.1.100",
+							IPAddress: "192.0.2.1",
 						},
 					},
 				},
@@ -664,14 +705,14 @@ func newStandardResponses() *StandardResponses {
 
 // Error constants
 var (
-	ErrAuthentication  = fmt.Errorf("authentication error")
-	ErrRateLimit       = fmt.Errorf("rate limit error")
-	ErrDropletNotFound = fmt.Errorf("droplet not found")
-	ErrKeyNotFound     = fmt.Errorf("key not found")
-	ErrVolumeNotFound  = fmt.Errorf("volume not found")
+	ErrAuthentication  = fmt.Errorf("DO API: authentication error")
+	ErrRateLimit       = fmt.Errorf("DO API: rate limit error")
+	ErrDropletNotFound = fmt.Errorf("DO API: droplet not found")
+	ErrKeyNotFound     = fmt.Errorf("DO API: key not found")
+	ErrVolumeNotFound  = fmt.Errorf("DO API: volume not found")
 )
 
 // Default IDs
 const (
-	DefaultDropletID1 = 1000
+	DefaultDropletID1 = 12345
 )

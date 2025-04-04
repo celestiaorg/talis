@@ -3,29 +3,45 @@ package test
 import (
 	"context"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/api/v1/client"
+	"github.com/celestiaorg/talis/internal/compute"
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
-	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // DefaultTestTimeout is the default timeout for test suites.
 const DefaultTestTimeout = 30 * time.Second
 
-// TestSuite encapsulates all components needed for integration testing.
-// It provides a complete test setup with:
-//   - In-memory database
-//   - Real API server
-//   - Real API client
-//   - Mocked external providers
+// TestSuite is a test suite for the API
 type TestSuite struct {
-	t *testing.T // The testing.T instance for this suite
+	*suite.Suite
+	db *gorm.DB
+
+	// Context for the test
+	ctx        context.Context
+	cancelFunc context.CancelFunc
+
+	// Repositories
+	jobRepo      *repos.JobRepository
+	instanceRepo *repos.InstanceRepository
+	userRepo     *repos.UserRepository
+
+	// Mock clients
+	MockDOClient *compute.MockDOClient
+
+	// Test data
+	testUser *models.User
 
 	// Server components
 	App    *fiber.App
@@ -34,63 +50,81 @@ type TestSuite struct {
 	// Client components
 	APIClient client.Client
 
-	// Database components
-	DB           *gorm.DB
-	JobRepo      *repos.JobRepository
-	InstanceRepo *repos.InstanceRepository
-
-	// Mock providers
-	MockDOClient *mocks.MockDOClient
-
-	// Context management
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-
 	// Cleanup function
 	cleanup func()
+}
+
+// SetupSuite sets up the test suite
+func (s *TestSuite) SetupSuite() {
+	// Create a temporary database file
+	dbFile := filepath.Join(os.TempDir(), "test.db")
+	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
+	if err != nil {
+		s.T().Fatalf("failed to connect database: %v", err)
+	}
+
+	s.db = db
+
+	// Create repositories
+	s.jobRepo = repos.NewJobRepository(db)
+	s.instanceRepo = repos.NewInstanceRepository(db)
+	s.userRepo = repos.NewUserRepository(db)
+
+	// Create mock clients
+	s.MockDOClient = compute.NewMockDOClient()
+
+	// Create test user
+	s.testUser = &models.User{
+		Username: "test",
+		Email:    "test@example.com",
+		Role:     models.UserRoleUser,
+	}
+}
+
+// TearDownSuite tears down the test suite
+func (s *TestSuite) TearDownSuite() {
+	if s.db != nil {
+		sqlDB, err := s.db.DB()
+		if err == nil && sqlDB != nil {
+			_ = sqlDB.Close()
+		}
+	}
+
+	if s.cancelFunc != nil {
+		s.cancelFunc()
+	}
+
+	if s.cleanup != nil {
+		s.cleanup()
+	}
+}
+
+// Run runs the test suite
+func Run(t *testing.T) {
+	suite.Run(t, NewTestSuite(t))
 }
 
 // NewTestSuite creates a new test suite with the given options.
 // The suite must be cleaned up after use by calling Cleanup.
 func NewTestSuite(t *testing.T) *TestSuite {
-	t.Helper()
-
-	// Create suite with default timeout
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultTestTimeout)
-
-	suite := &TestSuite{
-		t:          t,
-		ctx:        ctx,
-		cancelFunc: cancel,
+	s := &TestSuite{
+		Suite: new(suite.Suite),
 	}
+	s.SetT(t)
 
-	// Initialize cleanup function
-	suite.cleanup = func() {
-		if suite.Server != nil {
-			suite.Server.Close()
-		}
-		if suite.cancelFunc != nil {
-			suite.cancelFunc()
-		}
-		// Close database if it exists
-		if suite.DB != nil {
-			sqlDB, err := suite.DB.DB()
-			if err == nil && sqlDB != nil {
-				_ = sqlDB.Close()
-			}
-		}
-	}
+	// Create context
+	s.ctx, s.cancelFunc = context.WithTimeout(context.Background(), DefaultTestTimeout)
 
-	// Setup database by default
-	SetupTestDB(suite, nil)
+	// Setup database
+	SetupTestDB(s, nil)
 
-	// Setup server by default
-	SetupServer(suite)
+	// Setup mock client
+	SetupMockDOClient(s)
 
-	// Setup mock DO client by default
-	SetupMockDOClient(suite)
+	// Setup server
+	SetupServer(s)
 
-	return suite
+	return s
 }
 
 // Cleanup tears down the test suite, releasing all resources.
@@ -110,7 +144,7 @@ func (s *TestSuite) Context() context.Context {
 // Require returns a require.Assertions instance for this suite.
 // This is a convenience method to avoid passing t around.
 func (s *TestSuite) Require() *require.Assertions {
-	return require.New(s.t)
+	return require.New(s.T())
 }
 
 // Retry retries a function until it succeeds or the number of retries is reached.

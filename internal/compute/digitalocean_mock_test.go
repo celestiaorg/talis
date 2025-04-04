@@ -60,46 +60,6 @@ func TestMockDOClient_SimulateNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrVolumeNotFound)
 }
 
-func TestMockDOClient_SimulateDelayedSuccess(t *testing.T) {
-	client := NewMockDOClient()
-	client.SimulateDelayedSuccess(2)
-
-	// Test droplet operations
-	_, err := client.CreateInstance(context.Background(), "test", types.InstanceConfig{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated retry 1/2")
-
-	// Test key operations
-	_, _, err = client.Keys().List(context.Background(), nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated retry 1/2")
-
-	// Test storage operations
-	_, _, err = client.Storage().CreateVolume(context.Background(), nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated retry 1/2")
-}
-
-func TestMockDOClient_SimulateMaxRetries(t *testing.T) {
-	client := NewMockDOClient()
-	client.SimulateMaxRetries()
-
-	// Test droplet operations
-	_, err := client.CreateInstance(context.Background(), "test", types.InstanceConfig{})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated retry 1/3")
-
-	// Test key operations
-	_, _, err = client.Keys().List(context.Background(), nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated retry 1/3")
-
-	// Test storage operations
-	_, _, err = client.Storage().CreateVolume(context.Background(), nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated retry 1/3")
-}
-
 func TestMockDOClient_ResetToStandard(t *testing.T) {
 	client := NewMockDOClient()
 

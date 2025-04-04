@@ -17,8 +17,8 @@ import (
 // Test helper functions
 
 // newTestProvider creates a new DigitalOceanProvider with a mock client for testing
-func newTestProvider() (*DigitalOceanProvider, *mocks.MockDOClient) {
-	mockClient := mocks.NewMockDOClient()
+func newTestProvider() (*DigitalOceanProvider, *MockDOClient) {
+	mockClient := NewMockDOClient()
 	mockClient.ResetToStandard() // Reset to standard responses
 	provider := &DigitalOceanProvider{doClient: mockClient}
 	return provider, mockClient
@@ -397,7 +397,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("SetClient", func(t *testing.T) {
 		provider := &DigitalOceanProvider{}
-		mockClient := mocks.NewMockDOClient()
+		mockClient := NewMockDOClient()
 
 		// Initially the client should be nil
 		assert.Nil(t, provider.doClient)
@@ -454,7 +454,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 	})
 
 	t.Run("GetDroplet", func(t *testing.T) {
-		mockClient := mocks.NewMockDOClient()
+		mockClient := NewMockDOClient()
 		provider := &DigitalOceanProvider{doClient: mockClient}
 
 		t.Run("droplet not found", func(t *testing.T) {
@@ -478,7 +478,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 	})
 
 	t.Run("DeleteDroplet", func(t *testing.T) {
-		mockClient := mocks.NewMockDOClient()
+		mockClient := NewMockDOClient()
 		provider := &DigitalOceanProvider{doClient: mockClient}
 
 		t.Run("droplet not found", func(t *testing.T) {
