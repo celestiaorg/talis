@@ -64,6 +64,12 @@ const (
 	UpdateJob           = "UpdateJob"
 	TerminateJob        = "TerminateJob"
 
+	// User routes
+	GetUsers    = "GetUsers"
+	GetUserByID = "GetUserByID"
+	CreateUser  = "CreateUser"
+	DeleteUser  = "DeleteUser"
+
 	// Project routes
 	CreateProject       = "CreateProject"
 	ListProjects        = "ListProjects"
@@ -94,6 +100,7 @@ func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
 	jobHandler *handlers.JobHandler,
+	userHandler *handlers.UserHandler,
 	projectHandler *handlers.ProjectHandler,
 	taskHandler *handlers.TaskHandler,
 ) {
@@ -134,6 +141,14 @@ func RegisterRoutes(
 	jobs.Put("/:id", jobHandler.UpdateJob).Name(UpdateJob)
 	jobs.Delete("/:id", jobHandler.TerminateJob).Name(TerminateJob)
 
+	// ---------------------------
+	// User endpoints
+	users := v1.Group("/users")
+	users.Get("/", userHandler.GetUsers).Name(GetUsers)
+	users.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
+	users.Post("/", userHandler.CreateUser).Name(CreateUser)
+	users.Delete("/:id", userHandler.DeleteUser).Name(DeleteUser)
+
 	// Project routes
 	projects := v1.Group("/projects")
 	projects.Post("/", projectHandler.CreateProject).Name(CreateProject)
@@ -160,11 +175,12 @@ func initRouteCache() {
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
 		mockJobHandler := &handlers.JobHandler{}
+		mockUserHandler := &handlers.UserHandler{}
 		mockProjectHandler := &handlers.ProjectHandler{}
 		mockTaskHandler := &handlers.TaskHandler{}
 
 		// Register routes with mock handlers
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockProjectHandler, mockTaskHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockUserHandler, mockProjectHandler, mockTaskHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -306,6 +322,28 @@ func UpdateJobURL(id string) string {
 // DeleteJobURL returns the URL for deleting a job by ID
 func DeleteJobURL(id string) string {
 	return BuildURL(TerminateJob, map[string]string{"id": id}, nil)
+}
+
+// User Routes
+
+// GetUserByIDURL returns the URL for getting a user by ID
+func GetUserByIDURL(id string) string {
+	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
+}
+
+// GetUsersURL returns the URL for getting a user
+func GetUsersURL(queryParams url.Values) string {
+	return BuildURL(GetUsers, nil, queryParams)
+}
+
+// CreateUserURL returns the URL for creating a user
+func CreateUserURL() string {
+	return BuildURL(CreateUser, nil, nil)
+}
+
+// DeleteUserURL returns the URL for deleting a user by ID
+func DeleteUserURL(id string) string {
+	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
 }
 
 // Project Routes

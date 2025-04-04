@@ -49,6 +49,15 @@ var defaultInstanceRequest2 = infrastructure.InstanceRequest{
 	Image:             "ubuntu-20-04-x64",
 }
 
+var defaultUser1 = infrastructure.CreateUserRequest{
+	Username: "user1",
+	Email:    "user1@example.com",
+	Role:     1,
+}
+var defaultUser2 = infrastructure.CreateUserRequest{
+	Username: "user12",
+}
+
 // This file contains the comprehensive test suite for the API client.
 
 // TestClientAdminMethods tests the admin methods of the API client.
@@ -304,4 +313,117 @@ func TestClientJobMethods(t *testing.T) {
 		return nil
 	}, 100, 100*time.Millisecond)
 	require.NoError(t, err)
+}
+
+func TestClientUserMethods(t *testing.T) {
+	suite := test.NewTestSuite(t)
+	defer suite.Cleanup()
+
+	/////////////////////
+	// t.Run()
+	// Start with 0, then increment this variable whenever a user is successfully created
+	// and decrement when a user is successfully deleted
+	expectedUserCount := 0
+	users, err := suite.APIClient.GetUsers(suite.Context(), nil)
+	require.NoError(t, err)
+	require.NotNil(t, users)
+	require.Empty(t, users.Users, "Expected no users in a fresh database")
+
+	t.Run("CreateUser_Success", func(t *testing.T) {
+		// Create first user
+		newUser1, err := suite.APIClient.CreateUser(suite.Context(), defaultUser1)
+		require.NoError(t, err)
+		require.NotEmpty(t, newUser1.UserId, "User ID should not be empty")
+		expectedUserCount++
+
+		// Create second user
+		newUser2, err := suite.APIClient.CreateUser(suite.Context(), defaultUser2)
+		require.NoError(t, err)
+		require.NotEmpty(t, newUser2.UserId, "User ID should not be empty")
+		expectedUserCount++
+	})
+
+	t.Run("CreateUser_DuplicateUsername", func(t *testing.T) {
+		// Try to create a user with the same username
+		duplicateUser := defaultUser1
+		_, err := suite.APIClient.CreateUser(suite.Context(), duplicateUser)
+		require.Error(t, err, "Creating user with duplicate username should fail")
+	})
+
+	t.Run("GetUserByID_Success", func(t *testing.T) {
+		// Create a user first
+		newUser, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+			Username:     "testuser_getbyid",
+			Email:        "getbyid@example.com",
+			Role:         1,
+			PublicSshKey: "ssh-rsa TESTKEY",
+		})
+		require.NoError(t, err)
+		expectedUserCount++
+
+		// Get the user by ID
+		resp, err := suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(newUser.UserId))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, "testuser_getbyid", resp.User.Username)
+		require.Equal(t, "getbyid@example.com", resp.User.Email)
+	})
+
+	t.Run("GetUserByUsername_Success", func(t *testing.T) {
+		// Create a user first
+		uniqueUsername := "unique_username_test"
+		_, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+			Username:     uniqueUsername,
+			Email:        "unique@example.com",
+			Role:         1,
+			PublicSshKey: "ssh-rsa UNIQUEKEY",
+		})
+		require.NoError(t, err)
+		expectedUserCount++
+
+		// Get the user by username
+		userResp, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{Username: uniqueUsername})
+		require.NoError(t, err)
+		require.NotNil(t, userResp.User)
+		require.Equal(t, uniqueUsername, userResp.User.Username)
+		require.Equal(t, "unique@example.com", userResp.User.Email)
+	})
+
+	t.Run("GetUserByUsername_NotFound", func(t *testing.T) {
+		// Try to get a non-existent username
+		_, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{Username: "nonexistent_user"})
+		require.Error(t, err, "Getting non-existent username should return error")
+	})
+
+	t.Run("Get_All_Users", func(t *testing.T) {
+		users, err := suite.APIClient.GetUsers(suite.Context(), &models.UserQueryOptions{})
+		require.NoError(t, err)
+		require.Equal(t, expectedUserCount, len(users.Users))
+	})
+
+	t.Run("DeleteUser_Success", func(t *testing.T) {
+		deletedUsername := "deleted_username_test"
+		user, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+			Username:     deletedUsername,
+			Email:        "deleted@example.com",
+			Role:         1,
+			PublicSshKey: "ssh-rsa deletedKEY",
+		})
+		require.NoError(t, err)
+		expectedUserCount++
+
+		// Delete a existing user
+		err = suite.APIClient.DeleteUser(suite.Context(), fmt.Sprint(user.UserId))
+		require.NoError(t, err)
+		expectedUserCount--
+
+		// Verify the user is actually deleted
+		_, err = suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(user.UserId))
+		require.Error(t, err, "User should no longer exist after deletion")
+
+		// Delete an non existing user
+		nonExistingUserID := "234245"
+		err = suite.APIClient.DeleteUser(suite.Context(), nonExistingUserID)
+		require.Error(t, err)
+	})
 }

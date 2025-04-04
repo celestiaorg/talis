@@ -27,3 +27,8 @@ type ListOptions struct {
 	InstanceStatus *InstanceStatus `json:"instance_status,omitempty"` // Filter by instance status
 	JobStatus      *JobStatus      `json:"job_status,omitempty"`      // Filter by job status
 }
+
+// UserQueryOptions represents query params for GetUserByUsername operation
+type UserQueryOptions struct {
+	Username string `json:"username" gorm:"not null;unique"`
+}

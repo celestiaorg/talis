@@ -29,15 +29,17 @@ func SetupServer(suite *Suite) {
 	// Create services
 	jobService := services.NewJobService(suite.JobRepo, suite.InstanceRepo)
 	instanceService := services.NewInstanceService(suite.InstanceRepo, jobService)
+	userService := services.NewUserService(suite.UserRepo)
 
 	// Create handlers
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	userHandler := handlers.NewUserHandler(userService)
 	projectHandler := handlers.NewProjectHandler(nil) // TODO: Add project service
 	taskHandler := handlers.NewTaskHandler(nil)       // TODO: Add task service
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, projectHandler, taskHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, userHandler, projectHandler, taskHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))

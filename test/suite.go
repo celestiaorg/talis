@@ -38,6 +38,7 @@ type Suite struct {
 	DB           *gorm.DB
 	JobRepo      *repos.JobRepository
 	InstanceRepo *repos.InstanceRepository
+	UserRepo     *repos.UserRepository
 
 	// Mock providers
 	MockDOClient *mocks.MockDOClient

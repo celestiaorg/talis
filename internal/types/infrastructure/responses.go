@@ -46,7 +46,7 @@ type InstanceMetadataResponse struct {
 
 // PaginationResponse represents pagination information
 type PaginationResponse struct {
-	Total  int `json:"total"`  // Total number of jobs
+	Total  int `json:"total"`  // Total number of values
 	Page   int `json:"page"`   // Current page number
 	Limit  int `json:"limit"`  // Number of items per page
 	Offset int `json:"offset"` // Offset from start of results
@@ -62,4 +62,21 @@ type PublicIPs struct {
 type PublicIPsResponse struct {
 	PublicIPs  []PublicIPs        `json:"public_ips"` // List of public IPs
 	Pagination PaginationResponse `json:"pagination"` // Pagination information
+}
+
+// CreateUserResponse represents the response from the create user endpoint
+type CreateUserResponse struct {
+	UserId uint `json:"id"`
+}
+
+// UserResponse is a flexible response type for both single and multiple user scenarios
+type UserResponse struct {
+	// This can be a single user or null when returning multiple users
+	User models.User `json:"user,omitempty"`
+
+	// This can be an array of users or null when returning a single user
+	Users []models.User `json:"users,omitempty"`
+
+	// Pagination info included only when returning multiple users
+	Pagination PaginationResponse `json:"pagination,omitempty"`
 }

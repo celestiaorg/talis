@@ -53,18 +53,21 @@ func main() {
 	// Initialize repositories
 	jobRepo := repos.NewJobRepository(DB)
 	instanceRepo := repos.NewInstanceRepository(DB)
+	userRepo := repos.NewUserRepository(DB)
 	projectRepo := repos.NewProjectRepository(DB)
 	taskRepo := repos.NewTaskRepository(DB)
 
 	// Initialize services
 	jobService := services.NewJobService(jobRepo, instanceRepo)
 	instanceService := services.NewInstanceService(instanceRepo, jobService)
+	userService := services.NewUserService(userRepo)
 	projectService := services.NewProjectService(projectRepo)
 	taskService := services.NewTaskService(taskRepo, projectRepo)
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
+	userHandler := handlers.NewUserHandler(userService)
 	projectHandler := handlers.NewProjectHandler(projectService)
 	taskHandler := handlers.NewTaskHandler(taskService)
 
@@ -77,7 +80,7 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes
-	routes.RegisterRoutes(app, instanceHandler, jobHandler, projectHandler, taskHandler)
+	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler, projectHandler, taskHandler)
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")

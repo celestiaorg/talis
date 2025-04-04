@@ -26,6 +26,7 @@ func RunMigrations(db *gorm.DB) error {
 	err := db.AutoMigrate(
 		&models.Job{},
 		&models.Instance{},
+		&models.User{},
 		// Add other models as needed
 	)
 	if err != nil {
@@ -53,6 +54,7 @@ func SetupTestDB(suite *Suite, database *gorm.DB) {
 	// Initialize repositories
 	suite.JobRepo = repos.NewJobRepository(suite.DB)
 	suite.InstanceRepo = repos.NewInstanceRepository(suite.DB)
+	suite.UserRepo = repos.NewUserRepository(suite.DB)
 
 	// Add cleanup
 	oldCleanup := suite.cleanup
