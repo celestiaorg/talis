@@ -3,14 +3,19 @@ package test
 import (
 	"context"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/api/v1/client"
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/test/mocks"
 )
@@ -51,9 +56,59 @@ type Suite struct {
 	cleanup func()
 }
 
+// SetupSuite sets up the test suite
+func (s *Suite) SetupSuite() {
+	// Create a temporary database file
+	dbFile := filepath.Join(os.TempDir(), "test.db")
+	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
+	if err != nil {
+		s.T().Fatalf("failed to connect database: %v", err)
+	}
+
+	s.DB = db
+
+	// Create repositories
+	s.JobRepo = repos.NewJobRepository(db)
+	s.InstanceRepo = repos.NewInstanceRepository(db)
+	s.UserRepo = repos.NewUserRepository(db)
+
+	// Create mock clients
+	s.MockDOClient = mocks.NewMockDOClient()
+
+	// Create test user
+	s.UserRepo.CreateUser(s.ctx, &models.User{
+		Username: "test",
+		Email:    "test@example.com",
+		Role:     models.UserRoleUser,
+	})
+}
+
+// TearDownSuite tears down the test suite
+func (s *Suite) TearDownSuite() {
+	if s.DB != nil {
+		sqlDB, err := s.DB.DB()
+		if err == nil && sqlDB != nil {
+			_ = sqlDB.Close()
+		}
+	}
+
+	if s.cancelFunc != nil {
+		s.cancelFunc()
+	}
+
+	if s.cleanup != nil {
+		s.cleanup()
+	}
+}
+
+// Run runs the test suite
+func Run(t *testing.T) {
+	suite.Run(t, NewSuite(t))
+}
+
 // NewTestSuite creates a new test suite with the given options.
 // The suite must be cleaned up after use by calling Cleanup.
-func NewTestSuite(t *testing.T) *Suite {
+func NewSuite(t *testing.T) *Suite {
 	t.Helper()
 
 	// Create suite with default timeout

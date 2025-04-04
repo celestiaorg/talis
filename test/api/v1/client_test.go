@@ -32,6 +32,7 @@ var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
 	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
+	Name:              "test-instance-1",
 	SSHKeyName:        "test-key",
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",

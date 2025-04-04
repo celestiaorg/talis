@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
-	"github.com/celestiaorg/talis/internal/compute/types"
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // Infrastructure represents the infrastructure management system.
@@ -74,7 +73,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 	switch i.action {
 	case "create":
 		fmt.Printf("🚀 Creating infrastructure...\n")
-		instances := make([]InstanceInfo, 0)
+		instances := make([]types.InstanceInfo, 0)
 		for _, instance := range i.instances {
 			// Use instance name if provided, otherwise use base name
 			instanceName := instance.Name
@@ -91,20 +90,19 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				Tags:              instance.Tags,
 				NumberOfInstances: instance.NumberOfInstances,
 				CustomName:        instance.Name,
+				Volumes:           instance.Volumes,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
 			}
-			// Convert compute.InstanceInfo to our InstanceInfo and add to result
-			// TODO: why do we have two different instance info types?
+			// Convert types.InstanceInfo to our InstanceInfo and add to result
 			for _, instanceInfo := range info {
-				instances = append(instances, InstanceInfo{
+				instances = append(instances, types.InstanceInfo{
 					Name:     instanceInfo.Name,
-					IP:       instanceInfo.PublicIP,
-					Provider: models.ProviderID(instanceInfo.Provider),
+					PublicIP: instanceInfo.PublicIP,
+					Provider: instanceInfo.Provider,
 					Region:   instanceInfo.Region,
 					Size:     instanceInfo.Size,
-					OwnerID:  instance.OwnerID,
 				})
 			}
 		}

@@ -333,3 +333,13 @@ func (r *InstanceRepository) GetByJobIDAndNames(
 	}
 	return instances, nil
 }
+
+// GetByName retrieves an instance by its name
+func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*models.Instance, error) {
+	var instance models.Instance
+	err := r.db.WithContext(ctx).Where(&models.Instance{Name: name}).First(&instance).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get instance by name %s: %w", name, err)
+	}
+	return &instance, nil
+}

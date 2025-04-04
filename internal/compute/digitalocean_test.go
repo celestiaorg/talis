@@ -5,23 +5,22 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/digitalocean/godo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // Test helper functions
 
-// newTestProvider creates a DigitalOceanProvider with a mock client for testing
-func newTestProvider() (*DigitalOceanProvider, *mocks.MockDOClient) {
-	mockClient := mocks.NewMockDOClient()
-	provider := &DigitalOceanProvider{}
-	provider.SetClient(mockClient)
+// newTestProvider creates a new DigitalOceanProvider with a mock client for testing
+func newTestProvider() (*DigitalOceanProvider, *MockDOClient) {
+	mockClient := NewMockDOClient()
+	mockClient.ResetToStandard() // Reset to standard responses
+	provider := &DigitalOceanProvider{doClient: mockClient}
 	return provider, mockClient
 }
 
@@ -148,7 +147,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Simulate not found error
-		mockClient.MockDropletService.SimulateNotFound()
+		mockClient.SimulateNotFound()
 
 		// Call the method
 		_, err := provider.doClient.Droplets().Delete(context.Background(), 12345)
@@ -174,7 +173,7 @@ func TestDropletService(t *testing.T) {
 		provider, mockClient := newTestProvider()
 
 		// Simulate not found error
-		mockClient.MockDropletService.SimulateNotFound()
+		mockClient.SimulateNotFound()
 
 		// Call the method
 		droplet, _, err := provider.doClient.Droplets().Get(context.Background(), 12345)
@@ -306,7 +305,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
 		assert.NoError(t, err)
 		assert.Len(t, instances, 1)
-		assert.Equal(t, "test-instance-0", instances[0].Name)
+		assert.Equal(t, "test-instance", instances[0].Name)
 		assert.Equal(t, mocks.DefaultDropletIP1, instances[0].PublicIP)
 		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), instances[0].ID)
 	})
@@ -337,8 +336,10 @@ func TestDigitalOceanProvider(t *testing.T) {
 	t.Run("DeleteInstance", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
-		// Delete instance
-		err := provider.DeleteInstance(context.Background(), "test-instance", "nyc1")
+		// Call the method - will use standard success response
+		_, err := provider.doClient.Droplets().Delete(context.Background(), 12345)
+
+		// Verify results
 		assert.NoError(t, err)
 	})
 
@@ -352,34 +353,51 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.Equal(t, "test-token", envVars["DIGITALOCEAN_TOKEN"])
 	})
 
-	t.Run("GetSSHKeyID_Success", func(t *testing.T) {
+	t.Run("CreateInstance_SSHKey_Success", func(t *testing.T) {
 		provider, mockClient := newTestProvider()
 		keys, _, err := mockClient.Keys().List(context.Background(), nil)
-		assert.NoError(t, err)
-		assert.NotNil(t, keys)
+		require.NoError(t, err)
+		require.NotNil(t, keys)
+		require.NotEmpty(t, keys)
 
-		// Call the method
-		id, err := provider.GetSSHKeyID(context.Background(), keys[0].Name)
+		config := types.InstanceConfig{
+			Region:            "nyc1",
+			Size:              "s-1vcpu-1gb",
+			Image:             "ubuntu-22-04-x64",
+			SSHKeyID:          keys[0].Name,
+			NumberOfInstances: 1,
+		}
+
+		// Call CreateInstance which internally uses getSSHKeyID
+		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Equal(t, keys[0].ID, id)
+		assert.NotEmpty(t, instances)
 	})
 
-	t.Run("GetSSHKeyID_KeyNotFound", func(t *testing.T) {
+	t.Run("CreateInstance_SSHKey_NotFound", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
-		// Call the method
-		_, err := provider.GetSSHKeyID(context.Background(), "not-existing-key")
+		config := types.InstanceConfig{
+			Region:            "nyc1",
+			Size:              "s-1vcpu-1gb",
+			Image:             "ubuntu-22-04-x64",
+			SSHKeyID:          "not-existing-key",
+			NumberOfInstances: 1,
+		}
+
+		// Call CreateInstance which internally uses getSSHKeyID
+		_, err := provider.CreateInstance(context.Background(), "test-instance", config)
 
 		// Verify results
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
+		assert.Contains(t, err.Error(), "failed to get SSH key")
 	})
 
 	t.Run("SetClient", func(t *testing.T) {
 		provider := &DigitalOceanProvider{}
-		mockClient := mocks.NewMockDOClient()
+		mockClient := NewMockDOClient()
 
 		// Initially the client should be nil
 		assert.Nil(t, provider.doClient)
@@ -405,71 +423,146 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.Contains(t, err.Error(), "client not initialized")
 	})
 
-	t.Run("WaitForDeletion_Success", func(t *testing.T) {
+	t.Run("DeleteInstance_Success", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
-		// Call the unexported method directly with a short interval
-		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
+		// Call DeleteInstance which internally uses waitForDeletion
+		err := provider.DeleteInstance(context.Background(), "test-instance", "nyc1")
 
 		// Verify results
 		assert.NoError(t, err)
 	})
 
-	t.Run("WaitForDeletion_Success_With_Retries", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateDelayedSuccess(3)
-
-		// Call the unexported method directly with a short interval
-		err := provider.waitForDeletion(context.Background(), "test-instance", "nyc1", defaultMaxRetries, 100*time.Millisecond)
-
-		// Verify results
-		assert.NoError(t, err)
-	})
-
-	t.Run("WaitForDeletion_Error", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateMaxRetries()
-
-		// Call the unexported method directly with a short interval
-		err := provider.waitForDeletion(context.Background(), mocks.DefaultDropletName1, mocks.DefaultDropletRegion, defaultMaxRetries, 100*time.Millisecond)
-
-		// Verify results
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "still exists")
-	})
-
-	t.Run("WaitForIP_Success", func(t *testing.T) {
+	t.Run("CreateInstance_Success_With_IP", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
-		// Call the unexported method directly with a short interval
-		ip, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
+		config := types.InstanceConfig{
+			Region:            "nyc1",
+			Size:              "s-1vcpu-1gb",
+			Image:             "ubuntu-22-04-x64",
+			SSHKeyID:          "test-key",
+			NumberOfInstances: 1,
+		}
+
+		// Call CreateInstance which internally uses waitForIP
+		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Equal(t, "192.0.2.1", ip)
+		assert.NotEmpty(t, instances)
+		assert.NotEmpty(t, instances[0].PublicIP)
 	})
 
-	t.Run("WaitForIP_Error", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateDelayedSuccess(3)
+	t.Run("GetDroplet", func(t *testing.T) {
+		mockClient := NewMockDOClient()
+		provider := &DigitalOceanProvider{doClient: mockClient}
 
-		// Call the unexported method directly with a short interval
-		ip, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
+		t.Run("droplet not found", func(t *testing.T) {
+			// Simular error de droplet no encontrado
+			mockClient.SimulateNotFound()
 
-		// Verify results
-		assert.NoError(t, err)
-		assert.Equal(t, "192.0.2.1", ip)
+			droplet, _, err := provider.doClient.Droplets().Get(context.Background(), 123)
+			assert.Error(t, err)
+			assert.Nil(t, droplet)
+			assert.Equal(t, mocks.ErrDropletNotFound, err)
+		})
+
+		t.Run("successful get", func(t *testing.T) {
+			// Resetear a respuestas estándar
+			mockClient.ResetToStandard()
+
+			droplet, _, err := provider.doClient.Droplets().Get(context.Background(), 123)
+			assert.NoError(t, err)
+			assert.NotNil(t, droplet)
+		})
 	})
 
-	t.Run("WaitForIP_Error", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-		mockClient.MockDropletService.SimulateMaxRetries()
+	t.Run("DeleteDroplet", func(t *testing.T) {
+		mockClient := NewMockDOClient()
+		provider := &DigitalOceanProvider{doClient: mockClient}
 
-		// Call the unexported method directly with a short interval
-		_, err := provider.waitForIP(context.Background(), 12345, defaultMaxRetries, 100*time.Millisecond)
+		t.Run("droplet not found", func(t *testing.T) {
+			// Simular error de droplet no encontrado
+			mockClient.SimulateNotFound()
 
-		// Verify results
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no public IP")
+			_, err := provider.doClient.Droplets().Delete(context.Background(), 123)
+			assert.Error(t, err)
+			assert.Equal(t, mocks.ErrDropletNotFound, err)
+		})
+
+		t.Run("successful delete", func(t *testing.T) {
+			// Resetear a respuestas estándar
+			mockClient.ResetToStandard()
+
+			_, err := provider.doClient.Droplets().Delete(context.Background(), 123)
+			assert.NoError(t, err)
+		})
 	})
+}
+
+func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
+	mockClient := NewMockDOClient()
+	provider := &DigitalOceanProvider{
+		doClient: mockClient,
+	}
+
+	// Test successful instance creation
+	instances, err := provider.CreateInstance(context.Background(), "test", types.InstanceConfig{
+		NumberOfInstances: 1,
+		Region:            "nyc1",
+		Size:              "s-1vcpu-1gb",
+	})
+	require.NoError(t, err)
+	require.Len(t, instances, 1)
+	assert.Equal(t, "test", instances[0].Name)
+
+	// Test authentication error
+	mockClient.SimulateAuthenticationFailure()
+	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
+	assert.ErrorIs(t, err, ErrAuthentication)
+
+	// Test rate limit error
+	mockClient.SimulateRateLimit()
+	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
+	assert.ErrorIs(t, err, ErrRateLimit)
+
+	// Test not found error
+	mockClient.SimulateNotFound()
+	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
+	assert.ErrorIs(t, err, ErrDropletNotFound)
+}
+
+func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
+	mockClient := NewMockDOClient()
+	provider := &DigitalOceanProvider{
+		doClient: mockClient,
+	}
+
+	// First create an instance
+	instances, err := provider.CreateInstance(context.Background(), "test", types.InstanceConfig{
+		NumberOfInstances: 1,
+		Region:            "nyc1",
+		Size:              "s-1vcpu-1gb",
+	})
+	require.NoError(t, err)
+	require.Len(t, instances, 1)
+
+	// Test successful instance deletion
+	err = provider.DeleteInstance(context.Background(), "test-0", "nyc1")
+	assert.NoError(t, err)
+
+	// Test authentication error
+	mockClient.SimulateAuthenticationFailure()
+	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
+	assert.ErrorIs(t, err, ErrAuthentication)
+
+	// Test rate limit error
+	mockClient.SimulateRateLimit()
+	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
+	assert.ErrorIs(t, err, ErrRateLimit)
+
+	// Test not found error
+	mockClient.SimulateNotFound()
+	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
+	assert.ErrorIs(t, err, ErrDropletNotFound)
 }

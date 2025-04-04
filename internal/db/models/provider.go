@@ -47,3 +47,24 @@ func (p *ProviderID) UnmarshalJSON(data []byte) error {
 	*p = ProviderID(str)
 	return nil
 }
+
+// FromString creates a ProviderID from a string
+func FromString(s string) ProviderID {
+	return ProviderID(s)
+}
+
+// ToProviderID converts a string to a ProviderID
+func ToProviderID(s string) ProviderID {
+	return ProviderID(s)
+}
+
+// IsValid checks if the provider ID is a valid supported provider
+func (p ProviderID) IsValid() bool {
+	switch p {
+	case ProviderAWS, ProviderGCP, ProviderAzure, ProviderDO,
+		ProviderScaleway, ProviderVultr, ProviderLinode, ProviderHetzner, ProviderOVH:
+		return true
+	default:
+		return false
+	}
+}

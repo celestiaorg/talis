@@ -12,3 +12,9 @@
       when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
       tags:
         - setup
+
+    - name: Volumes
+      import_tasks: "./stages/volumes.yml"
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+      tags:
+        - volumes
