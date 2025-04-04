@@ -31,7 +31,6 @@ type User struct {
 }
 
 // MarshalJSON implements the json.Marshaler interface for User
-// to prevent the ID field from being included in JSON output
 func (u User) MarshalJSON() ([]byte, error) {
 	type Alias User // Create an alias to avoid infinite recursion
 	return json.Marshal(Alias(u))
