@@ -71,15 +71,29 @@ func (r *InstanceRepository) UpdateByID(ctx context.Context, id uint, instance *
 // UpdateByName updates an instance by its name. Only non-zero fields in the instance parameter will be updated.
 func (r *InstanceRepository) UpdateByName(ctx context.Context, name string, instance *models.Instance) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&models.Instance{}).
+		// First check if the instance exists
+		var exists bool
+		err := tx.Model(&models.Instance{}).
+			Select("1").
 			Where(&models.Instance{Name: name}).
-			Updates(instance)
-		if result.Error != nil {
-			return fmt.Errorf("failed to update instance by name: %w", result.Error)
+			Limit(1).
+			Find(&exists).
+			Error
+		if err != nil {
+			return fmt.Errorf("failed to check instance existence: %w", err)
 		}
-		if result.RowsAffected == 0 {
+		if !exists {
 			return fmt.Errorf("no instance found with name: %s", name)
 		}
+
+		// If instance exists, proceed with update
+		if err := tx.Model(&models.Instance{}).
+			Where(&models.Instance{Name: name}).
+			Updates(instance).
+			Error; err != nil {
+			return fmt.Errorf("failed to update instance by name: %w", err)
+		}
+
 		return nil
 	})
 }
