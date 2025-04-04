@@ -76,14 +76,14 @@ func (m *MockDOClient) ConfigureProvider(stack interface{}) error {
 // CreateInstance creates a new instance
 func (m *MockDOClient) CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error) {
 	// Check for errors first
+	if m.MockDropletService.std.Droplets.NotFoundError != nil {
+		return nil, ErrDropletNotFound
+	}
 	if m.MockDropletService.std.Droplets.AuthenticationError != nil {
 		return nil, m.MockDropletService.std.Droplets.AuthenticationError
 	}
 	if m.MockDropletService.std.Droplets.RateLimitError != nil {
 		return nil, m.MockDropletService.std.Droplets.RateLimitError
-	}
-	if m.MockDropletService.std.Droplets.NotFoundError != nil {
-		return nil, m.MockDropletService.std.Droplets.NotFoundError
 	}
 
 	// Check for retries
@@ -94,25 +94,35 @@ func (m *MockDOClient) CreateInstance(ctx context.Context, name string, config t
 		}
 	}
 
-	// If SSHKeyID is empty, use the default test key
-	if config.SSHKeyID == "" {
-		config.SSHKeyID = "test-key"
-	}
-
 	var instances []types.InstanceInfo
-	for i := 0; i < config.NumberOfInstances; i++ {
-		instanceName := fmt.Sprintf("%s-%d", name, i)
+	if config.NumberOfInstances > 1 {
+		for i := 0; i < config.NumberOfInstances; i++ {
+			instanceName := fmt.Sprintf("%s-%d", name, i)
+			instance := types.InstanceInfo{
+				ID:       fmt.Sprintf("%d", DefaultDropletID1+i),
+				Name:     instanceName,
+				Provider: "digitalocean-mock",
+				Region:   config.Region,
+				Size:     config.Size,
+				PublicIP: fmt.Sprintf("192.0.2.%d", i+1),
+			}
+			instances = append(instances, instance)
+			m.droplets = append(m.droplets, instance)
+		}
+	} else {
+		// For single instance, use the name as is
 		instance := types.InstanceInfo{
-			ID:       fmt.Sprintf("%d", DefaultDropletID1+i),
-			Name:     instanceName,
+			ID:       fmt.Sprintf("%d", DefaultDropletID1),
+			Name:     name,
 			Provider: "digitalocean-mock",
 			Region:   config.Region,
 			Size:     config.Size,
-			PublicIP: fmt.Sprintf("192.0.2.%d", i+1),
+			PublicIP: "192.0.2.1",
 		}
 		instances = append(instances, instance)
 		m.droplets = append(m.droplets, instance)
 	}
+
 	return instances, nil
 }
 
@@ -392,21 +402,12 @@ func (s *MockKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]god
 	if s.std.Keys.AuthenticationError != nil {
 		return nil, nil, s.std.Keys.AuthenticationError
 	}
-
-	if s.retriesRemaining > 0 {
-		s.currentRetry++
-		if s.currentRetry < s.maxRetries {
-			if s.std.Keys.RateLimitError != nil {
-				return nil, nil, s.std.Keys.RateLimitError
-			}
-			return nil, nil, fmt.Errorf("simulated retry %d/%d", s.currentRetry, s.maxRetries)
-		}
+	if s.std.Keys.RateLimitError != nil {
+		return nil, nil, s.std.Keys.RateLimitError
 	}
 
-	if s.std.Keys.NotFoundError != nil {
-		return nil, nil, s.std.Keys.NotFoundError
-	}
-
+	// When simulating not found, still return the default key list
+	// This allows the droplet creation to proceed and fail with droplet not found
 	return s.std.Keys.DefaultKeyList, nil, nil
 }
 

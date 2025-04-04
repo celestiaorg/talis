@@ -514,7 +514,7 @@ func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, instances, 1)
-	assert.Equal(t, "test-0", instances[0].Name)
+	assert.Equal(t, "test", instances[0].Name)
 
 	// Test authentication error
 	mockClient.SimulateAuthenticationFailure()

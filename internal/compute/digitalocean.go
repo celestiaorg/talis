@@ -338,9 +338,8 @@ func (p *DigitalOceanProvider) CreateInstance(
 		return p.createMultipleDroplets(ctx, name, config, sshKeyID)
 	}
 
-	// For single instance, append "-0" to the name
-	instanceName := fmt.Sprintf("%s-0", name)
-	instance, err := p.createSingleDroplet(ctx, instanceName, config, sshKeyID)
+	// For single instance, use the name as is
+	instance, err := p.createSingleDroplet(ctx, name, config, sshKeyID)
 	if err != nil {
 		return nil, err
 	}

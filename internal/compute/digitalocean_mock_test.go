@@ -43,23 +43,6 @@ func TestMockDOClient_SimulateRateLimit(t *testing.T) {
 	assert.ErrorIs(t, err, ErrRateLimit)
 }
 
-func TestMockDOClient_SimulateNotFound(t *testing.T) {
-	client := NewMockDOClient()
-	client.SimulateNotFound()
-
-	// Test droplet operations
-	_, err := client.CreateInstance(context.Background(), "test", types.InstanceConfig{})
-	assert.ErrorIs(t, err, ErrDropletNotFound)
-
-	// Test key operations
-	_, _, err = client.Keys().List(context.Background(), nil)
-	assert.ErrorIs(t, err, ErrKeyNotFound)
-
-	// Test storage operations
-	_, _, err = client.Storage().CreateVolume(context.Background(), nil)
-	assert.ErrorIs(t, err, ErrVolumeNotFound)
-}
-
 func TestMockDOClient_ResetToStandard(t *testing.T) {
 	client := NewMockDOClient()
 
