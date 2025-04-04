@@ -1,6 +1,5 @@
 ---
 # Default volume configuration
-volume_device: "/dev/sda"
 volume_mount_point: "/mnt/data"
 volume_fstype: "ext4"
 
