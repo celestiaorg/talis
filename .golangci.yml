@@ -20,7 +20,7 @@ linters:
     - unused
     # Note: 'typecheck' was present in v1 config but is not included here because it's not a linter
     # that can be enabled or disabled. It's a built-in mechanism for reporting Go compiler errors
-    # that runs automatically. See: https://golangci-lint.run/product/migration-guide/
+    # that runs automatically.
 
 formatters:
   enable:
@@ -28,19 +28,14 @@ formatters:
     - goimports
 
 issues:
-  # The properties below have been commented out as they are not valid in v2
-  # exclude-use-default: false
-  # mempool and indexer code is borrowed from Tendermint
-  # include:
-  #   - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
-  #   - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
-  # exclude-generated: lax  # Keep behavior from v1 (v2 default is 'strict')
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 output:
-  show-stats: true  # Equivalent to run.show-stats in v1, enabled by default in v2
+  format: colored-line-number
 
-# Renamed from linters-settings to settings in v2
-settings:
+# Linter settings moved to linters-settings in v2
+linters-settings:
   gosec:
     excludes:
       - G115
