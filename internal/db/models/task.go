@@ -39,6 +39,12 @@ type Task struct {
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
 }
 
+// MarshalJSON implements the json.Marshaler interface for Task
+func (t Task) MarshalJSON() ([]byte, error) {
+	type Alias Task // Create an alias to avoid infinite recursion
+	return json.Marshal(Alias(t))
+}
+
 // String returns the string representation of the task status
 func (s TaskStatus) String() string {
 	return string(s)

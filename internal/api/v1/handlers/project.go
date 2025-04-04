@@ -5,7 +5,8 @@ import (
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
-	"github.com/gofiber/fiber/v2"
+
+	fiber "github.com/gofiber/fiber/v2"
 )
 
 // ProjectHandler handles HTTP requests for projects
