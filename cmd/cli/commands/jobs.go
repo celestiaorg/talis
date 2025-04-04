@@ -28,7 +28,7 @@ var jobsCmd = &cobra.Command{
 var listJobsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all jobs",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		limit, _ := cmd.Flags().GetString("limit")
 		status, _ := cmd.Flags().GetString("status")
 
@@ -71,7 +71,7 @@ var listJobsCmd = &cobra.Command{
 var getJobCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a specific job",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		jobID, _ := cmd.Flags().GetString("id")
 
 		resp, err := http.Get(fmt.Sprintf("http://localhost:8080/api/v1/jobs/%s", jobID))

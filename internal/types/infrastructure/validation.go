@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"fmt"
+	"net/mail"
 	"regexp"
 	"strings"
 )
@@ -148,6 +149,20 @@ func (i *DeleteInstance) Validate() error {
 	}
 	if i.Size == "" {
 		return fmt.Errorf("size is required")
+	}
+	return nil
+}
+
+// Validate validates the create user request
+func (u CreateUserRequest) Validate() error {
+	if u.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if u.Email != "" {
+		if _, err := mail.ParseAddress(u.Email); err != nil {
+			return fmt.Errorf("invalid email format")
+		}
+
 	}
 	return nil
 }

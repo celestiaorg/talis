@@ -1,3 +1,4 @@
+// Package db provides database connectivity and operations
 package db
 
 import (

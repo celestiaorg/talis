@@ -23,11 +23,17 @@ func NewJobRepository(db *gorm.DB) *JobRepository {
 
 // Create creates a new job in the database
 func (r *JobRepository) Create(ctx context.Context, job *models.Job) error {
+	if err := models.ValidateOwnerID(job.OwnerID); err != nil {
+		return fmt.Errorf("invalid owner_id: %w", err)
+	}
 	return r.db.WithContext(ctx).Create(job).Error
 }
 
 // Update updates an existing job in the database
 func (r *JobRepository) Update(ctx context.Context, job *models.Job) error {
+	if err := models.ValidateOwnerID(job.OwnerID); err != nil {
+		return fmt.Errorf("invalid owner_id: %w", err)
+	}
 	return r.db.WithContext(ctx).Save(job).Error
 }
 
@@ -50,10 +56,12 @@ func (r *JobRepository) UpdateStatus(ctx context.Context, ID uint, status models
 // GetByID retrieves a job by its ID
 // if the ownerID is 0, it will return the job regardless of the owner
 func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.Job, error) {
+	if err := models.ValidateOwnerID(OwnerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var job models.Job
 	qry := &models.Job{Model: gorm.Model{ID: ID}}
-	// Zero is an option when admin is fetching a job
-	if OwnerID != 0 {
+	if OwnerID != models.AdminID {
 		qry.OwnerID = OwnerID
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
@@ -69,10 +77,12 @@ func (r *JobRepository) GetByID(ctx context.Context, OwnerID, ID uint) (*models.
 // GetByName retrieves a job by its name
 // if the ownerID is 0, it will return the job regardless of the owner
 func (r *JobRepository) GetByName(ctx context.Context, OwnerID uint, name string) (*models.Job, error) {
+	if err := models.ValidateOwnerID(OwnerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var job models.Job
 	qry := &models.Job{Name: name}
-	// Zero is an option when admin is fetching a job
-	if OwnerID != 0 {
+	if OwnerID != models.AdminID {
 		qry.OwnerID = OwnerID
 	}
 	err := r.db.WithContext(ctx).Where(qry).First(&job).Error
@@ -86,6 +96,9 @@ func (r *JobRepository) GetByName(ctx context.Context, OwnerID uint, name string
 // if the ownerID is 0, it will return the jobs regardless of the owner
 // if the status is unknown, it will return all jobs regardless of their status
 func (r *JobRepository) List(ctx context.Context, status models.JobStatus, OwnerID uint, opts *models.ListOptions) ([]models.Job, error) {
+	if err := models.ValidateOwnerID(OwnerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var jobs []models.Job
 	qry := &models.Job{}
 
@@ -95,7 +108,7 @@ func (r *JobRepository) List(ctx context.Context, status models.JobStatus, Owner
 	}
 
 	// Zero is an option when admin is fetching a job
-	if OwnerID != 0 {
+	if OwnerID != models.AdminID {
 		qry.OwnerID = OwnerID
 	}
 
@@ -116,6 +129,9 @@ func (r *JobRepository) List(ctx context.Context, status models.JobStatus, Owner
 // if the ownerID is 0, it will return the number of jobs regardless of the owner
 // if the status is unknown, it will return the number of jobs regardless of their status
 func (r *JobRepository) Count(ctx context.Context, status models.JobStatus, OwnerID uint) (int64, error) {
+	if err := models.ValidateOwnerID(OwnerID); err != nil {
+		return 0, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var count int64
 	qry := &models.Job{}
 
@@ -125,18 +141,18 @@ func (r *JobRepository) Count(ctx context.Context, status models.JobStatus, Owne
 	}
 
 	// Zero is an option when admin is fetching a job
-	if OwnerID != 0 {
+	if OwnerID != models.AdminID {
 		qry.OwnerID = OwnerID
 	}
 	err := r.db.WithContext(ctx).Model(&models.Job{}).Where(qry).Count(&count).Error
 	return count, err
 }
 
-// Query executes a custom query against the job table
-func (r *JobRepository) Query(ctx context.Context, query string, args ...interface{}) ([]models.Job, error) {
+// Query executes a raw SQL query against the jobs table
+func (r *JobRepository) Query(_ context.Context, query string, args ...interface{}) ([]models.Job, error) {
 	var jobs []models.Job
-	err := r.db.Raw(query, args...).Scan(&jobs).Error
-	return jobs, err
+	result := r.db.Raw(query, args...).Scan(&jobs)
+	return jobs, result.Error
 }
 
 // GetByProjectName retrieves a job by its project name

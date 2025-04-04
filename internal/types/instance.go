@@ -21,6 +21,7 @@ type VolumeDetails struct {
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
 	Region            string         `json:"region"`                // Region where to create the instance
+	OwnerID           uint           `json:"owner_id"`              // Owner ID of the instance
 	Size              string         `json:"size"`                  // Size/type of the instance
 	Image             string         `json:"image"`                 // OS image to use
 	SSHKeyID          string         `json:"ssh_key_id"`            // SSH key name to use

@@ -18,7 +18,7 @@ import (
 const testClientTimeout = 5 * time.Second
 
 // SetupServer configures the test suite with a real API server
-func SetupServer(suite *TestSuite) {
+func SetupServer(suite *Suite) {
 	// Create Fiber app with default config
 	suite.App = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
@@ -27,21 +27,25 @@ func SetupServer(suite *TestSuite) {
 	suite.App.Use(logger.APILogger())
 
 	// Create services
-	jobService := services.NewJobService(suite.jobRepo, suite.instanceRepo)
-	instanceService := services.NewInstanceService(suite.instanceRepo, jobService)
+	jobService := services.NewJobService(suite.JobRepo, suite.InstanceRepo)
+	instanceService := services.NewInstanceService(suite.InstanceRepo, jobService)
+	userService := services.NewUserService(suite.UserRepo)
 
 	// Create handlers
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	userHandler := handlers.NewUserHandler(userService)
+	projectHandler := handlers.NewProjectHandler(nil) // TODO: Add project service
+	taskHandler := handlers.NewTaskHandler(nil)       // TODO: Add task service
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, userHandler, projectHandler, taskHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))
 
 	// Create API client with test configuration
-	client, err := client.NewClient(&client.ClientOptions{
+	client, err := client.NewClient(&client.Options{
 		BaseURL: suite.Server.URL,
 		Timeout: testClientTimeout,
 	})

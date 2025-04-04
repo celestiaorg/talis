@@ -28,7 +28,8 @@ const (
 // Task represents an asynchronous operation that can be tracked
 type Task struct {
 	gorm.Model
-	ProjectID   uint            `json:"-" gorm:"not null"`
+	ProjectID   uint            `json:"-" gorm:"not null; index"`
+	OwnerID     uint            `json:"-" gorm:"not null; index"`
 	Name        string          `json:"name" gorm:"not null; index"`
 	Status      TaskStatus      `json:"status" gorm:"not null; index"`
 	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`
@@ -36,6 +37,12 @@ type Task struct {
 	WebhookURL  string          `json:"webhook_url,omitempty" gorm:"type:text"`
 	WebhookSent bool            `json:"webhook_sent" gorm:"not null;default:false;index"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
+}
+
+// MarshalJSON implements the json.Marshaler interface for Task
+func (t Task) MarshalJSON() ([]byte, error) {
+	type Alias Task // Create an alias to avoid infinite recursion
+	return json.Marshal(Alias(t))
 }
 
 // String returns the string representation of the task status
@@ -80,4 +87,26 @@ func (s *TaskStatus) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements json.Marshaler for TaskStatus
 func (s *TaskStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+// Validate ensures that the task data is valid
+func (t *Task) Validate() error {
+	if t.Name == "" {
+		return fmt.Errorf("task name cannot be empty")
+	}
+
+	// Validate status
+	if _, err := ParseTaskStatus(string(t.Status)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// BeforeCreate is a GORM hook that runs before creating a new task
+func (t *Task) BeforeCreate(_ *gorm.DB) error {
+	if t.Status == "" {
+		t.Status = TaskStatusPending
+	}
+	return t.Validate()
 }

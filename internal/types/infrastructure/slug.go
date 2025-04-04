@@ -10,6 +10,7 @@ const (
 	ErrorSlug        Slug = "error"
 	InvalidInputSlug Slug = "invalid-input"
 	ServerErrorSlug  Slug = "server-error"
+	NotFoundSlug     Slug = "not-found"
 )
 
 // SlugResponse is the response type for the API
@@ -24,6 +25,14 @@ type SlugResponse struct {
 func ErrInvalidInput(msg string) SlugResponse {
 	return SlugResponse{
 		Slug:  InvalidInputSlug,
+		Error: msg,
+	}
+}
+
+// ErrNotFound returns a SlugResponse with the NotFoundSlug and the error message
+func ErrNotFound(msg string) SlugResponse {
+	return SlugResponse{
+		Slug:  NotFoundSlug,
 		Error: msg,
 	}
 }

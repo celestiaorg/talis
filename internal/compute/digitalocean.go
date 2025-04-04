@@ -1,3 +1,4 @@
+// Package compute provides infrastructure provider implementations.
 // DigitalOcean provider for creating and managing DigitalOcean droplets
 // https://github.com/digitalocean/godo/blob/main/droplets.go#L18
 package compute
@@ -257,7 +258,7 @@ func (p *DigitalOceanProvider) SetClient(client DOClient) {
 }
 
 // ConfigureProvider is a no-op since we're not using Pulumi anymore
-func (p *DigitalOceanProvider) ConfigureProvider(stack interface{}) error {
+func (p *DigitalOceanProvider) ConfigureProvider(_ interface{}) error {
 	return nil
 }
 

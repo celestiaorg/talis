@@ -18,10 +18,10 @@ import (
 // It coordinates the creation and deletion of cloud resources across different providers
 // and handles the provisioning of those resources using configuration management tools.
 type Infrastructure struct {
-	name        string                  // Name of the infrastructure
-	projectName string                  // Name of the project
-	instances   []InstanceRequest       // Instance configuration
-	provider    compute.ComputeProvider // Compute provider implementation
+	name        string            // Name of the infrastructure
+	projectName string            // Name of the project
+	instances   []InstanceRequest // Instance configuration
+	provider    compute.Provider  // Compute provider implementation
 	provisioner compute.Provisioner
 	jobID       string
 	action      string // Action to perform (create/delete)
@@ -83,6 +83,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 
 			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
 				Region:            instance.Region,
+				OwnerID:           instance.OwnerID,
 				Size:              instance.Size,
 				Image:             instance.Image,
 				SSHKeyID:          instance.SSHKeyName,
@@ -94,8 +95,16 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
 			}
-			// Add instances to result
-			instances = append(instances, info...)
+			// Convert types.InstanceInfo to our InstanceInfo and add to result
+			for _, instanceInfo := range info {
+				instances = append(instances, types.InstanceInfo{
+					Name:     instanceInfo.Name,
+					PublicIP: instanceInfo.PublicIP,
+					Provider: instanceInfo.Provider,
+					Region:   instanceInfo.Region,
+					Size:     instanceInfo.Size,
+				})
+			}
 		}
 		result = instances
 

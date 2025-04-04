@@ -1,3 +1,4 @@
+// Package test provides utilities for setting up and running tests
 package test
 
 import (
@@ -25,6 +26,7 @@ func RunMigrations(db *gorm.DB) error {
 	err := db.AutoMigrate(
 		&models.Job{},
 		&models.Instance{},
+		&models.User{},
 		// Add other models as needed
 	)
 	if err != nil {
@@ -35,7 +37,7 @@ func RunMigrations(db *gorm.DB) error {
 
 // SetupTestDB configures the test suite to use the provided database connection.
 // If nil is provided, a new in-memory database will be created.
-func SetupTestDB(suite *TestSuite, database *gorm.DB) {
+func SetupTestDB(suite *Suite, database *gorm.DB) {
 	if database != nil {
 		suite.db = database
 	} else {
@@ -50,8 +52,9 @@ func SetupTestDB(suite *TestSuite, database *gorm.DB) {
 	}
 
 	// Initialize repositories
-	suite.jobRepo = repos.NewJobRepository(suite.db)
-	suite.instanceRepo = repos.NewInstanceRepository(suite.db)
+	suite.JobRepo = repos.NewJobRepository(suite.DB)
+	suite.InstanceRepo = repos.NewInstanceRepository(suite.DB)
+	suite.UserRepo = repos.NewUserRepository(suite.DB)
 
 	// Add cleanup
 	oldCleanup := suite.cleanup

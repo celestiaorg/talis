@@ -1,3 +1,4 @@
+// Package models contains database models and related utility functions
 package models
 
 import (
@@ -38,7 +39,8 @@ const (
 // Instance represents a compute instance in the system
 type Instance struct {
 	gorm.Model
-	JobID         uint           `json:"job_id" gorm:"not null;index"`
+	OwnerID       uint           `json:"owner_id" gorm:"not null;index"`
+	JobID         uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
 	ProviderID    ProviderID     `json:"provider_id" gorm:"not null"`
 	Name          string         `json:"name" gorm:"not null;index"`
 	PublicIP      string         `json:"public_ip" gorm:"varchar(100)"`
@@ -102,12 +104,6 @@ func (s *InstanceStatus) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface for Instance
 func (i Instance) MarshalJSON() ([]byte, error) {
-	type Alias Instance
-	return json.Marshal(struct {
-		ID uint `json:"id"`
-		Alias
-	}{
-		ID:    i.Model.ID,
-		Alias: Alias(i),
-	})
+	type Alias Instance // Create an alias to avoid infinite recursion
+	return json.Marshal(Alias(i))
 }

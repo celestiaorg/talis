@@ -1,3 +1,4 @@
+// Package logger provides structured logging functionality for the application
 package logger
 
 import (
@@ -5,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 )
 

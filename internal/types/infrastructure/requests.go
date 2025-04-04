@@ -32,6 +32,7 @@ type InstanceRequest struct {
 	Name              string               `json:"name"`                // Optional custom name for instances
 	Provision         bool                 `json:"provision"`           // Whether to run Ansible provisioning
 	Volumes           []types.VolumeConfig `json:"volumes"`             // Optional volumes to attach
+	OwnerID           uint                 `json:"owner_id"`            // Owner ID of the instance
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure
@@ -69,13 +70,24 @@ type DeleteInstance struct {
 	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
 }
 
+// InstanceInfo represents information about a created instance
+type InstanceInfo struct {
+	Name     string            `json:"name"`     // Name of the instance
+	IP       string            `json:"ip"`       // IP address of the instance
+	Provider models.ProviderID `json:"provider"` // Provider of the compute service
+	Region   string            `json:"region"`   // Region of the instance
+	Size     string            `json:"size"`     // Size of the instance
+	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
+}
+
 // --------------------------------------------------
 // Job
 // --------------------------------------------------
 
 // JobRequest represents the infrastructure request
 type JobRequest struct {
-	Name string `json:"name"`
+	Name    string `json:"name"`
+	OwnerID uint   `json:"owner_id"`
 }
 
 // JobStatus represents the status of an infrastructure job
@@ -83,4 +95,16 @@ type JobStatus struct {
 	JobID     string `json:"job_id"`     // ID of the job
 	Status    string `json:"status"`     // Status of the job
 	CreatedAt string `json:"created_at"` // Timestamp when the job was created
+}
+
+// --------------------------------------------------
+// User
+// --------------------------------------------------
+
+// CreateUserRequest represents a request to create a new user
+type CreateUserRequest struct {
+	Username     string          `json:"username" gorm:"not null;unique"`
+	Email        string          `json:"email" gorm:""`
+	Role         models.UserRole `json:"role" gorm:"index"`
+	PublicSshKey string          `json:"public_ssh_key" gorm:""`
 }

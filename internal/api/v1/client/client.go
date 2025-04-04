@@ -1,3 +1,4 @@
+// Package client provides the API client for interacting with the Talis API
 package client
 
 import (
@@ -8,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
 	"github.com/celestiaorg/talis/internal/db/models"
@@ -44,10 +45,16 @@ type Client interface {
 	CreateJob(ctx context.Context, req infrastructure.JobRequest) error
 	UpdateJob(ctx context.Context, id string, req infrastructure.JobRequest) error
 	DeleteJob(ctx context.Context, id string) error
+
+	//User Endpoints
+	GetUserByID(ctx context.Context, id string) (infrastructure.UserResponse, error)
+	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (infrastructure.UserResponse, error)
+	CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error)
+	DeleteUser(ctx context.Context, id string) error
 }
 
-// ClientOptions contains configuration options for the API client
-type ClientOptions struct {
+// Options contains configuration options for the API client
+type Options struct {
 	// BaseURL is the base URL of the API
 	BaseURL string
 
@@ -56,8 +63,8 @@ type ClientOptions struct {
 }
 
 // DefaultOptions returns the default client options
-func DefaultOptions() *ClientOptions {
-	return &ClientOptions{
+func DefaultOptions() *Options {
+	return &Options{
 		BaseURL: routes.DefaultBaseURL,
 		Timeout: DefaultTimeout,
 	}
@@ -70,7 +77,7 @@ type APIClient struct {
 }
 
 // NewClient creates a new API client with the given options
-func NewClient(opts *ClientOptions) (Client, error) {
+func NewClient(opts *Options) (Client, error) {
 	if opts == nil {
 		opts = DefaultOptions()
 	}
@@ -200,6 +207,17 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 }
 
 // Instance methods implementation
+
+func getUsersQueryParams(opts *models.UserQueryOptions) (url.Values, error) {
+	q := url.Values{}
+	if opts == nil {
+		return q, nil
+	}
+	if opts.Username != "" {
+		q.Set("username", opts.Username)
+	}
+	return q, nil
+}
 
 // getQueryParams creates url.Values from ListOptions
 func getQueryParams(opts *models.ListOptions) (url.Values, error) {
@@ -423,5 +441,47 @@ func (c *APIClient) UpdateJob(ctx context.Context, id string, req infrastructure
 // DeleteJob deletes a job by ID
 func (c *APIClient) DeleteJob(ctx context.Context, id string) error {
 	endpoint := routes.DeleteJobURL(id)
+	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+}
+
+// User method implementation
+
+// GetUserByID retrieves a user by id
+func (c *APIClient) GetUserByID(ctx context.Context, id string) (infrastructure.UserResponse, error) {
+	endpoint := routes.GetUserByIDURL(id)
+	var response infrastructure.UserResponse
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
+		return infrastructure.UserResponse{}, err
+	}
+	return response, nil
+}
+
+// GetUsers retrieves a user by username
+func (c *APIClient) GetUsers(ctx context.Context, opts *models.UserQueryOptions) (infrastructure.UserResponse, error) {
+	q, err := getUsersQueryParams(opts)
+	if err != nil {
+		return infrastructure.UserResponse{}, err
+	}
+	endpoint := routes.GetUsersURL(q)
+	var response infrastructure.UserResponse
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
+		return infrastructure.UserResponse{}, err
+	}
+	return response, nil
+}
+
+// CreateUser creates a new user
+func (c *APIClient) CreateUser(ctx context.Context, req infrastructure.CreateUserRequest) (infrastructure.CreateUserResponse, error) {
+	var response infrastructure.CreateUserResponse
+	endpoint := routes.CreateUserURL()
+	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
+		return infrastructure.CreateUserResponse{}, err
+	}
+	return response, nil
+}
+
+// DeleteUser user deletes a user
+func (c *APIClient) DeleteUser(ctx context.Context, id string) error {
+	endpoint := routes.DeleteUserURL(id)
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
 }

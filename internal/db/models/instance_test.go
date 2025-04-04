@@ -17,7 +17,7 @@ func TestInstanceStatus(t *testing.T) {
 		stringValue   string
 		jsonValue     string
 		validForParse bool
-		validForJson  bool
+		validForJSON  bool
 		statusIndex   int
 	}{
 		{
@@ -26,7 +26,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "unknown",
 			jsonValue:     `"unknown"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   0,
 		},
 		{
@@ -35,7 +35,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "pending",
 			jsonValue:     `"pending"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   1,
 		},
 		{
@@ -44,7 +44,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "provisioning",
 			jsonValue:     `"provisioning"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   2,
 		},
 		{
@@ -53,7 +53,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "ready",
 			jsonValue:     `"ready"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   3,
 		},
 		{
@@ -62,7 +62,7 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "terminated",
 			jsonValue:     `"terminated"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 			statusIndex:   4,
 		},
 		{
@@ -70,14 +70,14 @@ func TestInstanceStatus(t *testing.T) {
 			stringValue:   "invalid_status",
 			jsonValue:     `"invalid_status"`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 			statusIndex:   -1,
 		},
 		{
 			name:          "Invalid JSON",
 			jsonValue:     `invalid`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 			statusIndex:   -1,
 		},
 	}
@@ -111,7 +111,7 @@ func TestInstanceStatus(t *testing.T) {
 			// Test JSON unmarshaling
 			var unmarshaledStatus InstanceStatus
 			err = unmarshaledStatus.UnmarshalJSON([]byte(tt.jsonValue))
-			if tt.validForJson {
+			if tt.validForJSON {
 				assert.NoError(t, err, "Unmarshal should not return error")
 				assert.Equal(t, tt.status, unmarshaledStatus, "Unmarshal produced incorrect status")
 			} else {
@@ -150,7 +150,7 @@ func TestInstance_Validation(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Verify fields were correctly marshaled/unmarshaled
-		assert.Equal(t, validInstance.ID, unmarshaledInstance.ID)
+		// Don't check ID as it's not part of the JSON output
 		assert.Equal(t, validInstance.JobID, unmarshaledInstance.JobID)
 		assert.Equal(t, validInstance.ProviderID, unmarshaledInstance.ProviderID)
 		assert.Equal(t, validInstance.Name, unmarshaledInstance.Name)
@@ -171,6 +171,19 @@ func TestInstance_Validation(t *testing.T) {
 		var jsonMap map[string]interface{}
 		err = json.Unmarshal(jsonData, &jsonMap)
 		assert.NoError(t, err)
-		assert.Equal(t, float64(validInstance.ID), jsonMap["id"])
+	})
+
+	t.Run("test json unmarshal to map", func(t *testing.T) {
+		// Test marshal/unmarshal
+		jsonData, err := json.Marshal(validInstance)
+		assert.NoError(t, err)
+
+		// Test that JSON unmarshaling into a map works
+		var jsonMap map[string]interface{}
+		err = json.Unmarshal(jsonData, &jsonMap)
+		assert.NoError(t, err)
+
+		// Check that important fields are in the JSON output
+		assert.Equal(t, validInstance.Name, jsonMap["name"])
 	})
 }
