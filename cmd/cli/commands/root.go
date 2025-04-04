@@ -25,7 +25,7 @@ func initClient() error {
 var RootCmd = &cobra.Command{
 	Use:   "talis",
 	Short: "Talis CLI tool",
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		return initClient()
 	},
 }

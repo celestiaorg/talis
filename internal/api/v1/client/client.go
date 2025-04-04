@@ -379,11 +379,29 @@ func (c *APIClient) GetJobs(ctx context.Context, opts *models.ListOptions) (infr
 // GetJob retrieves a job by ID
 func (c *APIClient) GetJob(ctx context.Context, id string) (models.Job, error) {
 	endpoint := routes.GetJobURL(id)
-	var response models.Job
+	var response infrastructure.SlugResponse
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return models.Job{}, err
 	}
-	return response, nil
+
+	// Convert the response data to a Job
+	if response.Data == nil {
+		return models.Job{}, fmt.Errorf("no job data in response")
+	}
+
+	// Convert the response data to JSON
+	jobData, err := json.Marshal(response.Data)
+	if err != nil {
+		return models.Job{}, fmt.Errorf("failed to marshal job data: %w", err)
+	}
+
+	// Unmarshal into a Job struct
+	var job models.Job
+	if err := json.Unmarshal(jobData, &job); err != nil {
+		return models.Job{}, fmt.Errorf("failed to unmarshal job data: %w", err)
+	}
+
+	return job, nil
 }
 
 // GetMetadataByJobID retrieves metadata for a job by ID

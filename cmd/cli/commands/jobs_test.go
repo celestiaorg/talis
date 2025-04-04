@@ -175,8 +175,11 @@ func TestGetJobCmd(t *testing.T) {
 			name: "successful get",
 			args: []string{"jobs", "get", "--id", "1"},
 			mockResponse: models.Job{
-				Name:   "job1",
-				Status: models.JobStatusCompleted,
+				Name:         "job1",
+				Status:       models.JobStatusCompleted,
+				OwnerID:      1,
+				InstanceName: "test-instance",
+				ProjectName:  "test-project",
 			},
 			expectedOutput: `{
   "name": "job1",
