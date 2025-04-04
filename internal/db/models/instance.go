@@ -54,12 +54,11 @@ type Instance struct {
 	CreatedAt     time.Time      `json:"created_at" gorm:"index"`
 }
 
-// VolumeDetail represents the details of a volume attached to an instance
+// VolumeDetail contains information about an attached volume
 type VolumeDetail struct {
 	ID         string `json:"id"`          // Volume ID
 	Name       string `json:"name"`        // Volume name
 	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
-	Region     string `json:"region"`      // Region where the volume is created
 	MountPoint string `json:"mount_point"` // Where the volume is mounted
 }
 

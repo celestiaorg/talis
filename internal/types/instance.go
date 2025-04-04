@@ -9,6 +9,15 @@ type VolumeConfig struct {
 	MountPoint string `json:"mount_point"` // Where to mount the volume
 }
 
+// VolumeDetails represents detailed information about a created volume
+type VolumeDetails struct {
+	ID         string `json:"id"`          // Volume ID
+	Name       string `json:"name"`        // Volume name
+	Region     string `json:"region"`      // Region where volume was created
+	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
+	MountPoint string `json:"mount_point"` // Where the volume is mounted
+}
+
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
 	Region            string         `json:"region"`                // Region where to create the instance
@@ -23,11 +32,12 @@ type InstanceConfig struct {
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	ID       string   `json:"id"`                // Provider-specific instance ID
-	Name     string   `json:"name"`              // Instance name
-	PublicIP string   `json:"public_ip"`         // Public IP address
-	Provider string   `json:"provider"`          // Provider name (e.g., "do", "aws", etc)
-	Region   string   `json:"region"`            // Region where instance was created
-	Size     string   `json:"size"`              // Instance size/type
-	Volumes  []string `json:"volumes,omitempty"` // List of attached volume IDs
+	ID            string          `json:"id"`                       // Provider-specific instance ID
+	Name          string          `json:"name"`                     // Instance name
+	PublicIP      string          `json:"public_ip"`                // Public IP address
+	Provider      string          `json:"provider"`                 // Provider name (e.g., "do", "aws", etc)
+	Region        string          `json:"region"`                   // Region where instance was created
+	Size          string          `json:"size"`                     // Instance size/type
+	Volumes       []string        `json:"volumes,omitempty"`        // List of attached volume IDs
+	VolumeDetails []VolumeDetails `json:"volume_details,omitempty"` // Detailed information about attached volumes
 }

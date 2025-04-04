@@ -20,13 +20,14 @@ type InstanceConfig struct {
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	ID       string   `json:"id"`                // Provider-specific instance ID
-	Name     string   `json:"name"`              // Instance name
-	PublicIP string   `json:"public_ip"`         // Public IP address
-	Provider string   `json:"provider"`          // Provider name (e.g., "do", "aws", etc)
-	Region   string   `json:"region"`            // Region where instance was created
-	Size     string   `json:"size"`              // Instance size/type
-	Volumes  []string `json:"volumes,omitempty"` // List of attached volume IDs
+	ID            string                `json:"id"`                       // Provider-specific instance ID
+	Name          string                `json:"name"`                     // Instance name
+	PublicIP      string                `json:"public_ip"`                // Public IP address
+	Provider      string                `json:"provider"`                 // Provider name (e.g., "do", "aws", etc)
+	Region        string                `json:"region"`                   // Region where instance was created
+	Size          string                `json:"size"`                     // Instance size/type
+	Volumes       []string              `json:"volumes,omitempty"`        // List of attached volume IDs
+	VolumeDetails []types.VolumeDetails `json:"volume_details,omitempty"` // Detailed information about attached volumes
 }
 
 // ComputeProvider defines the interface for cloud providers

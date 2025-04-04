@@ -85,45 +85,71 @@ func (s *Instance) GetInstance(ctx context.Context, id uint) (*models.Instance, 
 	return s.repo.Get(ctx, id)
 }
 
+// updateInstanceVolumes updates the volumes and volume details for an instance
+func (s *Instance) updateInstanceVolumes(
+	ctx context.Context,
+	instanceName string,
+	volumes []string,
+	volumeDetails []types.VolumeDetails,
+) error {
+	// Convert volume details to database model
+	var dbVolumeDetails []models.VolumeDetail
+	for _, vd := range volumeDetails {
+		dbVolumeDetails = append(dbVolumeDetails, models.VolumeDetail{
+			ID:         vd.ID,
+			Name:       vd.Name,
+			SizeGB:     vd.SizeGB,
+			MountPoint: vd.MountPoint,
+		})
+	}
+
+	// Create update instance with only the fields we want to update
+	updateInstance := &models.Instance{
+		Volumes:       volumes,
+		VolumeDetails: dbVolumeDetails,
+	}
+
+	// Update instance in database
+	if err := s.repo.UpdateByName(ctx, instanceName, updateInstance); err != nil {
+		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
+	}
+
+	logger.Infof("✅ Updated instance %s with volumes: %v and details: %+v", instanceName, volumes, dbVolumeDetails)
+	return nil
+}
+
 // provisionInstances provisions the job asynchronously
 func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []infrastructure.InstanceRequest) {
-	// TODO: do something with the logs as now it makes the server logs messy
 	go func() {
-		logger.Info("🚀 Starting async infrastructure creation...")
-
-		// Get the job name from the database
-		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID) // ownerID 0 for now since we're not using it yet
+		// Get job name
+		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID)
 		if err != nil {
 			logger.Errorf("❌ Failed to get job details: %v", err)
 			return
 		}
 
-		// Create a JobRequest for provisioning
-		infra, err := infrastructure.NewInfrastructure(&infrastructure.InstancesRequest{
-			JobName:     job.Name,
-			Instances:   instances,
-			ProjectName: "example-project", // TODO: replace it with the actual project name in another PR
-			Action:      "create",
-			Provider:    instances[0].Provider, // Use the provider directly from the instance
-		})
+		// Create infrastructure client
+		infraReq := &infrastructure.InstancesRequest{
+			JobName:   job.Name,
+			Instances: instances,
+			Action:    "create",
+			Provider:  instances[0].Provider,
+		}
+
+		infra, err := infrastructure.NewInfrastructure(infraReq)
+		if err != nil {
+			logger.Errorf("❌ Failed to create infrastructure client: %v", err)
+			return
+		}
+
+		// Execute infrastructure creation
+		result, err := infra.Execute()
 		if err != nil {
 			logger.Errorf("❌ Failed to create infrastructure: %v", err)
 			return
 		}
 
-		result, err := infra.Execute()
-		if err != nil {
-			// Check if error is due to resource not found
-			if strings.Contains(err.Error(), "404") &&
-				strings.Contains(err.Error(), "could not be found") {
-				logger.Warn("⚠️ Warning: Some old resources were not found (already deleted)")
-			} else {
-				logger.Errorf("❌ Failed to execute infrastructure: %v", err)
-				return
-			}
-		}
-
-		// Update instance information in database
+		// Type assert the result
 		pInstances, ok := result.([]types.InstanceInfo)
 		if !ok {
 			logger.Errorf("❌ Invalid result type: %T", result)
@@ -132,7 +158,7 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		logger.Infof("📝 Created instances: %+v", pInstances)
 
-		// Update instance information in database
+		// Update instances with IP and status
 		for _, instance := range pInstances {
 			// Create update instance with only the fields we want to update
 			updateInstance := &models.Instance{
@@ -142,7 +168,7 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 			// Update volumes if present
 			if len(instance.Volumes) > 0 {
-				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instances[0].Volumes); err != nil {
+				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
 					logger.Errorf("❌ %v", err)
 					continue
 				}
@@ -166,61 +192,6 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		logger.Infof("✅ Infrastructure creation completed for job ID %d", jobID)
 	}()
-}
-
-// updateInstanceVolumes updates the volumes and volume details for an instance
-func (s *Instance) updateInstanceVolumes(
-	ctx context.Context,
-	instanceName string,
-	volumes []string,
-	volumeConfigs []types.VolumeConfig,
-) error {
-	// Get instance from database
-	dbInstance, err := s.repo.GetByName(ctx, instanceName)
-	if err != nil {
-		return fmt.Errorf("failed to get instance %s from database: %w", instanceName, err)
-	}
-
-	// Update volumes
-	dbInstance.Volumes = volumes
-
-	// Create a map of volume configs by name for easy lookup
-	volumeConfigMap := make(map[string]types.VolumeConfig)
-	for _, config := range volumeConfigs {
-		volumeConfigMap[config.Name] = config
-	}
-
-	// Add volume details by matching IDs with configs
-	var volumeDetails []models.VolumeDetail
-	for _, volumeID := range volumes {
-		// Try to find matching config by parsing volume name from ID
-		matched := false
-		for configName, volumeConfig := range volumeConfigMap {
-			if strings.Contains(strings.ToLower(volumeID), strings.ToLower(configName)) {
-				volumeDetails = append(volumeDetails, models.VolumeDetail{
-					ID:         volumeID,
-					Name:       volumeConfig.Name,
-					SizeGB:     volumeConfig.SizeGB,
-					Region:     volumeConfig.Region,
-					MountPoint: volumeConfig.MountPoint,
-				})
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			logger.Warnf("⚠️ Could not find matching config for volume ID: %s", volumeID)
-		}
-	}
-	dbInstance.VolumeDetails = volumeDetails
-
-	// Update instance in database
-	if err := s.repo.UpdateByName(ctx, instanceName, dbInstance); err != nil {
-		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
-	}
-
-	logger.Infof("✅ Updated instance %s with volumes: %v and details: %+v", instanceName, volumes, volumeDetails)
-	return nil
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job

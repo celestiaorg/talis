@@ -426,12 +426,13 @@ apt-get install -y python3
 
 			// Create and attach volumes if specified
 			if len(config.Volumes) > 0 {
-				volumeIDs, err := p.createAndAttachVolumes(ctx, droplet.ID, droplet.Name, config)
+				volumeIDs, volumeDetails, err := p.createAndAttachVolumes(ctx, droplet.ID, droplet.Name, config)
 				if err != nil {
 					logger.Errorf("❌ Failed to create/attach volumes for droplet %s: %v", droplet.Name, err)
 					return nil, fmt.Errorf("failed to create/attach volumes for droplet %s: %w", droplet.Name, err)
 				}
 				instance.Volumes = volumeIDs
+				instance.VolumeDetails = volumeDetails
 			}
 
 			allInstances = append(allInstances, instance)
@@ -482,12 +483,13 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 
 	// Create and attach volumes if specified
 	if len(config.Volumes) > 0 {
-		volumeIDs, err := p.createAndAttachVolumes(ctx, droplet.ID, droplet.Name, config)
+		volumeIDs, volumeDetails, err := p.createAndAttachVolumes(ctx, droplet.ID, droplet.Name, config)
 		if err != nil {
 			logger.Errorf("❌ Failed to create/attach volumes for droplet %s: %v", droplet.Name, err)
 			return types.InstanceInfo{}, fmt.Errorf("failed to create/attach volumes for droplet %s: %w", droplet.Name, err)
 		}
 		instance.Volumes = volumeIDs
+		instance.VolumeDetails = volumeDetails
 	}
 
 	return instance, nil
@@ -566,35 +568,51 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 	dropletID int,
 	name string,
 	config types.InstanceConfig,
-) ([]string, error) {
+) ([]string, []types.VolumeDetails, error) {
 	var volumeIDs []string
+	var volumeDetailsList []types.VolumeDetails
 
 	// If no volumes specified, return empty list
 	if len(config.Volumes) == 0 {
-		return volumeIDs, nil
+		return volumeIDs, volumeDetailsList, nil
 	}
 
 	logger.Infof("📦 Creating and attaching volumes for droplet %d", dropletID)
 
 	for _, vol := range config.Volumes {
-		logger.Infof("📦 Processing volume configuration: name=%s, size=%dGB, region=%s", vol.Name, vol.SizeGB, vol.Region)
-
-		// Generate volume name with random suffix
+		// Generate unique volume name with random suffix
 		suffix := generateRandomSuffix()
-		volumeName := fmt.Sprintf("%s-%s", name, suffix)
-		volumeRequest := &godo.VolumeCreateRequest{
+		volumeName := fmt.Sprintf("%s-%s", vol.Name, suffix)
+
+		// Create volume in the same region as the instance
+		logger.Infof("📦 Creating volume %s with size %dGB in region %s", volumeName, vol.SizeGB, config.Region)
+		createRequest := &godo.VolumeCreateRequest{
 			Name:          volumeName,
+			Region:        config.Region,
 			SizeGigaBytes: int64(vol.SizeGB),
-			Region:        vol.Region,
 		}
 
-		logger.Infof("📦 Creating volume %s with size %dGB in region %s", volumeName, vol.SizeGB, vol.Region)
-		volume, resp, err := p.doClient.Storage().CreateVolume(ctx, volumeRequest)
+		volume, resp, err := p.doClient.Storage().CreateVolume(ctx, createRequest)
 		if err != nil {
+			// Check if error is due to volume already existing
+			if resp != nil && resp.StatusCode == 409 {
+				logger.Warnf("⚠️ Volume name conflict, retrying with new suffix")
+				continue
+			}
 			logger.Errorf("❌ Failed to create volume: %v (Response: %+v)", err, resp)
-			return nil, fmt.Errorf("failed to create volume %s: %w", volumeName, err)
+			return nil, nil, fmt.Errorf("failed to create volume %s: %w", volumeName, err)
 		}
 		logger.Infof("✅ Volume created successfully: %s (ID: %s)", volumeName, volume.ID)
+
+		// Store volume details in the DB
+		volumeDetails := types.VolumeDetails{
+			ID:         volume.ID,
+			Name:       vol.Name,
+			Region:     config.Region,
+			SizeGB:     vol.SizeGB,
+			MountPoint: vol.MountPoint,
+		}
+		volumeDetailsList = append(volumeDetailsList, volumeDetails)
 
 		// Wait for volume to be ready
 		logger.Infof("⏳ Waiting for volume to be ready...")
@@ -604,7 +622,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		vol, _, err := p.doClient.Storage().GetVolume(ctx, volume.ID)
 		if err != nil {
 			logger.Errorf("❌ Failed to verify volume status: %v", err)
-			return nil, fmt.Errorf("failed to verify volume status: %w", err)
+			return nil, nil, fmt.Errorf("failed to verify volume status: %w", err)
 		}
 		logger.Infof("✅ Volume is ready: %s", vol.ID)
 
@@ -620,7 +638,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 			} else {
 				logger.Infof("✅ Successfully deleted volume %s after attachment failure", volume.ID)
 			}
-			return nil, fmt.Errorf("failed to attach volume %s: %w", volumeName, err)
+			return nil, nil, fmt.Errorf("failed to attach volume %s: %w", volumeName, err)
 		}
 
 		// Wait for volume to be attached
@@ -628,10 +646,10 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		time.Sleep(10 * time.Second)
 
 		volumeIDs = append(volumeIDs, volume.ID)
-		logger.Infof("✅ Successfully created and attached volume %s (%s)", volumeName, volume.ID)
+		logger.Infof("✅ Successfully created and attached volume %s (%s)", vol.Name, volume.ID)
 	}
 
-	return volumeIDs, nil
+	return volumeIDs, volumeDetailsList, nil
 }
 
 // generateRandomSuffix generates a random 6-character string
