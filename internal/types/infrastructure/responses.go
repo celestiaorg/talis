@@ -66,7 +66,7 @@ type PublicIPsResponse struct {
 
 // CreateUserResponse represents the response from the create user endpoint
 type CreateUserResponse struct {
-	UserId uint `json:"id"`
+	UserID uint `json:"id"`
 }
 
 // UserResponse is a flexible response type for both single and multiple user scenarios

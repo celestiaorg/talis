@@ -51,7 +51,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).
 		JSON(infrastructure.CreateUserResponse{
-			UserId: id,
+			UserID: id,
 		})
 }
 
@@ -61,6 +61,11 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
+	}
+
+	if userID <= 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("user ID must be positive"))
 	}
 
 	user, err := h.service.GetUserByID(c.Context(), uint(userID))
@@ -130,6 +135,11 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
+	}
+
+	if userID <= 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("user ID must be positive"))
 	}
 
 	err = h.service.DeleteUser(c.Context(), uint(userID))

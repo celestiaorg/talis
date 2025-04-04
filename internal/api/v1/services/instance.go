@@ -323,7 +323,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 
 			_, err = infra.Execute()
 			// If error exists and it's not a "not found" error, add back to queue
-			if err != nil && !(strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found")) {
+			if err != nil && (!strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found")) {
 				request.lastError = fmt.Errorf("failed to delete infrastructure: %w", err)
 				queue = append(queue, request) // add back to queue
 				time.Sleep(defaultErrorSleep)

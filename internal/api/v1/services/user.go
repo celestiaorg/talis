@@ -33,7 +33,7 @@ func (s User) CreateUser(ctx context.Context, userReq *infrastructure.CreateUser
 		Username:     userReq.Username,
 		Email:        userReq.Email,
 		Role:         userReq.Role,
-		PublicSSHKey: userReq.PublicSshKey,
+		PublicSSHKey: userReq.PublicSSHKey,
 	}
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return 0, errors.Join(ErrUserCreateFailed, err)

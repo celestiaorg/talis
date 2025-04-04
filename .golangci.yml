@@ -1,45 +1,46 @@
 ---
+version: "2"  # Indicates golangci-lint v2 format
+
 run:
   timeout: 5m
   modules-download-mode: readonly
 
 linters:
+  default: none  # Equivalent to disable-all in v1
   enable:
     - errorlint
     - errcheck
-    - gofmt
-    - goimports
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - revive
-    - staticcheck
-    - typecheck
+    - staticcheck  # Includes gosimple functionality in v2
     - unconvert
     - unused
+    # Note: 'typecheck' was in v1 config but is not a linter that can be enabled/disabled
+    # It's a built-in mechanism for reporting Go compiler errors that runs automatically
+
+formatters:
+  enable:  # Formatting tools moved from linters to formatters in v2
+    - gofmt
+    - goimports
 
 issues:
-  exclude-use-default: false
-  # mempool and indexer code is borrowed from Tendermint
-  include:
-    - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
-    - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # v1 properties like exclude-use-default, include, and exclude-generated
+  # are not supported in the v2.0.2 schema
 
-linters-settings:
-  gosec:
-    excludes:
-      - G115
-  revive:
-    rules:
-      - name: package-comments
-        disabled: true
-      - name: duplicated-imports
-        severity: warning
-      - name: exported
-        arguments:
-          - disableStutteringCheck
+output:
+  # format: colored-line-number # Not supported in v2.0.2
+  formats:
+    text:  # Equivalent to line-number in v1
+      path: stdout
 
-  goimports:
-    local-prefixes: github.com/celestiaorg
+# Note: linters-settings from v1 config caused validation errors in v2.0.2
+# Will need to be added back when golangci-lint supports it in v2
+# Original settings:
+# - gosec.excludes: [G115]
+# - revive rules for package-comments, duplicated-imports, exported
+# - goimports.local-prefixes: github.com/celestiaorg

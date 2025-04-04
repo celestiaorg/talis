@@ -333,13 +333,13 @@ func TestClientUserMethods(t *testing.T) {
 		// Create first user
 		newUser1, err := suite.APIClient.CreateUser(suite.Context(), defaultUser1)
 		require.NoError(t, err)
-		require.NotEmpty(t, newUser1.UserId, "User ID should not be empty")
+		require.NotEmpty(t, newUser1.UserID, "User ID should not be empty")
 		expectedUserCount++
 
 		// Create second user
 		newUser2, err := suite.APIClient.CreateUser(suite.Context(), defaultUser2)
 		require.NoError(t, err)
-		require.NotEmpty(t, newUser2.UserId, "User ID should not be empty")
+		require.NotEmpty(t, newUser2.UserID, "User ID should not be empty")
 		expectedUserCount++
 	})
 
@@ -356,13 +356,13 @@ func TestClientUserMethods(t *testing.T) {
 			Username:     "testuser_getbyid",
 			Email:        "getbyid@example.com",
 			Role:         1,
-			PublicSshKey: "ssh-rsa TESTKEY",
+			PublicSSHKey: "ssh-rsa TESTKEY",
 		})
 		require.NoError(t, err)
 		expectedUserCount++
 
 		// Get the user by ID
-		resp, err := suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(newUser.UserId))
+		resp, err := suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(newUser.UserID))
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, "testuser_getbyid", resp.User.Username)
@@ -376,7 +376,7 @@ func TestClientUserMethods(t *testing.T) {
 			Username:     uniqueUsername,
 			Email:        "unique@example.com",
 			Role:         1,
-			PublicSshKey: "ssh-rsa UNIQUEKEY",
+			PublicSSHKey: "ssh-rsa UNIQUEKEY",
 		})
 		require.NoError(t, err)
 		expectedUserCount++
@@ -407,18 +407,18 @@ func TestClientUserMethods(t *testing.T) {
 			Username:     deletedUsername,
 			Email:        "deleted@example.com",
 			Role:         1,
-			PublicSshKey: "ssh-rsa deletedKEY",
+			PublicSSHKey: "ssh-rsa deletedKEY",
 		})
 		require.NoError(t, err)
 		expectedUserCount++
 
 		// Delete a existing user
-		err = suite.APIClient.DeleteUser(suite.Context(), fmt.Sprint(user.UserId))
+		err = suite.APIClient.DeleteUser(suite.Context(), fmt.Sprint(user.UserID))
 		require.NoError(t, err)
 		expectedUserCount--
 
 		// Verify the user is actually deleted
-		_, err = suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(user.UserId))
+		_, err = suite.APIClient.GetUserByID(suite.Context(), fmt.Sprint(user.UserID))
 		require.Error(t, err, "User should no longer exist after deletion")
 
 		// Delete an non existing user
