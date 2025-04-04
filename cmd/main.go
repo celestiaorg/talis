@@ -80,7 +80,7 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes
-	routes.RegisterRoutes(app, instanceHandler, jobHandler, projectHandler, taskHandler, userhandler)
+	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler, projectHandler, taskHandler)
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")

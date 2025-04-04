@@ -88,8 +88,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 
 	// return all users
 	page := c.QueryInt("page", 1)
-	limit := c.QueryInt("limit", DefaultPageSize)
-	paginationOpts := getPaginationOptions(page, limit)
+	paginationOpts := getPaginationOptions(page)
 
 	users, err := h.service.GetAllUsers(c.Context(), paginationOpts)
 	if err != nil {
@@ -101,7 +100,6 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 		Pagination: infrastructure.PaginationResponse{
 			Total:  len(users),
 			Page:   page,
-			Limit:  limit,
 			Offset: paginationOpts.Offset,
 		},
 	})

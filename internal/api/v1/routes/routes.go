@@ -64,7 +64,6 @@ const (
 	UpdateJob           = "UpdateJob"
 	TerminateJob        = "TerminateJob"
 
-
 	// User routes
 	GetUsers    = "GetUsers"
 	GetUserByID = "GetUserByID"
@@ -179,9 +178,9 @@ func initRouteCache() {
 		mockUserHandler := &handlers.UserHandler{}
 		mockProjectHandler := &handlers.ProjectHandler{}
 		mockTaskHandler := &handlers.TaskHandler{}
-    
+
 		// Register routes with mock handlers
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockProjectHandler, mockTaskHandler, mockUserHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockUserHandler, mockProjectHandler, mockTaskHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -345,6 +344,7 @@ func CreateUserURL() string {
 // DeleteUserURL returns the URL for deleting a user by ID
 func DeleteUserURL(id string) string {
 	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
+}
 
 // Project Routes
 

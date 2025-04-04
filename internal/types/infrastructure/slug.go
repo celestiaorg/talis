@@ -52,11 +52,3 @@ func Success(data interface{}) SlugResponse {
 		Data: data,
 	}
 }
-
-// ErrNotFound returns a SlugResponse with the NotFoundSlug and error message
-func ErrNotFound(msg string) SlugResponse {
-	return SlugResponse{
-		Slug:  NotFoundSlug,
-		Error: msg,
-	}
-}

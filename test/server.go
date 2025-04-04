@@ -39,7 +39,7 @@ func SetupServer(suite *Suite) {
 	taskHandler := handlers.NewTaskHandler(nil)       // TODO: Add task service
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, projectHandler, taskHandler, userHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, userHandler, projectHandler, taskHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))
