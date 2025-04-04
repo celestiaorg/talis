@@ -167,5 +167,5 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 
 // GetJob retrieves a job by its ID
 func (s *Job) GetJob(ctx context.Context, id uint) (*models.Job, error) {
-	return s.jobRepo.GetByID(ctx, 0, id) // Using 0 as ownerID since it's not being used yet
+	return s.jobRepo.GetByID(ctx, models.AdminID, id)
 }
