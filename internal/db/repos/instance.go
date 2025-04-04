@@ -72,7 +72,7 @@ func (r *InstanceRepository) UpdateByID(ctx context.Context, id uint, instance *
 func (r *InstanceRepository) UpdateByName(ctx context.Context, name string, instance *models.Instance) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&models.Instance{}).
-			Where("name = ? AND deleted_at IS NULL", name).
+			Where(&models.Instance{Name: name}).
 			Updates(instance)
 		if result.Error != nil {
 			return fmt.Errorf("failed to update instance by name: %w", result.Error)
