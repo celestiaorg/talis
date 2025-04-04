@@ -11,6 +11,17 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
+// jobOutput represents the filtered output for a job
+type jobOutput struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// jobListOutput represents the filtered output for a list of jobs
+type jobListOutput struct {
+	Jobs []jobOutput `json:"jobs"`
+}
+
 func init() {
 	RootCmd.AddCommand(jobsCmd)
 	jobsCmd.AddCommand(listJobsCmd)
@@ -56,8 +67,19 @@ var listJobsCmd = &cobra.Command{
 			return fmt.Errorf("error fetching jobs: %w", err)
 		}
 
+		// Filter the response to only include relevant fields
+		output := jobListOutput{
+			Jobs: make([]jobOutput, len(response.Jobs)),
+		}
+		for i, job := range response.Jobs {
+			output.Jobs[i] = jobOutput{
+				Name:   job.Name,
+				Status: string(job.Status),
+			}
+		}
+
 		// Pretty print the response
-		prettyJSON, err := json.MarshalIndent(response, "", "  ")
+		prettyJSON, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error formatting response: %w", err)
 		}
@@ -78,8 +100,14 @@ var getJobCmd = &cobra.Command{
 			return fmt.Errorf("error fetching job: %w", err)
 		}
 
+		// Filter the response to only include relevant fields
+		output := jobOutput{
+			Name:   job.Name,
+			Status: string(job.Status),
+		}
+
 		// Pretty print the response
-		prettyJSON, err := json.MarshalIndent(job, "", "  ")
+		prettyJSON, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error formatting response: %w", err)
 		}
