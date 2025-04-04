@@ -39,8 +39,8 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 }
 
 // CreateInventory creates the inventory file with all instances
-func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error {
-	fmt.Printf("📝 Creating inventory for job %s...\n", a.jobID)
+func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, _ string) error {
+	fmt.Printf("�� Creating inventory for job %s...\n", a.jobID)
 
 	// Create inventory path with base name
 	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
@@ -85,7 +85,7 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPa
 }
 
 // RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
-func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
+func (a *AnsibleConfigurator) RunAnsiblePlaybook(_ string) error {
 	fmt.Println("🎭 Running Ansible playbook...")
 
 	// Create inventory path with name

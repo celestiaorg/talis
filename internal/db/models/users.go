@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 
@@ -24,9 +25,15 @@ type User struct {
 	Username     string   `json:"username" gorm:"not null;unique"`
 	Email        string   `json:"email" gorm:""`
 	Role         UserRole `json:"role" gorm:"index"`
-	PublicSshKey string   `json:"public_ssh_key" gorm:""`
+	PublicSSHKey string   `json:"public_ssh_key" gorm:""`
 	CreatedAt    string   `json:"created_at" gorm:""`
 	UpdatedAt    string   `json:"updated_at" gorm:""`
+}
+
+// MarshalJSON implements the json.Marshaler interface for User
+func (u User) MarshalJSON() ([]byte, error) {
+	type Alias User // Create an alias to avoid infinite recursion
+	return json.Marshal(Alias(u))
 }
 
 func (s UserRole) String() string {

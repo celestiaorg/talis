@@ -16,7 +16,7 @@ func TestTaskStatus(t *testing.T) {
 		stringValue   string
 		jsonValue     string
 		validForParse bool
-		validForJson  bool
+		validForJSON  bool
 	}{
 		{
 			name:          "Unknown status",
@@ -24,7 +24,7 @@ func TestTaskStatus(t *testing.T) {
 			stringValue:   "unknown",
 			jsonValue:     `"unknown"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Pending status",
@@ -32,7 +32,7 @@ func TestTaskStatus(t *testing.T) {
 			stringValue:   "pending",
 			jsonValue:     `"pending"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Running status",
@@ -40,7 +40,7 @@ func TestTaskStatus(t *testing.T) {
 			stringValue:   "running",
 			jsonValue:     `"running"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Completed status",
@@ -48,7 +48,7 @@ func TestTaskStatus(t *testing.T) {
 			stringValue:   "completed",
 			jsonValue:     `"completed"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Failed status",
@@ -56,20 +56,20 @@ func TestTaskStatus(t *testing.T) {
 			stringValue:   "failed",
 			jsonValue:     `"failed"`,
 			validForParse: true,
-			validForJson:  true,
+			validForJSON:  true,
 		},
 		{
 			name:          "Invalid status",
 			stringValue:   "invalid_status",
 			jsonValue:     `"invalid_status"`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 		},
 		{
 			name:          "Invalid JSON",
 			jsonValue:     `invalid`,
 			validForParse: false,
-			validForJson:  false,
+			validForJSON:  false,
 		},
 	}
 
@@ -100,7 +100,7 @@ func TestTaskStatus(t *testing.T) {
 			// Test JSON unmarshaling
 			var unmarshaledStatus TaskStatus
 			err = unmarshaledStatus.UnmarshalJSON([]byte(tt.jsonValue))
-			if tt.validForJson {
+			if tt.validForJSON {
 				assert.NoError(t, err, "Unmarshal should not return error")
 				assert.Equal(t, tt.status, unmarshaledStatus, "Unmarshal produced incorrect status")
 			} else {

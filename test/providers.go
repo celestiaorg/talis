@@ -5,6 +5,6 @@ import (
 )
 
 // SetupMockDOClient sets up a mock DigitalOcean client
-func SetupMockDOClient(suite *TestSuite) {
+func SetupMockDOClient(suite *Suite) {
 	suite.MockDOClient = mocks.NewMockDOClient()
 }

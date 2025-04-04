@@ -1,3 +1,4 @@
+// Package services provides business logic implementation for the API
 package services
 
 import (

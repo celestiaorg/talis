@@ -1,3 +1,4 @@
+// Package client provides the API client for interacting with the Talis API
 package client
 
 import (
@@ -8,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 
 	"github.com/celestiaorg/talis/internal/api/v1/routes"
 	"github.com/celestiaorg/talis/internal/db/models"
@@ -46,8 +47,8 @@ type Client interface {
 	DeleteJob(ctx context.Context, id string) error
 }
 
-// ClientOptions contains configuration options for the API client
-type ClientOptions struct {
+// Options contains configuration options for the API client
+type Options struct {
 	// BaseURL is the base URL of the API
 	BaseURL string
 
@@ -56,8 +57,8 @@ type ClientOptions struct {
 }
 
 // DefaultOptions returns the default client options
-func DefaultOptions() *ClientOptions {
-	return &ClientOptions{
+func DefaultOptions() *Options {
+	return &Options{
 		BaseURL: routes.DefaultBaseURL,
 		Timeout: DefaultTimeout,
 	}
@@ -70,7 +71,7 @@ type APIClient struct {
 }
 
 // NewClient creates a new API client with the given options
-func NewClient(opts *ClientOptions) (Client, error) {
+func NewClient(opts *Options) (Client, error) {
 	if opts == nil {
 		opts = DefaultOptions()
 	}

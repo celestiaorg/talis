@@ -9,8 +9,8 @@ import (
 	"github.com/celestiaorg/talis/test/mocks"
 )
 
-// ComputeProvider defines the interface for cloud providers
-type ComputeProvider interface {
+// Provider defines the interface for cloud providers
+type Provider interface {
 	// ValidateCredentials validates the provider credentials
 	ValidateCredentials() error
 
@@ -57,7 +57,7 @@ type Provisioner interface {
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
-func NewComputeProvider(provider models.ProviderID) (ComputeProvider, error) {
+func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 	switch provider {
 	case models.ProviderDO:
 		return NewDigitalOceanProvider()

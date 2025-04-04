@@ -1,3 +1,4 @@
+// Package handlers provides HTTP request handlers for the API
 package handlers
 
 import (
@@ -70,6 +71,11 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(infrastructure.ErrInvalidInput(fmt.Sprintf("instance id is required: %v", err)))
+	}
+
+	if instanceID <= 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(infrastructure.ErrInvalidInput("instance id must be positive"))
 	}
 
 	// Get instance using the service

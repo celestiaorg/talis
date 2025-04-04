@@ -103,18 +103,18 @@ func TestMockDOClientBehavior(t *testing.T) {
 	}
 
 	// Test 1: Verify standard success responses
-	t.Run("Standard Success Responses", func(t *testing.T) {
+	t.Run("Standard Success Responses", func(_ *testing.T) {
 		callAllMethods(nil)
 	})
 
 	// Test 2: Verify authentication failure responses
-	t.Run("Authentication Failure", func(t *testing.T) {
+	t.Run("Authentication Failure", func(_ *testing.T) {
 		mockClient.SimulateAuthenticationFailure()
 		callAllMethods(ErrAuthentication)
 	})
 
 	// Test 3: Verify rate limit responses
-	t.Run("Rate Limit", func(t *testing.T) {
+	t.Run("Rate Limit", func(_ *testing.T) {
 		mockClient.SimulateRateLimit()
 		callAllMethods(ErrRateLimit)
 	})
@@ -138,7 +138,7 @@ func TestMockDOClientBehavior(t *testing.T) {
 	})
 
 	// Test 5: Reset and verify success responses again
-	t.Run("Reset to Standard Success", func(t *testing.T) {
+	t.Run("Reset to Standard Success", func(_ *testing.T) {
 		mockClient.ResetToStandard()
 		callAllMethods(nil)
 	})
