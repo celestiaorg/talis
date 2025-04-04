@@ -33,26 +33,6 @@ type InstanceRequest struct {
 	Volumes           []types.VolumeConfig `json:"volumes"`             // Optional volumes to attach
 }
 
-// VolumeRequest represents the volume configuration in a request
-type VolumeRequest struct {
-	Name       string `json:"name"`        // Name of the volume
-	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
-	Region     string `json:"region"`      // Region where to create the volume
-	FileSystem string `json:"filesystem"`  // File system type (optional)
-	MountPoint string `json:"mount_point"` // Where to mount the volume
-}
-
-// ToVolumeConfig converts a VolumeRequest to a types.VolumeConfig
-func (v *VolumeRequest) ToVolumeConfig() types.VolumeConfig {
-	return types.VolumeConfig{
-		Name:       v.Name,
-		SizeGB:     v.SizeGB,
-		Region:     v.Region,
-		FileSystem: v.FileSystem,
-		MountPoint: v.MountPoint,
-	}
-}
-
 // InstanceCreateRequest represents the JSON structure for creating infrastructure
 type InstanceCreateRequest struct {
 	InstanceName string            `json:"instance_name"`
