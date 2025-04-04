@@ -1,14 +1,29 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
+// jobOutput represents the filtered output for a job
+type jobOutput struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// jobListOutput represents the filtered output for a list of jobs
+type jobListOutput struct {
+	Jobs []jobOutput `json:"jobs"`
+}
+
 func init() {
+	RootCmd.AddCommand(jobsCmd)
 	jobsCmd.AddCommand(listJobsCmd)
 	jobsCmd.AddCommand(getJobCmd)
 
@@ -28,71 +43,76 @@ var jobsCmd = &cobra.Command{
 var listJobsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all jobs",
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		limit, _ := cmd.Flags().GetString("limit")
 		status, _ := cmd.Flags().GetString("status")
 
-		url := "http://localhost:8080/api/v1/jobs"
-		if limit != "" || status != "" {
-			url += "?"
-			if limit != "" {
-				url += fmt.Sprintf("limit=%s", limit)
+		// Create list options
+		opts := &models.ListOptions{}
+		if limit != "" {
+			limitInt, err := strconv.Atoi(limit)
+			if err != nil {
+				return fmt.Errorf("invalid limit value: %w", err)
 			}
-			if status != "" {
-				if limit != "" {
-					url += "&"
-				}
-				url += fmt.Sprintf("status=%s", status)
-			}
+			opts.Limit = limitInt
+		}
+		if status != "" {
+			jobStatus := models.JobStatus(status)
+			opts.JobStatus = &jobStatus
 		}
 
-		resp, err := http.Get(url)
+		// Call the API client
+		response, err := apiClient.GetJobs(context.Background(), opts)
 		if err != nil {
-			fmt.Printf("Error fetching jobs: %v\n", err)
-			return
+			return fmt.Errorf("error fetching jobs: %w", err)
 		}
-		defer func() {
-			if cerr := resp.Body.Close(); cerr != nil {
-				fmt.Printf("Error closing response body: %v\n", cerr)
+
+		// Filter the response to only include relevant fields
+		output := jobListOutput{
+			Jobs: make([]jobOutput, len(response.Jobs)),
+		}
+		for i, job := range response.Jobs {
+			output.Jobs[i] = jobOutput{
+				Name:   job.Name,
+				Status: string(job.Status),
 			}
-		}()
-
-		var result interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("Error decoding response: %v\n", err)
-			return
 		}
 
-		prettyJSON, _ := json.MarshalIndent(result, "", "  ")
+		// Pretty print the response
+		prettyJSON, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error formatting response: %w", err)
+		}
 		fmt.Println(string(prettyJSON))
+		return nil
 	},
 }
 
 var getJobCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get a specific job",
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		jobID, _ := cmd.Flags().GetString("id")
 
-		resp, err := http.Get(fmt.Sprintf("http://localhost:8080/api/v1/jobs/%s", jobID))
+		// Call the API client
+		job, err := apiClient.GetJob(context.Background(), jobID)
 		if err != nil {
-			fmt.Printf("Error fetching job: %v\n", err)
-			return
-		}
-		defer func() {
-			if cerr := resp.Body.Close(); cerr != nil {
-				fmt.Printf("Error closing response body: %v\n", cerr)
-			}
-		}()
-
-		var result interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			fmt.Printf("Error decoding response: %v\n", err)
-			return
+			return fmt.Errorf("error fetching job: %w", err)
 		}
 
-		prettyJSON, _ := json.MarshalIndent(result, "", "  ")
+		// Filter the response to only include relevant fields
+		output := jobOutput{
+			Name:   job.Name,
+			Status: string(job.Status),
+		}
+
+		// Pretty print the response
+		prettyJSON, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error formatting response: %w", err)
+		}
 		fmt.Println(string(prettyJSON))
+		return nil
 	},
 }
 
