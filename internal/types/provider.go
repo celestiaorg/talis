@@ -34,11 +34,3 @@ type Provisioner interface {
 	// RunAnsiblePlaybook runs the Ansible playbook
 	RunAnsiblePlaybook(inventoryName string) error
 }
-
-// DOClient is the interface for DigitalOcean client operations
-type DOClient interface {
-	ComputeProvider
-	Droplets() DropletService
-	Keys() KeyService
-	Storage() StorageService
-}

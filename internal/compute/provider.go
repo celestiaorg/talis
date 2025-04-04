@@ -6,7 +6,6 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
-	"github.com/celestiaorg/talis/test/mocks"
 )
 
 // ComputeProvider is the interface for compute providers
@@ -41,7 +40,7 @@ func NewComputeProvider(provider models.ProviderID) (types.ComputeProvider, erro
 	case models.ProviderDO:
 		return NewDigitalOceanProvider()
 	case "do-mock", "digitalocean-mock":
-		return mocks.NewMockDOClient(), nil
+		return NewMockDOClient(), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}

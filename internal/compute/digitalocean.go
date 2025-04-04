@@ -17,24 +17,24 @@ import (
 	"github.com/celestiaorg/talis/internal/types"
 )
 
-// DefaultDOClient is the standard implementation of DOClient using godo
-type DefaultDOClient struct {
-	client *godo.Client
-}
-
 // DOClient is the interface for DigitalOcean client operations
 type DOClient interface {
 	Droplets() DropletService
 	Keys() KeyService
 	Storage() StorageService
+	ValidateCredentials() error
+	GetEnvironmentVars() map[string]string
+	ConfigureProvider(stack interface{}) error
+	CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error)
+	DeleteInstance(ctx context.Context, name string, region string) error
 }
 
 // DropletService is the interface for droplet operations
 type DropletService interface {
 	Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
 	CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
-	Delete(ctx context.Context, id int) (*godo.Response, error)
-	Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
+	Get(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
+	Delete(ctx context.Context, dropletID int) (*godo.Response, error)
 	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 }
 
@@ -52,6 +52,11 @@ type StorageService interface {
 	GetVolumeAction(ctx context.Context, volumeID string, actionID int) (*godo.Action, *godo.Response, error)
 	AttachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error)
 	DetachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error)
+}
+
+// DefaultDOClient is the default implementation of DOClient
+type DefaultDOClient struct {
+	client *godo.Client
 }
 
 // ConfigureProvider configures the provider with the given stack
@@ -85,31 +90,32 @@ func (c *DefaultDOClient) DeleteInstance(ctx context.Context, name string, regio
 }
 
 // Droplets returns the droplet service
-func (c *DefaultDOClient) Droplets() types.DropletService {
+func (c *DefaultDOClient) Droplets() DropletService {
 	return &DefaultDropletService{service: c.client.Droplets}
 }
 
 // Keys returns the key service
-func (c *DefaultDOClient) Keys() types.KeyService {
+func (c *DefaultDOClient) Keys() KeyService {
 	return &DefaultKeyService{service: c.client.Keys}
 }
 
 // Storage returns the storage service
-func (c *DefaultDOClient) Storage() types.StorageService {
+func (c *DefaultDOClient) Storage() StorageService {
 	return &DefaultStorageService{
 		service: c.client.Storage,
 		actions: c.client.StorageActions,
 	}
 }
 
-// NewDOClient creates a new DefaultDOClient
-func NewDOClient(token string) types.DOClient {
+// NewDOClient creates a new DigitalOcean client
+func NewDOClient(token string) DOClient {
+	client := godo.NewFromToken(token)
 	return &DefaultDOClient{
-		client: godo.NewFromToken(token),
+		client: client,
 	}
 }
 
-// DefaultDropletService implements DropletService using godo
+// DefaultDropletService adapts godo.DropletService to our DropletService interface
 type DefaultDropletService struct {
 	service godo.DropletsService
 }
@@ -124,14 +130,14 @@ func (s *DefaultDropletService) CreateMultiple(ctx context.Context, createReques
 	return s.service.CreateMultiple(ctx, createRequest)
 }
 
-// Delete deletes a droplet
-func (s *DefaultDropletService) Delete(ctx context.Context, id int) (*godo.Response, error) {
-	return s.service.Delete(ctx, id)
+// Get gets a droplet
+func (s *DefaultDropletService) Get(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+	return s.service.Get(ctx, dropletID)
 }
 
-// Get retrieves a droplet by ID
-func (s *DefaultDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
-	return s.service.Get(ctx, id)
+// Delete deletes a droplet
+func (s *DefaultDropletService) Delete(ctx context.Context, dropletID int) (*godo.Response, error) {
+	return s.service.Delete(ctx, dropletID)
 }
 
 // List lists all droplets
@@ -139,7 +145,7 @@ func (s *DefaultDropletService) List(ctx context.Context, opt *godo.ListOptions)
 	return s.service.List(ctx, opt)
 }
 
-// DefaultKeyService implements KeyService using godo
+// DefaultKeyService adapts godo.KeyService to our KeyService interface
 type DefaultKeyService struct {
 	service godo.KeysService
 }
@@ -149,34 +155,33 @@ func (s *DefaultKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]
 	return s.service.List(ctx, opt)
 }
 
-// DefaultStorageService implements StorageService using godo
+// DefaultStorageService adapts godo.StorageService to our StorageService interface
 type DefaultStorageService struct {
 	service godo.StorageService
 	actions godo.StorageActionsService
 }
 
-// CreateVolume creates a new block storage volume in DigitalOcean.
-// It directly maps to the DigitalOcean API for volume creation.
+// CreateVolume creates a new volume
 func (s *DefaultStorageService) CreateVolume(ctx context.Context, request *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
 	return s.service.CreateVolume(ctx, request)
 }
 
-// DeleteVolume deletes a block storage volume from DigitalOcean by its ID.
+// DeleteVolume deletes a volume
 func (s *DefaultStorageService) DeleteVolume(ctx context.Context, id string) (*godo.Response, error) {
 	return s.service.DeleteVolume(ctx, id)
 }
 
-// ListVolumes retrieves all block storage volumes associated with the account.
+// ListVolumes lists all volumes
 func (s *DefaultStorageService) ListVolumes(ctx context.Context, opt *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
 	return s.service.ListVolumes(ctx, opt)
 }
 
-// GetVolume retrieves information about a specific block storage volume.
+// GetVolume gets a volume
 func (s *DefaultStorageService) GetVolume(ctx context.Context, id string) (*godo.Volume, *godo.Response, error) {
 	return s.service.GetVolume(ctx, id)
 }
 
-// GetVolumeAction retrieves the status of a volume action.
+// GetVolumeAction gets a volume action
 func (s *DefaultStorageService) GetVolumeAction(ctx context.Context, volumeID string, actionID int) (*godo.Action, *godo.Response, error) {
 	return s.actions.Get(ctx, volumeID, actionID)
 }
@@ -221,10 +226,6 @@ func (s *DefaultStorageService) waitForVolumeAction(
 // The operation is considered complete when the volume is successfully attached
 // or when it fails after maximum retries.
 func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error) {
-	if s.actions == nil {
-		return nil, fmt.Errorf("storage actions service not initialized")
-	}
-
 	action, resp, err := s.actions.Attach(ctx, volumeID, dropletID)
 	if err != nil {
 		return resp, fmt.Errorf("failed to attach volume: %w", err)
@@ -237,10 +238,6 @@ func (s *DefaultStorageService) AttachVolume(ctx context.Context, volumeID strin
 // The operation is considered complete when the volume is successfully detached
 // or when it fails after maximum retries.
 func (s *DefaultStorageService) DetachVolume(ctx context.Context, volumeID string, dropletID int) (*godo.Response, error) {
-	if s.actions == nil {
-		return nil, fmt.Errorf("storage actions service not initialized")
-	}
-
 	action, resp, err := s.actions.DetachByDropletID(ctx, volumeID, dropletID)
 	if err != nil {
 		return resp, fmt.Errorf("failed to detach volume: %w", err)
@@ -251,11 +248,11 @@ func (s *DefaultStorageService) DetachVolume(ctx context.Context, volumeID strin
 
 // DigitalOceanProvider implements the ComputeProvider interface
 type DigitalOceanProvider struct {
-	doClient types.DOClient
+	doClient DOClient
 }
 
 // SetClient sets the DO client for testing
-func (p *DigitalOceanProvider) SetClient(client types.DOClient) {
+func (p *DigitalOceanProvider) SetClient(client DOClient) {
 	p.doClient = client
 }
 

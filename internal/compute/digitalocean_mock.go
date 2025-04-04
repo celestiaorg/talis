@@ -1,4 +1,4 @@
-package mocks
+package compute
 
 import (
 	"context"
@@ -14,7 +14,7 @@ const (
 	defaultMaxRetries = 3
 )
 
-// MockDOClient is a mock implementation of both the ComputeProvider and DOClient interfaces
+// MockDOClient is a mock implementation of DOClient
 type MockDOClient struct {
 	droplets           []types.InstanceInfo
 	MockDropletService *MockDropletService
@@ -42,17 +42,17 @@ func NewMockDOClient() *MockDOClient {
 }
 
 // Droplets returns the mock droplet service
-func (m *MockDOClient) Droplets() types.DropletService {
+func (m *MockDOClient) Droplets() DropletService {
 	return m.MockDropletService
 }
 
 // Keys returns the mock key service
-func (m *MockDOClient) Keys() types.KeyService {
+func (m *MockDOClient) Keys() KeyService {
 	return m.MockKeyService
 }
 
 // Storage returns the mock storage service
-func (m *MockDOClient) Storage() types.StorageService {
+func (m *MockDOClient) Storage() StorageService {
 	return m.MockStorageService
 }
 
@@ -217,7 +217,7 @@ func (m *MockDOClient) ResetToStandard() {
 	m.MockStorageService.maxRetries = 0
 }
 
-// MockDropletService implements types.DropletService for testing
+// MockDropletService implements DropletService for testing
 type MockDropletService struct {
 	std              *StandardResponses
 	retriesRemaining int
@@ -352,7 +352,7 @@ func (s *MockDropletService) List(ctx context.Context, opt *godo.ListOptions) ([
 	return s.std.Droplets.DefaultDropletList, nil, nil
 }
 
-// MockKeyService implements types.KeyService for testing
+// MockKeyService implements KeyService for testing
 type MockKeyService struct {
 	std              *StandardResponses
 	retriesRemaining int
@@ -393,7 +393,7 @@ func (s *MockKeyService) List(ctx context.Context, opt *godo.ListOptions) ([]god
 	return s.std.Keys.DefaultKeyList, nil, nil
 }
 
-// MockStorageService implements types.StorageService for testing
+// MockStorageService implements StorageService for testing
 type MockStorageService struct {
 	std              *StandardResponses
 	retriesRemaining int
@@ -581,3 +581,97 @@ func NewMockStorageService(std *StandardResponses) *MockStorageService {
 		maxRetries:       0,
 	}
 }
+
+// StandardResponses contains standard responses for mock services
+type StandardResponses struct {
+	Droplets *DropletResponses
+	Keys     *KeyResponses
+	Volumes  *VolumeResponses
+}
+
+// DropletResponses contains standard responses for droplet operations
+type DropletResponses struct {
+	DefaultDroplet      *godo.Droplet
+	DefaultDropletList  []godo.Droplet
+	AuthenticationError error
+	RateLimitError      error
+	NotFoundError       error
+}
+
+// KeyResponses contains standard responses for key operations
+type KeyResponses struct {
+	DefaultKeyList      []godo.Key
+	AuthenticationError error
+	RateLimitError      error
+	NotFoundError       error
+}
+
+// VolumeResponses contains standard responses for volume operations
+type VolumeResponses struct {
+	DefaultVolume       *godo.Volume
+	DefaultVolumeList   []godo.Volume
+	AuthenticationError error
+	RateLimitError      error
+	NotFoundError       error
+}
+
+// newStandardResponses creates a new StandardResponses instance
+func newStandardResponses() *StandardResponses {
+	return &StandardResponses{
+		Droplets: &DropletResponses{
+			DefaultDroplet: &godo.Droplet{
+				ID:   DefaultDropletID1,
+				Name: "test-droplet",
+				Region: &godo.Region{
+					Slug: "nyc1",
+				},
+				Size: &godo.Size{
+					Slug: "s-1vcpu-1gb",
+				},
+				Networks: &godo.Networks{
+					V4: []godo.NetworkV4{
+						{
+							Type:      "public",
+							IPAddress: "192.168.1.100",
+						},
+					},
+				},
+			},
+			DefaultDropletList: []godo.Droplet{},
+		},
+		Keys: &KeyResponses{
+			DefaultKeyList: []godo.Key{
+				{
+					ID:          1,
+					Name:        "test-key",
+					Fingerprint: "test-fingerprint",
+				},
+			},
+		},
+		Volumes: &VolumeResponses{
+			DefaultVolume: &godo.Volume{
+				ID:            "test-volume",
+				Name:          "test-volume",
+				SizeGigaBytes: 100,
+				Region: &godo.Region{
+					Slug: "nyc1",
+				},
+			},
+			DefaultVolumeList: []godo.Volume{},
+		},
+	}
+}
+
+// Error constants
+var (
+	ErrAuthentication  = fmt.Errorf("authentication error")
+	ErrRateLimit       = fmt.Errorf("rate limit error")
+	ErrDropletNotFound = fmt.Errorf("droplet not found")
+	ErrKeyNotFound     = fmt.Errorf("key not found")
+	ErrVolumeNotFound  = fmt.Errorf("volume not found")
+)
+
+// Default IDs
+const (
+	DefaultDropletID1 = 1000
+)
