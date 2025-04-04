@@ -1,12 +1,12 @@
 ---
-version: "2"
+version: "2"  # Indicates golangci-lint v2 format
 
 run:
   timeout: 5m
   modules-download-mode: readonly
 
 linters:
-  default: none
+  default: none  # Equivalent to disable-all in v1
   enable:
     - errorlint
     - errcheck
@@ -15,21 +15,32 @@ linters:
     - ineffassign
     - misspell
     - revive
-    - staticcheck
+    - staticcheck  # Includes gosimple functionality in v2
     - unconvert
     - unused
+    # Note: 'typecheck' was in v1 config but is not a linter that can be enabled/disabled
+    # It's a built-in mechanism for reporting Go compiler errors that runs automatically
 
 formatters:
-  enable:
+  enable:  # Formatting tools moved from linters to formatters in v2
     - gofmt
     - goimports
 
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  # v1 properties like exclude-use-default, include, and exclude-generated
+  # are not supported in the v2.0.2 schema
 
 output:
   # format: colored-line-number # Not supported in v2.0.2
   formats:
     text:  # Equivalent to line-number in v1
       path: stdout
+
+# Note: linters-settings from v1 config caused validation errors in v2.0.2
+# Will need to be added back when golangci-lint supports it in v2
+# Original settings:
+# - gosec.excludes: [G115]
+# - revive rules for package-comments, duplicated-imports, exported
+# - goimports.local-prefixes: github.com/celestiaorg
