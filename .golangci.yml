@@ -1,24 +1,31 @@
 ---
+version: "2"
+
 run:
   timeout: 5m
   modules-download-mode: readonly
 
 linters:
+  default: none
   enable:
     - errorlint
     - errcheck
-    - gofmt
-    - goimports
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - revive
-    - staticcheck
-    - typecheck
+    - staticcheck  # Includes gosimple functionality in v2
     - unconvert
     - unused
+    # Note: 'typecheck' was present in v1 config but is not included here because it's not a linter
+    # that can be enabled or disabled. It's a built-in mechanism for reporting Go compiler errors
+    # that runs automatically. See: https://golangci-lint.run/product/migration-guide/
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
 
 issues:
   exclude-use-default: false
@@ -26,6 +33,10 @@ issues:
   include:
     - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
     - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
+  exclude-generated: lax  # Keep behavior from v1 (v2 default is 'strict')
+
+output:
+  show-stats: true  # Equivalent to run.show-stats in v1, enabled by default in v2
 
 linters-settings:
   gosec:
