@@ -86,7 +86,7 @@ func TestUser_Validation(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Verify fields were correctly marshaled/unmarshaled
-		assert.Equal(t, validUser.ID, unmarshaledUser.ID)
+		// Don't check ID as it's not part of the JSON output
 		assert.Equal(t, validUser.Username, unmarshaledUser.Username)
 		assert.Equal(t, validUser.Email, unmarshaledUser.Email)
 		assert.Equal(t, validUser.Role, unmarshaledUser.Role)

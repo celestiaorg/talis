@@ -6,9 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	log "github.com/celestiaorg/talis/internal/logger"
-
-	"github.com/gofiber/fiber/v2"
+	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
 	"github.com/celestiaorg/talis/internal/api/v1/handlers"
@@ -16,6 +14,7 @@ import (
 	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	log "github.com/celestiaorg/talis/internal/logger"
 )
 
 func main() {
