@@ -68,42 +68,17 @@ func (r *InstanceRepository) UpdateByID(ctx context.Context, id uint, instance *
 	})
 }
 
-// UpdateIPByName updates the public IP of an instance by its name
-func (r *InstanceRepository) UpdateIPByName(ctx context.Context, name string, ip string) error {
-	result := r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where("name = ? AND deleted_at IS NULL", name).
-		Update("public_ip", ip)
-	if result.Error != nil {
-		return fmt.Errorf("failed to update instance IP: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("no instance found with name: %s", name)
-	}
-	return nil
-}
-
-// UpdateStatus updates the status of an instance
-func (r *InstanceRepository) UpdateStatus(ctx context.Context, ID uint, status models.InstanceStatus) error {
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Model: gorm.Model{ID: ID}}).
-		Update("status", status).Error
-}
-
-// UpdateStatusByName updates the status of an instance by its name
-func (r *InstanceRepository) UpdateStatusByName(ctx context.Context, name string, status models.InstanceStatus) error {
-	return r.db.WithContext(ctx).Model(&models.Instance{}).
-		Where(&models.Instance{Name: name}).
-		Update("status", status).Error
-}
-
 // UpdateByName updates an instance by its name. Only non-zero fields in the instance parameter will be updated.
-// See UpdateByID method for details on how GORM handles field updates.
 func (r *InstanceRepository) UpdateByName(ctx context.Context, name string, instance *models.Instance) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&models.Instance{}).
-			Where(&models.Instance{Name: name}).
-			Updates(instance).Error; err != nil {
-			return fmt.Errorf("failed to update instance by name: %w", err)
+		result := tx.Model(&models.Instance{}).
+			Where("name = ? AND deleted_at IS NULL", name).
+			Updates(instance)
+		if result.Error != nil {
+			return fmt.Errorf("failed to update instance by name: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("no instance found with name: %s", name)
 		}
 		return nil
 	})
