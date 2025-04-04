@@ -28,17 +28,19 @@ formatters:
     - goimports
 
 issues:
-  exclude-use-default: false
+  # The properties below have been commented out as they are not valid in v2
+  # exclude-use-default: false
   # mempool and indexer code is borrowed from Tendermint
-  include:
-    - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
-    - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
-  exclude-generated: lax  # Keep behavior from v1 (v2 default is 'strict')
+  # include:
+  #   - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
+  #   - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
+  # exclude-generated: lax  # Keep behavior from v1 (v2 default is 'strict')
 
 output:
   show-stats: true  # Equivalent to run.show-stats in v1, enabled by default in v2
 
-linters-settings:
+# Renamed from linters-settings to settings in v2
+settings:
   gosec:
     excludes:
       - G115
