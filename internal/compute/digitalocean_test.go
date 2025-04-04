@@ -499,3 +499,70 @@ func TestDigitalOceanProvider(t *testing.T) {
 		})
 	})
 }
+
+func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
+	mockClient := NewMockDOClient()
+	provider := &DigitalOceanProvider{
+		doClient: mockClient,
+	}
+
+	// Test successful instance creation
+	instances, err := provider.CreateInstance(context.Background(), "test", types.InstanceConfig{
+		NumberOfInstances: 1,
+		Region:            "nyc1",
+		Size:              "s-1vcpu-1gb",
+	})
+	require.NoError(t, err)
+	require.Len(t, instances, 1)
+	assert.Equal(t, "test-0", instances[0].Name)
+
+	// Test authentication error
+	mockClient.SimulateAuthenticationFailure()
+	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
+	assert.ErrorIs(t, err, ErrAuthentication)
+
+	// Test rate limit error
+	mockClient.SimulateRateLimit()
+	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
+	assert.ErrorIs(t, err, ErrRateLimit)
+
+	// Test not found error
+	mockClient.SimulateNotFound()
+	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
+	assert.ErrorIs(t, err, ErrDropletNotFound)
+}
+
+func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
+	mockClient := NewMockDOClient()
+	provider := &DigitalOceanProvider{
+		doClient: mockClient,
+	}
+
+	// First create an instance
+	instances, err := provider.CreateInstance(context.Background(), "test", types.InstanceConfig{
+		NumberOfInstances: 1,
+		Region:            "nyc1",
+		Size:              "s-1vcpu-1gb",
+	})
+	require.NoError(t, err)
+	require.Len(t, instances, 1)
+
+	// Test successful instance deletion
+	err = provider.DeleteInstance(context.Background(), "test-0", "nyc1")
+	assert.NoError(t, err)
+
+	// Test authentication error
+	mockClient.SimulateAuthenticationFailure()
+	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
+	assert.ErrorIs(t, err, ErrAuthentication)
+
+	// Test rate limit error
+	mockClient.SimulateRateLimit()
+	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
+	assert.ErrorIs(t, err, ErrRateLimit)
+
+	// Test not found error
+	mockClient.SimulateNotFound()
+	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
+	assert.ErrorIs(t, err, ErrDropletNotFound)
+}
