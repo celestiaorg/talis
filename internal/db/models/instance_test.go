@@ -130,7 +130,7 @@ func TestInstance_Validation(t *testing.T) {
 			UpdatedAt: now,
 		},
 		JobID:      1,
-		ProviderID: string(ProviderDO),
+		ProviderID: ProviderDO,
 		Name:       "test-instance",
 		PublicIP:   "192.0.2.1",
 		Region:     "nyc1",

@@ -41,7 +41,7 @@ const (
 type Instance struct {
 	gorm.Model
 	JobID         uint           `json:"job_id" gorm:"not null;index"`
-	ProviderID    string         `json:"provider_id" gorm:"not null"`
+	ProviderID    ProviderID     `json:"provider_id" gorm:"not null"`
 	Name          string         `json:"name" gorm:"not null;index"`
 	PublicIP      string         `json:"public_ip" gorm:"varchar(100)"`
 	Region        string         `json:"region" gorm:"varchar(255)"`

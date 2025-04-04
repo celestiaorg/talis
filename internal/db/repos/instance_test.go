@@ -50,7 +50,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByNames() {
 	instance1 := s.createTestInstance()
 	instance2 := &models.Instance{
 		JobID:      1,
-		ProviderID: string(models.ProviderDO),
+		ProviderID: models.ProviderDO,
 		Name:       "test-instance-2",
 		PublicIP:   "192.0.2.2",
 		Region:     "nyc1",
@@ -167,7 +167,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByJobID() {
 	instance1 := s.createTestInstance()
 	instance2 := &models.Instance{
 		JobID:      2,
-		ProviderID: string(models.ProviderDO),
+		ProviderID: models.ProviderDO,
 		Name:       "test-instance-2",
 		Status:     models.InstanceStatusPending,
 	}
@@ -191,7 +191,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByJobIDOrdered() {
 	time.Sleep(time.Millisecond) // Ensure different creation times
 	instance2 := &models.Instance{
 		JobID:      1,
-		ProviderID: string(models.ProviderDO),
+		ProviderID: models.ProviderDO,
 		Name:       "test-instance-2",
 		Status:     models.InstanceStatusPending,
 	}

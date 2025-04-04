@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
@@ -35,9 +36,9 @@ type Provisioner interface {
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
-func NewComputeProvider(provider string) (types.ComputeProvider, error) {
+func NewComputeProvider(provider models.ProviderID) (types.ComputeProvider, error) {
 	switch provider {
-	case "do":
+	case models.ProviderDO:
 		return NewDigitalOceanProvider()
 	case "do-mock", "digitalocean-mock":
 		return mocks.NewMockDOClient(), nil

@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
@@ -16,12 +17,12 @@ type InstancesRequest struct {
 	WebhookURL   string            `json:"webhook_url"`
 	Action       string            `json:"action"`
 	ProjectName  string            `json:"project_name"`
-	Provider     string            `json:"provider"`
+	Provider     models.ProviderID `json:"provider"`
 }
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Provider          string               `json:"provider"`            // Cloud provider (e.g., "digitalocean")
+	Provider          models.ProviderID    `json:"provider"`            // Cloud provider (e.g., "digitalocean")
 	Region            string               `json:"region"`              // Region where instances will be created
 	Size              string               `json:"size"`                // Instance size/type
 	Image             string               `json:"image"`               // OS image to use
@@ -49,23 +50,23 @@ type DeleteInstanceRequest struct {
 
 // DeleteRequest represents a request to delete infrastructure
 type DeleteRequest struct {
-	InstanceName string           `json:"instance_name"` // Base name for instances
-	ProjectName  string           `json:"project_name"`  // Project name of the job
-	WebhookURL   string           `json:"webhook_url"`   // Webhook URL of the job
-	Provider     string           `json:"provider"`      // Provider of the compute service
-	Instances    []DeleteInstance `json:"instances"`     // Instances to delete
+	InstanceName string            `json:"instance_name"` // Base name for instances
+	ProjectName  string            `json:"project_name"`  // Project name of the job
+	WebhookURL   string            `json:"webhook_url"`   // Webhook URL of the job
+	Provider     models.ProviderID `json:"provider"`      // Provider of the compute service
+	Instances    []DeleteInstance  `json:"instances"`     // Instances to delete
 }
 
 // DeleteInstance represents the configuration for deleting an instance
 type DeleteInstance struct {
-	Provider          string   `json:"provider"`            // Provider of the compute service
-	Name              string   `json:"name"`                // Optional specific instance name to delete
-	NumberOfInstances int      `json:"number_of_instances"` // Number of instances to delete
-	Region            string   `json:"region"`              // Region of the instance
-	Size              string   `json:"size"`                // Size of the instance
-	Image             string   `json:"image"`               // Image of the instance
-	Tags              []string `json:"tags"`                // Tags of the instance
-	SSHKeyName        string   `json:"ssh_key_name"`        // SSH key name of the instance
+	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
+	Name              string            `json:"name"`                // Optional specific instance name to delete
+	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to delete
+	Region            string            `json:"region"`              // Region of the instance
+	Size              string            `json:"size"`                // Size of the instance
+	Image             string            `json:"image"`               // Image of the instance
+	Tags              []string          `json:"tags"`                // Tags of the instance
+	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
 }
 
 // --------------------------------------------------
