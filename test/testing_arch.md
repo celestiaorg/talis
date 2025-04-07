@@ -30,3 +30,18 @@ By defining a standard set of success and error responses, tests can focus on en
 
 Integration tests target the entire application from API to DB. API responses should us the standard mocked responses from `test/mocks` and the DB should be an in memory DB. 
 Beside the API mocks and the in memory DB, everything else should be targeted directly from a testing perspective. 
+
+## Future Work
+
+### API Interactions
+REF: https://github.com/celestiaorg/talis/issues/94
+
+To improve the e2e testing we should move from mocking the API to interacting with actual API responses. [Issue #94](https://github.com/celestiaorg/talis/issues/94) references a `go-vcr` library that can be used to record and replay API interactions.
+
+The workflow would be:
+1. Build out providers
+2. Test provider locally
+3. Record API interactions
+4. Add API interactions to the test folder
+5. Run CI against saved API interactions
+6. Update API interactions as needed with provider API version changes 
