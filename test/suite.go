@@ -57,7 +57,7 @@ type Suite struct {
 }
 
 // SetS sets the suite instance for this suite
-func (s *Suite) SetS(testingSuite suite.TestingSuite) {
+func (s *Suite) SetS(_ suite.TestingSuite) {
 	// This method is required by suite.TestingSuite but we don't need to do anything here
 }
 
@@ -91,11 +91,14 @@ func (s *Suite) SetupSuite() {
 	s.MockDOClient = mocks.NewMockDOClient()
 
 	// Create test user
-	s.UserRepo.CreateUser(s.ctx, &models.User{
+	err = s.UserRepo.CreateUser(s.ctx, &models.User{
 		Username: "test",
 		Email:    "test@example.com",
 		Role:     models.UserRoleUser,
 	})
+	if err != nil {
+		s.t.Fatalf("failed to create test user: %v", err)
+	}
 }
 
 // TearDownSuite tears down the test suite
@@ -121,7 +124,7 @@ func Run(t *testing.T) {
 	suite.Run(t, NewSuite(t))
 }
 
-// NewTestSuite creates a new test suite with the given options.
+// NewSuite creates a new test suite with the given options.
 // The suite must be cleaned up after use by calling Cleanup.
 func NewSuite(t *testing.T) *Suite {
 	t.Helper()

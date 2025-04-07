@@ -73,6 +73,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByID() {
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
 	found, err = s.instanceRepo.GetByID(s.ctx, 0, original.JobID, original.ID)
 	s.NoError(err)
+	s.NotNil(found)
 
 	// Test with non-existent ID
 	_, err = s.instanceRepo.GetByID(s.ctx, original.OwnerID, original.JobID, 999)
@@ -102,6 +103,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByNames() {
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
 	instances, err = s.instanceRepo.GetByNames(s.ctx, 0, []string{instance1.Name})
 	s.NoError(err)
+	s.NotNil(instances)
 }
 
 func (s *InstanceRepositoryTestSuite) TestUpdate() {
@@ -229,6 +231,7 @@ func (s *InstanceRepositoryTestSuite) TestCount() {
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
 	count, err = s.instanceRepo.Count(s.ctx, 0)
 	s.NoError(err)
+	s.GreaterOrEqual(count, int64(0))
 }
 
 func (s *InstanceRepositoryTestSuite) TestGetByJobID() {

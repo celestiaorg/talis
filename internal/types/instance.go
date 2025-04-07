@@ -1,3 +1,4 @@
+// Package types provides type definitions for the application
 package types
 
 // VolumeConfig represents the configuration for a volume

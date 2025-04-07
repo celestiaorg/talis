@@ -11,10 +11,12 @@ func SetupMockDOClient(suite *Suite) {
 	suite.MockDOClient = mocks.NewMockDOClient()
 }
 
+// NewTestProvider creates a new test provider instance
 func NewTestProvider() types.ComputeProvider {
 	return compute.NewMockDOClient()
 }
 
+// NewTestDOClient creates a new test DigitalOcean client instance
 func NewTestDOClient() *compute.MockDOClient {
 	return compute.NewMockDOClient()
 }
