@@ -256,7 +256,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByJobID() {
 
 	// Test getting with zero owner ID should work but log a warning
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	instances, err = s.instanceRepo.GetByJobID(s.ctx, 0, instance1.JobID)
+	_, err = s.instanceRepo.GetByJobID(s.ctx, 0, instance1.JobID)
 	s.NoError(err)
 }
 
@@ -292,7 +292,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByJobIDOrdered() {
 
 	// Test getting ordered instances with zero owner ID should work but log a warning
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	instances, err = s.instanceRepo.GetByJobIDOrdered(s.ctx, 0, instance1.JobID)
+	_, err = s.instanceRepo.GetByJobIDOrdered(s.ctx, 0, instance1.JobID)
 	s.NoError(err)
 }
 
@@ -380,7 +380,7 @@ func (s *InstanceRepositoryTestSuite) TestGetByJobIDAndNames() {
 
 	// Test getting with zero owner ID should work but log a warning
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	instances, err = s.instanceRepo.GetByJobIDAndNames(s.ctx, 0, instance1.JobID, []string{instance1.Name})
+	_, err = s.instanceRepo.GetByJobIDAndNames(s.ctx, 0, instance1.JobID, []string{instance1.Name})
 	s.NoError(err)
 }
 

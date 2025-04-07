@@ -127,7 +127,7 @@ func (m *MockDOClient) CreateInstance(_ context.Context, name string, config typ
 }
 
 // DeleteInstance deletes an instance
-func (m *MockDOClient) DeleteInstance(_ context.Context, name string, region string) error {
+func (m *MockDOClient) DeleteInstance(_ context.Context, name string, _ string) error {
 	// Check for errors first
 	if m.MockDropletService.std.Droplets.AuthenticationError != nil {
 		return m.MockDropletService.std.Droplets.AuthenticationError
@@ -316,7 +316,7 @@ func (s *MockDropletService) CreateMultiple(_ context.Context, createRequest *go
 }
 
 // Get gets a droplet
-func (s *MockDropletService) Get(_ context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+func (s *MockDropletService) Get(_ context.Context, _ int) (*godo.Droplet, *godo.Response, error) {
 	if s.std.Droplets.NotFoundError != nil {
 		return nil, nil, fmt.Errorf("DO API: droplet not found")
 	}
@@ -330,7 +330,7 @@ func (s *MockDropletService) Get(_ context.Context, dropletID int) (*godo.Drople
 }
 
 // Delete deletes a droplet
-func (s *MockDropletService) Delete(_ context.Context, dropletID int) (*godo.Response, error) {
+func (s *MockDropletService) Delete(_ context.Context, _ int) (*godo.Response, error) {
 	if s.std.Droplets.AuthenticationError != nil {
 		return nil, s.std.Droplets.AuthenticationError
 	}
@@ -353,7 +353,7 @@ func (s *MockDropletService) Delete(_ context.Context, dropletID int) (*godo.Res
 }
 
 // List lists all droplets
-func (s *MockDropletService) List(_ context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+func (s *MockDropletService) List(_ context.Context, _ *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	if s.std.Droplets.AuthenticationError != nil {
 		return nil, nil, s.std.Droplets.AuthenticationError
 	}
@@ -398,7 +398,7 @@ func (s *MockKeyService) SimulateMaxRetries() {
 }
 
 // List lists all SSH keys
-func (s *MockKeyService) List(_ context.Context, opt *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
+func (s *MockKeyService) List(_ context.Context, _ *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
 	if s.std.Keys.AuthenticationError != nil {
 		return nil, nil, s.std.Keys.AuthenticationError
 	}
@@ -434,7 +434,7 @@ func (s *MockStorageService) SimulateMaxRetries() {
 }
 
 // CreateVolume creates a new volume
-func (s *MockStorageService) CreateVolume(_ context.Context, request *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
+func (s *MockStorageService) CreateVolume(_ context.Context, _ *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
@@ -457,7 +457,7 @@ func (s *MockStorageService) CreateVolume(_ context.Context, request *godo.Volum
 }
 
 // DeleteVolume deletes a volume
-func (s *MockStorageService) DeleteVolume(_ context.Context, id string) (*godo.Response, error) {
+func (s *MockStorageService) DeleteVolume(_ context.Context, _ string) (*godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
@@ -480,7 +480,7 @@ func (s *MockStorageService) DeleteVolume(_ context.Context, id string) (*godo.R
 }
 
 // ListVolumes lists all volumes
-func (s *MockStorageService) ListVolumes(_ context.Context, opt *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+func (s *MockStorageService) ListVolumes(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
@@ -503,7 +503,7 @@ func (s *MockStorageService) ListVolumes(_ context.Context, opt *godo.ListVolume
 }
 
 // GetVolume gets a volume
-func (s *MockStorageService) GetVolume(_ context.Context, id string) (*godo.Volume, *godo.Response, error) {
+func (s *MockStorageService) GetVolume(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
@@ -526,7 +526,7 @@ func (s *MockStorageService) GetVolume(_ context.Context, id string) (*godo.Volu
 }
 
 // GetVolumeAction gets a volume action
-func (s *MockStorageService) GetVolumeAction(_ context.Context, volumeID string, actionID int) (*godo.Action, *godo.Response, error) {
+func (s *MockStorageService) GetVolumeAction(_ context.Context, _ string, actionID int) (*godo.Action, *godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
@@ -549,7 +549,7 @@ func (s *MockStorageService) GetVolumeAction(_ context.Context, volumeID string,
 }
 
 // AttachVolume attaches a volume to a droplet
-func (s *MockStorageService) AttachVolume(_ context.Context, volumeID string, dropletID int) (*godo.Response, error) {
+func (s *MockStorageService) AttachVolume(_ context.Context, _ string, dropletID int) (*godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
@@ -572,7 +572,7 @@ func (s *MockStorageService) AttachVolume(_ context.Context, volumeID string, dr
 }
 
 // DetachVolume detaches a volume from a droplet
-func (s *MockStorageService) DetachVolume(_ context.Context, volumeID string, dropletID int) (*godo.Response, error) {
+func (s *MockStorageService) DetachVolume(_ context.Context, _ string, dropletID int) (*godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}

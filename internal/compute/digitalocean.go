@@ -61,7 +61,7 @@ type DefaultDOClient struct {
 }
 
 // ConfigureProvider configures the provider with the given stack
-func (c *DefaultDOClient) ConfigureProvider(stack interface{}) error {
+func (c *DefaultDOClient) ConfigureProvider(_ interface{}) error {
 	return nil
 }
 
