@@ -526,7 +526,7 @@ func (s *MockStorageService) GetVolume(_ context.Context, _ string) (*godo.Volum
 }
 
 // GetVolumeAction gets a volume action
-func (s *MockStorageService) GetVolumeAction(_ context.Context, _ string, actionID int) (*godo.Action, *godo.Response, error) {
+func (s *MockStorageService) GetVolumeAction(_ context.Context, _ string, _ int) (*godo.Action, *godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, nil, s.std.Volumes.AuthenticationError
 	}
@@ -549,7 +549,7 @@ func (s *MockStorageService) GetVolumeAction(_ context.Context, _ string, action
 }
 
 // AttachVolume attaches a volume to a droplet
-func (s *MockStorageService) AttachVolume(_ context.Context, _ string, dropletID int) (*godo.Response, error) {
+func (s *MockStorageService) AttachVolume(_ context.Context, _ string, _ int) (*godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
@@ -572,7 +572,7 @@ func (s *MockStorageService) AttachVolume(_ context.Context, _ string, dropletID
 }
 
 // DetachVolume detaches a volume from a droplet
-func (s *MockStorageService) DetachVolume(_ context.Context, _ string, dropletID int) (*godo.Response, error) {
+func (s *MockStorageService) DetachVolume(_ context.Context, _ string, _ int) (*godo.Response, error) {
 	if s.std.Volumes.AuthenticationError != nil {
 		return nil, s.std.Volumes.AuthenticationError
 	}
