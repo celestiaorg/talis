@@ -10,12 +10,12 @@
 
 - name: Detect volume device name
   set_fact:
-    available_volumes: "{{ volumes.blockdevices | selectattr('type', 'equalto', 'disk') | 
+    available_volumes: "{{ volumes.blockdevices | selectattr('type', 'equalto', 'disk') |
                           rejectattr('name', 'match', '^loop') |
                           rejectattr('name', 'equalto', 'vda') |
                           rejectattr('ro', 'equalto', 1) |
                           list }}"
-    detected_volume: "{{ (volumes.blockdevices | selectattr('type', 'equalto', 'disk') | 
+    detected_volume: "{{ (volumes.blockdevices | selectattr('type', 'equalto', 'disk') |
                          rejectattr('name', 'match', '^loop') |
                          rejectattr('name', 'equalto', 'vda') |
                          rejectattr('ro', 'equalto', 1) |
@@ -23,7 +23,7 @@
 
 - name: Debug volume information
   debug:
-    msg: 
+    msg:
       - "Available block devices: {{ volumes.blockdevices | map(attribute='name') | list }}"
       - "Filtered available volumes: {{ available_volumes | map(attribute='name') | list }}"
       - "Detected volume device: {{ detected_volume }}"
@@ -58,7 +58,7 @@
 
 - name: Debug filesystem check
   debug:
-    msg: 
+    msg:
       - "Filesystem check output: {{ blkid_output.stdout if blkid_output.stdout is defined else 'not run' }}"
       - "Filesystem check skipped: {{ (volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length == 0) | string }}"
     verbosity: 0
