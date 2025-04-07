@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/test/mocks"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // Provider defines the interface for cloud providers
@@ -29,23 +28,26 @@ type Provider interface {
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
-	Region            string   // Region where to create the instance
-	Size              string   // Size/type of the instance
-	Image             string   // OS image to use
-	SSHKeyID          string   // SSH key name to use
-	Tags              []string // Tags to apply to the instance
-	NumberOfInstances int      // Number of instances to create
-	CustomName        string   // Optional custom name for this specific instance
+	Region            string               // Region where to create the instance
+	Size              string               // Size/type of the instance
+	Image             string               // OS image to use
+	SSHKeyID          string               // SSH key name to use
+	Tags              []string             // Tags to apply to the instance
+	NumberOfInstances int                  // Number of instances to create
+	CustomName        string               // Optional custom name for this specific instance
+	Volumes           []types.VolumeConfig `json:"volumes,omitempty"` // Volumes to attach to the instance
 }
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	ID       string            // Provider-specific instance ID
-	Name     string            // Instance name
-	PublicIP string            // Public IP address
-	Provider models.ProviderID // Provider name (e.g., "digitalocean")
-	Region   string            // Region where instance was created
-	Size     string            // Instance size/type
+	ID            string                // Provider-specific instance ID
+	Name          string                // Instance name
+	PublicIP      string                // Public IP address
+	Provider      models.ProviderID     // Provider name (e.g., "do")
+	Region        string                // Region where instance was created
+	Size          string                // Instance size/type
+	Volumes       []string              `json:"volumes,omitempty"`        // List of attached volume IDs
+	VolumeDetails []types.VolumeDetails `json:"volume_details,omitempty"` // Detailed information about attached volumes
 }
 
 // Provisioner is the interface for system configuration
@@ -61,14 +63,14 @@ func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 	switch provider {
 	case models.ProviderDO:
 		return NewDigitalOceanProvider()
-	case "digitalocean-mock":
-		return mocks.NewMockDOClient(), nil
+	case "do-mock", "digitalocean-mock":
+		return NewMockDOClient(), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}
 }
 
 // NewProvisioner creates a new system provisioner
-func NewProvisioner(jobID string) Provisioner {
+func NewProvisioner(jobID string) types.Provisioner {
 	return NewAnsibleConfigurator(jobID)
 }

@@ -3,7 +3,7 @@
     "project_name": "talis-test-cli-0",
     "instances": [
         {
-            "provider": "digitalocean",
+            "provider": "do",
             "number_of_instances": 1,
             "provision": false,
             "region": "nyc3",
@@ -13,7 +13,7 @@
             "ssh_key_name": "<your-ssh-key-id>"
         },
         {
-            "provider": "digitalocean",
+            "provider": "do",
             "name": "talis-validator",
             "number_of_instances": 1,
             "provision": false,

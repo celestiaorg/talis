@@ -148,7 +148,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				Instances: []InstanceRequest{
 					{
 						Name:              "valid-instance",
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -167,7 +167,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				Instances: []InstanceRequest{
 					{
 						Name:              "instance-1",
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -176,7 +176,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 					},
 					{
 						Name:              "instance-2",
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -195,7 +195,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				InstanceName: "base-instance",
 				Instances: []InstanceRequest{
 					{
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -213,7 +213,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				Instances: []InstanceRequest{
 					{
 						Name:              "valid-instance",
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -232,7 +232,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				Instances: []InstanceRequest{
 					{
 						Name:              "valid-instance",
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -252,7 +252,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				Instances: []InstanceRequest{
 					{
 						Name:              "invalid_hostname$123",
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -271,7 +271,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				ProjectName: "test-project",
 				Instances: []InstanceRequest{
 					{
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -329,7 +329,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name: "valid request",
 			request: &InstanceRequest{
 				Name:              "valid-instance",
-				Provider:          "digitalocean",
+				Provider:          "do",
 				NumberOfInstances: 1,
 				Region:            "nyc1",
 				Size:              "s-1vcpu-1gb",
@@ -355,7 +355,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name: "invalid number of instances",
 			request: &InstanceRequest{
 				Name:              "valid-instance",
-				Provider:          "digitalocean",
+				Provider:          "do",
 				NumberOfInstances: 0,
 				Region:            "nyc1",
 				Size:              "s-1vcpu-1gb",
@@ -369,7 +369,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name: "missing region",
 			request: &InstanceRequest{
 				Name:              "valid-instance",
-				Provider:          "digitalocean",
+				Provider:          "do",
 				NumberOfInstances: 1,
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
@@ -382,7 +382,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name: "missing size",
 			request: &InstanceRequest{
 				Name:              "valid-instance",
-				Provider:          "digitalocean",
+				Provider:          "do",
 				NumberOfInstances: 1,
 				Region:            "nyc1",
 				Image:             "ubuntu-20-04-x64",
@@ -395,7 +395,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name: "missing image",
 			request: &InstanceRequest{
 				Name:              "valid-instance",
-				Provider:          "digitalocean",
+				Provider:          "do",
 				NumberOfInstances: 1,
 				Region:            "nyc1",
 				Size:              "s-1vcpu-1gb",
@@ -408,7 +408,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name: "missing ssh key name",
 			request: &InstanceRequest{
 				Name:              "valid-instance",
-				Provider:          "digitalocean",
+				Provider:          "do",
 				NumberOfInstances: 1,
 				Region:            "nyc1",
 				Size:              "s-1vcpu-1gb",
@@ -447,7 +447,7 @@ func TestDeleteRequest_Validate(t *testing.T) {
 				ProjectName:  "test-project",
 				Instances: []DeleteInstance{
 					{
-						Provider:          "digitalocean",
+						Provider:          "do",
 						Name:              "instance-1",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
@@ -463,7 +463,7 @@ func TestDeleteRequest_Validate(t *testing.T) {
 				ProjectName: "test-project",
 				Instances: []DeleteInstance{
 					{
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -479,7 +479,7 @@ func TestDeleteRequest_Validate(t *testing.T) {
 				InstanceName: "test-instance",
 				Instances: []DeleteInstance{
 					{
-						Provider:          "digitalocean",
+						Provider:          "do",
 						NumberOfInstances: 1,
 						Region:            "nyc1",
 						Size:              "s-1vcpu-1gb",
@@ -541,7 +541,7 @@ func TestDeleteInstance_Validate(t *testing.T) {
 		{
 			name: "valid instance",
 			instance: &DeleteInstance{
-				Provider:          "digitalocean",
+				Provider:          "do",
 				Name:              "instance-1",
 				NumberOfInstances: 1,
 				Region:            "nyc1",
@@ -563,7 +563,7 @@ func TestDeleteInstance_Validate(t *testing.T) {
 		{
 			name: "invalid number of instances",
 			instance: &DeleteInstance{
-				Provider:          "digitalocean",
+				Provider:          "do",
 				Name:              "instance-1",
 				NumberOfInstances: 0,
 				Region:            "nyc1",
@@ -575,7 +575,7 @@ func TestDeleteInstance_Validate(t *testing.T) {
 		{
 			name: "missing region",
 			instance: &DeleteInstance{
-				Provider:          "digitalocean",
+				Provider:          "do",
 				Name:              "instance-1",
 				NumberOfInstances: 1,
 				Size:              "s-1vcpu-1gb",
@@ -586,7 +586,7 @@ func TestDeleteInstance_Validate(t *testing.T) {
 		{
 			name: "missing size",
 			instance: &DeleteInstance{
-				Provider:          "digitalocean",
+				Provider:          "do",
 				Name:              "instance-1",
 				NumberOfInstances: 1,
 				Region:            "nyc1",

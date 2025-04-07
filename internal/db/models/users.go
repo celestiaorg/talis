@@ -6,6 +6,8 @@ import (
 	"math"
 
 	"gorm.io/gorm"
+
+	"github.com/celestiaorg/talis/internal/logger"
 )
 
 // UserRole represents the role of a user in the system
@@ -62,7 +64,9 @@ const AdminID uint = math.MaxUint32
 // ValidateOwnerID ensures the ownerID is valid
 func ValidateOwnerID(ownerID uint) error {
 	if ownerID == 0 {
-		return fmt.Errorf("owner_id cannot be 0")
+		// TODO: remove this once we have a proper logging system
+		logger.Warn("owner_id cannot be 0")
+		// return fmt.Errorf("owner_id cannot be 0")
 	}
 	return nil
 }

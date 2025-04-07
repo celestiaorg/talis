@@ -1,2 +1,7 @@
 ---
+# Default volume configuration
+volume_mount_point: "/mnt/data"
+volume_fstype: "ext4"
+
+# Other variables
 some_var: "some_value"

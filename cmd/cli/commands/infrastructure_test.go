@@ -94,7 +94,7 @@ func TestCreateInfraCmd(t *testing.T) {
       "name": "instance-1",
       "number_of_instances": 1,
       "region": "nyc1",
-      "provider": "digitalocean",
+      "provider": "do",
       "size": "s-1vcpu-1gb",
       "image": "ubuntu-20-04-x64",
       "ssh_key_name": "test-key-1",
@@ -140,7 +140,7 @@ func TestCreateInfraCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new test suite
-			suite := test.NewTestSuite(t)
+			suite := test.NewSuite(t)
 			defer suite.Cleanup()
 
 			// Create test job if needed
@@ -275,7 +275,7 @@ func TestDeleteInfraCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new test suite
-			suite := test.NewTestSuite(t)
+			suite := test.NewSuite(t)
 			defer suite.Cleanup()
 
 			// Create test job if needed

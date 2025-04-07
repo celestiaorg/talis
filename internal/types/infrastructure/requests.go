@@ -1,6 +1,9 @@
 package infrastructure
 
-import "github.com/celestiaorg/talis/internal/db/models"
+import (
+	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types"
+)
 
 // --------------------------------------------------
 // Instance
@@ -19,16 +22,17 @@ type InstancesRequest struct {
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Name              string            `json:"name"`                // Name of the instance
-	OwnerID           uint              `json:"owner_id"`            // Owner ID of the instance
-	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
-	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
-	Provision         bool              `json:"provision"`           // Whether to provision the instance
-	Region            string            `json:"region"`              // Region of the instance
-	Size              string            `json:"size"`                // Size of the instance
-	Image             string            `json:"image"`               // Image of the instance
-	Tags              []string          `json:"tags"`                // Tags of the instance
-	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
+	Provider          models.ProviderID    `json:"provider"`            // Cloud provider (e.g., "do")
+	Region            string               `json:"region"`              // Region where instances will be created
+	Size              string               `json:"size"`                // Instance size/type
+	Image             string               `json:"image"`               // OS image to use
+	SSHKeyName        string               `json:"ssh_key_name"`        // Name of the SSH key to use
+	Tags              []string             `json:"tags"`                // Tags to apply to instances
+	NumberOfInstances int                  `json:"number_of_instances"` // Number of instances to create
+	Name              string               `json:"name"`                // Optional custom name for instances
+	Provision         bool                 `json:"provision"`           // Whether to run Ansible provisioning
+	Volumes           []types.VolumeConfig `json:"volumes"`             // Optional volumes to attach
+	OwnerID           uint                 `json:"owner_id"`            // Owner ID of the instance
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure
@@ -47,23 +51,23 @@ type DeleteInstanceRequest struct {
 
 // DeleteRequest represents a request to delete infrastructure
 type DeleteRequest struct {
-	InstanceName string           `json:"instance_name"` // Base name for instances
-	ProjectName  string           `json:"project_name"`  // Project name of the job
-	WebhookURL   string           `json:"webhook_url"`   // Webhook URL of the job
-	Provider     string           `json:"provider"`      // Provider of the compute service
-	Instances    []DeleteInstance `json:"instances"`     // Instances to delete
+	InstanceName string            `json:"instance_name"` // Base name for instances
+	ProjectName  string            `json:"project_name"`  // Project name of the job
+	WebhookURL   string            `json:"webhook_url"`   // Webhook URL of the job
+	Provider     models.ProviderID `json:"provider"`      // Provider of the compute service
+	Instances    []DeleteInstance  `json:"instances"`     // Instances to delete
 }
 
 // DeleteInstance represents the configuration for deleting an instance
 type DeleteInstance struct {
-	Provider          string   `json:"provider"`            // Provider of the compute service
-	Name              string   `json:"name"`                // Optional specific instance name to delete
-	NumberOfInstances int      `json:"number_of_instances"` // Number of instances to delete
-	Region            string   `json:"region"`              // Region of the instance
-	Size              string   `json:"size"`                // Size of the instance
-	Image             string   `json:"image"`               // Image of the instance
-	Tags              []string `json:"tags"`                // Tags of the instance
-	SSHKeyName        string   `json:"ssh_key_name"`        // SSH key name of the instance
+	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
+	Name              string            `json:"name"`                // Optional specific instance name to delete
+	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to delete
+	Region            string            `json:"region"`              // Region of the instance
+	Size              string            `json:"size"`                // Size of the instance
+	Image             string            `json:"image"`               // Image of the instance
+	Tags              []string          `json:"tags"`                // Tags of the instance
+	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
 }
 
 // InstanceInfo represents information about a created instance

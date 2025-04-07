@@ -1,0 +1,80 @@
+---
+- name: Get volume information
+  command: lsblk -J
+  register: lsblk_output
+  changed_when: false
+
+- name: Parse volume information
+  set_fact:
+    volumes: "{{ lsblk_output.stdout | from_json }}"
+
+- name: Detect volume device name
+  set_fact:
+    available_volumes: "{{ volumes.blockdevices | selectattr('type', 'equalto', 'disk') |
+                          rejectattr('name', 'match', '^loop') |
+                          rejectattr('name', 'equalto', 'vda') |
+                          rejectattr('ro', 'equalto', 1) |
+                          list }}"
+    detected_volume: "{{ (volumes.blockdevices | selectattr('type', 'equalto', 'disk') |
+                         rejectattr('name', 'match', '^loop') |
+                         rejectattr('name', 'equalto', 'vda') |
+                         rejectattr('ro', 'equalto', 1) |
+                         list | first).name }}"
+
+- name: Debug volume information
+  debug:
+    msg:
+      - "Available block devices: {{ volumes.blockdevices | map(attribute='name') | list }}"
+      - "Filtered available volumes: {{ available_volumes | map(attribute='name') | list }}"
+      - "Detected volume device: {{ detected_volume }}"
+    verbosity: 0
+
+- name: Set volume facts
+  set_fact:
+    volume_device: "/dev/{{ detected_volume }}"
+    volume_mount_point: "{{ volume_mount_point | default('/mnt/data') }}"
+    volume_fstype: "{{ volume_fstype | default('ext4') }}"
+
+- name: Debug final volume configuration
+  debug:
+    msg:
+      - "Using volume device: {{ volume_device }}"
+      - "Mount point: {{ volume_mount_point }}"
+      - "Filesystem type: {{ volume_fstype }}"
+    verbosity: 0
+
+- name: Create mount points
+  file:
+    path: "{{ volume_mount_point }}"
+    state: directory
+    mode: '0755'
+
+- name: Check if filesystem exists on volume
+  command: "blkid -s TYPE -o value {{ volume_device }}"
+  register: blkid_output
+  changed_when: false
+  failed_when: false
+  when: volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0
+
+- name: Debug filesystem check
+  debug:
+    msg:
+      - "Filesystem check output: {{ blkid_output.stdout if blkid_output.stdout is defined else 'not run' }}"
+      - "Filesystem check skipped: {{ (volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length == 0) | string }}"
+    verbosity: 0
+
+- name: Format volumes if needed
+  filesystem:
+    fstype: "{{ volume_fstype }}"
+    dev: "{{ volume_device }}"
+  when:
+    - volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0
+    - blkid_output.stdout == ""
+
+- name: Mount volumes
+  mount:
+    path: "{{ volume_mount_point }}"
+    src: "{{ volume_device }}"
+    fstype: "{{ volume_fstype }}"
+    state: mounted
+  when: volumes.blockdevices | selectattr('name', 'equalto', volume_device | basename) | list | length > 0

@@ -33,7 +33,7 @@ var (
 var (
 	DefaultKeyID1        = 67890
 	DefaultKeyID2        = 67891
-	DefaultKeyName1      = "test-key-1"
+	DefaultKeyName1      = "test-key"
 	DefaultKeyName2      = "test-key-2"
 	DefaultKeyPublicKey1 = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC..."
 	DefaultKeyPublicKey2 = "ssh-rsa BBBBB3NzaC1yc2EAAAADAQABAAABAQC..."
@@ -52,6 +52,7 @@ var (
 var (
 	ErrDropletNotFound = fmt.Errorf("DO API: droplet not found")
 	ErrKeyNotFound     = fmt.Errorf("DO API: SSH key not found")
+	ErrVolumeNotFound  = fmt.Errorf("DO API: volume not found")
 	ErrRateLimit       = fmt.Errorf("DO API: rate limit exceeded")
 	ErrAuthentication  = fmt.Errorf("DO API: authentication failed")
 )
@@ -60,6 +61,7 @@ var (
 type StandardResponses struct {
 	Droplets StandardDropletResponses
 	Keys     StandardKeyResponses
+	Volumes  StandardVolumeResponses
 }
 
 // StandardDropletResponses contains all standard mock responses for droplets
@@ -79,8 +81,19 @@ type StandardDropletResponses struct {
 // StandardKeyResponses contains all standard mock responses for keys
 type StandardKeyResponses struct {
 	// Success responses
-	DefaultKey     *godo.Key
 	DefaultKeyList []godo.Key
+
+	// Error responses
+	NotFoundError       error
+	RateLimitError      error
+	AuthenticationError error
+}
+
+// StandardVolumeResponses contains all standard mock responses for volumes
+type StandardVolumeResponses struct {
+	// Success responses
+	DefaultVolume     *godo.Volume
+	DefaultVolumeList []godo.Volume
 
 	// Error responses
 	NotFoundError       error
@@ -147,11 +160,6 @@ func newStandardResponses() *StandardResponses {
 			AuthenticationError: ErrAuthentication,
 		},
 		Keys: StandardKeyResponses{
-			DefaultKey: &godo.Key{
-				ID:        DefaultKeyID1,
-				Name:      DefaultKeyName1,
-				PublicKey: DefaultKeyPublicKey1,
-			},
 			DefaultKeyList: []godo.Key{
 				{
 					ID:        DefaultKeyList[0].ID,
@@ -165,6 +173,37 @@ func newStandardResponses() *StandardResponses {
 				},
 			},
 			NotFoundError:       ErrKeyNotFound,
+			RateLimitError:      ErrRateLimit,
+			AuthenticationError: ErrAuthentication,
+		},
+		Volumes: StandardVolumeResponses{
+			DefaultVolume: &godo.Volume{
+				ID:            "test-volume-id",
+				Name:          "test-volume",
+				SizeGigaBytes: 100,
+				Region: &godo.Region{
+					Slug: DefaultDropletRegion,
+				},
+			},
+			DefaultVolumeList: []godo.Volume{
+				{
+					ID:            "test-volume-id-1",
+					Name:          "test-volume-1",
+					SizeGigaBytes: 100,
+					Region: &godo.Region{
+						Slug: DefaultDropletRegion,
+					},
+				},
+				{
+					ID:            "test-volume-id-2",
+					Name:          "test-volume-2",
+					SizeGigaBytes: 100,
+					Region: &godo.Region{
+						Slug: DefaultDropletRegion,
+					},
+				},
+			},
+			NotFoundError:       ErrVolumeNotFound,
 			RateLimitError:      ErrRateLimit,
 			AuthenticationError: ErrAuthentication,
 		},

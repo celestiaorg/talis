@@ -11,12 +11,12 @@ import (
 
 func TestNewTestSuite(t *testing.T) {
 	// Create environment
-	env := NewTestSuite(t)
+	env := NewSuite(t)
 	defer env.Cleanup()
 
 	// Basic environment checks
-	assert.NotNil(t, env.t, "testing.T should be set")
-	assert.Same(t, t, env.t)
+	assert.NotNil(t, env.T(), "testing.T should be set")
+	assert.Same(t, t, env.T())
 	assert.NotNil(t, env.App, "app should be initialized")
 	assert.NotNil(t, env.Server, "server should be initialized")
 	assert.NotNil(t, env.APIClient, "API client should be initialized")
@@ -31,7 +31,7 @@ func TestNewTestSuite(t *testing.T) {
 
 func TestTestEnvironment_Database(t *testing.T) {
 	t.Run("default in-memory database", func(t *testing.T) {
-		env := NewTestSuite(t)
+		env := NewSuite(t)
 		defer env.Cleanup()
 
 		// Check database components
@@ -91,7 +91,7 @@ func TestTestEnvironment_Database(t *testing.T) {
 
 func TestTestEnvironment_Cleanup(t *testing.T) {
 	t.Run("multiple cleanup calls", func(t *testing.T) {
-		env := NewTestSuite(t)
+		env := NewSuite(t)
 
 		// First cleanup should work
 		env.Cleanup()
@@ -101,7 +101,7 @@ func TestTestEnvironment_Cleanup(t *testing.T) {
 	})
 
 	t.Run("database cleanup", func(t *testing.T) {
-		env := NewTestSuite(t)
+		env := NewSuite(t)
 
 		// Create a test record
 		job := &models.Job{Name: "cleanup-test"}

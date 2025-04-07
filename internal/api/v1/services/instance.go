@@ -12,6 +12,7 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
@@ -103,77 +104,120 @@ func (s *Instance) GetInstance(ctx context.Context, ownerID, id uint) (*models.I
 	return s.repo.Get(ctx, ownerID, id)
 }
 
+// updateInstanceVolumes updates the volumes and volume details for an instance
+func (s *Instance) updateInstanceVolumes(
+	ctx context.Context,
+	instanceName string,
+	volumes []string,
+	volumeDetails []types.VolumeDetails,
+) error {
+	// Get the instance first to get its ownerID
+	instance, err := s.repo.GetByName(ctx, instanceName)
+	if err != nil {
+		return fmt.Errorf("failed to get instance %s: %w", instanceName, err)
+	}
+
+	// Convert volume details to database model
+	var dbVolumeDetails []models.VolumeDetail
+	for _, vd := range volumeDetails {
+		dbVolumeDetails = append(dbVolumeDetails, models.VolumeDetail{
+			ID:         vd.ID,
+			Name:       vd.Name,
+			SizeGB:     vd.SizeGB,
+			MountPoint: vd.MountPoint,
+		})
+	}
+
+	// Create update instance with only the fields we want to update
+	updateInstance := &models.Instance{
+		Volumes:       volumes,
+		VolumeDetails: dbVolumeDetails,
+	}
+
+	// Update instance in database
+	if err := s.repo.UpdateByName(ctx, instance.OwnerID, instanceName, updateInstance); err != nil {
+		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
+	}
+
+	logger.Infof("✅ Updated instance %s with volumes: %v and details: %+v", instanceName, volumes, dbVolumeDetails)
+	return nil
+}
+
 // provisionInstances provisions the job asynchronously
 func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []infrastructure.InstanceRequest) {
-	// TODO: do something with the logs as now it makes the server logs messy
 	go func() {
-		fmt.Println("🚀 Starting async infrastructure creation...")
-
-		// Get the job name from the database
-		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID) // ownerID 0 for now since we're not using it yet
+		// Get job name
+		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID)
 		if err != nil {
-			fmt.Printf("❌ Failed to get job details: %v\n", err)
+			logger.Errorf("❌ Failed to get job details: %v", err)
 			return
 		}
 
-		// Create a JobRequest for provisioning
-		infra, err := infrastructure.NewInfrastructure(&infrastructure.InstancesRequest{
-			JobName:     job.Name,
-			Instances:   instances,
-			ProjectName: "example-project", // TODO: replace it with the actual project name in another PR
-			Action:      "create",
-			Provider:    instances[0].Provider, // Use the provider directly from the instance
-		})
+		// Create infrastructure client
+		infraReq := &infrastructure.InstancesRequest{
+			JobName:   job.Name,
+			Instances: instances,
+			Action:    "create",
+			Provider:  instances[0].Provider,
+		}
+
+		infra, err := infrastructure.NewInfrastructure(infraReq)
 		if err != nil {
-			fmt.Printf("❌ Failed to create infrastructure: %v\n", err)
+			logger.Errorf("❌ Failed to create infrastructure client: %v", err)
 			return
 		}
 
+		// Execute infrastructure creation
 		result, err := infra.Execute()
 		if err != nil {
-			// Check if error is due to resource not found
-			if strings.Contains(err.Error(), "404") &&
-				strings.Contains(err.Error(), "could not be found") {
-				fmt.Printf("⚠️ Warning: Some old resources were not found (already deleted)\n")
-			} else {
-				fmt.Printf("❌ Failed to execute infrastructure: %v\n", err)
-				return
-			}
-		}
-
-		// Update instance information in database
-		pInstances, ok := result.([]infrastructure.InstanceInfo)
-		if !ok {
-			fmt.Printf("❌ Invalid result type: %T\n", result)
+			logger.Errorf("❌ Failed to create infrastructure: %v", err)
 			return
 		}
 
-		fmt.Printf("📝 Created instances: %+v\n", pInstances)
+		// Type assert the result
+		pInstances, ok := result.([]types.InstanceInfo)
+		if !ok {
+			logger.Errorf("❌ Invalid result type: %T", result)
+			return
+		}
 
+		logger.Infof("📝 Created instances: %+v", pInstances)
+
+		// Update instances with IP and status
 		// Update instance information in database
 		ownerID := instances[0].OwnerID
 		for _, instance := range pInstances {
 			// Create update instance with only the fields we want to update
 			updateInstance := &models.Instance{
-				PublicIP: instance.IP,
+				PublicIP: instance.PublicIP,
 				Status:   models.InstanceStatusReady,
 			}
+
+			// Update volumes if present
+			if len(instance.Volumes) > 0 {
+				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
+					logger.Errorf("❌ %v", err)
+					continue
+				}
+			}
+
+			// Update instance with IP and status
 			if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
-				fmt.Printf("❌ Failed to update instance %s: %v\n", instance.Name, err)
+				logger.Errorf("❌ Failed to update instance %s: %v", instance.Name, err)
 				continue
 			}
-			fmt.Printf("✅ Updated instance %s with IP %s and status ready\n", instance.Name, instance.IP)
+			logger.Infof("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
 		}
 
 		// Start Ansible provisioning if requested
 		if instances[0].Provision {
 			if err := infra.RunProvisioning(pInstances); err != nil {
-				fmt.Printf("❌ Failed to run provisioning: %v\n", err)
+				logger.Errorf("❌ Failed to run provisioning: %v", err)
 				return
 			}
 		}
 
-		fmt.Printf("✅ Infrastructure creation completed for job ID %d\n", jobID)
+		logger.Infof("✅ Infrastructure creation completed for job ID %d", jobID)
 	}()
 }
 
@@ -184,11 +228,11 @@ func (s *Instance) GetInstancesByJobID(ctx context.Context, ownerID uint, jobID 
 	// Get instances for the specific job
 	instances, err := s.repo.GetByJobID(ctx, ownerID, jobID)
 	if err != nil {
-		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
+		logger.Errorf("❌ Error getting instances for job %d: %v", jobID, err)
 		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
 	}
 
-	fmt.Printf("✅ Retrieved %d instances for job %d from database\n", len(instances), jobID)
+	logger.Infof("✅ Retrieved %d instances for job %d from database", len(instances), jobID)
 	return instances, nil
 }
 
@@ -249,13 +293,16 @@ type deletionResults struct {
 func (s *Instance) terminate(ctx context.Context, jobName string, instances []models.Instance) {
 	go func() {
 		if len(instances) == 0 {
-			fmt.Printf("❌ No instances provided to terminate\n")
+			logger.Error("❌ No instances found to terminate")
 			return
 		}
 
 		// Create queue of delete requests
 		queue := make([]*deleteRequest, 0, len(instances))
 		for _, instance := range instances {
+			logger.Infof("🗑️ Attempting to delete instance: %s", instance.Name)
+
+			// Create a new infrastructure request for each instance
 			infraReq := &infrastructure.InstancesRequest{
 				JobName: jobName,
 				Instances: []infrastructure.InstanceRequest{
@@ -268,6 +315,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 				},
 				Action: "delete",
 			}
+
 			// TODO: a hacky fix, but has to be addressed properly in another PR
 			if infraReq.Provider == "" {
 				infraReq.Provider = infraReq.Instances[0].Provider
@@ -353,7 +401,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			}
 		}
 
-		// Update deletion result for API response
+		// Create deletion result for API response
 		deletionResult := map[string]interface{}{
 			"status":    "completed",
 			"deleted":   results.successful,

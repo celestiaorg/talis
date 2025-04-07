@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"sync"
+
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // RunProvisioning applies Ansible configuration to all instances
-func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
+func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 	// Check if any instance requires provisioning
 	needsProvisioning := false
 	for _, inst := range i.instances {
@@ -27,7 +29,7 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 	// Create inventory file for all instances
 	instanceMap := make(map[string]string)
 	for _, instance := range instances {
-		instanceMap[instance.Name] = instance.IP
+		instanceMap[instance.Name] = instance.PublicIP
 	}
 
 	// Create inventory file with the user's SSH key
@@ -42,7 +44,7 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 
 	for _, instance := range instances {
 		wg.Add(1)
-		go func(inst InstanceInfo) {
+		go func(inst types.InstanceInfo) {
 			defer wg.Done()
 			if err := i.provisionInstance(inst); err != nil {
 				errChan <- fmt.Errorf("failed to provision %s: %w", inst.Name, err)
@@ -70,12 +72,12 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 }
 
 // provisionInstance configures a single instance with Ansible
-func (i *Infrastructure) provisionInstance(instance InstanceInfo) error {
-	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.IP)
+func (i *Infrastructure) provisionInstance(instance types.InstanceInfo) error {
+	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.PublicIP)
 
 	// Use the user's SSH key path
 	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
-	if err := i.provisioner.ConfigureHost(instance.IP, sshKeyPath); err != nil {
+	if err := i.provisioner.ConfigureHost(instance.PublicIP, sshKeyPath); err != nil {
 		return fmt.Errorf("failed to configure host: %w", err)
 	}
 
