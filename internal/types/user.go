@@ -1,6 +1,11 @@
 package types
 
-import "github.com/celestiaorg/talis/internal/db/models"
+import (
+	"fmt"
+	"net/mail"
+
+	"github.com/celestiaorg/talis/internal/db/models"
+)
 
 // CreateUserRequest represents a request to create a new user
 type CreateUserRequest struct {
@@ -25,4 +30,18 @@ type UserResponse struct {
 
 	// Pagination info included only when returning multiple users
 	Pagination PaginationResponse `json:"pagination,omitempty"`
+}
+
+// Validate validates the create user request
+func (u CreateUserRequest) Validate() error {
+	if u.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if u.Email != "" {
+		if _, err := mail.ParseAddress(u.Email); err != nil {
+			return fmt.Errorf("invalid email format")
+		}
+
+	}
+	return nil
 }

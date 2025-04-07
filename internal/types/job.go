@@ -1,6 +1,10 @@
 package types
 
-import "github.com/celestiaorg/talis/internal/db/models"
+import (
+	"fmt"
+
+	"github.com/celestiaorg/talis/internal/db/models"
+)
 
 // JobRequest represents the infrastructure request
 type JobRequest struct {
@@ -27,4 +31,12 @@ type JobInstancesResponse struct {
 	Instances []models.Instance `json:"instances"` // List of instances for the job
 	Total     int               `json:"total"`     // Total number of instances
 	JobID     uint              `json:"job_id"`    // ID of the job
+}
+
+// Validate validates the infrastructure request
+func (r *JobRequest) Validate() error {
+	if r.Name == "" {
+		return fmt.Errorf("job_name is required")
+	}
+	return nil
 }
