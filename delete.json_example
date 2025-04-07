@@ -4,13 +4,13 @@
     "project_name": "<project-name-ref>",
     "instances": [
         {
-            "provider": "digitalocean",
+            "provider": "do",
             "number_of_instances": 1,
             "region": "nyc3",
             "size": "s-1vcpu-1gb"
         },
         {
-            "provider": "digitalocean",
+            "provider": "do",
             "name": "talis-validator",
             "region": "nyc3",
             "size": "s-2vcpu-2gb"

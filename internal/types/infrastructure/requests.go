@@ -22,7 +22,7 @@ type InstancesRequest struct {
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Provider          models.ProviderID    `json:"provider"`            // Cloud provider (e.g., "digitalocean")
+	Provider          models.ProviderID    `json:"provider"`            // Cloud provider (e.g., "do")
 	Region            string               `json:"region"`              // Region where instances will be created
 	Size              string               `json:"size"`                // Instance size/type
 	Image             string               `json:"image"`               // OS image to use

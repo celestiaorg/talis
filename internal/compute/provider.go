@@ -43,7 +43,7 @@ type InstanceInfo struct {
 	ID            string                // Provider-specific instance ID
 	Name          string                // Instance name
 	PublicIP      string                // Public IP address
-	Provider      models.ProviderID     // Provider name (e.g., "digitalocean")
+	Provider      models.ProviderID     // Provider name (e.g., "do")
 	Region        string                // Region where instance was created
 	Size          string                // Instance size/type
 	Volumes       []string              `json:"volumes,omitempty"`        // List of attached volume IDs

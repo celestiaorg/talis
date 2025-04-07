@@ -18,7 +18,7 @@ type InstanceInfo struct {
 	OwnerID  uint   // Owner ID of the instance
 	Name     string // Instance name
 	PublicIP string // Public IP address
-	Provider string // Provider name (e.g., "digitalocean")
+	Provider string // Provider name (e.g., "do")
 	Region   string // Region where instance was created
 	Size     string // Instance size/type
 }

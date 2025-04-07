@@ -94,7 +94,7 @@ func TestCreateInfraCmd(t *testing.T) {
       "name": "instance-1",
       "number_of_instances": 1,
       "region": "nyc1",
-      "provider": "digitalocean",
+      "provider": "do",
       "size": "s-1vcpu-1gb",
       "image": "ubuntu-20-04-x64",
       "ssh_key_name": "test-key-1",
