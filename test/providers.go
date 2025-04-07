@@ -1,7 +1,7 @@
 package test
 
 import (
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 
@@ -11,7 +11,7 @@ func SetupMockDOClient(suite *Suite) {
 }
 
 // NewTestProvider creates a new test provider instance
-func NewTestProvider() types.ComputeProvider {
+func NewTestProvider() compute.Provider {
 	return mocks.NewMockDOClient()
 }
 
