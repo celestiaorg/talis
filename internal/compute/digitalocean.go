@@ -519,10 +519,12 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 			logger.Errorf("❌ Failed to create/attach volumes for droplet %s: %v", droplet.Name, err)
 			return types.InstanceInfo{}, fmt.Errorf("failed to create/attach volumes for droplet %s: %w", droplet.Name, err)
 		}
+		logger.Infof("📦 Setting volumes: %v and details: %+v", volumeIDs, volumeDetails)
 		instance.Volumes = volumeIDs
 		instance.VolumeDetails = volumeDetails
 	}
 
+	logger.Infof("📝 Created instance: %+v", instance)
 	return instance, nil
 }
 
@@ -607,11 +609,11 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 	config types.InstanceConfig,
 ) ([]string, []types.VolumeDetails, error) {
 	var volumeIDs []string
-	var volumeDetailsList []types.VolumeDetails
+	var volumeDetails []types.VolumeDetails
 
 	// If no volumes specified, return empty list
 	if len(config.Volumes) == 0 {
-		return volumeIDs, volumeDetailsList, nil
+		return volumeIDs, volumeDetails, nil
 	}
 
 	logger.Infof("📦 Creating and attaching volumes for droplet %d", dropletID)
@@ -642,15 +644,16 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		}
 		logger.Infof("✅ Volume created successfully: %s (ID: %s)", volumeName, volume.ID)
 
-		// Store volume details in the DB
-		volumeDetails := types.VolumeDetails{
+		// Store volume details
+		volumeDetail := types.VolumeDetails{
 			ID:         volume.ID,
 			Name:       volume.Name,
 			Region:     volume.Region.Slug,
 			SizeGB:     vol.SizeGB,
 			MountPoint: vol.MountPoint,
 		}
-		volumeDetailsList = append(volumeDetailsList, volumeDetails)
+		volumeDetails = append(volumeDetails, volumeDetail)
+		volumeIDs = append(volumeIDs, volume.ID)
 
 		// Wait for volume to be ready
 		logger.Infof("⏳ Waiting for volume to be ready...")
@@ -683,11 +686,11 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		logger.Infof("⏳ Waiting for volume to be attached...")
 		time.Sleep(10 * time.Second)
 
-		volumeIDs = append(volumeIDs, volume.ID)
 		logger.Infof("✅ Successfully created and attached volume %s (%s)", vol.Name, volume.ID)
 	}
 
-	return volumeIDs, volumeDetailsList, nil
+	logger.Infof("📦 Returning volumes: %v and details: %+v", volumeIDs, volumeDetails)
+	return volumeIDs, volumeDetails, nil
 }
 
 // generateRandomSuffix generates a random 6-character string

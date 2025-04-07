@@ -105,7 +105,7 @@ func TestListJobsCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new test suite
-			suite := test.NewTestSuite(t)
+			suite := test.NewSuite(t)
 			defer suite.Cleanup()
 
 			// Set up mock response in the database
@@ -196,7 +196,7 @@ func TestGetJobCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new test suite
-			suite := test.NewTestSuite(t)
+			suite := test.NewSuite(t)
 			defer suite.Cleanup()
 
 			// Set up mock response in the database

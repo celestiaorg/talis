@@ -39,15 +39,15 @@ func RunMigrations(db *gorm.DB) error {
 // If nil is provided, a new in-memory database will be created.
 func SetupTestDB(suite *Suite, database *gorm.DB) {
 	if database != nil {
-		suite.db = database
+		suite.DB = database
 	} else {
 		// Create new in-memory database
 		dbConn, err := NewInMemoryDB()
 		suite.Require().NoError(err, "Failed to create in-memory database")
-		suite.db = dbConn
+		suite.DB = dbConn
 
 		// Run migrations
-		err = RunMigrations(suite.db)
+		err = RunMigrations(suite.DB)
 		suite.Require().NoError(err, "Failed to run database migrations")
 	}
 
@@ -63,7 +63,7 @@ func SetupTestDB(suite *Suite, database *gorm.DB) {
 			oldCleanup()
 		}
 		// Close database connection
-		sqlDB, err := suite.db.DB()
+		sqlDB, err := suite.DB.DB()
 		if err == nil && sqlDB != nil {
 			_ = sqlDB.Close()
 		}

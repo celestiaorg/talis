@@ -56,13 +56,28 @@ type Suite struct {
 	cleanup func()
 }
 
+// SetS sets the suite instance for this suite
+func (s *Suite) SetS(testingSuite suite.TestingSuite) {
+	// This method is required by suite.TestingSuite but we don't need to do anything here
+}
+
+// SetT sets the testing.T instance for this suite
+func (s *Suite) SetT(t *testing.T) {
+	s.t = t
+}
+
+// T returns the testing.T instance for this suite
+func (s *Suite) T() *testing.T {
+	return s.t
+}
+
 // SetupSuite sets up the test suite
 func (s *Suite) SetupSuite() {
 	// Create a temporary database file
 	dbFile := filepath.Join(os.TempDir(), "test.db")
 	db, err := gorm.Open(sqlite.Open(dbFile), &gorm.Config{})
 	if err != nil {
-		s.T().Fatalf("failed to connect database: %v", err)
+		s.t.Fatalf("failed to connect database: %v", err)
 	}
 
 	s.DB = db

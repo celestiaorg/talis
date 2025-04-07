@@ -140,7 +140,7 @@ func TestCreateInfraCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new test suite
-			suite := test.NewTestSuite(t)
+			suite := test.NewSuite(t)
 			defer suite.Cleanup()
 
 			// Create test job if needed
@@ -275,7 +275,7 @@ func TestDeleteInfraCmd(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new test suite
-			suite := test.NewTestSuite(t)
+			suite := test.NewSuite(t)
 			defer suite.Cleanup()
 
 			// Create test job if needed

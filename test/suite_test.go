@@ -11,7 +11,7 @@ import (
 
 func TestNewTestSuite(t *testing.T) {
 	// Create environment
-	env := NewTestSuite(t)
+	env := NewSuite(t)
 	defer env.Cleanup()
 
 	// Basic environment checks
@@ -20,9 +20,9 @@ func TestNewTestSuite(t *testing.T) {
 	assert.NotNil(t, env.App, "app should be initialized")
 	assert.NotNil(t, env.Server, "server should be initialized")
 	assert.NotNil(t, env.APIClient, "API client should be initialized")
-	assert.NotNil(t, env.db, "database should be initialized")
-	assert.NotNil(t, env.jobRepo, "job repository should be initialized")
-	assert.NotNil(t, env.instanceRepo, "instance repository should be initialized")
+	assert.NotNil(t, env.DB, "database should be initialized")
+	assert.NotNil(t, env.JobRepo, "job repository should be initialized")
+	assert.NotNil(t, env.InstanceRepo, "instance repository should be initialized")
 	assert.NotNil(t, env.MockDOClient, "mock DO client should be initialized")
 	assert.NotNil(t, env.ctx, "context should be set")
 	assert.NotNil(t, env.cancelFunc, "cancel function should be set")
@@ -31,13 +31,13 @@ func TestNewTestSuite(t *testing.T) {
 
 func TestTestEnvironment_Database(t *testing.T) {
 	t.Run("default in-memory database", func(t *testing.T) {
-		env := NewTestSuite(t)
+		env := NewSuite(t)
 		defer env.Cleanup()
 
 		// Check database components
-		require.NotNil(t, env.db, "database should be initialized")
-		require.NotNil(t, env.jobRepo, "job repository should be initialized")
-		require.NotNil(t, env.instanceRepo, "instance repository should be initialized")
+		require.NotNil(t, env.DB, "database should be initialized")
+		require.NotNil(t, env.JobRepo, "job repository should be initialized")
+		require.NotNil(t, env.InstanceRepo, "instance repository should be initialized")
 
 		// Verify database is working
 		job := &models.Job{
@@ -45,12 +45,12 @@ func TestTestEnvironment_Database(t *testing.T) {
 			ProjectName: "test-project",
 			OwnerID:     1, // Set owner ID for the test
 		}
-		result := env.db.Create(job)
+		result := env.DB.Create(job)
 		assert.NoError(t, result.Error, "should create job without error")
 		assert.NotZero(t, job.ID, "job should have an ID")
 
 		// Verify job repository is working
-		savedJob, err := env.jobRepo.GetByID(env.ctx, job.OwnerID, job.ID)
+		savedJob, err := env.JobRepo.GetByID(env.ctx, job.OwnerID, job.ID)
 		assert.NoError(t, err, "should get job without error")
 		assert.Equal(t, job.Name, savedJob.Name, "job names should match")
 
@@ -61,7 +61,7 @@ func TestTestEnvironment_Database(t *testing.T) {
 			OwnerID: job.OwnerID,
 			Status:  models.InstanceStatusPending,
 		}
-		result = env.db.Create(instance)
+		result = env.DB.Create(instance)
 		assert.NoError(t, result.Error, "should create instance without error")
 		assert.NotZero(t, instance.ID, "instance should have an ID")
 
@@ -91,7 +91,7 @@ func TestTestEnvironment_Database(t *testing.T) {
 
 func TestTestEnvironment_Cleanup(t *testing.T) {
 	t.Run("multiple cleanup calls", func(t *testing.T) {
-		env := NewTestSuite(t)
+		env := NewSuite(t)
 
 		// First cleanup should work
 		env.Cleanup()
@@ -101,14 +101,14 @@ func TestTestEnvironment_Cleanup(t *testing.T) {
 	})
 
 	t.Run("database cleanup", func(t *testing.T) {
-		env := NewTestSuite(t)
+		env := NewSuite(t)
 
 		// Create a test record
 		job := &models.Job{Name: "cleanup-test"}
-		env.db.Create(job)
+		env.DB.Create(job)
 
 		// Get the underlying sql.DB
-		sqlDB, err := env.db.DB()
+		sqlDB, err := env.DB.DB()
 		require.NoError(t, err)
 
 		// Cleanup should close the connection

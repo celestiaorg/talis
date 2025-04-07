@@ -65,7 +65,7 @@ var defaultUser2 = infrastructure.CreateUserRequest{
 //
 // TODO: once ownerID is implemented, we should test the admin methods with a specific ownerID and that it can see instances and jobs across different ownerIDs.
 func TestClientAdminMethods(t *testing.T) {
-	suite := test.NewTestSuite(t)
+	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
 	// Create a job
@@ -109,7 +109,7 @@ func TestClientAdminMethods(t *testing.T) {
 }
 
 func TestClientHealthCheck(t *testing.T) {
-	suite := test.NewTestSuite(t)
+	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
 	// Get the health check
@@ -119,7 +119,7 @@ func TestClientHealthCheck(t *testing.T) {
 }
 
 func TestClientInstanceMethods(t *testing.T) {
-	suite := test.NewTestSuite(t)
+	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
 	// List instances and verify there are none (using include_deleted to ensure we see all instances)
@@ -219,7 +219,7 @@ func TestClientInstanceMethods(t *testing.T) {
 }
 
 func TestClientJobMethods(t *testing.T) {
-	suite := test.NewTestSuite(t)
+	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
 	// Get jobs to verify there are none
@@ -317,7 +317,7 @@ func TestClientJobMethods(t *testing.T) {
 }
 
 func TestClientUserMethods(t *testing.T) {
-	suite := test.NewTestSuite(t)
+	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
 	/////////////////////
