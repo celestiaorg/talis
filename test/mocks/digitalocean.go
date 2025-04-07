@@ -4,6 +4,7 @@ package mocks
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/digitalocean/godo"
 
@@ -15,8 +16,10 @@ import (
 
 // MockDOClient implements types.DOClient for testing
 type MockDOClient struct {
+	droplets           []talisTypes.InstanceInfo
 	MockDropletService *MockDropletService
 	MockKeyService     *MockKeyService
+	MockStorageService *MockStorageService
 	StandardResponses  *StandardResponses
 }
 
@@ -46,7 +49,9 @@ func (c *MockDOClient) DeleteInstance(ctx context.Context, _ string, _ string) e
 
 // GetEnvironmentVars is a no-op to satisfy the ComputeProvider interface
 func (c *MockDOClient) GetEnvironmentVars() map[string]string {
-	return nil
+	return map[string]string{
+		"DIGITALOCEAN_TOKEN": os.Getenv("DIGITALOCEAN_TOKEN"),
+	}
 }
 
 // ValidateCredentials is a no-op to satisfy the ComputeProvider interface
@@ -76,14 +81,14 @@ func createDropletRequest(
 
 // NewMockDOClient creates a new MockDOClient with standard responses
 func NewMockDOClient() *MockDOClient {
-	std := newStandardResponses()
-
 	client := &MockDOClient{
-		StandardResponses: std,
+		droplets:          make([]talisTypes.InstanceInfo, 0),
+		StandardResponses: newStandardResponses(),
 	}
 
-	client.MockDropletService = NewMockDropletService(std)
-	client.MockKeyService = NewMockKeyService(std)
+	client.MockDropletService = NewMockDropletService(client.StandardResponses)
+	client.MockKeyService = NewMockKeyService(client.StandardResponses)
+	client.MockStorageService = NewMockStorageService(client.StandardResponses)
 
 	return client
 }
@@ -92,6 +97,7 @@ func NewMockDOClient() *MockDOClient {
 func (c *MockDOClient) ResetToStandard() {
 	c.MockDropletService.ResetToStandard()
 	c.MockKeyService.ResetToStandard()
+	c.MockStorageService.ResetToStandard()
 }
 
 // Droplets returns the mock droplet service
@@ -104,22 +110,30 @@ func (c *MockDOClient) Keys() computeTypes.KeyService {
 	return c.MockKeyService
 }
 
+// Storage returns the mock storage service
+func (c *MockDOClient) Storage() computeTypes.StorageService {
+	return c.MockStorageService
+}
+
 // SimulateAuthenticationFailure configures all services to return authentication errors
 func (c *MockDOClient) SimulateAuthenticationFailure() {
 	c.MockDropletService.SimulateAuthenticationFailure()
 	c.MockKeyService.SimulateAuthenticationFailure()
+	c.MockStorageService.SimulateAuthenticationFailure()
 }
 
 // SimulateNotFound configures all services to return not found errors
 func (c *MockDOClient) SimulateNotFound() {
 	c.MockDropletService.SimulateNotFound()
 	c.MockKeyService.SimulateNotFound()
+	c.MockStorageService.SimulateNotFound()
 }
 
 // SimulateRateLimit configures all services to return rate limit errors
 func (c *MockDOClient) SimulateRateLimit() {
 	c.MockDropletService.SimulateRateLimit()
 	c.MockKeyService.SimulateRateLimit()
+	c.MockStorageService.SimulateRateLimit()
 }
 
 // MockDropletService implements types.DropletService for testing
@@ -365,4 +379,216 @@ func (s *MockKeyService) SimulateAuthenticationFailure() {
 	s.ListFunc = func(_ context.Context, _ *godo.ListOptions) ([]godo.Key, *godo.Response, error) {
 		return nil, nil, s.std.Keys.AuthenticationError
 	}
+}
+
+// MockStorageService implements types.StorageService for testing
+type MockStorageService struct {
+	std                 *StandardResponses
+	CreateVolumeFunc    func(_ context.Context, _ *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error)
+	DeleteVolumeFunc    func(_ context.Context, _ string) (*godo.Response, error)
+	ListVolumesFunc     func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error)
+	GetVolumeFunc       func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error)
+	GetVolumeActionFunc func(_ context.Context, _ string, _ int) (*godo.Action, *godo.Response, error)
+	AttachVolumeFunc    func(_ context.Context, _ string, _ int) (*godo.Response, error)
+	DetachVolumeFunc    func(_ context.Context, _ string, _ int) (*godo.Response, error)
+	attemptCount        int // Track number of attempts for retry simulations
+}
+
+// setupStandardStorageResponses configures the standard success responses for storage service
+func setupStandardStorageResponses(s *MockStorageService) {
+	s.CreateVolumeFunc = func(_ context.Context, _ *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
+		return s.std.Volumes.DefaultVolume, nil, nil
+	}
+	s.DeleteVolumeFunc = func(_ context.Context, _ string) (*godo.Response, error) {
+		return nil, nil
+	}
+	s.ListVolumesFunc = func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+		return s.std.Volumes.DefaultVolumeList, nil, nil
+	}
+	s.GetVolumeFunc = func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
+		return s.std.Volumes.DefaultVolume, nil, nil
+	}
+	s.GetVolumeActionFunc = func(_ context.Context, _ string, _ int) (*godo.Action, *godo.Response, error) {
+		return nil, nil, nil
+	}
+	s.AttachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, nil
+	}
+	s.DetachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, nil
+	}
+}
+
+// NewMockStorageService creates a new MockStorageService with standard responses
+func NewMockStorageService(std *StandardResponses) *MockStorageService {
+	s := &MockStorageService{std: std}
+	setupStandardStorageResponses(s)
+	return s
+}
+
+// ResetToStandard resets the storage service back to standard success responses
+func (s *MockStorageService) ResetToStandard() {
+	setupStandardStorageResponses(s)
+}
+
+// CreateVolume calls the mocked CreateVolume function
+func (s *MockStorageService) CreateVolume(ctx context.Context, req *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
+	return s.CreateVolumeFunc(ctx, req)
+}
+
+// DeleteVolume calls the mocked DeleteVolume function
+func (s *MockStorageService) DeleteVolume(ctx context.Context, id string) (*godo.Response, error) {
+	return s.DeleteVolumeFunc(ctx, id)
+}
+
+// ListVolumes calls the mocked ListVolumes function
+func (s *MockStorageService) ListVolumes(ctx context.Context, opt *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+	return s.ListVolumesFunc(ctx, opt)
+}
+
+// GetVolume calls the mocked GetVolume function
+func (s *MockStorageService) GetVolume(ctx context.Context, id string) (*godo.Volume, *godo.Response, error) {
+	return s.GetVolumeFunc(ctx, id)
+}
+
+// GetVolumeAction calls the mocked GetVolumeAction function
+func (s *MockStorageService) GetVolumeAction(ctx context.Context, id string, actionID int) (*godo.Action, *godo.Response, error) {
+	return s.GetVolumeActionFunc(ctx, id, actionID)
+}
+
+// AttachVolume calls the mocked AttachVolume function
+func (s *MockStorageService) AttachVolume(ctx context.Context, id string, dropletID int) (*godo.Response, error) {
+	return s.AttachVolumeFunc(ctx, id, dropletID)
+}
+
+// DetachVolume calls the mocked DetachVolume function
+func (s *MockStorageService) DetachVolume(ctx context.Context, id string, dropletID int) (*godo.Response, error) {
+	return s.DetachVolumeFunc(ctx, id, dropletID)
+}
+
+// SimulateNotFound configures the service to return not found errors
+func (s *MockStorageService) SimulateNotFound() {
+	s.ListVolumesFunc = func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.NotFoundError
+	}
+	s.GetVolumeFunc = func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.NotFoundError
+	}
+	s.GetVolumeActionFunc = func(_ context.Context, _ string, _ int) (*godo.Action, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.NotFoundError
+	}
+	s.AttachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, s.std.Volumes.NotFoundError
+	}
+	s.DetachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, s.std.Volumes.NotFoundError
+	}
+}
+
+// SimulateRateLimit configures the service to return rate limit errors
+func (s *MockStorageService) SimulateRateLimit() {
+	s.ListVolumesFunc = func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.RateLimitError
+	}
+	s.CreateVolumeFunc = func(_ context.Context, _ *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.RateLimitError
+	}
+	s.DeleteVolumeFunc = func(_ context.Context, _ string) (*godo.Response, error) {
+		return nil, s.std.Volumes.RateLimitError
+	}
+	s.GetVolumeFunc = func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.RateLimitError
+	}
+	s.GetVolumeActionFunc = func(_ context.Context, _ string, _ int) (*godo.Action, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.RateLimitError
+	}
+	s.AttachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, s.std.Volumes.RateLimitError
+	}
+	s.DetachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, s.std.Volumes.RateLimitError
+	}
+}
+
+// SimulateAuthenticationFailure configures the service to return authentication errors
+func (s *MockStorageService) SimulateAuthenticationFailure() {
+	s.ListVolumesFunc = func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.AuthenticationError
+	}
+	s.CreateVolumeFunc = func(_ context.Context, _ *godo.VolumeCreateRequest) (*godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.AuthenticationError
+	}
+	s.DeleteVolumeFunc = func(_ context.Context, _ string) (*godo.Response, error) {
+		return nil, s.std.Volumes.AuthenticationError
+	}
+	s.GetVolumeFunc = func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.AuthenticationError
+	}
+	s.GetVolumeActionFunc = func(_ context.Context, _ string, _ int) (*godo.Action, *godo.Response, error) {
+		return nil, nil, s.std.Volumes.AuthenticationError
+	}
+	s.AttachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, s.std.Volumes.AuthenticationError
+	}
+	s.DetachVolumeFunc = func(_ context.Context, _ string, _ int) (*godo.Response, error) {
+		return nil, s.std.Volumes.AuthenticationError
+	}
+}
+
+// SimulateDelayedSuccess configures the service to succeed after a specific number of attempts
+func (s *MockStorageService) SimulateDelayedSuccess(successAfterAttempts int) {
+	s.attemptCount = 0
+
+	// For waitForIP testing
+	s.GetVolumeFunc = func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
+		s.attemptCount++
+		if s.attemptCount >= successAfterAttempts {
+			return s.std.Volumes.DefaultVolume, nil, nil
+		}
+		// Return a volume with no ID before success
+		volume := *s.std.Volumes.DefaultVolume
+		volume.ID = ""
+		return &volume, nil, nil
+	}
+
+	// For waitForDeletion testing
+	s.ListVolumesFunc = func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+		s.attemptCount++
+		if s.attemptCount >= successAfterAttempts {
+			// Return empty list to simulate deletion
+			return []godo.Volume{}, nil, nil
+		}
+		// Return list with the volume still present
+		return s.std.Volumes.DefaultVolumeList, nil, nil
+	}
+}
+
+// SimulateMaxRetries configures the service to always fail until max retries are hit
+func (s *MockStorageService) SimulateMaxRetries() {
+	s.attemptCount = 0
+
+	// For waitForIP testing
+	s.GetVolumeFunc = func(_ context.Context, _ string) (*godo.Volume, *godo.Response, error) {
+		s.attemptCount++
+		volume := *s.std.Volumes.DefaultVolume
+		volume.ID = ""
+		return &volume, nil, nil
+	}
+
+	// For waitForDeletion testing
+	s.ListVolumesFunc = func(_ context.Context, _ *godo.ListVolumeParams) ([]godo.Volume, *godo.Response, error) {
+		s.attemptCount++
+		// Always return list with the volume present
+		return s.std.Volumes.DefaultVolumeList, nil, nil
+	}
+}
+
+// GetAttemptCount returns the current attempt count
+func (s *MockStorageService) GetAttemptCount() int {
+	return s.attemptCount
+}
+
+// ResetAttemptCount resets the attempt counter
+func (s *MockStorageService) ResetAttemptCount() {
+	s.attemptCount = 0
 }

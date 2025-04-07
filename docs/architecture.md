@@ -57,6 +57,15 @@ The API is designed from an RPC model in mind, following these principles:
    - Tasks are created and tracked in the database
    - Clients can poll for task status and completion
 
+### Import Flow / Types
+
+Users should import data types for the API defined in the API package.
+The API package should import the data types from the internal package.
+
+The only types defined in the API package should be the request and response types.
+
+Following this flow should allow `internal` to primarily use the DB models for types to reduce the amount of type definitions.
+
 ## Data Flow
 
 ### Request Processing
