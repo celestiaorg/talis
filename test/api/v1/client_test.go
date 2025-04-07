@@ -8,27 +8,27 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/test"
 )
 
-var defaultJobRequest = infrastructure.JobRequest{
+var defaultJobRequest = types.JobRequest{
 	Name:    "test-job",
 	OwnerID: models.AdminID,
 }
 
-var defaultInstancesRequest = infrastructure.InstancesRequest{
+var defaultInstancesRequest = types.InstancesRequest{
 	JobName:      "test-job",
 	ProjectName:  "test-project",
 	InstanceName: "test-instance",
-	Instances: []infrastructure.InstanceRequest{
+	Instances: []types.InstanceRequest{
 		defaultInstanceRequest1,
 		defaultInstanceRequest2,
 	},
 }
 
-var defaultInstanceRequest1 = infrastructure.InstanceRequest{
+var defaultInstanceRequest1 = types.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
 	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
@@ -39,7 +39,7 @@ var defaultInstanceRequest1 = infrastructure.InstanceRequest{
 	Image:             "ubuntu-20-04-x64",
 }
 
-var defaultInstanceRequest2 = infrastructure.InstanceRequest{
+var defaultInstanceRequest2 = types.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
 	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
@@ -50,12 +50,12 @@ var defaultInstanceRequest2 = infrastructure.InstanceRequest{
 	Image:             "ubuntu-20-04-x64",
 }
 
-var defaultUser1 = infrastructure.CreateUserRequest{
+var defaultUser1 = types.CreateUserRequest{
 	Username: "user1",
 	Email:    "user1@example.com",
 	Role:     1,
 }
-var defaultUser2 = infrastructure.CreateUserRequest{
+var defaultUser2 = types.CreateUserRequest{
 	Username: "user12",
 }
 
@@ -176,7 +176,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
 
 	// Delete both instances
-	deleteRequest := infrastructure.DeleteInstanceRequest{
+	deleteRequest := types.DeleteInstanceRequest{
 		JobName:       jobRequest.Name,
 		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
@@ -353,7 +353,7 @@ func TestClientUserMethods(t *testing.T) {
 
 	t.Run("GetUserByID_Success", func(t *testing.T) {
 		// Create a user first
-		newUser, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+		newUser, err := suite.APIClient.CreateUser(suite.Context(), types.CreateUserRequest{
 			Username:     "testuser_getbyid",
 			Email:        "getbyid@example.com",
 			Role:         1,
@@ -373,7 +373,7 @@ func TestClientUserMethods(t *testing.T) {
 	t.Run("GetUserByUsername_Success", func(t *testing.T) {
 		// Create a user first
 		uniqueUsername := "unique_username_test"
-		_, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+		_, err := suite.APIClient.CreateUser(suite.Context(), types.CreateUserRequest{
 			Username:     uniqueUsername,
 			Email:        "unique@example.com",
 			Role:         1,
@@ -404,7 +404,7 @@ func TestClientUserMethods(t *testing.T) {
 
 	t.Run("DeleteUser_Success", func(t *testing.T) {
 		deletedUsername := "deleted_username_test"
-		user, err := suite.APIClient.CreateUser(suite.Context(), infrastructure.CreateUserRequest{
+		user, err := suite.APIClient.CreateUser(suite.Context(), types.CreateUserRequest{
 			Username:     deletedUsername,
 			Email:        "deleted@example.com",
 			Role:         1,

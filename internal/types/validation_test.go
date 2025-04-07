@@ -1,4 +1,4 @@
-package infrastructure
+package types
 
 import (
 	"strings"

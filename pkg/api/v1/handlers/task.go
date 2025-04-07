@@ -3,7 +3,7 @@ package handlers
 
 import (
 	"github.com/celestiaorg/talis/internal/services"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
@@ -24,29 +24,29 @@ func NewTaskHandler(taskService *services.TaskService) *TaskHandler {
 func (h *TaskHandler) GetTask(c *fiber.Ctx) error {
 	projectName := c.Params("name")
 	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	taskName := c.Params("taskName")
 	if taskName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Task name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Task name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	task, err := h.taskService.GetByName(c.Context(), ownerID, projectName, taskName)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(infrastructure.ErrNotFound(err.Error()))
+		return c.Status(fiber.StatusNotFound).JSON(types.ErrNotFound(err.Error()))
 	}
 
-	return c.JSON(infrastructure.Success(task))
+	return c.JSON(types.Success(task))
 }
 
 // ListProjectTasks handles retrieving all tasks for a project with pagination
 func (h *TaskHandler) ListProjectTasks(c *fiber.Ctx) error {
 	projectName := c.Params("name")
 	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	page := c.QueryInt("page", 1)
@@ -56,12 +56,12 @@ func (h *TaskHandler) ListProjectTasks(c *fiber.Ctx) error {
 
 	tasks, err := h.taskService.ListByProject(c.Context(), ownerID, projectName, listOpts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.Success(map[string]interface{}{
+	return c.JSON(types.Success(map[string]interface{}{
 		"tasks": tasks,
-		"pagination": infrastructure.PaginationResponse{
+		"pagination": types.PaginationResponse{
 			Total:  len(tasks),
 			Page:   page,
 			Limit:  listOpts.Limit,
@@ -74,18 +74,18 @@ func (h *TaskHandler) ListProjectTasks(c *fiber.Ctx) error {
 func (h *TaskHandler) DeleteTask(c *fiber.Ctx) error {
 	projectName := c.Params("name")
 	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	taskName := c.Params("taskName")
 	if taskName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Task name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Task name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	if err := h.taskService.Delete(c.Context(), ownerID, projectName, taskName); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -95,26 +95,26 @@ func (h *TaskHandler) DeleteTask(c *fiber.Ctx) error {
 func (h *TaskHandler) UpdateTaskStatus(c *fiber.Ctx) error {
 	projectName := c.Params("name")
 	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	taskName := c.Params("taskName")
 	if taskName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Task name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Task name is required"))
 	}
 
 	var statusUpdate struct {
 		Status string `json:"status"`
 	}
 	if err := c.BodyParser(&statusUpdate); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Invalid request body"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Invalid request body"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	if err := h.taskService.UpdateStatus(c.Context(), ownerID, projectName, taskName, statusUpdate.Status); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.Status(fiber.StatusOK).JSON(infrastructure.Success(nil))
+	return c.Status(fiber.StatusOK).JSON(types.Success(nil))
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // Instance provides business logic for instance operations
@@ -36,7 +35,7 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 }
 
 // CreateInstance creates a new instance
-func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName string, instances []infrastructure.InstanceRequest) error {
+func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName string, instances []types.InstanceRequest) error {
 	job, err := s.jobService.jobRepo.GetByName(ctx, ownerID, jobName)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
@@ -144,7 +143,7 @@ func (s *Instance) updateInstanceVolumes(
 }
 
 // provisionInstances provisions the job asynchronously
-func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []infrastructure.InstanceRequest) {
+func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []types.InstanceRequest) {
 	go func() {
 		// Get job name
 		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID)
@@ -154,14 +153,14 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 		}
 
 		// Create infrastructure client
-		infraReq := &infrastructure.InstancesRequest{
+		infraReq := &types.InstancesRequest{
 			JobName:   job.Name,
 			Instances: instances,
 			Action:    "create",
 			Provider:  instances[0].Provider,
 		}
 
-		infra, err := infrastructure.NewInfrastructure(infraReq)
+		infra, err := NewInfrastructure(infraReq)
 		if err != nil {
 			logger.Errorf("❌ Failed to create infrastructure client: %v", err)
 			return
@@ -277,7 +276,7 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 // deleteRequest represents a single instance deletion request with tracking
 type deleteRequest struct {
 	instance     models.Instance
-	infraRequest *infrastructure.InstancesRequest
+	infraRequest *types.InstancesRequest
 	attempts     int
 	lastError    error
 	maxAttempts  int
@@ -303,9 +302,9 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			logger.Infof("🗑️ Attempting to delete instance: %s", instance.Name)
 
 			// Create a new infrastructure request for each instance
-			infraReq := &infrastructure.InstancesRequest{
+			infraReq := &types.InstancesRequest{
 				JobName: jobName,
-				Instances: []infrastructure.InstanceRequest{
+				Instances: []types.InstanceRequest{
 					{
 						Name:     instance.Name,
 						Provider: instance.ProviderID,
@@ -361,7 +360,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			request.attempts++
 
 			// Try to delete infrastructure
-			infra, err := infrastructure.NewInfrastructure(request.infraRequest)
+			infra, err := NewInfrastructure(request.infraRequest)
 			if err != nil {
 				request.lastError = fmt.Errorf("failed to create infrastructure client: %w", err)
 				queue = append(queue, request) // add back to queue

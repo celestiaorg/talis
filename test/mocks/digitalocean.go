@@ -7,7 +7,8 @@ import (
 
 	"github.com/digitalocean/godo"
 
-	"github.com/celestiaorg/talis/internal/compute/types"
+	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
+	talisTypes "github.com/celestiaorg/talis/internal/types"
 )
 
 // This file contains all the mock implementations for the DigitalOcean API and helper methods
@@ -25,14 +26,14 @@ func (c *MockDOClient) ConfigureProvider(_ interface{}) error {
 }
 
 // CreateInstance is a mock implementation of the CreateInstance method
-func (c *MockDOClient) CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error) {
+func (c *MockDOClient) CreateInstance(ctx context.Context, name string, config talisTypes.InstanceConfig) ([]talisTypes.InstanceInfo, error) {
 	dropletName := fmt.Sprintf("%s-0", name)
 	createRequest := createDropletRequest(dropletName, config, DefaultKeyID1)
 	droplet, _, err := c.MockDropletService.Create(ctx, createRequest)
 	if err != nil {
 		return nil, err
 	}
-	return []types.InstanceInfo{
+	return []talisTypes.InstanceInfo{
 		{ID: fmt.Sprintf("%d", droplet.ID), Name: droplet.Name},
 	}, nil
 }
@@ -56,7 +57,7 @@ func (c *MockDOClient) ValidateCredentials() error {
 // createDropletRequest is a helper function to create a DropletCreateRequest
 func createDropletRequest(
 	name string,
-	config types.InstanceConfig,
+	config talisTypes.InstanceConfig,
 	sshKeyID int,
 ) *godo.DropletCreateRequest {
 	return &godo.DropletCreateRequest{
@@ -94,12 +95,12 @@ func (c *MockDOClient) ResetToStandard() {
 }
 
 // Droplets returns the mock droplet service
-func (c *MockDOClient) Droplets() types.DropletService {
+func (c *MockDOClient) Droplets() computeTypes.DropletService {
 	return c.MockDropletService
 }
 
 // Keys returns the mock key service
-func (c *MockDOClient) Keys() types.KeyService {
+func (c *MockDOClient) Keys() computeTypes.KeyService {
 	return c.MockKeyService
 }
 

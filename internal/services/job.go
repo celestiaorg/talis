@@ -8,7 +8,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // Job provides business logic for job operations
@@ -28,7 +28,7 @@ func (s *Job) ListJobs(ctx context.Context, status models.JobStatus, ownerID uin
 }
 
 // CreateJob creates a new job
-func (s *Job) CreateJob(ctx context.Context, ownerID uint, jobReq *infrastructure.JobRequest) error {
+func (s *Job) CreateJob(ctx context.Context, ownerID uint, jobReq *types.JobRequest) error {
 	job := &models.Job{
 		Name:    jobReq.Name,
 		OwnerID: ownerID,
@@ -101,9 +101,9 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 			fmt.Printf("🗑️ Attempting to delete instance: %s\n", instance.Name)
 
 			// Create a new infrastructure request for each instance
-			instanceInfraReq := &infrastructure.InstancesRequest{
+			instanceInfraReq := &types.InstancesRequest{
 				JobName: job.Name,
-				Instances: []infrastructure.InstanceRequest{
+				Instances: []types.InstanceRequest{
 					{
 						Name:     instance.Name,
 						Provider: instance.ProviderID,
@@ -115,7 +115,7 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 			}
 
 			// Create infrastructure client for this specific instance
-			infra, err := infrastructure.NewInfrastructure(instanceInfraReq)
+			infra, err := NewInfrastructure(instanceInfraReq)
 			if err != nil {
 				fmt.Printf("❌ Failed to create infrastructure client for instance %s: %v\n", instance.Name, err)
 				continue

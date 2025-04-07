@@ -7,7 +7,8 @@ import (
 
 	"github.com/digitalocean/godo"
 
-	"github.com/celestiaorg/talis/internal/types"
+	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
+	talisTypes "github.com/celestiaorg/talis/internal/types"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 
 // MockDOClient is a mock implementation of DOClient
 type MockDOClient struct {
-	droplets           []types.InstanceInfo
+	droplets           []talisTypes.InstanceInfo
 	MockDropletService *MockDropletService
 	MockKeyService     *MockKeyService
 	MockStorageService *MockStorageService
@@ -26,7 +27,7 @@ type MockDOClient struct {
 // NewMockDOClient creates a new mock DO client
 func NewMockDOClient() *MockDOClient {
 	client := &MockDOClient{
-		droplets:          make([]types.InstanceInfo, 0),
+		droplets:          make([]talisTypes.InstanceInfo, 0),
 		StandardResponses: newStandardResponses(),
 	}
 
@@ -42,17 +43,17 @@ func NewMockDOClient() *MockDOClient {
 }
 
 // Droplets returns the mock droplet service
-func (m *MockDOClient) Droplets() DropletService {
+func (m *MockDOClient) Droplets() computeTypes.DropletService {
 	return m.MockDropletService
 }
 
 // Keys returns the mock key service
-func (m *MockDOClient) Keys() KeyService {
+func (m *MockDOClient) Keys() computeTypes.KeyService {
 	return m.MockKeyService
 }
 
 // Storage returns the mock storage service
-func (m *MockDOClient) Storage() StorageService {
+func (m *MockDOClient) Storage() computeTypes.StorageService {
 	return m.MockStorageService
 }
 
@@ -74,7 +75,7 @@ func (m *MockDOClient) ConfigureProvider(_ interface{}) error {
 }
 
 // CreateInstance creates a new instance
-func (m *MockDOClient) CreateInstance(_ context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error) {
+func (m *MockDOClient) CreateInstance(_ context.Context, name string, config talisTypes.InstanceConfig) ([]talisTypes.InstanceInfo, error) {
 	// Check for errors first
 	if m.MockDropletService.std.Droplets.NotFoundError != nil {
 		return nil, ErrDropletNotFound
@@ -94,11 +95,11 @@ func (m *MockDOClient) CreateInstance(_ context.Context, name string, config typ
 		}
 	}
 
-	var instances []types.InstanceInfo
+	var instances []talisTypes.InstanceInfo
 	if config.NumberOfInstances > 1 {
 		for i := 0; i < config.NumberOfInstances; i++ {
 			instanceName := fmt.Sprintf("%s-%d", name, i)
-			instance := types.InstanceInfo{
+			instance := talisTypes.InstanceInfo{
 				ID:       fmt.Sprintf("%d", DefaultDropletID1+i),
 				Name:     instanceName,
 				Provider: "digitalocean-mock",
@@ -111,7 +112,7 @@ func (m *MockDOClient) CreateInstance(_ context.Context, name string, config typ
 		}
 	} else {
 		// For single instance, use the name as is
-		instance := types.InstanceInfo{
+		instance := talisTypes.InstanceInfo{
 			ID:       fmt.Sprintf("%d", DefaultDropletID1),
 			Name:     name,
 			Provider: "digitalocean-mock",
@@ -140,7 +141,7 @@ func (m *MockDOClient) DeleteInstance(_ context.Context, name string, _ string) 
 	}
 
 	// Buscar la instancia por nombre y región
-	var remaining []types.InstanceInfo
+	var remaining []talisTypes.InstanceInfo
 	found := false
 	for _, instance := range m.droplets {
 		if instance.Name == name {
@@ -216,7 +217,7 @@ func (m *MockDOClient) SimulateMaxRetries() {
 // ResetToStandard resets the mock to standard responses
 func (m *MockDOClient) ResetToStandard() {
 	// Reset droplets list
-	m.droplets = make([]types.InstanceInfo, 0)
+	m.droplets = make([]talisTypes.InstanceInfo, 0)
 
 	// Reset all errors to nil
 	m.StandardResponses.Droplets.AuthenticationError = nil

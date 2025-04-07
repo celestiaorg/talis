@@ -19,18 +19,3 @@ type ComputeProvider interface {
 	// DeleteInstance deletes an instance
 	DeleteInstance(ctx context.Context, name string, region string) error
 }
-
-// Provisioner is the interface for system configuration
-type Provisioner interface {
-	// ConfigureHost configures a single host
-	ConfigureHost(host string, sshKeyPath string) error
-
-	// ConfigureHosts configures multiple hosts in parallel
-	ConfigureHosts(hosts []string, sshKeyPath string) error
-
-	// CreateInventory creates an Ansible inventory file
-	CreateInventory(instances map[string]string, keyPath string) error
-
-	// RunAnsiblePlaybook runs the Ansible playbook
-	RunAnsiblePlaybook(inventoryName string) error
-}

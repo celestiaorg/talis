@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/services"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // UserHandler handles HTTP requests for user operations
@@ -32,25 +32,25 @@ var (
 
 // CreateUser handles the creation of a new user
 func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
-	var userReq infrastructure.CreateUserRequest
+	var userReq types.CreateUserRequest
 	if err := c.BodyParser(&userReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput(err.Error()))
+			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
 	if err := userReq.Validate(); err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput(err.Error()))
+			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
 	id, err := h.service.CreateUser(c.Context(), &userReq)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(infrastructure.ErrServer(err.Error()))
+			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(infrastructure.CreateUserResponse{
+		JSON(types.CreateUserResponse{
 			UserID: id,
 		})
 }
@@ -60,25 +60,25 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx) error {
 	userID, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
+			JSON(types.ErrInvalidInput(ErrInvalidUserID.Error()))
 	}
 
 	if userID <= 0 {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput("user ID must be positive"))
+			JSON(types.ErrInvalidInput("user ID must be positive"))
 	}
 
 	user, err := h.service.GetUserByID(c.Context(), uint(userID))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(fiber.StatusNotFound).
-			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByID.Error()))
+			JSON(types.ErrNotFound(ErrUserNotFoundByID.Error()))
 	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(infrastructure.ErrServer(err.Error()))
+			JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.UserResponse{
+	return c.JSON(types.UserResponse{
 		User: *user,
 	})
 }
@@ -98,11 +98,11 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 	users, err := h.service.GetAllUsers(c.Context(), paginationOpts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(infrastructure.ErrServer(err.Error()))
+			JSON(types.ErrServer(err.Error()))
 	}
-	return c.JSON(infrastructure.UserResponse{
+	return c.JSON(types.UserResponse{
 		Users: users,
-		Pagination: infrastructure.PaginationResponse{
+		Pagination: types.PaginationResponse{
 			Total:  len(users),
 			Page:   page,
 			Offset: paginationOpts.Offset,
@@ -116,15 +116,15 @@ func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string) error {
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(fiber.StatusNotFound).
-			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByName.Error()))
+			JSON(types.ErrNotFound(ErrUserNotFoundByName.Error()))
 	}
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(infrastructure.ErrServer(err.Error()))
+			JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.UserResponse{
+	return c.JSON(types.UserResponse{
 		User: *user,
 	})
 }
@@ -134,24 +134,24 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 	userID, err := c.ParamsInt("id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput(ErrInvalidUserID.Error()))
+			JSON(types.ErrInvalidInput(ErrInvalidUserID.Error()))
 	}
 
 	if userID <= 0 {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(infrastructure.ErrInvalidInput("user ID must be positive"))
+			JSON(types.ErrInvalidInput("user ID must be positive"))
 	}
 
 	err = h.service.DeleteUser(c.Context(), uint(userID))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.Status(fiber.StatusNotFound).
-			JSON(infrastructure.ErrNotFound(ErrUserNotFoundByID.Error()))
+			JSON(types.ErrNotFound(ErrUserNotFoundByID.Error()))
 	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
-			JSON(infrastructure.ErrServer(err.Error()))
+			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusOK).
-		JSON(infrastructure.Success("user deleted successfully"))
+		JSON(types.Success("user deleted successfully"))
 }

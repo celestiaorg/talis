@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test"
 )
 
@@ -220,7 +220,7 @@ func TestCreateInfraCmd(t *testing.T) {
 				content, err := os.ReadFile(deleteFilePath) //nolint:gosec
 				assert.NoError(t, err)
 
-				var deleteReq infrastructure.DeleteInstanceRequest
+				var deleteReq types.DeleteInstanceRequest
 				err = json.Unmarshal(content, &deleteReq)
 				assert.NoError(t, err)
 				assert.Equal(t, "test-job", deleteReq.JobName)
