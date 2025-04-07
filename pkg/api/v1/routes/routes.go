@@ -9,7 +9,7 @@ import (
 
 	fiber "github.com/gofiber/fiber/v2"
 
-	"github.com/celestiaorg/talis/internal/api/v1/handlers"
+	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 )
 
 /*

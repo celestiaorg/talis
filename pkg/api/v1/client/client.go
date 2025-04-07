@@ -11,9 +11,9 @@ import (
 
 	fiber "github.com/gofiber/fiber/v2"
 
-	"github.com/celestiaorg/talis/internal/api/v1/routes"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
 // DefaultTimeout is the default timeout for API requests

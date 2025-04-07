@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
-	"github.com/celestiaorg/talis/internal/api/v1/services"
+	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 

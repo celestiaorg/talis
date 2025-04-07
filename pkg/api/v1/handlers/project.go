@@ -2,8 +2,8 @@
 package handlers
 
 import (
-	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types/infrastructure"
 
 	fiber "github.com/gofiber/fiber/v2"
