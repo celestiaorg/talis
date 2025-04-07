@@ -40,7 +40,7 @@ Talis is built around four primary entities that work together to provide a comp
 
 ## API Design
 
-The API is designed with SDK users in mind, following these principles:
+The API is designed from an RPC model in mind, following these principles:
 
 1. **Request-Body Focused**
    - Prioritizes POST requests with structured request bodies
