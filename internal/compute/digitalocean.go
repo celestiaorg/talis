@@ -283,7 +283,7 @@ func (p *DigitalOceanProvider) waitForPublicIP(ctx context.Context, dropletID in
 		return "", fmt.Errorf("client not initialized")
 	}
 
-	logger.Info("⏳ Waiting for droplet to get an IP address...")
+	logger.Debug("⏳ Waiting for droplet to get an IP address...")
 	maxRetries := 10
 	interval := 10 * time.Second
 
@@ -299,12 +299,12 @@ func (p *DigitalOceanProvider) waitForPublicIP(ctx context.Context, dropletID in
 		for _, network := range d.Networks.V4 {
 			if network.Type == "public" {
 				ip := network.IPAddress
-				logger.Infof("📍 Found public IP for droplet: %s", ip)
+				logger.Debugf("📍 Found public IP for droplet: %s", ip)
 				return ip, nil
 			}
 		}
 
-		logger.Infof("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...", i+1, maxRetries)
+		logger.Debugf("⏳ IP not assigned yet, retrying in 10 seconds (attempt %d/%d)...", i+1, maxRetries)
 		time.Sleep(interval)
 	}
 
@@ -321,11 +321,11 @@ func (p *DigitalOceanProvider) CreateInstance(
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	logger.Infof("🚀 Creating DigitalOcean droplet(s): %s", name)
-	logger.Infof("  Region: %s", config.Region)
-	logger.Infof("  Size: %s", config.Size)
-	logger.Infof("  Image: %s", config.Image)
-	logger.Infof("  Number of instances: %d", config.NumberOfInstances)
+	logger.Debugf("🚀 Creating DigitalOcean droplet(s): %s", name)
+	logger.Debugf("  Region: %s", config.Region)
+	logger.Debugf("  Size: %s", config.Size)
+	logger.Debugf("  Image: %s", config.Image)
+	logger.Debugf("  Number of instances: %d", config.NumberOfInstances)
 
 	// Get SSH key ID
 	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyID)
@@ -429,7 +429,7 @@ apt-get install -y python3
 `, p.generateVolumeMountScript(config.Volumes)),
 		}
 
-		logger.Infof("🚀 Creating batch %d of droplets (%d instances)...", batchNumber+1, batchSize)
+		logger.Debugf("🚀 Creating batch %d of droplets (%d instances)...", batchNumber+1, batchSize)
 
 		droplets, _, err := p.doClient.Droplets().CreateMultiple(ctx, createRequest)
 		if err != nil {
@@ -440,11 +440,13 @@ apt-get install -y python3
 		// Wait for droplets to be ready and get their public IPs
 		for _, droplet := range droplets {
 			instance := types.InstanceInfo{
-				ID:       fmt.Sprintf("%d", droplet.ID),
-				Name:     droplet.Name,
-				Provider: "do",
-				Region:   droplet.Region.Slug,
-				Size:     droplet.Size.Slug,
+				ID:            fmt.Sprintf("%d", droplet.ID),
+				Name:          droplet.Name,
+				Provider:      "do",
+				Region:        droplet.Region.Slug,
+				Size:          droplet.Size.Slug,
+				Volumes:       []string{},              // Initialize empty slices
+				VolumeDetails: []types.VolumeDetails{}, // Initialize empty slices
 			}
 
 			// Wait for public IP
@@ -462,6 +464,7 @@ apt-get install -y python3
 					logger.Errorf("❌ Failed to create/attach volumes for droplet %s: %v", droplet.Name, err)
 					return nil, fmt.Errorf("failed to create/attach volumes for droplet %s: %w", droplet.Name, err)
 				}
+				logger.Debugf("📦 Setting volumes: %v and details: %+v", volumeIDs, volumeDetails)
 				instance.Volumes = volumeIDs
 				instance.VolumeDetails = volumeDetails
 			}
@@ -497,11 +500,13 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 
 	// Initialize instance info
 	instance := types.InstanceInfo{
-		ID:       fmt.Sprintf("%d", droplet.ID),
-		Name:     droplet.Name,
-		Provider: "do",
-		Region:   droplet.Region.Slug,
-		Size:     droplet.Size.Slug,
+		ID:            fmt.Sprintf("%d", droplet.ID),
+		Name:          droplet.Name,
+		Provider:      "do",
+		Region:        droplet.Region.Slug,
+		Size:          droplet.Size.Slug,
+		Volumes:       []string{},              // Initialize empty slices
+		VolumeDetails: []types.VolumeDetails{}, // Initialize empty slices
 	}
 
 	// Wait for public IP
@@ -519,12 +524,12 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 			logger.Errorf("❌ Failed to create/attach volumes for droplet %s: %v", droplet.Name, err)
 			return types.InstanceInfo{}, fmt.Errorf("failed to create/attach volumes for droplet %s: %w", droplet.Name, err)
 		}
-		logger.Infof("📦 Setting volumes: %v and details: %+v", volumeIDs, volumeDetails)
+		logger.Debugf("📦 Setting volumes: %v and details: %+v", volumeIDs, volumeDetails)
 		instance.Volumes = volumeIDs
 		instance.VolumeDetails = volumeDetails
 	}
 
-	logger.Infof("📝 Created instance: %+v", instance)
+	logger.Debugf("📝 Created instance: %+v", instance)
 	return instance, nil
 }
 
@@ -573,7 +578,7 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) 
 		logger.Warnf("🔑 Using default test key: %s", keyName)
 	}
 
-	logger.Infof("🔑 Looking up SSH key: %s", keyName)
+	logger.Debugf("🔑 Looking up SSH key: %s", keyName)
 
 	// List all SSH keys
 	keys, _, err := p.doClient.Keys().List(ctx, &godo.ListOptions{})
@@ -585,16 +590,16 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) 
 	// Find the key by name
 	for _, key := range keys {
 		if key.Name == keyName {
-			logger.Infof("✅ Found SSH key '%s' with ID: %d", keyName, key.ID)
+			logger.Debugf("✅ Found SSH key '%s' with ID: %d", keyName, key.ID)
 			return key.ID, nil
 		}
 	}
 
 	// If we get here, print available keys to help with diagnosis
 	if len(keys) > 0 {
-		logger.Infof("Available SSH keys:")
+		logger.Debugf("Available SSH keys:")
 		for _, key := range keys {
-			logger.Infof("  - %s (ID: %d)", key.Name, key.ID)
+			logger.Debugf("  - %s (ID: %d)", key.Name, key.ID)
 		}
 	}
 
@@ -611,12 +616,12 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 	var volumeIDs []string
 	var volumeDetails []types.VolumeDetails
 
-	// If no volumes specified, return empty list
+	// If no volumes specified, return empty lists
 	if len(config.Volumes) == 0 {
-		return volumeIDs, volumeDetails, nil
+		return []string{}, []types.VolumeDetails{}, nil
 	}
 
-	logger.Infof("📦 Creating and attaching volumes for droplet %d", dropletID)
+	logger.Debugf("📦 Creating and attaching volumes for droplet %d", dropletID)
 
 	for _, vol := range config.Volumes {
 		// Generate unique volume name with random suffix
@@ -624,7 +629,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		volumeName := fmt.Sprintf("%s-%s", vol.Name, suffix)
 
 		// Create volume in the same region as the instance
-		logger.Infof("📦 Creating volume %s with size %dGiB in region %s", volumeName, vol.SizeGB, config.Region)
+		logger.Debugf("📦 Creating volume %s with size %dGiB in region %s", volumeName, vol.SizeGB, config.Region)
 		createRequest := &godo.VolumeCreateRequest{
 			Name:          volumeName,
 			Region:        config.Region,
@@ -642,7 +647,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 			logger.Errorf("❌ Failed to create volume: %v (Response: %+v)", err, resp)
 			return nil, nil, fmt.Errorf("failed to create volume %s: %w", volumeName, err)
 		}
-		logger.Infof("✅ Volume created successfully: %s (ID: %s)", volumeName, volume.ID)
+		logger.Debugf("✅ Volume created successfully: %s (ID: %s)", volumeName, volume.ID)
 
 		// Store volume details
 		volumeDetail := types.VolumeDetails{
@@ -656,7 +661,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		volumeIDs = append(volumeIDs, volume.ID)
 
 		// Wait for volume to be ready
-		logger.Infof("⏳ Waiting for volume to be ready...")
+		logger.Debugf("⏳ Waiting for volume to be ready...")
 		time.Sleep(10 * time.Second)
 
 		// Verify volume exists and is ready
@@ -665,31 +670,31 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 			logger.Errorf("❌ Failed to verify volume status: %v", err)
 			return nil, nil, fmt.Errorf("failed to verify volume status: %w", err)
 		}
-		logger.Infof("✅ Volume is ready: %s", vol.ID)
+		logger.Debugf("✅ Volume is ready: %s", vol.ID)
 
-		logger.Infof("📦 Attaching volume %s to droplet %d", volume.ID, dropletID)
+		logger.Debugf("📦 Attaching volume %s to droplet %d", volume.ID, dropletID)
 		resp, err = p.doClient.Storage().AttachVolume(ctx, volume.ID, dropletID)
 		if err != nil {
 			logger.Errorf("❌ Failed to attach volume: %v (Response: %+v)", err, resp)
 			// Try to clean up the volume if attachment fails
-			logger.Infof("🗑️ Attempting to delete volume %s after attachment failure", volume.ID)
+			logger.Debugf("🗑️ Attempting to delete volume %s after attachment failure", volume.ID)
 			deleteResp, deleteErr := p.doClient.Storage().DeleteVolume(ctx, volume.ID)
 			if deleteErr != nil {
 				logger.Warnf("⚠️ Warning: Failed to delete volume %s after attachment failure: %v (Response: %+v)", volume.ID, deleteErr, deleteResp)
 			} else {
-				logger.Infof("✅ Successfully deleted volume %s after attachment failure", volume.ID)
+				logger.Debugf("✅ Successfully deleted volume %s after attachment failure", volume.ID)
 			}
 			return nil, nil, fmt.Errorf("failed to attach volume %s: %w", volumeName, err)
 		}
 
 		// Wait for volume to be attached
-		logger.Infof("⏳ Waiting for volume to be attached...")
+		logger.Debugf("⏳ Waiting for volume to be attached...")
 		time.Sleep(10 * time.Second)
 
-		logger.Infof("✅ Successfully created and attached volume %s (%s)", vol.Name, volume.ID)
+		logger.Debugf("✅ Successfully created and attached volume %s (%s)", vol.Name, volume.ID)
 	}
 
-	logger.Infof("📦 Returning volumes: %v and details: %+v", volumeIDs, volumeDetails)
+	logger.Debugf("📦 Returning volumes: %v and details: %+v", volumeIDs, volumeDetails)
 	return volumeIDs, volumeDetails, nil
 }
 
@@ -709,7 +714,7 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 		return fmt.Errorf("client not initialized")
 	}
 
-	logger.Infof("🗑️ Deleting DigitalOcean droplet: %s in region %s", name, region)
+	logger.Debugf("🗑️ Deleting DigitalOcean droplet: %s in region %s", name, region)
 
 	// List all droplets to find the one with our name in the specific region
 	droplets, _, err := p.doClient.Droplets().List(ctx, &godo.ListOptions{})
@@ -729,7 +734,7 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 	}
 
 	if !found {
-		logger.Infof("⚠️ Droplet %s in region %s not found, nothing to delete", name, region)
+		logger.Debugf("⚠️ Droplet %s in region %s not found, nothing to delete", name, region)
 		return nil
 	}
 
@@ -750,7 +755,7 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 		for _, volume := range volumes {
 			for _, id := range volume.DropletIDs {
 				if id == droplet.ID {
-					logger.Infof("🗑️ Detaching and deleting volume: %s", volume.ID)
+					logger.Debugf("🗑️ Detaching and deleting volume: %s", volume.ID)
 
 					// Try to detach the volume first
 					_, err := p.doClient.Storage().DetachVolume(ctx, volume.ID, droplet.ID)
@@ -770,13 +775,13 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, name string, 
 	}
 
 	// Delete the droplet
-	logger.Infof("🗑️ Deleting droplet with ID: %d", dropletID)
+	logger.Debugf("🗑️ Deleting droplet with ID: %d", dropletID)
 	_, err = p.doClient.Droplets().Delete(ctx, dropletID)
 	if err != nil {
 		return fmt.Errorf("failed to delete droplet: %w", err)
 	}
 
-	logger.Infof("✅ Deleted droplet: %s", name)
+	logger.Debugf("✅ Deleted droplet: %s", name)
 	return nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
+	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
@@ -72,7 +73,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 
 	switch i.action {
 	case "create":
-		fmt.Printf("🚀 Creating infrastructure...\n")
+		logger.Info("🚀 Creating infrastructure...")
 		instances := make([]types.InstanceInfo, 0)
 		for _, instance := range i.instances {
 			// Use instance name if provided, otherwise use base name
@@ -98,18 +99,20 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			// Convert types.InstanceInfo to our InstanceInfo and add to result
 			for _, instanceInfo := range info {
 				instances = append(instances, types.InstanceInfo{
-					Name:     instanceInfo.Name,
-					PublicIP: instanceInfo.PublicIP,
-					Provider: instanceInfo.Provider,
-					Region:   instanceInfo.Region,
-					Size:     instanceInfo.Size,
+					Name:          instanceInfo.Name,
+					PublicIP:      instanceInfo.PublicIP,
+					Provider:      instanceInfo.Provider,
+					Region:        instanceInfo.Region,
+					Size:          instanceInfo.Size,
+					Volumes:       instanceInfo.Volumes,
+					VolumeDetails: instanceInfo.VolumeDetails,
 				})
 			}
 		}
 		result = instances
 
 	case "delete":
-		fmt.Printf("🗑️ Deleting infrastructure...\n")
+		logger.Info("🗑️ Deleting infrastructure...")
 		var wg sync.WaitGroup
 		deletedInstancesChan := make(chan string, 100)
 		errorsChan := make(chan error, 100)
@@ -120,11 +123,11 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				wg.Add(1)
 				go func(name string, region string) {
 					defer wg.Done()
-					fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, name, region)
+					logger.Info("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
 
 					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
 						if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-							fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", name, region)
+							logger.Warnf("⚠️ Warning: Instance %s in region %s was already deleted", name, region)
 							return
 						}
 						errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
@@ -158,11 +161,11 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 					wg.Add(1)
 					go func(name string, region string) {
 						defer wg.Done()
-						fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, name, region)
+						logger.Infof("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
 
 						if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
 							if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-								fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", name, region)
+								logger.Warnf("⚠️ Warning: Instance %s in region %s was already deleted", name, region)
 								return
 							}
 							errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
@@ -194,6 +197,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		}
 
 		if len(errors) > 0 {
+			logger.Errorf("errors during deletion: %v", errors)
 			return nil, fmt.Errorf("errors during deletion: %v", errors)
 		}
 
@@ -204,6 +208,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		}
 
 	default:
+		logger.Errorf("unsupported action: %s", i.action)
 		return nil, fmt.Errorf("unsupported action: %s", i.action)
 	}
 
