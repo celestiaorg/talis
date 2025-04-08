@@ -123,7 +123,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				wg.Add(1)
 				go func(name string, region string) {
 					defer wg.Done()
-					logger.Info("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
+					logger.Infof("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
 
 					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
 						if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
@@ -134,6 +134,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 						return
 					}
 					deletedInstancesChan <- name
+					logger.Debugf("✅ Successfully deleted instance: %s", name)
 				}(instance.Name, instance.Region)
 				continue
 			}
@@ -151,6 +152,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 						}
 					} else {
 						deletedInstancesChan <- name
+						logger.Debugf("✅ Successfully deleted instance: %s", name)
 						return
 					}
 				}(i.name, instance.Region)
@@ -172,6 +174,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 							return
 						}
 						deletedInstancesChan <- name
+						logger.Debugf("✅ Successfully deleted instance: %s", name)
 					}(instanceName, instance.Region)
 				}
 			}
@@ -201,6 +204,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			return nil, fmt.Errorf("errors during deletion: %v", errors)
 		}
 
+		logger.Infof("✅ Successfully deleted %d instances", len(deletedInstances))
 		result = map[string]interface{}{
 			"status":  "deleted",
 			"deleted": deletedInstances,
