@@ -16,7 +16,6 @@ import (
 
 	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/internal/logger"
-	"github.com/celestiaorg/talis/internal/types"
 	talisTypes "github.com/celestiaorg/talis/internal/types"
 )
 
@@ -411,7 +410,7 @@ apt-get install -y python3
 				Region:        droplet.Region.Slug,
 				Size:          droplet.Size.Slug,
 				Volumes:       []string{},
-				VolumeDetails: []types.VolumeDetails{},
+				VolumeDetails: []talisTypes.VolumeDetails{},
 			}
 
 			// Wait for public IP
@@ -471,7 +470,7 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 		Region:        droplet.Region.Slug,
 		Size:          droplet.Size.Slug,
 		Volumes:       []string{},
-		VolumeDetails: []types.VolumeDetails{},
+		VolumeDetails: []talisTypes.VolumeDetails{},
 	}
 
 	// Wait for public IP
@@ -583,7 +582,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 
 	// If no volumes specified, return empty lists
 	if len(config.Volumes) == 0 {
-		return []string{}, []types.VolumeDetails{}, nil
+		return []string{}, []talisTypes.VolumeDetails{}, nil
 	}
 
 	logger.Debugf("📦 Creating and attaching volumes for droplet %d", dropletID)
