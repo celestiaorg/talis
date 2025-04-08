@@ -3,6 +3,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -18,16 +19,18 @@ import (
 )
 
 func main() {
-	// Configure logger
+	// Load .env file first
+	if err := godotenv.Load(); err != nil {
+		// Use fmt.Printf here since logger isn't initialized yet
+		fmt.Printf("Error loading .env file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Configure logger after loading .env
 	log.InitializeAndConfigure()
 
 	// Log that the application is starting
 	log.Info("Starting application...")
-
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
 
 	// This is temporary, we will pass them through the CLI later
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))

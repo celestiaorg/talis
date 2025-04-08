@@ -128,6 +128,12 @@ build-cli:
 	$(GOBUILD) $(LDFLAGS) -o bin/talis-cli ./cmd/cli
 .PHONY: build-cli
 
+## run-cli: Run the Talis CLI tool
+run-cli:
+	@echo "Running Talis CLI..."
+	@./bin/talis-cli $(ARGS)
+.PHONY: run-cli
+
 ## db-connect: Connect to the database
 db-connect:
 	psql postgres://talis:talis@localhost:5432/talis 
