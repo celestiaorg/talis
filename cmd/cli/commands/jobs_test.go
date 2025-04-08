@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test"
 )
 
@@ -51,7 +51,7 @@ func TestListJobsCmd(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           []string
-		mockResponse   infrastructure.ListJobsResponse
+		mockResponse   types.ListJobsResponse
 		mockError      error
 		expectedOutput string
 		expectedError  string
@@ -59,7 +59,7 @@ func TestListJobsCmd(t *testing.T) {
 		{
 			name: "successful list with no filters",
 			args: []string{"jobs", "list"},
-			mockResponse: infrastructure.ListJobsResponse{
+			mockResponse: types.ListJobsResponse{
 				Jobs: []models.Job{
 					{Name: "job1", Status: models.JobStatusCompleted},
 					{Name: "job2", Status: models.JobStatusPending},
@@ -81,7 +81,7 @@ func TestListJobsCmd(t *testing.T) {
 		{
 			name: "successful list with limit",
 			args: []string{"jobs", "list", "--limit", "1"},
-			mockResponse: infrastructure.ListJobsResponse{
+			mockResponse: types.ListJobsResponse{
 				Jobs: []models.Job{
 					{Name: "job1", Status: models.JobStatusCompleted},
 				},

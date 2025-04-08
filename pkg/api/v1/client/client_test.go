@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 func TestNewClient(t *testing.T) {
@@ -118,7 +118,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/success", nil)
 		require.NoError(t, err)
 
-		var response infrastructure.Response
+		var response types.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.NoError(t, err)
 		assert.Equal(t, uint(1), response.ID)
@@ -129,7 +129,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/error", nil)
 		require.NoError(t, err)
 
-		var response infrastructure.Response
+		var response types.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -143,7 +143,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/invalid-json", nil)
 		require.NoError(t, err)
 
-		var response infrastructure.Response
+		var response types.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -156,7 +156,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/not-found", nil)
 		require.NoError(t, err)
 
-		var response infrastructure.Response
+		var response types.Response
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 

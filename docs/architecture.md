@@ -40,7 +40,7 @@ Talis is built around four primary entities that work together to provide a comp
 
 ## API Design
 
-The API is designed with SDK users in mind, following these principles:
+The API is designed from an RPC model in mind, following these principles:
 
 1. **Request-Body Focused**
    - Prioritizes POST requests with structured request bodies
@@ -56,6 +56,15 @@ The API is designed with SDK users in mind, following these principles:
    - Long-running operations are handled asynchronously
    - Tasks are created and tracked in the database
    - Clients can poll for task status and completion
+
+### Import Flow / Types
+
+Users should import data types for the API defined in the API package.
+The API package should import the data types from the internal package.
+
+The only types defined in the API package should be the request and response types.
+
+Following this flow should allow `internal` to primarily use the DB models for types to reduce the amount of type definitions.
 
 ## Data Flow
 

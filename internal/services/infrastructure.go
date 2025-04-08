@@ -1,16 +1,16 @@
-// Package infrastructure provides types and functionality for managing cloud infrastructure operations.
-// It acts as an abstraction layer between the API and the actual cloud providers,
-// handling both creation and deletion of cloud resources in a provider-agnostic way.
-package infrastructure
+// Package services provides business logic implementation for the API
+package services
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
+	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
@@ -18,10 +18,10 @@ import (
 // It coordinates the creation and deletion of cloud resources across different providers
 // and handles the provisioning of those resources using configuration management tools.
 type Infrastructure struct {
-	name        string            // Name of the infrastructure
-	projectName string            // Name of the project
-	instances   []InstanceRequest // Instance configuration
-	provider    compute.Provider  // Compute provider implementation
+	name        string                  // Name of the infrastructure
+	projectName string                  // Name of the project
+	instances   []types.InstanceRequest // Instance configuration
+	provider    compute.Provider        // Compute provider implementation
 	provisioner compute.Provisioner
 	jobID       string
 	action      string // Action to perform (create/delete)
@@ -36,7 +36,7 @@ type Infrastructure struct {
 // Returns:
 //   - *Infrastructure: A configured infrastructure manager
 //   - error: Any error that occurred during initialization
-func NewInfrastructure(req *InstancesRequest) (*Infrastructure, error) {
+func NewInfrastructure(req *types.InstancesRequest) (*Infrastructure, error) {
 	provider, err := compute.NewComputeProvider(req.Provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute provider: %w", err)
@@ -72,7 +72,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 
 	switch i.action {
 	case "create":
-		fmt.Printf("🚀 Creating infrastructure...\n")
+		logger.Info("🚀 Creating infrastructure...")
 		instances := make([]types.InstanceInfo, 0)
 		for _, instance := range i.instances {
 			// Use instance name if provided, otherwise use base name
@@ -98,18 +98,20 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			// Convert types.InstanceInfo to our InstanceInfo and add to result
 			for _, instanceInfo := range info {
 				instances = append(instances, types.InstanceInfo{
-					Name:     instanceInfo.Name,
-					PublicIP: instanceInfo.PublicIP,
-					Provider: instanceInfo.Provider,
-					Region:   instanceInfo.Region,
-					Size:     instanceInfo.Size,
+					Name:          instanceInfo.Name,
+					PublicIP:      instanceInfo.PublicIP,
+					Provider:      instanceInfo.Provider,
+					Region:        instanceInfo.Region,
+					Size:          instanceInfo.Size,
+					Volumes:       instanceInfo.Volumes,
+					VolumeDetails: instanceInfo.VolumeDetails,
 				})
 			}
 		}
 		result = instances
 
 	case "delete":
-		fmt.Printf("🗑️ Deleting infrastructure...\n")
+		logger.Info("🗑️ Deleting infrastructure...")
 		var wg sync.WaitGroup
 		deletedInstancesChan := make(chan string, 100)
 		errorsChan := make(chan error, 100)
@@ -120,17 +122,18 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				wg.Add(1)
 				go func(name string, region string) {
 					defer wg.Done()
-					fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, name, region)
+					logger.Infof("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
 
 					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
 						if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-							fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", name, region)
+							logger.Warnf("⚠️ Warning: Instance %s in region %s was already deleted", name, region)
 							return
 						}
 						errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
 						return
 					}
 					deletedInstancesChan <- name
+					logger.Debugf("✅ Successfully deleted instance: %s", name)
 				}(instance.Name, instance.Region)
 				continue
 			}
@@ -148,6 +151,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 						}
 					} else {
 						deletedInstancesChan <- name
+						logger.Debugf("✅ Successfully deleted instance: %s", name)
 						return
 					}
 				}(i.name, instance.Region)
@@ -158,17 +162,18 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 					wg.Add(1)
 					go func(name string, region string) {
 						defer wg.Done()
-						fmt.Printf("🗑️ Deleting %s droplet: %s in region %s\n", instance.Provider, name, region)
+						logger.Infof("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
 
 						if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
 							if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-								fmt.Printf("⚠️ Warning: Instance %s in region %s was already deleted\n", name, region)
+								logger.Warnf("⚠️ Warning: Instance %s in region %s was already deleted", name, region)
 								return
 							}
 							errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
 							return
 						}
 						deletedInstancesChan <- name
+						logger.Debugf("✅ Successfully deleted instance: %s", name)
 					}(instanceName, instance.Region)
 				}
 			}
@@ -194,9 +199,11 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		}
 
 		if len(errors) > 0 {
+			logger.Errorf("errors during deletion: %v", errors)
 			return nil, fmt.Errorf("errors during deletion: %v", errors)
 		}
 
+		logger.Infof("✅ Successfully deleted %d instances", len(deletedInstances))
 		result = map[string]interface{}{
 			"status":  "deleted",
 			"deleted": deletedInstances,
@@ -204,8 +211,86 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		}
 
 	default:
+		logger.Errorf("unsupported action: %s", i.action)
 		return nil, fmt.Errorf("unsupported action: %s", i.action)
 	}
 
 	return result, err
+}
+
+// RunProvisioning applies Ansible configuration to all instances
+func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
+	// Check if any instance requires provisioning
+	needsProvisioning := false
+	for _, inst := range i.instances {
+		if inst.Provision {
+			needsProvisioning = true
+			break
+		}
+	}
+
+	if !needsProvisioning {
+		fmt.Println("⏭️ Skipping provisioning as requested")
+		return nil
+	}
+
+	fmt.Println("⚙️ Starting Ansible provisioning...")
+
+	// Create inventory file for all instances
+	instanceMap := make(map[string]string)
+	for _, instance := range instances {
+		instanceMap[instance.Name] = instance.PublicIP
+	}
+
+	// Create inventory file with the user's SSH key
+	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+	if err := i.provisioner.CreateInventory(instanceMap, sshKeyPath); err != nil {
+		return fmt.Errorf("failed to create inventory: %w", err)
+	}
+
+	// Configure hosts in parallel
+	errChan := make(chan error, len(instances))
+	var wg sync.WaitGroup
+
+	for _, instance := range instances {
+		wg.Add(1)
+		go func(inst types.InstanceInfo) {
+			defer wg.Done()
+			if err := i.provisionInstance(inst); err != nil {
+				errChan <- fmt.Errorf("failed to provision %s: %w", inst.Name, err)
+			}
+		}(instance)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+
+	// Run Ansible playbook
+	fmt.Println("📝 Running Ansible playbook...")
+	if err := i.provisioner.RunAnsiblePlaybook(i.jobID); err != nil {
+		return fmt.Errorf("failed to run Ansible playbook: %w", err)
+	}
+
+	fmt.Println("✅ Ansible playbook completed successfully")
+	return nil
+}
+
+// provisionInstance configures a single instance with Ansible
+func (i *Infrastructure) provisionInstance(instance types.InstanceInfo) error {
+	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.PublicIP)
+
+	// Use the user's SSH key path
+	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+	if err := i.provisioner.ConfigureHost(instance.PublicIP, sshKeyPath); err != nil {
+		return fmt.Errorf("failed to configure host: %w", err)
+	}
+
+	fmt.Printf("✅ Provisioning completed for %s\n", instance.Name)
+	return nil
 }

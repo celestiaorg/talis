@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/celestiaorg/talis/internal/api/v1/client"
+	"github.com/celestiaorg/talis/pkg/api/v1/client"
 )
 
 var (

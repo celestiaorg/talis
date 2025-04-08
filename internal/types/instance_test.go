@@ -1,137 +1,9 @@
-package infrastructure
+package types
 
 import (
 	"strings"
 	"testing"
 )
-
-func Test_validateHostname(t *testing.T) {
-	tests := []struct {
-		name     string
-		hostname string
-		wantErr  bool
-		errMsg   string
-	}{
-		{
-			name:     "valid hostname",
-			hostname: "valid-hostname-123",
-			wantErr:  false,
-		},
-		{
-			name:     "valid hostname with numbers",
-			hostname: "web1",
-			wantErr:  false,
-		},
-		{
-			name:     "valid hostname with hyphens",
-			hostname: "my-web-server-01",
-			wantErr:  false,
-		},
-		{
-			name:     "empty hostname",
-			hostname: "",
-			wantErr:  true,
-			errMsg:   "hostname cannot be empty",
-		},
-		{
-			name:     "hostname too long",
-			hostname: "this-hostname-is-way-too-long-and-should-fail-because-it-exceeds-sixty-three-chars",
-			wantErr:  true,
-			errMsg:   "hostname length must be less than or equal to 63 characters",
-		},
-		{
-			name:     "hostname with invalid characters",
-			hostname: "invalid_hostname$123",
-			wantErr:  true,
-			errMsg:   "invalid hostname format",
-		},
-		{
-			name:     "hostname starting with hyphen",
-			hostname: "-invalid-start",
-			wantErr:  true,
-			errMsg:   "invalid hostname format",
-		},
-		{
-			name:     "hostname ending with hyphen",
-			hostname: "invalid-end-",
-			wantErr:  true,
-			errMsg:   "invalid hostname format",
-		},
-		{
-			name:     "hostname with uppercase letters",
-			hostname: "UPPERCASE-HOST",
-			wantErr:  false, // Should pass because we convert to lowercase
-		},
-		{
-			name:     "hostname with spaces",
-			hostname: "invalid hostname",
-			wantErr:  true,
-			errMsg:   "invalid hostname format",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateHostname(tt.hostname)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("validateHostname() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
-				t.Errorf("validateHostname() error message = %v, want to contain %v", err, tt.errMsg)
-			}
-		})
-	}
-}
-
-func TestJobRequest_Validate(t *testing.T) {
-	tests := []struct {
-		name    string
-		request *JobRequest
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid request",
-			request: &JobRequest{
-				Name: "test-job",
-			},
-			wantErr: false,
-		},
-		{
-			name: "empty name",
-			request: &JobRequest{
-				Name: "",
-			},
-			wantErr: true,
-			errMsg:  "job_name is required",
-		},
-		{
-			name:    "nil request",
-			request: nil,
-			wantErr: true,
-			errMsg:  "job_name is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var err error
-			if tt.request != nil {
-				err = tt.request.Validate()
-			} else {
-				err = (&JobRequest{}).Validate()
-			}
-			if (err != nil) != tt.wantErr {
-				t.Errorf("JobRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
-				t.Errorf("JobRequest.Validate() error message = %v, want to contain %v", err, tt.errMsg)
-			}
-		})
-	}
-}
 
 func TestInstancesRequest_Validate(t *testing.T) {
 	tests := []struct {
@@ -311,7 +183,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				t.Errorf("InstancesRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+			if tt.wantErr && err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 				t.Errorf("InstancesRequest.Validate() error message = %v, want to contain %v", err, tt.errMsg)
 			}
 		})
@@ -426,7 +298,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				t.Errorf("InstanceRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+			if tt.wantErr && err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 				t.Errorf("InstanceRequest.Validate() error message = %v, want to contain %v", err, tt.errMsg)
 			}
 		})
@@ -524,7 +396,7 @@ func TestDeleteRequest_Validate(t *testing.T) {
 				t.Errorf("DeleteRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+			if tt.wantErr && err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 				t.Errorf("DeleteRequest.Validate() error message = %v, want to contain %v", err, tt.errMsg)
 			}
 		})
@@ -603,14 +475,9 @@ func TestDeleteInstance_Validate(t *testing.T) {
 				t.Errorf("DeleteInstance.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+			if tt.wantErr && err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 				t.Errorf("DeleteInstance.Validate() error message = %v, want to contain %v", err, tt.errMsg)
 			}
 		})
 	}
-}
-
-// Helper function to check if a string contains another string
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }

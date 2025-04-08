@@ -1,4 +1,4 @@
-package infrastructure
+package types
 
 // Slug is a type for the slug field in the response
 // It is mainly used for the client to understand the type of the response

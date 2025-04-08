@@ -13,7 +13,6 @@ import (
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 // Instance provides business logic for instance operations
@@ -36,7 +35,7 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 }
 
 // CreateInstance creates a new instance
-func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName string, instances []infrastructure.InstanceRequest) error {
+func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName string, instances []types.InstanceRequest) error {
 	job, err := s.jobService.jobRepo.GetByName(ctx, ownerID, jobName)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
@@ -78,13 +77,15 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 			}
 
 			instance := &models.Instance{
-				Name:       instanceName,
-				OwnerID:    i.OwnerID,
-				JobID:      job.ID,
-				ProviderID: i.Provider,
-				Status:     models.InstanceStatusPending,
-				Region:     i.Region,
-				Size:       i.Size,
+				Name:          instanceName,
+				OwnerID:       i.OwnerID,
+				JobID:         job.ID,
+				ProviderID:    i.Provider,
+				Status:        models.InstanceStatusPending,
+				Region:        i.Region,
+				Size:          i.Size,
+				Volumes:       []string{},
+				VolumeDetails: models.VolumeDetails{},
 			}
 
 			if err := s.repo.Create(ctx, instance); err != nil {
@@ -117,16 +118,27 @@ func (s *Instance) updateInstanceVolumes(
 		return fmt.Errorf("failed to get instance %s: %w", instanceName, err)
 	}
 
+	logger.Debugf("🔄 Converting volume details for instance %s", instanceName)
+	logger.Debugf("📥 Input data:")
+	logger.Debugf("  - Volumes: %v", volumes)
+	logger.Debugf("  - Volume Details: %+v", volumeDetails)
+
 	// Convert volume details to database model
-	var dbVolumeDetails []models.VolumeDetail
+	dbVolumeDetails := make(models.VolumeDetails, 0, len(volumeDetails))
 	for _, vd := range volumeDetails {
 		dbVolumeDetails = append(dbVolumeDetails, models.VolumeDetail{
 			ID:         vd.ID,
 			Name:       vd.Name,
+			Region:     vd.Region,
 			SizeGB:     vd.SizeGB,
 			MountPoint: vd.MountPoint,
 		})
 	}
+
+	logger.Debugf("📦 Preparing to update instance %s", instanceName)
+	logger.Debugf("📝 Data to update:")
+	logger.Debugf("  - Volumes: %#v", volumes)
+	logger.Debugf("  - Volume Details: %#v", dbVolumeDetails)
 
 	// Create update instance with only the fields we want to update
 	updateInstance := &models.Instance{
@@ -134,17 +146,38 @@ func (s *Instance) updateInstanceVolumes(
 		VolumeDetails: dbVolumeDetails,
 	}
 
-	// Update instance in database
-	if err := s.repo.UpdateByName(ctx, instance.OwnerID, instanceName, updateInstance); err != nil {
+	// Update instance in database using a transaction to ensure atomicity
+	err = s.repo.UpdateByName(ctx, instance.OwnerID, instanceName, updateInstance)
+	if err != nil {
+		logger.Errorf("❌ Failed to update instance %s volumes: %v", instanceName, err)
 		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
 	}
 
-	logger.Infof("✅ Updated instance %s with volumes: %v and details: %+v", instanceName, volumes, dbVolumeDetails)
+	// Verify the update immediately
+	updatedInstance, err := s.repo.GetByName(ctx, instanceName)
+	if err != nil {
+		logger.Warnf("⚠️ Could not verify volume update for instance %s: %v", instanceName, err)
+		return nil // Don't return error here as the update might have succeeded
+	}
+
+	logger.Debugf("✅ Verified volumes update for instance %s:", instanceName)
+	logger.Debugf("📊 Database state after update:")
+	logger.Debugf("  - Volumes: %#v", updatedInstance.Volumes)
+	logger.Debugf("  - Volume Details: %#v", updatedInstance.VolumeDetails)
+
+	// Verify data integrity
+	if len(updatedInstance.Volumes) != len(volumes) {
+		logger.Warnf("⚠️ Volume count mismatch - Expected: %d, Got: %d", len(volumes), len(updatedInstance.Volumes))
+	}
+	if len(updatedInstance.VolumeDetails) != len(dbVolumeDetails) {
+		logger.Warnf("⚠️ Volume details count mismatch - Expected: %d, Got: %d", len(dbVolumeDetails), len(updatedInstance.VolumeDetails))
+	}
+
 	return nil
 }
 
 // provisionInstances provisions the job asynchronously
-func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []infrastructure.InstanceRequest) {
+func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []types.InstanceRequest) {
 	go func() {
 		// Get job name
 		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID)
@@ -154,14 +187,14 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 		}
 
 		// Create infrastructure client
-		infraReq := &infrastructure.InstancesRequest{
+		infraReq := &types.InstancesRequest{
 			JobName:   job.Name,
 			Instances: instances,
 			Action:    "create",
 			Provider:  instances[0].Provider,
 		}
 
-		infra, err := infrastructure.NewInfrastructure(infraReq)
+		infra, err := NewInfrastructure(infraReq)
 		if err != nil {
 			logger.Errorf("❌ Failed to create infrastructure client: %v", err)
 			return
@@ -181,32 +214,47 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			return
 		}
 
-		logger.Infof("📝 Created instances: %+v", pInstances)
+		logger.Debugf("📝 Created instances: %+v", pInstances)
 
 		// Update instances with IP and status
 		// Update instance information in database
 		ownerID := instances[0].OwnerID
 		for _, instance := range pInstances {
-			// Create update instance with only the fields we want to update
+			logger.Debugf("🔄 Processing instance update for %s", instance.Name)
+			logger.Debugf("  - Volumes: %v", instance.Volumes)
+			logger.Debugf("  - Volume Details: %+v", instance.VolumeDetails)
+
+			// Update volumes first if present
+			if len(instance.Volumes) > 0 || len(instance.VolumeDetails) > 0 {
+				logger.Debugf("🔄 Updating volumes for instance %s", instance.Name)
+				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
+					logger.Errorf("❌ Failed to update volumes for instance %s: %v", instance.Name, err)
+					continue
+				}
+				logger.Debugf("✅ Successfully updated volumes for instance %s", instance.Name)
+
+				// Verify the update was successful
+				updatedInstance, err := s.repo.GetByName(ctx, instance.Name)
+				if err != nil {
+					logger.Errorf("❌ Failed to verify volume update for instance %s: %v", instance.Name, err)
+				} else {
+					logger.Debugf("📊 Current instance state after volume update:")
+					logger.Debugf("  - Volumes: %v", updatedInstance.Volumes)
+					logger.Debugf("  - Volume Details: %+v", updatedInstance.VolumeDetails)
+				}
+			}
+
+			// Then update instance status and IP
 			updateInstance := &models.Instance{
 				PublicIP: instance.PublicIP,
 				Status:   models.InstanceStatusReady,
 			}
 
-			// Update volumes if present
-			if len(instance.Volumes) > 0 {
-				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
-					logger.Errorf("❌ %v", err)
-					continue
-				}
-			}
-
-			// Update instance with IP and status
 			if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
 				logger.Errorf("❌ Failed to update instance %s: %v", instance.Name, err)
 				continue
 			}
-			logger.Infof("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
+			logger.Debugf("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
 		}
 
 		// Start Ansible provisioning if requested
@@ -217,7 +265,7 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			}
 		}
 
-		logger.Infof("✅ Infrastructure creation completed for job ID %d", jobID)
+		logger.Debugf("✅ Infrastructure creation completed for job ID %d", jobID)
 	}()
 }
 
@@ -277,7 +325,7 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 // deleteRequest represents a single instance deletion request with tracking
 type deleteRequest struct {
 	instance     models.Instance
-	infraRequest *infrastructure.InstancesRequest
+	infraRequest *types.InstancesRequest
 	attempts     int
 	lastError    error
 	maxAttempts  int
@@ -303,9 +351,9 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			logger.Infof("🗑️ Attempting to delete instance: %s", instance.Name)
 
 			// Create a new infrastructure request for each instance
-			infraReq := &infrastructure.InstancesRequest{
+			infraReq := &types.InstancesRequest{
 				JobName: jobName,
-				Instances: []infrastructure.InstanceRequest{
+				Instances: []types.InstanceRequest{
 					{
 						Name:     instance.Name,
 						Provider: instance.ProviderID,
@@ -361,7 +409,7 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			request.attempts++
 
 			// Try to delete infrastructure
-			infra, err := infrastructure.NewInfrastructure(request.infraRequest)
+			infra, err := NewInfrastructure(request.infraRequest)
 			if err != nil {
 				request.lastError = fmt.Errorf("failed to create infrastructure client: %w", err)
 				queue = append(queue, request) // add back to queue

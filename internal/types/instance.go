@@ -1,23 +1,12 @@
 // Package types provides type definitions for the application
 package types
 
-// VolumeConfig represents the configuration for a volume
-type VolumeConfig struct {
-	Name       string `json:"name"`        // Name of the volume
-	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
-	Region     string `json:"region"`      // Region where to create the volume
-	FileSystem string `json:"filesystem"`  // File system type (optional)
-	MountPoint string `json:"mount_point"` // Where to mount the volume
-}
+import (
+	"fmt"
+	"strings"
 
-// VolumeDetails represents detailed information about a created volume
-type VolumeDetails struct {
-	ID         string `json:"id"`          // Volume ID
-	Name       string `json:"name"`        // Volume name
-	Region     string `json:"region"`      // Region where volume was created
-	SizeGB     int    `json:"size_gb"`     // Size in gigabytes
-	MountPoint string `json:"mount_point"` // Where the volume is mounted
-}
+	"github.com/celestiaorg/talis/internal/db/models"
+)
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
@@ -32,14 +21,200 @@ type InstanceConfig struct {
 	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
 }
 
+// InstancesRequest represents a request to manage instances, including creation and deletion.
+type InstancesRequest struct {
+	JobName      string            `json:"job_name"`
+	InstanceName string            `json:"instance_name"`
+	Instances    []InstanceRequest `json:"instances"`
+	WebhookURL   string            `json:"webhook_url"`
+	Action       string            `json:"action"`
+	ProjectName  string            `json:"project_name"`
+	Provider     models.ProviderID `json:"provider"`
+}
+
+// InstanceRequest represents a request to create or modify a compute instance
+type InstanceRequest struct {
+	Provider          models.ProviderID `json:"provider"`            // Cloud provider (e.g., "do")
+	Region            string            `json:"region"`              // Region where instances will be created
+	Size              string            `json:"size"`                // Instance size/type
+	Image             string            `json:"image"`               // OS image to use
+	SSHKeyName        string            `json:"ssh_key_name"`        // Name of the SSH key to use
+	Tags              []string          `json:"tags"`                // Tags to apply to instances
+	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
+	Name              string            `json:"name"`                // Optional custom name for instances
+	Provision         bool              `json:"provision"`           // Whether to run Ansible provisioning
+	Volumes           []VolumeConfig    `json:"volumes"`             // Optional volumes to attach
+	OwnerID           uint              `json:"owner_id"`            // Owner ID of the instance
+}
+
+// InstanceCreateRequest represents the JSON structure for creating infrastructure
+type InstanceCreateRequest struct {
+	InstanceName string            `json:"instance_name"`
+	ProjectName  string            `json:"project_name"`
+	WebhookURL   string            `json:"webhook_url,omitempty"`
+	Instances    []InstanceRequest `json:"instances"`
+}
+
+// DeleteInstanceRequest represents the request body for deleting instances
+type DeleteInstanceRequest struct {
+	JobName       string   `json:"job_name" validate:"required"`             // Job name of the job
+	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
+}
+
+// DeleteRequest represents a request to delete infrastructure
+type DeleteRequest struct {
+	InstanceName string            `json:"instance_name"` // Base name for instances
+	ProjectName  string            `json:"project_name"`  // Project name of the job
+	WebhookURL   string            `json:"webhook_url"`   // Webhook URL of the job
+	Provider     models.ProviderID `json:"provider"`      // Provider of the compute service
+	Instances    []DeleteInstance  `json:"instances"`     // Instances to delete
+}
+
+// DeleteInstance represents the configuration for deleting an instance
+type DeleteInstance struct {
+	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
+	Name              string            `json:"name"`                // Optional specific instance name to delete
+	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to delete
+	Region            string            `json:"region"`              // Region of the instance
+	Size              string            `json:"size"`                // Size of the instance
+	Image             string            `json:"image"`               // Image of the instance
+	Tags              []string          `json:"tags"`                // Tags of the instance
+	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
+}
+
+// CreateRequest represents a request to create infrastructure
+type CreateRequest struct {
+	Name        string            `json:"name"`         // Name of the job
+	ProjectName string            `json:"project_name"` // Project name of the job
+	WebhookURL  string            `json:"webhook_url"`  // Webhook URL of the job
+	Instances   []InstanceRequest `json:"instances"`    // Instances to create
+}
+
+// ListInstancesResponse represents the response from the list instances endpoint
+type ListInstancesResponse struct {
+	Instances  []models.Instance  `json:"instances"`  // List of instances
+	Pagination PaginationResponse `json:"pagination"` // Pagination information
+}
+
+// InstanceMetadataResponse represents the metadata response for instances
+type InstanceMetadataResponse struct {
+	Instances  []models.Instance  `json:"instances"`  // List of instances
+	Pagination PaginationResponse `json:"pagination"` // Pagination information
+}
+
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	ID            string          `json:"id"`                       // Provider-specific instance ID
-	Name          string          `json:"name"`                     // Instance name
-	PublicIP      string          `json:"public_ip"`                // Public IP address
-	Provider      string          `json:"provider"`                 // Provider name (e.g., "do", "aws", etc)
-	Region        string          `json:"region"`                   // Region where instance was created
-	Size          string          `json:"size"`                     // Instance size/type
-	Volumes       []string        `json:"volumes,omitempty"`        // List of attached volume IDs
-	VolumeDetails []VolumeDetails `json:"volume_details,omitempty"` // Detailed information about attached volumes
+	ID            string            // Provider-specific instance ID
+	Name          string            // Instance name
+	PublicIP      string            // Public IP address
+	Provider      models.ProviderID // Provider name (e.g., "do")
+	Region        string            // Region where instance was created
+	Size          string            // Instance size/type
+	Volumes       []string          `json:"volumes,omitempty"`        // List of attached volume IDs
+	VolumeDetails []VolumeDetails   `json:"volume_details,omitempty"` // Detailed information about attached volumes
+}
+
+// Validate validates the infrastructure request
+func (r *InstancesRequest) Validate() error {
+	if r.JobName == "" {
+		return fmt.Errorf("job_name is required")
+	}
+
+	if r.ProjectName == "" {
+		return fmt.Errorf("project_name is required")
+	}
+	if len(r.Instances) == 0 {
+		return fmt.Errorf("at least one instance configuration is required")
+	}
+
+	for i, instance := range r.Instances {
+		if instance.Name == "" && r.InstanceName == "" {
+			return fmt.Errorf("instance_name or instance.name is required")
+		}
+
+		// Validate hostname format
+		nameToValidate := instance.Name
+		if nameToValidate == "" {
+			nameToValidate = r.InstanceName
+		}
+		if err := validateHostname(nameToValidate); err != nil {
+			return fmt.Errorf("invalid hostname at index %d: %w", i, err)
+		}
+
+		if err := instance.Validate(); err != nil {
+			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+// Validate validates the instance configuration
+func (i *InstanceRequest) Validate() error {
+	if i.Provider == "" {
+		return fmt.Errorf("provider is required")
+	}
+	if i.NumberOfInstances < 1 {
+		return fmt.Errorf("number_of_instances must be greater than 0")
+	}
+	if i.Region == "" {
+		return fmt.Errorf("region is required")
+	}
+	if i.Size == "" {
+		return fmt.Errorf("size is required")
+	}
+	if i.Image == "" {
+		return fmt.Errorf("image is required")
+	}
+	if i.SSHKeyName == "" {
+		return fmt.Errorf("ssh_key_name is required")
+	}
+
+	// Validate volumes if present
+	for j, vol := range i.Volumes {
+		if err := ValidateVolume(&vol, i.Region); err != nil {
+			return fmt.Errorf("invalid volume configuration at index %d: %w", j, err)
+		}
+	}
+
+	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
+	return nil
+}
+
+// Validate validates the delete request
+func (r *DeleteRequest) Validate() error {
+	if r.InstanceName == "" {
+		return fmt.Errorf("instance_name is required")
+	}
+	if r.ProjectName == "" {
+		return fmt.Errorf("project_name is required")
+	}
+	if len(r.Instances) == 0 {
+		return fmt.Errorf("at least one instance configuration is required")
+	}
+
+	for i, instance := range r.Instances {
+		if err := instance.Validate(); err != nil {
+			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+// Validate validates the delete instance configuration
+func (i *DeleteInstance) Validate() error {
+	if i.Provider == "" {
+		return fmt.Errorf("provider is required")
+	}
+	if i.NumberOfInstances < 1 {
+		return fmt.Errorf("number_of_instances must be greater than 0")
+	}
+	if i.Region == "" {
+		return fmt.Errorf("region is required")
+	}
+	if i.Size == "" {
+		return fmt.Errorf("size is required")
+	}
+	return nil
 }

@@ -7,11 +7,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
-	"github.com/celestiaorg/talis/internal/api/v1/client"
-	"github.com/celestiaorg/talis/internal/api/v1/handlers"
-	"github.com/celestiaorg/talis/internal/api/v1/routes"
-	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/services"
+	"github.com/celestiaorg/talis/pkg/api/v1/client"
+	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
+	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
 // testClientTimeout is the timeout for test API client requests
