@@ -14,9 +14,9 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/celestiaorg/talis/internal/api/v1/client"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/pkg/api/v1/client"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 

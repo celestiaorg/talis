@@ -8,9 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/celestiaorg/talis/internal/types"
 	"github.com/spf13/cobra"
-
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
 )
 
 func init() {
@@ -47,7 +46,7 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req infrastructure.InstancesRequest
+		var req types.InstancesRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
@@ -65,7 +64,7 @@ var createInfraCmd = &cobra.Command{
 		fmt.Println("Infrastructure creation request submitted successfully")
 
 		// Create the delete request
-		deleteReq := infrastructure.DeleteInstanceRequest{
+		deleteReq := types.DeleteInstanceRequest{
 			JobName: req.JobName,
 			InstanceNames: func() []string {
 				names := make([]string, 0)
@@ -119,7 +118,7 @@ var deleteInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req infrastructure.DeleteInstanceRequest
+		var req types.DeleteInstanceRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}

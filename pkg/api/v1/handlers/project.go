@@ -2,9 +2,9 @@
 package handlers
 
 import (
-	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types/infrastructure"
+	"github.com/celestiaorg/talis/internal/services"
+	"github.com/celestiaorg/talis/internal/types"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
@@ -25,55 +25,55 @@ func NewProjectHandler(projectService *services.ProjectService) *ProjectHandler 
 func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
 	var project models.Project
 	if err := c.BodyParser(&project); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput(err.Error()))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput(err.Error()))
 	}
 
 	if project.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 	project.OwnerID = ownerID
 
 	if err := h.projectService.Create(c.Context(), &project); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(infrastructure.Success(project))
+	return c.Status(fiber.StatusCreated).JSON(types.Success(project))
 }
 
 // GetProject handles retrieving a project by name
 func (h *ProjectHandler) GetProject(c *fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	project, err := h.projectService.GetByName(c.Context(), ownerID, name)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(infrastructure.ErrNotFound(err.Error()))
+		return c.Status(fiber.StatusNotFound).JSON(types.ErrNotFound(err.Error()))
 	}
 
-	return c.JSON(infrastructure.Success(project))
+	return c.JSON(types.Success(project))
 }
 
 // GetProjectByName handles retrieving a project by name
 func (h *ProjectHandler) GetProjectByName(c *fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	project, err := h.projectService.GetByName(c.Context(), ownerID, name)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(infrastructure.ErrNotFound(err.Error()))
+		return c.Status(fiber.StatusNotFound).JSON(types.ErrNotFound(err.Error()))
 	}
 
-	return c.JSON(infrastructure.Success(project))
+	return c.JSON(types.Success(project))
 }
 
 // ListProjects handles retrieving all projects with pagination
@@ -85,12 +85,12 @@ func (h *ProjectHandler) ListProjects(c *fiber.Ctx) error {
 
 	projects, err := h.projectService.List(c.Context(), ownerID, listOpts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.Success(map[string]interface{}{
+	return c.JSON(types.Success(map[string]interface{}{
 		"projects": projects,
-		"pagination": infrastructure.PaginationResponse{
+		"pagination": types.PaginationResponse{
 			Total:  len(projects),
 			Page:   page,
 			Limit:  listOpts.Limit,
@@ -103,13 +103,13 @@ func (h *ProjectHandler) ListProjects(c *fiber.Ctx) error {
 func (h *ProjectHandler) DeleteProject(c *fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	if err := h.projectService.Delete(c.Context(), ownerID, name); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
@@ -119,15 +119,15 @@ func (h *ProjectHandler) DeleteProject(c *fiber.Ctx) error {
 func (h *ProjectHandler) ListProjectInstances(c *fiber.Ctx) error {
 	name := c.Params("name")
 	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(infrastructure.ErrInvalidInput("Project name is required"))
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
 	}
 
 	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	instances, err := h.projectService.ListInstances(c.Context(), ownerID, name)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(infrastructure.ErrServer(err.Error()))
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
 
-	return c.JSON(infrastructure.Success(instances))
+	return c.JSON(types.Success(instances))
 }

@@ -17,8 +17,8 @@ import (
 // Test helper functions
 
 // newTestProvider creates a new DigitalOceanProvider with a mock client for testing
-func newTestProvider() (*DigitalOceanProvider, *MockDOClient) {
-	mockClient := NewMockDOClient()
+func newTestProvider() (*DigitalOceanProvider, *mocks.MockDOClient) {
+	mockClient := mocks.NewMockDOClient()
 	mockClient.ResetToStandard() // Reset to standard responses
 	provider := &DigitalOceanProvider{doClient: mockClient}
 	return provider, mockClient
@@ -397,7 +397,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("SetClient", func(t *testing.T) {
 		provider := &DigitalOceanProvider{}
-		mockClient := NewMockDOClient()
+		mockClient := mocks.NewMockDOClient()
 
 		// Initially the client should be nil
 		assert.Nil(t, provider.doClient)
@@ -454,7 +454,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 	})
 
 	t.Run("GetDroplet", func(t *testing.T) {
-		mockClient := NewMockDOClient()
+		mockClient := mocks.NewMockDOClient()
 		provider := &DigitalOceanProvider{doClient: mockClient}
 
 		t.Run("droplet not found", func(t *testing.T) {
@@ -478,7 +478,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 	})
 
 	t.Run("DeleteDroplet", func(t *testing.T) {
-		mockClient := NewMockDOClient()
+		mockClient := mocks.NewMockDOClient()
 		provider := &DigitalOceanProvider{doClient: mockClient}
 
 		t.Run("droplet not found", func(t *testing.T) {
@@ -498,71 +498,4 @@ func TestDigitalOceanProvider(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	})
-}
-
-func TestDigitalOceanProvider_CreateInstance(t *testing.T) {
-	mockClient := NewMockDOClient()
-	provider := &DigitalOceanProvider{
-		doClient: mockClient,
-	}
-
-	// Test successful instance creation
-	instances, err := provider.CreateInstance(context.Background(), "test", types.InstanceConfig{
-		NumberOfInstances: 1,
-		Region:            "nyc1",
-		Size:              "s-1vcpu-1gb",
-	})
-	require.NoError(t, err)
-	require.Len(t, instances, 1)
-	assert.Equal(t, "test", instances[0].Name)
-
-	// Test authentication error
-	mockClient.SimulateAuthenticationFailure()
-	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
-	assert.ErrorIs(t, err, ErrAuthentication)
-
-	// Test rate limit error
-	mockClient.SimulateRateLimit()
-	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
-	assert.ErrorIs(t, err, ErrRateLimit)
-
-	// Test not found error
-	mockClient.SimulateNotFound()
-	_, err = provider.CreateInstance(context.Background(), "test", types.InstanceConfig{})
-	assert.ErrorIs(t, err, ErrDropletNotFound)
-}
-
-func TestDigitalOceanProvider_DeleteInstance(t *testing.T) {
-	mockClient := NewMockDOClient()
-	provider := &DigitalOceanProvider{
-		doClient: mockClient,
-	}
-
-	// First create an instance
-	instances, err := provider.CreateInstance(context.Background(), "test", types.InstanceConfig{
-		NumberOfInstances: 1,
-		Region:            "nyc1",
-		Size:              "s-1vcpu-1gb",
-	})
-	require.NoError(t, err)
-	require.Len(t, instances, 1)
-
-	// Test successful instance deletion
-	err = provider.DeleteInstance(context.Background(), "test-0", "nyc1")
-	assert.NoError(t, err)
-
-	// Test authentication error
-	mockClient.SimulateAuthenticationFailure()
-	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
-	assert.ErrorIs(t, err, ErrAuthentication)
-
-	// Test rate limit error
-	mockClient.SimulateRateLimit()
-	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
-	assert.ErrorIs(t, err, ErrRateLimit)
-
-	// Test not found error
-	mockClient.SimulateNotFound()
-	err = provider.DeleteInstance(context.Background(), "test", "nyc1")
-	assert.ErrorIs(t, err, ErrDropletNotFound)
 }

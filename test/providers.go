@@ -2,7 +2,6 @@ package test
 
 import (
 	"github.com/celestiaorg/talis/internal/compute"
-	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 
@@ -12,11 +11,11 @@ func SetupMockDOClient(suite *Suite) {
 }
 
 // NewTestProvider creates a new test provider instance
-func NewTestProvider() types.ComputeProvider {
-	return compute.NewMockDOClient()
+func NewTestProvider() compute.Provider {
+	return mocks.NewMockDOClient()
 }
 
 // NewTestDOClient creates a new test DigitalOcean client instance
-func NewTestDOClient() *compute.MockDOClient {
-	return compute.NewMockDOClient()
+func NewTestDOClient() *mocks.MockDOClient {
+	return mocks.NewMockDOClient()
 }

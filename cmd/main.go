@@ -10,12 +10,12 @@ import (
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
-	"github.com/celestiaorg/talis/internal/api/v1/handlers"
-	"github.com/celestiaorg/talis/internal/api/v1/routes"
-	"github.com/celestiaorg/talis/internal/api/v1/services"
 	"github.com/celestiaorg/talis/internal/db"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	log "github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/services"
+	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
+	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
 func main() {
