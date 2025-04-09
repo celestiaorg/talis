@@ -84,6 +84,7 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 				Status:        models.InstanceStatusPending,
 				Region:        i.Region,
 				Size:          i.Size,
+				Tags:          i.Tags,
 				Volumes:       []string{},
 				VolumeDetails: models.VolumeDetails{},
 			}
