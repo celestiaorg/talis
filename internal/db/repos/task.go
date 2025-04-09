@@ -2,6 +2,7 @@ package repos
 
 import (
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -36,6 +37,9 @@ func (r *TaskRepository) Get(ctx context.Context, id uint) (*models.Task, error)
 
 // GetByName retrieves a task by name within a project from the database
 func (r *TaskRepository) GetByName(ctx context.Context, ownerID uint, projectID uint, name string) (*models.Task, error) {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var task models.Task
 	err := r.db.WithContext(ctx).Where(models.Task{
 		OwnerID:   ownerID,
@@ -47,6 +51,9 @@ func (r *TaskRepository) GetByName(ctx context.Context, ownerID uint, projectID 
 
 // ListByProject retrieves all tasks for a specific project from the database with pagination
 func (r *TaskRepository) ListByProject(ctx context.Context, ownerID uint, projectID uint, opts *models.ListOptions) ([]models.Task, error) {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var tasks []models.Task
 	err := r.db.WithContext(ctx).Where(models.Task{
 		OwnerID:   ownerID,
@@ -57,6 +64,9 @@ func (r *TaskRepository) ListByProject(ctx context.Context, ownerID uint, projec
 
 // UpdateStatus updates the status of a task in the database
 func (r *TaskRepository) UpdateStatus(ctx context.Context, ownerID uint, id uint, status models.TaskStatus) error {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return fmt.Errorf("invalid owner_id: %w", err)
+	}
 	return r.db.WithContext(ctx).Model(&models.Task{}).Where(models.Task{
 		Model:   gorm.Model{ID: id},
 		OwnerID: ownerID,

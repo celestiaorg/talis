@@ -3,6 +3,7 @@ package repos
 
 import (
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -37,6 +38,9 @@ func (r *ProjectRepository) Get(ctx context.Context, id uint) (*models.Project, 
 
 // GetByName retrieves a project by name from the database
 func (r *ProjectRepository) GetByName(ctx context.Context, ownerID uint, name string) (*models.Project, error) {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var project models.Project
 	query := r.db.WithContext(ctx).Where(models.Project{
 		OwnerID: ownerID,
@@ -50,6 +54,9 @@ func (r *ProjectRepository) GetByName(ctx context.Context, ownerID uint, name st
 
 // List retrieves all projects from the database with pagination
 func (r *ProjectRepository) List(ctx context.Context, ownerID uint, opts *models.ListOptions) ([]models.Project, error) {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var projects []models.Project
 	err := r.db.WithContext(ctx).Where(models.Project{OwnerID: ownerID}).
 		Limit(opts.Limit).Offset(opts.Offset).Find(&projects).Error
@@ -58,6 +65,9 @@ func (r *ProjectRepository) List(ctx context.Context, ownerID uint, opts *models
 
 // Delete deletes a project by name from the database
 func (r *ProjectRepository) Delete(ctx context.Context, ownerID uint, name string) error {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return fmt.Errorf("invalid owner_id: %w", err)
+	}
 	return r.db.WithContext(ctx).Where(models.Project{
 		OwnerID: ownerID,
 		Name:    name,
