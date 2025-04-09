@@ -101,6 +101,7 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 					Name:          instanceInfo.Name,
 					PublicIP:      instanceInfo.PublicIP,
 					Provider:      instanceInfo.Provider,
+					Tags:          instanceInfo.Tags,
 					Region:        instanceInfo.Region,
 					Size:          instanceInfo.Size,
 					Volumes:       instanceInfo.Volumes,
