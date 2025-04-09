@@ -50,13 +50,7 @@ func (s *TaskService) ListByProject(ctx context.Context, ownerID uint, projectNa
 }
 
 // UpdateStatus updates the status of a task
-func (s *TaskService) UpdateStatus(ctx context.Context, ownerID uint, projectName string, taskName string, status string) error {
-	// First validate the status
-	taskStatus, err := models.ParseTaskStatus(status)
-	if err != nil {
-		return err
-	}
-
+func (s *TaskService) UpdateStatus(ctx context.Context, ownerID uint, projectName string, taskName string, status models.TaskStatus) error {
 	project, err := s.projectRepo.GetByName(ctx, ownerID, projectName)
 	if err != nil {
 		return err
@@ -67,5 +61,5 @@ func (s *TaskService) UpdateStatus(ctx context.Context, ownerID uint, projectNam
 		return err
 	}
 
-	return s.repo.UpdateStatus(ctx, ownerID, task.ID, taskStatus)
+	return s.repo.UpdateStatus(ctx, ownerID, task.ID, status)
 }
