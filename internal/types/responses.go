@@ -25,3 +25,9 @@ type PublicIPsResponse struct {
 	PublicIPs  []PublicIPs        `json:"public_ips"` // List of public IPs
 	Pagination PaginationResponse `json:"pagination"` // Pagination information
 }
+
+// ListResponse defines a generic response structure for listing resources
+type ListResponse[T any] struct {
+	Rows       []T                `json:"rows"`
+	Pagination PaginationResponse `json:"pagination"`
+}

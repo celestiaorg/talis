@@ -12,15 +12,22 @@ const (
 )
 
 // getPaginationOptions returns a ListOptions struct with validated pagination parameters
-func getPaginationOptions(page int) *models.ListOptions {
+func getPaginationOptions(page int, includeDeleted ...bool) *models.ListOptions {
 	// Validate and set defaults for page
 	if page < 1 {
 		page = 1
 	}
 
 	offset := (page - 1) * models.DefaultLimit
-	return &models.ListOptions{
+	options := &models.ListOptions{
 		Limit:  models.DefaultLimit,
 		Offset: offset,
 	}
+
+	// Set include_deleted if provided
+	if len(includeDeleted) > 0 {
+		options.IncludeDeleted = includeDeleted[0]
+	}
+
+	return options
 }

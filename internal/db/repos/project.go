@@ -38,7 +38,11 @@ func (r *ProjectRepository) Get(ctx context.Context, id uint) (*models.Project, 
 // GetByName retrieves a project by name from the database
 func (r *ProjectRepository) GetByName(ctx context.Context, ownerID uint, name string) (*models.Project, error) {
 	var project models.Project
-	if err := r.db.WithContext(ctx).Where("owner_id = ? AND name = ?", ownerID, name).First(&project).Error; err != nil {
+	query := r.db.WithContext(ctx).Where(models.Project{
+		OwnerID: ownerID,
+		Name:    name,
+	})
+	if err := query.First(&project).Error; err != nil {
 		return nil, err
 	}
 	return &project, nil
@@ -47,28 +51,23 @@ func (r *ProjectRepository) GetByName(ctx context.Context, ownerID uint, name st
 // List retrieves all projects from the database with pagination
 func (r *ProjectRepository) List(ctx context.Context, ownerID uint, opts *models.ListOptions) ([]models.Project, error) {
 	var projects []models.Project
-	query := r.db.WithContext(ctx).Where("owner_id = ?", ownerID)
-
-	if !opts.IncludeDeleted {
-		query = query.Where("deleted_at IS NULL")
-	}
-
-	if err := query.Limit(opts.Limit).Offset(opts.Offset).Find(&projects).Error; err != nil {
-		return nil, err
-	}
-	return projects, nil
+	err := r.db.WithContext(ctx).Where(models.Project{OwnerID: ownerID}).
+		Limit(opts.Limit).Offset(opts.Offset).Find(&projects).Error
+	return projects, err
 }
 
 // Delete deletes a project by name from the database
 func (r *ProjectRepository) Delete(ctx context.Context, ownerID uint, name string) error {
-	return r.db.WithContext(ctx).Where("owner_id = ? AND name = ?", ownerID, name).Delete(&models.Project{}).Error
+	return r.db.WithContext(ctx).Where(models.Project{
+		OwnerID: ownerID,
+		Name:    name,
+	}).Delete(&models.Project{}).Error
 }
 
 // ListInstances retrieves all instances for a specific project from the database
-func (r *ProjectRepository) ListInstances(ctx context.Context, projectID uint) ([]models.Instance, error) {
+func (r *ProjectRepository) ListInstances(ctx context.Context, projectID uint, opts *models.ListOptions) ([]models.Instance, error) {
 	var instances []models.Instance
-	if err := r.db.WithContext(ctx).Where("project_id = ?", projectID).Find(&instances).Error; err != nil {
-		return nil, err
-	}
-	return instances, nil
+	err := r.db.WithContext(ctx).Limit(opts.Limit).Offset(opts.Offset).
+		Where(models.Instance{ProjectID: projectID}).Find(&instances).Error
+	return instances, err
 }

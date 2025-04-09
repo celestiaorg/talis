@@ -71,8 +71,13 @@ func main() {
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	userHandler := handlers.NewUserHandler(userService)
-	projectHandler := handlers.NewProjectHandler(projectService)
-	taskHandler := handlers.NewTaskHandler(taskService)
+
+	// Create RPC handler with our services
+	rpcHandler := handlers.NewRPCHandler(
+		&handlers.RPCServices{
+			ProjectService: projectService,
+			TaskService:    taskService,
+		})
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -82,8 +87,8 @@ func main() {
 	// Add logger for API requests
 	app.Use(log.APILogger())
 
-	// Register routes
-	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler, projectHandler, taskHandler)
+	// Register routes - no need for project and task handlers as they're handled via RPC
+	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler, rpcHandler)
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")

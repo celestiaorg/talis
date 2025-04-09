@@ -49,19 +49,6 @@ func (s *TaskService) ListByProject(ctx context.Context, ownerID uint, projectNa
 	return s.repo.ListByProject(ctx, ownerID, project.ID, opts)
 }
 
-// Delete deletes a task by name
-func (s *TaskService) Delete(ctx context.Context, ownerID uint, projectName string, taskName string) error {
-	project, err := s.projectRepo.GetByName(ctx, ownerID, projectName)
-	if err != nil {
-		return err
-	}
-	task, err := s.repo.GetByName(ctx, ownerID, project.ID, taskName)
-	if err != nil {
-		return err
-	}
-	return s.repo.Delete(ctx, ownerID, task.ID)
-}
-
 // UpdateStatus updates the status of a task
 func (s *TaskService) UpdateStatus(ctx context.Context, ownerID uint, projectName string, taskName string, status string) error {
 	project, err := s.projectRepo.GetByName(ctx, ownerID, projectName)

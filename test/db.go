@@ -27,7 +27,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Job{},
 		&models.Instance{},
 		&models.User{},
-		// Add other models as needed
+		&models.Project{},
+		&models.Task{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
@@ -55,6 +56,8 @@ func SetupTestDB(suite *Suite, database *gorm.DB) {
 	suite.JobRepo = repos.NewJobRepository(suite.DB)
 	suite.InstanceRepo = repos.NewInstanceRepository(suite.DB)
 	suite.UserRepo = repos.NewUserRepository(suite.DB)
+	suite.ProjectRepo = repos.NewProjectRepository(suite.DB)
+	suite.TaskRepo = repos.NewTaskRepository(suite.DB)
 
 	// Add cleanup
 	oldCleanup := suite.cleanup

@@ -23,6 +23,8 @@ const (
 	TaskStatusCompleted TaskStatus = "completed"
 	// TaskStatusFailed indicates the task has failed
 	TaskStatusFailed TaskStatus = "failed"
+	// TaskStatusAborted indicates the task was manually aborted
+	TaskStatusAborted TaskStatus = "aborted"
 )
 
 // Task represents an asynchronous operation that can be tracked
@@ -63,6 +65,8 @@ func ParseTaskStatus(str string) (TaskStatus, error) {
 		return TaskStatusCompleted, nil
 	case string(TaskStatusFailed):
 		return TaskStatusFailed, nil
+	case string(TaskStatusAborted):
+		return TaskStatusAborted, nil
 	default:
 		return TaskStatusUnknown, fmt.Errorf("invalid task status: %s", str)
 	}

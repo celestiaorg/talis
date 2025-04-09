@@ -13,6 +13,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
@@ -51,7 +52,22 @@ type Client interface {
 	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (types.UserResponse, error)
 	CreateUser(ctx context.Context, req types.CreateUserRequest) (types.CreateUserResponse, error)
 	DeleteUser(ctx context.Context, id string) error
+
+	// Project methods
+	CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error)
+	GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error)
+	ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error)
+	DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error
+	ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error)
+
+	// Task methods
+	GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error)
+	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error)
+	AbortTask(ctx context.Context, params handlers.TaskAbortParams) error
+	UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error
 }
+
+var _ Client = &APIClient{}
 
 // Options contains configuration options for the API client
 type Options struct {
@@ -172,6 +188,19 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 	return c.doRequest(agent, response)
 }
 
+// rpcRequest executes an RPC-style request to the API
+func (c *APIClient) rpcRequest(ctx context.Context, method string, params interface{}, response interface{}) error {
+	endpoint := routes.RPCURL()
+
+	// Create the request body
+	requestBody := map[string]interface{}{
+		"method": method,
+		"params": params,
+	}
+
+	return c.executeRequest(ctx, http.MethodPost, endpoint, requestBody, response)
+}
+
 // Admin methods implementation
 
 // AdminGetInstances retrieves all instances
@@ -238,6 +267,7 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 	if opts.IncludeDeleted {
 		q.Set("include_deleted", "true")
 	}
+
 	if opts.StatusFilter != "" {
 		q.Set("status_filter", string(opts.StatusFilter))
 	}
@@ -502,4 +532,133 @@ func (c *APIClient) CreateUser(ctx context.Context, req types.CreateUserRequest)
 func (c *APIClient) DeleteUser(ctx context.Context, id string) error {
 	endpoint := routes.DeleteUserURL(id)
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+}
+
+// CreateProject creates a new project
+func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error) {
+	var project models.Project
+	if err := c.rpcRequest(ctx, handlers.ProjectCreate, params, &project); err != nil {
+		return project, err
+	}
+	return project, nil
+}
+
+// RPCResponseWrapper is a wrapper for RPC responses
+type RPCResponseWrapper struct {
+	Data    json.RawMessage `json:"data"`
+	Error   interface{}     `json:"error,omitempty"`
+	ID      string          `json:"id,omitempty"`
+	Success bool            `json:"success"`
+}
+
+// GetProject retrieves a project by name
+func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error) {
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.ProjectGet, params, &wrapper); err != nil {
+		return models.Project{}, err
+	}
+
+	if !wrapper.Success {
+		return models.Project{}, fmt.Errorf("request failed")
+	}
+
+	var project models.Project
+	if err := json.Unmarshal(wrapper.Data, &project); err != nil {
+		return models.Project{}, fmt.Errorf("error decoding project data: %w", err)
+	}
+
+	return project, nil
+}
+
+// ListProjects lists all projects
+func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.ProjectList, params, &wrapper); err != nil {
+		return nil, err
+	}
+
+	if !wrapper.Success {
+		return nil, fmt.Errorf("request failed")
+	}
+
+	var listResponse types.ListResponse[models.Project]
+	if err := json.Unmarshal(wrapper.Data, &listResponse); err != nil {
+		return nil, fmt.Errorf("error decoding projects list data: %w", err)
+	}
+
+	return listResponse.Rows, nil
+}
+
+// DeleteProject deletes a project by name
+func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error {
+	return c.rpcRequest(ctx, handlers.ProjectDelete, params, nil)
+}
+
+// ListProjectInstances lists all instances for a project
+func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.ProjectListInstances, params, &wrapper); err != nil {
+		return nil, err
+	}
+
+	if !wrapper.Success {
+		return nil, fmt.Errorf("request failed")
+	}
+
+	var listResponse types.ListResponse[models.Instance]
+	if err := json.Unmarshal(wrapper.Data, &listResponse); err != nil {
+		return nil, fmt.Errorf("error decoding instances list data: %w", err)
+	}
+
+	return listResponse.Rows, nil
+}
+
+// Task methods implementation
+
+// GetTask retrieves a task by name
+func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error) {
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.TaskGet, params, &wrapper); err != nil {
+		return models.Task{}, err
+	}
+
+	if !wrapper.Success {
+		return models.Task{}, fmt.Errorf("request failed")
+	}
+
+	var task models.Task
+	if err := json.Unmarshal(wrapper.Data, &task); err != nil {
+		return models.Task{}, fmt.Errorf("error decoding task data: %w", err)
+	}
+
+	return task, nil
+}
+
+// ListTasks lists all tasks
+func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.TaskList, params, &wrapper); err != nil {
+		return nil, err
+	}
+
+	if !wrapper.Success {
+		return nil, fmt.Errorf("request failed")
+	}
+
+	var listResponse types.ListResponse[models.Task]
+	if err := json.Unmarshal(wrapper.Data, &listResponse); err != nil {
+		return nil, fmt.Errorf("error decoding tasks list data: %w", err)
+	}
+
+	return listResponse.Rows, nil
+}
+
+// AbortTask aborts a task by name
+func (c *APIClient) AbortTask(ctx context.Context, params handlers.TaskAbortParams) error {
+	return c.rpcRequest(ctx, handlers.TaskAbort, params, nil)
+}
+
+// UpdateTaskStatus updates the status of a task
+func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error {
+	return c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, nil)
 }
