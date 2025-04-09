@@ -110,6 +110,7 @@ type InstanceInfo struct {
 	Provider      models.ProviderID // Provider name (e.g., "do")
 	Region        string            // Region where instance was created
 	Size          string            // Instance size/type
+	Tags          []string          // Tags of the instance
 	Volumes       []string          `json:"volumes,omitempty"`        // List of attached volume IDs
 	VolumeDetails []VolumeDetails   `json:"volume_details,omitempty"` // Detailed information about attached volumes
 }
