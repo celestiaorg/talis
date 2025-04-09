@@ -536,10 +536,20 @@ func (c *APIClient) DeleteUser(ctx context.Context, id string) error {
 
 // CreateProject creates a new project
 func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error) {
-	var project models.Project
-	if err := c.rpcRequest(ctx, handlers.ProjectCreate, params, &project); err != nil {
-		return project, err
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.ProjectCreate, params, &wrapper); err != nil {
+		return models.Project{}, err
 	}
+
+	if !wrapper.Success {
+		return models.Project{}, fmt.Errorf("request failed")
+	}
+
+	var project models.Project
+	if err := json.Unmarshal(wrapper.Data, &project); err != nil {
+		return models.Project{}, fmt.Errorf("error decoding project data: %w", err)
+	}
+
 	return project, nil
 }
 
