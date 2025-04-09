@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -604,7 +605,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 		volume, resp, err := p.doClient.Storage().CreateVolume(ctx, createRequest)
 		if err != nil {
 			// Check if error is due to volume already existing
-			if resp != nil && resp.StatusCode == 409 {
+			if resp != nil && resp.StatusCode == http.StatusConflict {
 				logger.Warnf("⚠️ Volume name conflict, retrying with new suffix")
 				continue
 			}
