@@ -542,7 +542,7 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 	}
 
 	if !wrapper.Success {
-		return models.Project{}, fmt.Errorf("request failed")
+		return models.Project{}, fmt.Errorf("request failed: %v", wrapper.Error)
 	}
 
 	var project models.Project
@@ -552,7 +552,6 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 
 	return project, nil
 }
-
 // RPCResponseWrapper is a wrapper for RPC responses
 type RPCResponseWrapper struct {
 	Data    json.RawMessage `json:"data"`
