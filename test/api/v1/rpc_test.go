@@ -25,15 +25,12 @@ func TestProjectRPCMethods(t *testing.T) {
 	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
-	// Create a project directly in the database
-	project := models.Project{
-		OwnerID:     models.AdminID,
-		Name:        defaultProjectCreateParams.Name,
-		Description: defaultProjectCreateParams.Description,
-		Config:      defaultProjectCreateParams.Config,
-	}
-	err := suite.ProjectRepo.Create(suite.Context(), &project)
+	// Create a project using the API client
+	project, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectCreateParams)
 	require.NoError(t, err)
+	require.Equal(t, defaultProjectCreateParams.Name, project.Name)
+	require.Equal(t, defaultProjectCreateParams.Description, project.Description)
+	require.Equal(t, defaultProjectCreateParams.Config, project.Config)
 
 	// Get project using RPC
 	getParams := handlers.ProjectGetParams{
@@ -58,14 +55,14 @@ func TestProjectRPCMethods(t *testing.T) {
 	require.Equal(t, project.Name, projects[0].Name)
 
 	// Create another project
-	secondProject := models.Project{
-		OwnerID:     models.AdminID,
+	secondProjectParams := handlers.ProjectCreateParams{
 		Name:        "second-project",
 		Description: "Another test project",
 		Config:      defaultProjectCreateParams.Config,
 	}
-	err = suite.ProjectRepo.Create(suite.Context(), &secondProject)
+	secondProject, err := suite.APIClient.CreateProject(suite.Context(), secondProjectParams)
 	require.NoError(t, err)
+	require.Equal(t, secondProjectParams.Name, secondProject.Name)
 
 	// List projects again to verify we get both
 	projects, err = suite.APIClient.ListProjects(suite.Context(), listParams)
@@ -92,16 +89,12 @@ func TestTaskRPCMethods(t *testing.T) {
 	defer suite.Cleanup()
 
 	// Create a project first
-	project := models.Project{
-		OwnerID:     models.AdminID,
-		Name:        defaultProjectCreateParams.Name,
-		Description: defaultProjectCreateParams.Description,
-		Config:      defaultProjectCreateParams.Config,
-	}
-	err := suite.ProjectRepo.Create(suite.Context(), &project)
+	project, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectCreateParams)
 	require.NoError(t, err)
+	require.Equal(t, defaultProjectCreateParams.Name, project.Name)
 
-	// Create a task directly in the DB since we don't have a Create RPC method
+	// Since we don't have a CreateTask API client method, we'll need to use the repository directly
+	// TODO: Add CreateTask API client method
 	task := models.Task{
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
@@ -133,6 +126,7 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.Equal(t, task.Name, tasks[0].Name)
 
 	// Create another task
+	// TODO: Add CreateTask API client method
 	secondTask := models.Task{
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
