@@ -14,12 +14,18 @@ jobs:
   yamllint:
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
       - uses: celestiaorg/.github/.github/actions/yamllint@v0.5.0
 
   golangci-lint:
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -31,6 +37,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
@@ -43,6 +52,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
 
       - name: Set up Go
@@ -59,6 +71,9 @@ jobs:
   docker-compose:
     runs-on: ubuntu-latest
     steps:
+      - uses: step-security/harden-runner@c6295a65d1254861815972266d5933fd6e532bdf # v2.11.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@v4
 
       - name: Set up Docker Compose
