@@ -114,8 +114,8 @@ func (h *RPCHandler) handleTaskMethod(c *fiber.Ctx, req RPCRequest) error {
 		return h.TaskHandlers.Get(c, ownerID, req)
 	case TaskList:
 		return h.TaskHandlers.List(c, ownerID, req)
-	case TaskAbort:
-		return h.TaskHandlers.Abort(c, ownerID, req)
+	case TaskTerminate:
+		return h.TaskHandlers.Terminate(c, ownerID, req)
 	case TaskUpdateStatus:
 		return h.TaskHandlers.UpdateStatus(c, ownerID, req)
 	default:

@@ -145,7 +145,7 @@ func TestTaskRPCMethods(t *testing.T) {
 	updateParams := handlers.TaskUpdateStatusParams{
 		ProjectName: project.Name,
 		TaskName:    task.Name,
-		Status:      "running",
+		Status:      models.TaskStatusRunning,
 	}
 	err = suite.APIClient.UpdateTaskStatus(suite.Context(), updateParams)
 	require.NoError(t, err)
@@ -156,15 +156,15 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.Equal(t, models.TaskStatusRunning, retrievedTask.Status)
 
 	// Abort a task using RPC
-	abortParams := handlers.TaskAbortParams{
+	terminateParams := handlers.TaskTerminateParams{
 		ProjectName: project.Name,
 		TaskName:    task.Name,
 	}
-	err = suite.APIClient.AbortTask(suite.Context(), abortParams)
+	err = suite.APIClient.TerminateTask(suite.Context(), terminateParams)
 	require.NoError(t, err)
 
-	// Verify the task is now aborted
+	// Verify the task is now terminated
 	retrievedTask, err = suite.APIClient.GetTask(suite.Context(), getParams)
 	require.NoError(t, err)
-	require.Equal(t, "aborted", retrievedTask.Status.String())
+	require.Equal(t, models.TaskStatusTerminated, retrievedTask.Status)
 }

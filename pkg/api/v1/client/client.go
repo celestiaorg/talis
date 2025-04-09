@@ -63,7 +63,7 @@ type Client interface {
 	// Task methods
 	GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error)
 	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error)
-	AbortTask(ctx context.Context, params handlers.TaskAbortParams) error
+	TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error
 	UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error
 }
 
@@ -663,9 +663,9 @@ func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParam
 	return listResponse.Rows, nil
 }
 
-// AbortTask aborts a task by name
-func (c *APIClient) AbortTask(ctx context.Context, params handlers.TaskAbortParams) error {
-	return c.rpcRequest(ctx, handlers.TaskAbort, params, nil)
+// TerminateTask terminates a task by name
+func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error {
+	return c.rpcRequest(ctx, handlers.TaskTerminate, params, nil)
 }
 
 // UpdateTaskStatus updates the status of a task

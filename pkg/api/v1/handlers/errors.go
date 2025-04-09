@@ -23,11 +23,12 @@ const (
 
 // Task error messages
 const (
-	ErrMsgTaskNameRequired = "Task name is required"
-	ErrMsgTaskNotFound     = "Task not found"
-	ErrMsgTaskListFailed   = "Failed to list tasks"
-	ErrMsgTaskAbortFailed  = "Failed to abort task"
-	ErrMsgTaskStatusFailed = "Failed to update task status"
-	ErrMsgTaskStatusReqd   = "Status is required"
-	ErrMsgInvalidReqBody   = "Invalid request body"
+	ErrMsgTaskNameRequired    = "Task name is required"
+	ErrMsgTaskNotFound        = "Task not found"
+	ErrMsgTaskListFailed      = "Failed to list tasks"
+	ErrMsgTaskTerminateFailed = "Failed to terminate task"
+	ErrMsgTaskStatusFailed    = "Failed to update task status"
+	ErrMsgTaskStatusReqd      = "Status is required"
+	ErrMsgInvalidReqBody      = "Invalid request body"
+	ErrMsgTaskStatusInvalid   = "Invalid task status"
 )

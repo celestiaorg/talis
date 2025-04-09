@@ -82,9 +82,9 @@ func (h *TaskHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	})
 }
 
-// Abort handles aborting a task by name
-func (h *TaskHandlers) Abort(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
-	params, err := parseParams[TaskAbortParams](req)
+// Terminate handles terminating a running task
+func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[TaskTerminateParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
@@ -93,9 +93,9 @@ func (h *TaskHandlers) Abort(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	// First update the task status to "aborted"
-	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, "aborted"); err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskAbortFailed, err.Error(), req.ID)
+	// First update the task status to "terminated"
+	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, models.TaskStatusTerminated); err != nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskTerminateFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{

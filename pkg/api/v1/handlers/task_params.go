@@ -4,6 +4,8 @@ package handlers
 import (
 	"fmt"
 	"strings"
+
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // TaskGetParams defines the parameters for retrieving a task
@@ -40,14 +42,14 @@ func (p TaskListParams) Validate() error {
 	return nil
 }
 
-// TaskAbortParams defines the parameters for aborting a task
-type TaskAbortParams struct {
+// TaskTerminateParams defines the parameters for terminating a task
+type TaskTerminateParams struct {
 	ProjectName string `json:"projectName"`
 	TaskName    string `json:"taskName"`
 }
 
-// Validate validates the parameters for aborting a task
-func (p TaskAbortParams) Validate() error {
+// Validate validates the parameters for terminating a task
+func (p TaskTerminateParams) Validate() error {
 	if p.ProjectName == "" {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgProjNameRequired))
 	}
@@ -59,9 +61,9 @@ func (p TaskAbortParams) Validate() error {
 
 // TaskUpdateStatusParams defines the parameters for updating a task's status
 type TaskUpdateStatusParams struct {
-	ProjectName string `json:"projectName"`
-	TaskName    string `json:"taskName"`
-	Status      string `json:"status"`
+	ProjectName string            `json:"projectName"`
+	TaskName    string            `json:"taskName"`
+	Status      models.TaskStatus `json:"status"`
 }
 
 // Validate validates the parameters for updating a task's status

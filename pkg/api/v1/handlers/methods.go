@@ -13,7 +13,7 @@ const (
 	// Task methods
 	TaskGet          = "task.get"
 	TaskList         = "task.list"
-	TaskAbort        = "task.abort"
+	TaskTerminate    = "task.terminate"
 	TaskUpdateStatus = "task.updateStatus"
 )
 
@@ -30,7 +30,7 @@ func IsProjectMethod(method string) bool {
 // IsTaskMethod checks if the given method is a task operation
 func IsTaskMethod(method string) bool {
 	switch method {
-	case TaskGet, TaskList, TaskAbort, TaskUpdateStatus:
+	case TaskGet, TaskList, TaskTerminate, TaskUpdateStatus:
 		return true
 	default:
 		return false
