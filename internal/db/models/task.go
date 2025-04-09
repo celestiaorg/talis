@@ -8,6 +8,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// Field names for task model
+const (
+	// TaskStatusField is the field name for task status
+	TaskStatusField = "status"
+	// TaskNameField is the field name for task name
+	TaskNameField = "name"
+)
+
 // TaskStatus represents the current state of a task
 type TaskStatus string
 

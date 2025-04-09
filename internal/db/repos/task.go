@@ -56,9 +56,9 @@ func (r *TaskRepository) ListByProject(ctx context.Context, ownerID uint, projec
 }
 
 // UpdateStatus updates the status of a task in the database
-func (r *TaskRepository) UpdateStatus(ctx context.Context, ownerID uint, id uint, status string) error {
+func (r *TaskRepository) UpdateStatus(ctx context.Context, ownerID uint, id uint, status models.TaskStatus) error {
 	return r.db.WithContext(ctx).Model(&models.Task{}).Where(models.Task{
 		Model:   gorm.Model{ID: id},
 		OwnerID: ownerID,
-	}).Update("status", status).Error
+	}).Update(models.TaskStatusField, status).Error
 }
