@@ -552,6 +552,7 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 
 	return project, nil
 }
+
 // RPCResponseWrapper is a wrapper for RPC responses
 type RPCResponseWrapper struct {
 	Data    json.RawMessage `json:"data"`
