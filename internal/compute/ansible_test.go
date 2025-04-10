@@ -20,7 +20,7 @@ type mockInstanceRepository struct {
 	err       error
 }
 
-func (m *mockInstanceRepository) GetByJobID(_ context.Context, _ uint, jobID uint) ([]models.Instance, error) {
+func (m *mockInstanceRepository) GetByJobID(_ context.Context, _ uint, _ uint) ([]models.Instance, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -31,17 +31,27 @@ func TestCreateInventory(t *testing.T) {
 	// Create a temporary directory for test files
 	tmpDir, err := os.MkdirTemp("", "ansible_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		err := os.RemoveAll(tmpDir)
+		if err != nil {
+			t.Errorf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Change to temp directory for test
 	originalWd, err := os.Getwd()
 	require.NoError(t, err)
 	err = os.Chdir(tmpDir)
 	require.NoError(t, err)
-	defer os.Chdir(originalWd)
+	defer func() {
+		err := os.Chdir(originalWd)
+		if err != nil {
+			t.Errorf("failed to change back to original directory: %v", err)
+		}
+	}()
 
 	// Create ansible/inventory directory
-	err = os.MkdirAll(filepath.Join("ansible", "inventory"), 0755)
+	err = os.MkdirAll(filepath.Join("ansible", "inventory"), 0750)
 	require.NoError(t, err)
 
 	// Create test instances
@@ -179,7 +189,7 @@ func TestCreateInventory(t *testing.T) {
 			assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
 
 			// Read and verify file contents
-			content, err := os.ReadFile(inventoryPath)
+			content, err := os.ReadFile(filepath.Clean(inventoryPath))
 			require.NoError(t, err)
 
 			// Verify header
