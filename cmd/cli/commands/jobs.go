@@ -23,7 +23,6 @@ type jobListOutput struct {
 }
 
 func init() {
-	RootCmd.AddCommand(jobsCmd)
 	jobsCmd.AddCommand(listJobsCmd)
 	jobsCmd.AddCommand(getJobCmd)
 
