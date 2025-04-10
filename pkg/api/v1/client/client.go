@@ -665,7 +665,16 @@ func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParam
 
 // TerminateTask terminates a task by name
 func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error {
-	return c.rpcRequest(ctx, handlers.TaskTerminate, params, nil)
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.TaskTerminate, params, &wrapper); err != nil {
+		return err
+	}
+
+	if !wrapper.Success {
+		return fmt.Errorf("failed to terminate task: %v", wrapper.Error)
+	}
+
+	return nil
 }
 
 // UpdateTaskStatus updates the status of a task
