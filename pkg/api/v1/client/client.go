@@ -683,10 +683,10 @@ func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUp
 	if err := c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, &wrapper); err != nil {
 		return err
 	}
-	
+
 	if !wrapper.Success {
 		return fmt.Errorf("failed to update task status: %v", wrapper.Error)
 	}
-	
+
 	return nil
 }
