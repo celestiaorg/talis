@@ -601,7 +601,16 @@ func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectLis
 
 // DeleteProject deletes a project by name
 func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error {
-	return c.rpcRequest(ctx, handlers.ProjectDelete, params, nil)
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.ProjectDelete, params, &wrapper); err != nil {
+		return err
+	}
+	
+	if !wrapper.Success {
+		return fmt.Errorf("failed to delete project: %v", wrapper.Error)
+	}
+	
+	return nil
 }
 
 // ListProjectInstances lists all instances for a project
