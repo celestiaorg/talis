@@ -670,5 +670,14 @@ func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTermi
 
 // UpdateTaskStatus updates the status of a task
 func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error {
-	return c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, nil)
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, &wrapper); err != nil {
+		return err
+	}
+	
+	if !wrapper.Success {
+		return fmt.Errorf("failed to update task status: %v", wrapper.Error)
+	}
+	
+	return nil
 }
