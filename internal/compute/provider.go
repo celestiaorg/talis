@@ -56,5 +56,10 @@ func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 
 // NewProvisioner creates a new system provisioner
 func NewProvisioner(jobID string) Provisioner {
-	return NewAnsibleConfigurator(jobID)
+	return NewAnsibleConfigurator(jobID, nil)
+}
+
+// NewAnsibleProvisioner creates a new Ansible provisioner
+func NewAnsibleProvisioner(jobID string) (Provisioner, error) {
+	return NewAnsibleConfigurator(jobID, nil), nil
 }
