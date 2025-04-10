@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/services"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
@@ -51,22 +50,8 @@ type RPCError struct {
 
 // RPCHandler handles RPC-style API requests for projects and tasks
 type RPCHandler struct {
-	projectService *services.ProjectService
-	taskService    *services.TaskService
-}
-
-// RPCServices contains the services needed by the RPC handler
-type RPCServices struct {
-	ProjectService *services.ProjectService
-	TaskService    *services.TaskService
-}
-
-// NewRPCHandler creates a new instance of RPCHandler
-func NewRPCHandler(services *RPCServices) *RPCHandler {
-	return &RPCHandler{
-		projectService: services.ProjectService,
-		taskService:    services.TaskService,
-	}
+	ProjectHandlers *ProjectHandlers
+	TaskHandlers    *TaskHandlers
 }
 
 // HandleRPC handles all RPC requests for various resource types
@@ -94,19 +79,23 @@ func (h *RPCHandler) HandleRPC(c *fiber.Ctx) error {
 
 // handleProjectMethod routes project methods to their respective handlers
 func (h *RPCHandler) handleProjectMethod(c *fiber.Ctx, req RPCRequest) error {
+	if h.ProjectHandlers == nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, "Project handlers not configured", nil, req.ID)
+	}
+
 	ownerID := models.AdminID // TODO: get owner id from the JWT token
 
 	switch req.Method {
 	case ProjectCreate:
-		return CreateProject(h, c, ownerID, req)
+		return h.ProjectHandlers.Create(c, ownerID, req)
 	case ProjectGet:
-		return GetProject(h, c, ownerID, req)
+		return h.ProjectHandlers.Get(c, ownerID, req)
 	case ProjectList:
-		return ListProjects(h, c, ownerID, req)
+		return h.ProjectHandlers.List(c, ownerID, req)
 	case ProjectDelete:
-		return DeleteProject(h, c, ownerID, req)
+		return h.ProjectHandlers.Delete(c, ownerID, req)
 	case ProjectListInstances:
-		return ListProjectInstances(h, c, ownerID, req)
+		return h.ProjectHandlers.ListInstances(c, ownerID, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown project method", nil, req.ID)
 	}
@@ -114,17 +103,21 @@ func (h *RPCHandler) handleProjectMethod(c *fiber.Ctx, req RPCRequest) error {
 
 // handleTaskMethod routes task methods to their respective handlers
 func (h *RPCHandler) handleTaskMethod(c *fiber.Ctx, req RPCRequest) error {
-	ownerID := uint(0) // TODO: get owner id from the JWT token
+	if h.TaskHandlers == nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, "Task handlers not configured", nil, req.ID)
+	}
+
+	ownerID := models.AdminID // TODO: get owner id from the JWT token
 
 	switch req.Method {
 	case TaskGet:
-		return GetTask(h, c, ownerID, req)
+		return h.TaskHandlers.Get(c, ownerID, req)
 	case TaskList:
-		return ListTasks(h, c, ownerID, req)
-	case TaskAbort:
-		return AbortTask(h, c, ownerID, req)
+		return h.TaskHandlers.List(c, ownerID, req)
+	case TaskTerminate:
+		return h.TaskHandlers.Terminate(c, ownerID, req)
 	case TaskUpdateStatus:
-		return UpdateTaskStatus(h, c, ownerID, req)
+		return h.TaskHandlers.UpdateStatus(c, ownerID, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown task method", nil, req.ID)
 	}

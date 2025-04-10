@@ -3,16 +3,26 @@ package handlers
 
 import (
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
 
 // TaskHandlers contains all task related handlers
-type TaskHandlers struct{}
+type TaskHandlers struct {
+	taskService *services.TaskService
+}
 
-// GetTask handles retrieving a task by name
-func GetTask(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// NewTaskHandlers creates a new task handlers instance
+func NewTaskHandlers(taskService *services.TaskService) *TaskHandlers {
+	return &TaskHandlers{
+		taskService: taskService,
+	}
+}
+
+// Get handles retrieving a task by name
+func (h *TaskHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[TaskGetParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -34,8 +44,8 @@ func GetTask(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	})
 }
 
-// ListTasks handles listing all tasks for a project with pagination
-func ListTasks(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// List handles listing all tasks for a project with pagination
+func (h *TaskHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[TaskListParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -72,9 +82,9 @@ func ListTasks(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error 
 	})
 }
 
-// AbortTask handles aborting a task by name
-func AbortTask(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
-	params, err := parseParams[TaskAbortParams](req)
+// Terminate handles terminating a running task
+func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[TaskTerminateParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
@@ -83,9 +93,9 @@ func AbortTask(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error 
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	// First update the task status to "aborted"
-	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, "aborted"); err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskAbortFailed, err.Error(), req.ID)
+	// First update the task status to "terminated"
+	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, models.TaskStatusTerminated); err != nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskTerminateFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{
@@ -94,8 +104,8 @@ func AbortTask(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error 
 	})
 }
 
-// UpdateTaskStatus handles updating a task's status
-func UpdateTaskStatus(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// UpdateStatus handles updating a task's status
+func (h *TaskHandlers) UpdateStatus(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[TaskUpdateStatusParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)

@@ -50,14 +50,16 @@ func (s *TaskService) ListByProject(ctx context.Context, ownerID uint, projectNa
 }
 
 // UpdateStatus updates the status of a task
-func (s *TaskService) UpdateStatus(ctx context.Context, ownerID uint, projectName string, taskName string, status string) error {
+func (s *TaskService) UpdateStatus(ctx context.Context, ownerID uint, projectName string, taskName string, status models.TaskStatus) error {
 	project, err := s.projectRepo.GetByName(ctx, ownerID, projectName)
 	if err != nil {
 		return err
 	}
+
 	task, err := s.repo.GetByName(ctx, ownerID, project.ID, taskName)
 	if err != nil {
 		return err
 	}
+
 	return s.repo.UpdateStatus(ctx, ownerID, task.ID, status)
 }

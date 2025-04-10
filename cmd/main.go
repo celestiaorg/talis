@@ -72,12 +72,11 @@ func main() {
 	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	userHandler := handlers.NewUserHandler(userService)
 
-	// Create RPC handler with our services
-	rpcHandler := handlers.NewRPCHandler(
-		&handlers.RPCServices{
-			ProjectService: projectService,
-			TaskService:    taskService,
-		})
+	// Create RPC handler and assign handlers directly
+	rpcHandler := &handlers.RPCHandler{
+		ProjectHandlers: handlers.NewProjectHandlers(projectService),
+		TaskHandlers:    handlers.NewTaskHandlers(taskService),
+	}
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{

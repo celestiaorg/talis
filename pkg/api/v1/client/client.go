@@ -63,7 +63,7 @@ type Client interface {
 	// Task methods
 	GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error)
 	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error)
-	AbortTask(ctx context.Context, params handlers.TaskAbortParams) error
+	TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error
 	UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error
 }
 
@@ -591,7 +591,16 @@ func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectLis
 
 // DeleteProject deletes a project by name
 func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error {
-	return c.rpcRequest(ctx, handlers.ProjectDelete, params, nil)
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.ProjectDelete, params, &wrapper); err != nil {
+		return err
+	}
+
+	if !wrapper.Success {
+		return fmt.Errorf("failed to delete project: %v", wrapper.Error)
+	}
+
+	return nil
 }
 
 // ListProjectInstances lists all instances for a project
@@ -653,12 +662,30 @@ func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParam
 	return listResponse.Rows, nil
 }
 
-// AbortTask aborts a task by name
-func (c *APIClient) AbortTask(ctx context.Context, params handlers.TaskAbortParams) error {
-	return c.rpcRequest(ctx, handlers.TaskAbort, params, nil)
+// TerminateTask terminates a task by name
+func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error {
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.TaskTerminate, params, &wrapper); err != nil {
+		return err
+	}
+
+	if !wrapper.Success {
+		return fmt.Errorf("failed to terminate task: %v", wrapper.Error)
+	}
+
+	return nil
 }
 
 // UpdateTaskStatus updates the status of a task
 func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error {
-	return c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, nil)
+	var wrapper RPCResponseWrapper
+	if err := c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, &wrapper); err != nil {
+		return err
+	}
+
+	if !wrapper.Success {
+		return fmt.Errorf("failed to update task status: %v", wrapper.Error)
+	}
+
+	return nil
 }

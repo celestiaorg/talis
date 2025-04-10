@@ -2,17 +2,30 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
+	"gorm.io/gorm"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
 
 // ProjectHandlers contains all project related handlers
-type ProjectHandlers struct{}
+type ProjectHandlers struct {
+	projectService *services.ProjectService
+}
 
-// CreateProject handles creating a project
-func CreateProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// NewProjectHandlers creates a new project handlers instance
+func NewProjectHandlers(projectService *services.ProjectService) *ProjectHandlers {
+	return &ProjectHandlers{
+		projectService: projectService,
+	}
+}
+
+// Create handles creating a project
+func (h *ProjectHandlers) Create(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[ProjectCreateParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -40,8 +53,8 @@ func CreateProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) er
 	})
 }
 
-// GetProject handles retrieving a project by name
-func GetProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// Get handles retrieving a project by name
+func (h *ProjectHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[ProjectGetParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -53,7 +66,10 @@ func GetProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error
 
 	project, err := h.projectService.GetByName(c.Context(), ownerID, params.Name)
 	if err != nil {
-		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgProjNotFound, err.Error(), req.ID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgProjNotFound, err.Error(), req.ID)
+		}
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjGetFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{
@@ -63,8 +79,8 @@ func GetProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error
 	})
 }
 
-// ListProjects handles listing all projects with pagination
-func ListProjects(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// List handles listing all projects with pagination
+func (h *ProjectHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	page := 1
 
 	if req.Params != nil {
@@ -104,8 +120,8 @@ func ListProjects(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) err
 	})
 }
 
-// DeleteProject handles deleting a project by name
-func DeleteProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// Delete handles deleting a project by name
+func (h *ProjectHandlers) Delete(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[ProjectDeleteParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -125,8 +141,8 @@ func DeleteProject(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) er
 	})
 }
 
-// ListProjectInstances handles listing all instances for a project
-func ListProjectInstances(h *RPCHandler, c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+// ListInstances handles listing all instances for a project
+func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[ProjectListInstancesParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
