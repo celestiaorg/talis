@@ -10,6 +10,7 @@ import (
 const (
 	maxHostnameLength = 63
 	hostnameRegex     = "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+	MaxPayloadSize    = 1024 * 1024 * 100 // 100MB
 )
 
 // validateHostname validates if a string is a valid hostname according to RFC standards
@@ -101,8 +102,8 @@ func (i *InstanceRequest) Validate() error {
 	}
 
 	// Validate payload if provided
-	if i.Payload != "" && len(i.Payload) > 1024*1024*100 { // 100MB limit
-		return fmt.Errorf("payload exceeds maximum size of 100MB")
+	if i.Payload != "" && len(i.Payload) > MaxPayloadSize {
+		return fmt.Errorf("payload exceeds maximum size of %d bytes", MaxPayloadSize)
 	}
 
 	// Validate payload path if provided
