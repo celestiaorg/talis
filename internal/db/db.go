@@ -111,5 +111,8 @@ func migrate(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.Job{},
 		&models.Instance{},
+		&models.Project{},
+		&models.Task{},
+		&models.User{},
 	)
 }

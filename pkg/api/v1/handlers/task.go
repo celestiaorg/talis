@@ -2,119 +2,125 @@
 package handlers
 
 import (
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
 
-// TaskHandler handles HTTP requests for tasks
-type TaskHandler struct {
+// TaskHandlers contains all task related handlers
+type TaskHandlers struct {
 	taskService *services.TaskService
 }
 
-// NewTaskHandler creates a new instance of TaskHandler
-func NewTaskHandler(taskService *services.TaskService) *TaskHandler {
-	return &TaskHandler{
+// NewTaskHandlers creates a new task handlers instance
+func NewTaskHandlers(taskService *services.TaskService) *TaskHandlers {
+	return &TaskHandlers{
 		taskService: taskService,
 	}
 }
 
-// GetTask handles retrieving a task by name within a project
-func (h *TaskHandler) GetTask(c *fiber.Ctx) error {
-	projectName := c.Params("name")
-	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
-	}
-
-	taskName := c.Params("taskName")
-	if taskName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Task name is required"))
-	}
-
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	task, err := h.taskService.GetByName(c.Context(), ownerID, projectName, taskName)
+// Get handles retrieving a task by name
+func (h *TaskHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[TaskGetParams](req)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(types.ErrNotFound(err.Error()))
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	return c.JSON(types.Success(task))
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
+	}
+
+	task, err := h.taskService.GetByName(c.Context(), ownerID, params.ProjectName, params.TaskName)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgTaskNotFound, err.Error(), req.ID)
+	}
+
+	return c.JSON(RPCResponse{
+		Data:    task,
+		Success: true,
+		ID:      req.ID,
+	})
 }
 
-// ListProjectTasks handles retrieving all tasks for a project with pagination
-func (h *TaskHandler) ListProjectTasks(c *fiber.Ctx) error {
-	projectName := c.Params("name")
-	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
+// List handles listing all tasks for a project with pagination
+func (h *TaskHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[TaskListParams](req)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	page := c.QueryInt("page", 1)
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
+	}
+
+	page := 1
+	if params.Page > 0 {
+		page = params.Page
+	}
+
 	listOpts := getPaginationOptions(page)
 
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	tasks, err := h.taskService.ListByProject(c.Context(), ownerID, projectName, listOpts)
+	tasks, err := h.taskService.ListByProject(c.Context(), ownerID, params.ProjectName, listOpts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskListFailed, err.Error(), req.ID)
 	}
 
-	return c.JSON(types.Success(map[string]interface{}{
-		"tasks": tasks,
-		"pagination": types.PaginationResponse{
-			Total:  len(tasks),
-			Page:   page,
-			Limit:  listOpts.Limit,
-			Offset: listOpts.Offset,
+	return c.JSON(RPCResponse{
+		Data: types.ListResponse[models.Task]{
+			Rows: tasks,
+			Pagination: types.PaginationResponse{
+				Total:  len(tasks),
+				Page:   page,
+				Limit:  listOpts.Limit,
+				Offset: listOpts.Offset,
+			},
 		},
-	}))
+		Success: true,
+		ID:      req.ID,
+	})
 }
 
-// DeleteTask handles deleting a task by name
-func (h *TaskHandler) DeleteTask(c *fiber.Ctx) error {
-	projectName := c.Params("name")
-	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
+// Terminate handles terminating a running task
+func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[TaskTerminateParams](req)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	taskName := c.Params("taskName")
-	if taskName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Task name is required"))
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	if err := h.taskService.Delete(c.Context(), ownerID, projectName, taskName); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+	// First update the task status to "terminated"
+	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, models.TaskStatusTerminated); err != nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskTerminateFailed, err.Error(), req.ID)
 	}
 
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.JSON(RPCResponse{
+		Success: true,
+		ID:      req.ID,
+	})
 }
 
-// UpdateTaskStatus handles updating the status of a task
-func (h *TaskHandler) UpdateTaskStatus(c *fiber.Ctx) error {
-	projectName := c.Params("name")
-	if projectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
+// UpdateStatus handles updating a task's status
+func (h *TaskHandlers) UpdateStatus(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[TaskUpdateStatusParams](req)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	taskName := c.Params("taskName")
-	if taskName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Task name is required"))
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	var statusUpdate struct {
-		Status string `json:"status"`
-	}
-	if err := c.BodyParser(&statusUpdate); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Invalid request body"))
+	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, params.Status); err != nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskStatusFailed, err.Error(), req.ID)
 	}
 
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	if err := h.taskService.UpdateStatus(c.Context(), ownerID, projectName, taskName, statusUpdate.Status); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
-	}
-
-	return c.Status(fiber.StatusOK).JSON(types.Success(nil))
+	return c.JSON(RPCResponse{
+		Success: true,
+		ID:      req.ID,
+	})
 }

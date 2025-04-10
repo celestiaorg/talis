@@ -40,10 +40,10 @@ func (s *ProjectService) Delete(ctx context.Context, ownerID uint, name string) 
 }
 
 // ListInstances retrieves all instances for a specific project
-func (s *ProjectService) ListInstances(ctx context.Context, ownerID uint, projectName string) ([]models.Instance, error) {
+func (s *ProjectService) ListInstances(ctx context.Context, ownerID uint, projectName string, opts *models.ListOptions) ([]models.Instance, error) {
 	project, err := s.repo.GetByName(ctx, ownerID, projectName)
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.ListInstances(ctx, project.ID)
+	return s.repo.ListInstances(ctx, project.ID, opts)
 }

@@ -2,132 +2,173 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
+	"gorm.io/gorm"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
 
-// ProjectHandler handles HTTP requests for projects
-type ProjectHandler struct {
+// ProjectHandlers contains all project related handlers
+type ProjectHandlers struct {
 	projectService *services.ProjectService
 }
 
-// NewProjectHandler creates a new instance of ProjectHandler
-func NewProjectHandler(projectService *services.ProjectService) *ProjectHandler {
-	return &ProjectHandler{
+// NewProjectHandlers creates a new project handlers instance
+func NewProjectHandlers(projectService *services.ProjectService) *ProjectHandlers {
+	return &ProjectHandlers{
 		projectService: projectService,
 	}
 }
 
-// CreateProject handles the creation of a new project
-func (h *ProjectHandler) CreateProject(c *fiber.Ctx) error {
-	var project models.Project
-	if err := c.BodyParser(&project); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput(err.Error()))
+// Create handles creating a project
+func (h *ProjectHandlers) Create(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[ProjectCreateParams](req)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	if project.Name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-	project.OwnerID = ownerID
+	project := models.Project{
+		OwnerID:     ownerID,
+		Name:        params.Name,
+		Description: params.Description,
+		Config:      params.Config,
+	}
 
 	if err := h.projectService.Create(c.Context(), &project); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjCreateFailed, err.Error(), req.ID)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(types.Success(project))
+	return c.JSON(RPCResponse{
+		Data:    project,
+		Success: true,
+		ID:      req.ID,
+	})
 }
 
-// GetProject handles retrieving a project by name
-func (h *ProjectHandler) GetProject(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
-	}
-
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	project, err := h.projectService.GetByName(c.Context(), ownerID, name)
+// Get handles retrieving a project by name
+func (h *ProjectHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[ProjectGetParams](req)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(types.ErrNotFound(err.Error()))
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	return c.JSON(types.Success(project))
-}
-
-// GetProjectByName handles retrieving a project by name
-func (h *ProjectHandler) GetProjectByName(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	project, err := h.projectService.GetByName(c.Context(), ownerID, name)
+	project, err := h.projectService.GetByName(c.Context(), ownerID, params.Name)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(types.ErrNotFound(err.Error()))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgProjNotFound, err.Error(), req.ID)
+		}
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjGetFailed, err.Error(), req.ID)
 	}
 
-	return c.JSON(types.Success(project))
+	return c.JSON(RPCResponse{
+		Data:    project,
+		Success: true,
+		ID:      req.ID,
+	})
 }
 
-// ListProjects handles retrieving all projects with pagination
-func (h *ProjectHandler) ListProjects(c *fiber.Ctx) error {
-	page := c.QueryInt("page", 1)
+// List handles listing all projects with pagination
+func (h *ProjectHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	page := 1
+
+	if req.Params != nil {
+		params, err := parseParams[ProjectListParams](req)
+		if err != nil {
+			return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
+		}
+
+		if err := params.Validate(); err != nil {
+			return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
+		}
+
+		if params.Page > 0 {
+			page = params.Page
+		}
+	}
+
 	listOpts := getPaginationOptions(page)
-
-	ownerID := uint(0) // TODO: get owner id from the JWT token
 
 	projects, err := h.projectService.List(c.Context(), ownerID, listOpts)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjListFailed, err.Error(), req.ID)
 	}
 
-	return c.JSON(types.Success(map[string]interface{}{
-		"projects": projects,
-		"pagination": types.PaginationResponse{
-			Total:  len(projects),
-			Page:   page,
-			Limit:  listOpts.Limit,
-			Offset: listOpts.Offset,
+	return c.JSON(RPCResponse{
+		Data: types.ListResponse[models.Project]{
+			Rows: projects,
+			Pagination: types.PaginationResponse{
+				Total:  len(projects),
+				Page:   page,
+				Limit:  listOpts.Limit,
+				Offset: listOpts.Offset,
+			},
 		},
-	}))
+		Success: true,
+		ID:      req.ID,
+	})
 }
 
-// DeleteProject handles deleting a project by name
-func (h *ProjectHandler) DeleteProject(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
-	}
-
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	if err := h.projectService.Delete(c.Context(), ownerID, name); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
-	}
-
-	return c.SendStatus(fiber.StatusNoContent)
-}
-
-// ListProjectInstances handles retrieving all instances for a specific project
-func (h *ProjectHandler) ListProjectInstances(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if name == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Project name is required"))
-	}
-
-	ownerID := uint(0) // TODO: get owner id from the JWT token
-
-	instances, err := h.projectService.ListInstances(c.Context(), ownerID, name)
+// Delete handles deleting a project by name
+func (h *ProjectHandlers) Delete(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[ProjectDeleteParams](req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}
 
-	return c.JSON(types.Success(instances))
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
+	}
+
+	if err := h.projectService.Delete(c.Context(), ownerID, params.Name); err != nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjDeleteFailed, err.Error(), req.ID)
+	}
+
+	return c.JSON(RPCResponse{
+		Success: true,
+		ID:      req.ID,
+	})
+}
+
+// ListInstances handles listing all instances for a project
+func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+	params, err := parseParams[ProjectListInstancesParams](req)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
+	}
+
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
+	}
+
+	listOpts := getPaginationOptions(params.Page)
+	instances, err := h.projectService.ListInstances(c.Context(), ownerID, params.Name, listOpts)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to list project instances", err.Error(), req.ID)
+	}
+
+	return c.JSON(RPCResponse{
+		Data: types.ListResponse[models.Instance]{
+			Rows: instances,
+			Pagination: types.PaginationResponse{
+				Total:  len(instances),
+				Page:   params.Page,
+				Limit:  listOpts.Limit,
+				Offset: listOpts.Offset,
+			},
+		},
+		Success: true,
+		ID:      req.ID,
+	})
 }

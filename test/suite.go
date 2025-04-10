@@ -44,6 +44,8 @@ type Suite struct {
 	JobRepo      *repos.JobRepository
 	InstanceRepo *repos.InstanceRepository
 	UserRepo     *repos.UserRepository
+	ProjectRepo  *repos.ProjectRepository
+	TaskRepo     *repos.TaskRepository
 
 	// Mock providers
 	MockDOClient *mocks.MockDOClient
@@ -86,6 +88,8 @@ func (s *Suite) SetupSuite() {
 	s.JobRepo = repos.NewJobRepository(db)
 	s.InstanceRepo = repos.NewInstanceRepository(db)
 	s.UserRepo = repos.NewUserRepository(db)
+	s.ProjectRepo = repos.NewProjectRepository(db)
+	s.TaskRepo = repos.NewTaskRepository(db)
 
 	// Create mock clients
 	s.MockDOClient = mocks.NewMockDOClient()

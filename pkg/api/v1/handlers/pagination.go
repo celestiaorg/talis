@@ -19,8 +19,10 @@ func getPaginationOptions(page int) *models.ListOptions {
 	}
 
 	offset := (page - 1) * models.DefaultLimit
-	return &models.ListOptions{
+	options := &models.ListOptions{
 		Limit:  models.DefaultLimit,
 		Offset: offset,
 	}
+
+	return options
 }

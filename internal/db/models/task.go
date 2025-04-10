@@ -8,6 +8,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// Field names for task model
+const (
+	// TaskStatusField is the field name for task status
+	TaskStatusField = "status"
+	// TaskNameField is the field name for task name
+	TaskNameField = "name"
+)
+
 // TaskStatus represents the current state of a task
 type TaskStatus string
 
@@ -23,6 +31,8 @@ const (
 	TaskStatusCompleted TaskStatus = "completed"
 	// TaskStatusFailed indicates the task has failed
 	TaskStatusFailed TaskStatus = "failed"
+	// TaskStatusTerminated indicates the task was manually aborted
+	TaskStatusTerminated TaskStatus = "terminated"
 )
 
 // Task represents an asynchronous operation that can be tracked
@@ -63,6 +73,8 @@ func ParseTaskStatus(str string) (TaskStatus, error) {
 		return TaskStatusCompleted, nil
 	case string(TaskStatusFailed):
 		return TaskStatusFailed, nil
+	case string(TaskStatusTerminated):
+		return TaskStatusTerminated, nil
 	default:
 		return TaskStatusUnknown, fmt.Errorf("invalid task status: %s", str)
 	}
