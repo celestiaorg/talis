@@ -40,31 +40,16 @@ func (i *Infrastructure) RunProvisioning(instances []InstanceInfo) error {
 	}
 
 	// Set payloads for instances if provided
-	for idx, instanceReq := range i.instances {
-		if instanceReq.Payload != "" && idx < len(instances) {
-			// Find the corresponding created instance
-			var instanceName string
-			if instanceReq.Name != "" {
-				instanceName = instanceReq.Name
-			} else {
-				// Use the generated name
-				for _, instance := range instances {
-					if strings.Contains(instance.Name, fmt.Sprintf("%s-%d", i.name, idx)) {
-						instanceName = instance.Name
-						break
-					}
-				}
-			}
-
-			if instanceName != "" {
+	for _, instance := range instances {
+		if instance.Payload == ""  {
+		      continue
+		}
 				if provisioner, ok := i.provisioner.(*compute.AnsibleConfigurator); ok {
-					provisioner.SetPayload(instanceName, instanceReq.Payload)
+					provisioner.SetPayload(instance.Name, instance.Payload)
 
 					// Set payload path for the instance
-					provisioner.SetPayloadPath(instanceName, instanceReq.PayloadPath)
+					provisioner.SetPayloadPath(instance.Name, instance.PayloadPath)
 				}
-			}
-		}
 	}
 
 	// Configure hosts in parallel
