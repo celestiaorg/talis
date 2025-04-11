@@ -17,7 +17,12 @@ func TestAnsibleProvisioner_Configure(t *testing.T) {
 	// Create a temporary directory for test files
 	tmpDir, err := os.MkdirTemp("", "ansible_test")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		err := os.RemoveAll(tmpDir)
+		if err != nil {
+			t.Logf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create test config
 	cfg := &config.AnsibleConfig{
