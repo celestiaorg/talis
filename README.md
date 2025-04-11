@@ -1,9 +1,11 @@
-# Talis 🦍
+# Talis - Infrastructure Management System
 
 Talis is a multi-cloud infrastructure provisioning and configuration project that uses:
 
 - Direct Cloud Provider APIs to create and manage cloud instances
 - Ansible for initial system configuration and package installation
+
+---
 
 ## Overview
 
@@ -11,6 +13,8 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 - **Direct API Integration**: Uses cloud provider APIs directly for better control and reliability
 - **Ansible**: Provides initial system configuration and package installation
 - **Extensive Testing**: Comprehensive test coverage for all cloud provider operations
+
+---
 
 ## Requirements
 
@@ -22,6 +26,8 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
   - For [Linode](https://www.linode.com/): Coming soon
   - For [Vultr](https://www.vultr.com/): Coming soon
   - For [DataPacket](https://www.datapacket.com/): Coming soon
+
+---
 
 ## Project Structure
 
@@ -38,24 +44,35 @@ talis/
 │   │       └── services/        # Business logic services
 │   ├── compute/                   # Cloud provider implementations
 │   │   ├── provider.go           # ComputeProvider interface and common types
-│   │   ├── digitalocean.go       # DigitalOcean implementation
-│   │   └── ansible.go            # Ansible configuration and provisioning
-│   ├── db/                        # Database layer
-│   │   ├── db.go                 # Database connection and configuration
-│   │   ├── models/              # Database models (instances, jobs)
-│   │   └── repos/               # Database repositories
-│   └── types/                     # Common types and models
-│       └── infrastructure/        # Infrastructure types and logic
+│   │   └── digitalocean.go       # DigitalOcean implementation
+│   ├── provisioner/              # Provisioning system
+│   │   ├── ansible.go           # Ansible implementation
+│   │   ├── interface.go         # Provisioner interfaces
+│   │   ├── factory.go          # Provisioner factory
+│   │   └── config/             # Configuration types
+│   │       └── ansible.go      # Ansible-specific config
+│   ├── events/                   # Event system
+│   │   ├── events.go           # Event definitions and bus
+│   │   └── handlers.go         # Event handler interfaces
+│   ├── db/                       # Database layer
+│   │   ├── db.go               # Database connection and configuration
+│   │   ├── models/             # Database models (instances, jobs)
+│   │   └── repos/              # Database repositories
+│   └── types/                    # Common types and models
+│       └── infrastructure/       # Infrastructure types and logic
 ├── ansible/                       # Ansible configurations
 │   ├── main.yml                  # Main Ansible configuration
 │   ├── stages/                   # Task stages for different configurations
 │   │   └── setup.yml            # Initial setup and configuration tasks
 │   ├── vars/                     # Variable definitions
 │   │   └── main.yml             # Main variables file
-│   └── inventory_*_ansible.ini   # Generated inventory files
+│   └── inventory/                # Generated inventory files
+│       └── inventory_*_ansible.ini
 ├── scripts/                       # Utility scripts
 └── .env.example                   # Environment variables example
 ```
+
+---
 
 ## Key Components
 
@@ -73,7 +90,6 @@ talis/
 ### internal/compute/
 - **provider.go**: Defines the `ComputeProvider` interface and common types
 - **digitalocean.go**: Implementation for DigitalOcean with comprehensive test coverage
-- **ansible.go**: Ansible configuration and provisioning
 
 ### ansible/
 - **main.yml**: Main Ansible configuration file
@@ -81,7 +97,59 @@ talis/
   - **setup.yml**: Initial setup and configuration tasks
 - **vars/**: Variable definitions for Ansible
   - **main.yml**: Main variables configuration
-- **inventory_*_ansible.ini**: Generated inventory files for each deployment
+- **inventory/inventory_*_ansible.ini**: Generated inventory files for each deployment
+
+---
+
+## Architecture
+
+Talis uses an event-driven architecture to manage infrastructure creation and provisioning. This design provides several benefits:
+
+### Event-Driven Flow
+
+```
++------------+     +------------+     +------------+
+|            |     |            |     |            |
+| services   +---->+  events    +---->+provisioner |
+|            |     |            |     |            |
++------------+     +------------+     +-----+------+
+                                           |
+                   +------------+          |
+                   |            |          |
+                   |  compute   +----------+
+                   |            |
+                   +------------+
+```
+
+1. **Infrastructure Creation**
+   - User requests instance creation via API
+   - Service creates instances using cloud provider
+   - Service emits `instances_created` event
+
+2. **Provisioning**
+   - Provisioning service listens for events
+   - On `instances_created`, retrieves instances from DB
+   - Configures and provisions instances using Ansible
+   - Filters out terminated instances automatically
+
+### Key Features
+
+1. **Decoupled Components**
+   - Services communicate through events
+   - No direct dependencies between services
+   - Easy to add new features without modifying existing code
+
+2. **Robust Error Handling**
+   - Infrastructure creation and provisioning are separate
+   - Failures in one component don't affect others
+   - Built-in retry mechanisms
+
+3. **Efficient Instance Management**
+   - Automatic filtering of terminated instances
+   - Clear separation of instance states
+   - Improved resource utilization
+
+---
 
 ## Setup
 
@@ -102,99 +170,38 @@ DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 # You can specify a different path in the request
 ```
 
+---
+
 ## Usage
 
-### Using the CLI
+### Creating Instances
 
 ```bash
-# Build the CLI
-make build-cli
-
-# Copy and modify the example create configuration
-cp create.json_example create.json
-# Edit create.json with your specific configuration
-
-# Create infrastructure using your configuration
-talis infra create -f create.json
-# A delete.json file will be automatically generated after successful creation
-
-# Delete infrastructure using the auto-generated file
-talis infra delete -f delete.json
-
-# List all jobs
-talis jobs list
-
-# Get job status
-talis jobs get --id job-20240315-123456
+curl -X POST http://localhost:8080/api/v1/instances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_name": "my-job",
+    "instance_name": "test-instance",
+    "instances": [{
+      "provider": "do",
+      "region": "nyc1",
+      "size": "s-1vcpu-1gb",
+      "provision": true
+    }]
+  }'
 ```
 
-### Example Configuration Files
+The system will:
+1. Create the instance in DigitalOcean
+2. Emit an event for provisioning
+3. Configure the instance using Ansible
+4. Update instance status in database
 
-#### Create Configuration (create.json_example):
-```json
-{
-    "instance_name": "talis",
-    "project_name": "talis-test",
-    "instances": [
-        {
-            "provider": "do",
-            "number_of_instances": 1,
-            "provision": true,
-            "region": "nyc3",
-            "size": "s-1vcpu-1gb",
-            "image": "ubuntu-22-04-x64",
-            "tags": ["talis-do-instance"],
-            "ssh_key_name": "your-ssh-key-name"
-        },
-        {
-            "provider": "do",
-            "name": "talis-validator",
-            "number_of_instances": 1,
-            "provision": true,
-            "region": "nyc3",
-            "size": "s-2vcpu-2gb",
-            "image": "ubuntu-22-04-x64",
-            "tags": ["talis-validator"],
-            "ssh_key_name": "your-ssh-key-name"
-        }
-    ]
-}
+### Monitoring Status
+
+```bash
+curl http://localhost:8080/api/v1/instances/{id}
 ```
-
-#### Auto-generated Delete Configuration (delete.json):
-
-The delete configuration will be automatically generated after a successful creation. It will include all necessary information to delete the created resources:
-
-The `instance_name` field is used as a base name for instances. Each instance gets a suffix that is incremented starting from 0 (e.g., "talis-0"). Individual instances can have custom names by specifying the `name` field in the instance object, as shown in the example above with "talis-validator".
-
-### Delete Instances
-
-Example configuration (delete.json_example):
-
-#### Delete Configuration (delete.json):
-This file is automatically generated after a successful creation. It contains all the information needed to delete the created resources:
-
-```json
-{
-    "id": 10,
-    "instance_name": "talis",
-    "project_name": "talis-test",
-    "instances": [
-        {
-            "provider": "do",
-            "number_of_instances": 1,
-            "region": "nyc3"
-        },
-        {
-            "provider": "do",
-            "name": "talis-validator",
-            "region": "nyc3"
-        }
-    ]
-}
-```
-
-When deleting instances, you can specify which instances to delete by providing the `name` field in the instance object. If no specific names are provided, instances are deleted in FIFO order (oldest first).
 
 ## Extensibility
 
@@ -233,6 +240,29 @@ Modify files in `ansible/`:
 - 100 Light Nodes deployment support
 
 ## Development
+
+### Prerequisites
+
+- Go 1.21+
+- PostgreSQL 14+
+- Ansible 2.9+
+
+### Setup
+
+1. Clone the repository
+```bash
+git clone https://github.com/celestiaorg/talis.git
+```
+
+2. Copy environment file
+```bash
+cp .env.example .env
+```
+
+3. Run the service
+```bash
+go run cmd/main.go
+```
 
 ### Running Tests
 
