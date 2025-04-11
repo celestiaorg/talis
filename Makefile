@@ -131,7 +131,7 @@ build-cli:
 ## run-cli: Run the Talis CLI tool
 run-cli:
 	@echo "Running Talis CLI..."
-	@./bin/talis-cli $(ARGS)
+	@go run ./cmd/cli/main.go $(ARGS)
 .PHONY: run-cli
 
 ## db-connect: Connect to the database

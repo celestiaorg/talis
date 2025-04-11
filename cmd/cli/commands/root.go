@@ -21,10 +21,17 @@ func initClient() error {
 	return nil
 }
 
+func init() {
+	RootCmd.AddCommand(GetInfraCmd())
+	RootCmd.AddCommand(GetJobsCmd())
+}
+
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "talis",
-	Short: "Talis CLI tool",
+	Short: "Talis CLI - A command line interface for Talis API",
+	Long: `Talis CLI is a command line tool for managing infrastructure and jobs through the Talis API.
+	Complete documentation is available at https://github.com/celestiaorg/talis`,
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		return initClient()
 	},

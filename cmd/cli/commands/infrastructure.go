@@ -13,7 +13,6 @@ import (
 )
 
 func init() {
-	RootCmd.AddCommand(infraCmd)
 	infraCmd.AddCommand(createInfraCmd)
 	infraCmd.AddCommand(deleteInfraCmd)
 
