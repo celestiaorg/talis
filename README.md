@@ -53,7 +53,6 @@ talis/
 │   │       └── ansible.go      # Ansible-specific config
 │   ├── events/                   # Event system
 │   │   ├── events.go           # Event definitions and bus
-│   │   └── handlers.go         # Event handler interfaces
 │   ├── db/                       # Database layer
 │   │   ├── db.go               # Database connection and configuration
 │   │   ├── models/             # Database models (instances, jobs)
