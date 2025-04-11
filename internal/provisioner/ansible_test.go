@@ -18,9 +18,8 @@ func TestAnsibleProvisioner_Configure(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "ansible_test")
 	require.NoError(t, err)
 	defer func() {
-		err := os.RemoveAll(tmpDir)
-		if err != nil {
-			t.Logf("failed to remove temp dir: %v", err)
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Errorf("failed to remove temp dir: %v", err)
 		}
 	}()
 

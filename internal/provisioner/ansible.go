@@ -41,7 +41,6 @@ const (
 // AnsibleProvisioner implements provisioning using Ansible
 type AnsibleProvisioner struct {
 	config *config.AnsibleConfig
-	mutex  sync.Mutex
 }
 
 // NewAnsibleProvisioner creates a new Ansible provisioner
@@ -56,7 +55,7 @@ func NewAnsibleProvisioner(config *config.AnsibleConfig) (*AnsibleProvisioner, e
 }
 
 // Configure implements Provisioner.Configure
-func (a *AnsibleProvisioner) Configure(ctx context.Context, instances []types.InstanceInfo) error {
+func (a *AnsibleProvisioner) Configure(_ context.Context, instances []types.InstanceInfo) error {
 	logger.InfoWithFields("Configuring instances with Ansible", map[string]interface{}{
 		"job_id":         a.config.JobID,
 		"owner_id":       a.config.OwnerID,
@@ -175,11 +174,16 @@ func (a *AnsibleProvisioner) CreateInventory(instances map[string]string, keyPat
 	}
 
 	// Create the inventory file with secure permissions
+	// #nosec G304 -- inventoryPath is constructed from validated inputs
 	f, err := os.OpenFile(inventoryPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to create inventory file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			logger.Error("Failed to close inventory file:", err)
+		}
+	}()
 
 	// Write header with SSH settings and variables first
 	header := fmt.Sprintf("[all:vars]\nansible_ssh_common_args='%s'\n\n[all]\n", SSHCommonArgs)
