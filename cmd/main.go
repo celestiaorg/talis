@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/internal/events"
 	log "github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
@@ -19,6 +21,9 @@ import (
 )
 
 func main() {
+	// Create background context
+	ctx := context.Background()
+
 	// Load .env file first
 	if err := godotenv.Load(); err != nil {
 		// Use fmt.Printf here since logger isn't initialized yet
@@ -31,6 +36,9 @@ func main() {
 
 	// Log that the application is starting
 	log.Info("Starting application...")
+
+	// Initialize event system
+	events.Start(ctx)
 
 	// This is temporary, we will pass them through the CLI later
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
@@ -66,6 +74,10 @@ func main() {
 	userService := services.NewUserService(userRepo)
 	projectService := services.NewProjectService(projectRepo)
 	taskService := services.NewTaskService(taskRepo, projectRepo)
+
+	// Initialize provisioning service (will handle events)
+	provisioningService := services.NewProvisioningService(instanceService, jobService)
+	_ = provisioningService // will be used through events
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)

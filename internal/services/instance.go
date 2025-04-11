@@ -15,13 +15,13 @@ import (
 	"github.com/celestiaorg/talis/internal/types"
 )
 
-// Instance provides business logic for instance operations
+// Instance represents the instance service
 type Instance struct {
 	repo       *repos.InstanceRepository
 	jobService *Job
 }
 
-// NewInstanceService creates a new instance service instance
+// NewInstanceService creates a new instance service
 func NewInstanceService(repo *repos.InstanceRepository, jobService *Job) *Instance {
 	return &Instance{
 		repo:       repo,
@@ -258,30 +258,23 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			logger.Debugf("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
 		}
 
-		// Start Ansible provisioning if requested
-		if instances[0].Provision {
-			if err := infra.RunProvisioning(pInstances); err != nil {
-				logger.Errorf("❌ Failed to run provisioning: %v", err)
-				return
-			}
-		}
-
+		// The event is now emitted in infrastructure.Execute(), so we don't need to emit it here
 		logger.Debugf("✅ Infrastructure creation completed for job ID %d", jobID)
 	}()
 }
 
 // GetInstancesByJobID retrieves all instances for a specific job
 func (s *Instance) GetInstancesByJobID(ctx context.Context, ownerID uint, jobID uint) ([]models.Instance, error) {
-	fmt.Printf("📥 Getting instances for job ID %d from database...\n", jobID)
+	logger.Infof("📥 Getting instances for job ID [%d] from database...", jobID)
 
 	// Get instances for the specific job
 	instances, err := s.repo.GetByJobID(ctx, ownerID, jobID)
 	if err != nil {
-		logger.Errorf("❌ Error getting instances for job %d: %v", jobID, err)
-		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+		logger.Errorf("❌ Error getting instances for job ID [%d]: %v", jobID, err)
+		return nil, fmt.Errorf("failed to get instances for job ID [%d]: %w", jobID, err)
 	}
 
-	logger.Infof("✅ Retrieved %d instances for job %d from database", len(instances), jobID)
+	logger.Infof("✅ Retrieved %d instances for job ID [%d] from database", len(instances), jobID)
 	return instances, nil
 }
 

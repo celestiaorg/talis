@@ -235,7 +235,7 @@ func (r *InstanceRepository) Get(ctx context.Context, ownerID, id uint) (*models
 	return &instance, nil
 }
 
-// GetByJobID retrieves all instances for a given job ID
+// GetByJobID retrieves all instances for a given job ID that are not terminated
 func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint) ([]models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
@@ -244,7 +244,8 @@ func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint
 	var instances []models.Instance
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{JobID: jobID})
+		Where(&models.Instance{JobID: jobID}).
+		Where("status != ?", models.InstanceStatusTerminated)
 	if ownerID != models.AdminID {
 		query = query.Where(&models.Instance{OwnerID: ownerID})
 	}
@@ -256,7 +257,7 @@ func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint
 	return instances, nil
 }
 
-// GetByJobIDOrdered retrieves all instances for a given job ID, ordered by creation date (oldest first)
+// GetByJobIDOrdered retrieves all instances for a given job ID, ordered by creation date (oldest first) that are not terminated
 func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, ownerID, jobID uint) ([]models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
@@ -264,7 +265,8 @@ func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, ownerID, job
 
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{JobID: jobID})
+		Where(&models.Instance{JobID: jobID}).
+		Where("status != ?", models.InstanceStatusTerminated)
 	if ownerID != models.AdminID {
 		query = query.Where(&models.Instance{OwnerID: ownerID})
 	}
