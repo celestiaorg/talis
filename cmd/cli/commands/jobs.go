@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 // jobOutput represents the filtered output for a job
@@ -25,6 +26,7 @@ type jobListOutput struct {
 func init() {
 	jobsCmd.AddCommand(listJobsCmd)
 	jobsCmd.AddCommand(getJobCmd)
+	jobsCmd.AddCommand(createJobCmd)
 
 	// Add flags
 	listJobsCmd.Flags().StringP("limit", "l", "", "Limit the number of jobs returned")
@@ -32,6 +34,10 @@ func init() {
 
 	getJobCmd.Flags().StringP("id", "i", "", "Job ID to fetch")
 	_ = getJobCmd.MarkFlagRequired("id")
+
+	// Flags for createJobCmd
+	createJobCmd.Flags().StringP("name", "n", "", "Name for the new job")
+	_ = createJobCmd.MarkFlagRequired("name")
 }
 
 var jobsCmd = &cobra.Command{
@@ -111,6 +117,29 @@ var getJobCmd = &cobra.Command{
 			return fmt.Errorf("error formatting response: %w", err)
 		}
 		fmt.Println(string(prettyJSON))
+		return nil
+	},
+}
+
+var createJobCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new job",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		jobName, _ := cmd.Flags().GetString("name")
+
+		// Prepare the request
+		req := types.JobRequest{
+			Name: jobName,
+			// OwnerID is likely handled server-side based on auth context
+		}
+
+		// Call the API client
+		err := apiClient.CreateJob(context.Background(), req)
+		if err != nil {
+			return fmt.Errorf("error creating job: %w", err)
+		}
+
+		fmt.Printf("Job '%s' created successfully.\n", jobName) // Simple success message
 		return nil
 	},
 }
