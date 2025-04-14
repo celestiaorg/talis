@@ -169,3 +169,12 @@ func (s *Job) terminateJob(ctx context.Context, job *models.Job) {
 func (s *Job) GetJob(ctx context.Context, id uint) (*models.Job, error) {
 	return s.jobRepo.GetByID(ctx, models.AdminID, id)
 }
+
+// GetJobIDByName retrieves a job's ID by its name
+func (s *Job) GetJobIDByName(ctx context.Context, ownerID uint, jobName string) (uint, error) {
+	job, err := s.jobRepo.GetByName(ctx, ownerID, jobName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get job by name %s: %w", jobName, err)
+	}
+	return job.ID, nil
+}

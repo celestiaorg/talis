@@ -1,6 +1,5 @@
-# Pulumi
-.pulumi/
-.pulumi/credentials.json
+# Ansible
+ansible/inventory/
 
 # Build artifacts
 bin/
