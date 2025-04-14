@@ -22,7 +22,9 @@ import (
 
 func main() {
 	// Create background context
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	// Ensure context is cancelled when the application exits
+	defer cancel()
 
 	// Load .env file first
 	if err := godotenv.Load(); err != nil {
