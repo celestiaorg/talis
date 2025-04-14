@@ -136,6 +136,12 @@ func (p *Provisioning) handleInventoryRequested(ctx context.Context, event event
 		return fmt.Errorf("failed to get instances from database: %w", err)
 	}
 
+	// Guard provisioner against nil before configuration
+	if p.provisioner == nil {
+		logger.Info("No active provisioner. Creating a new handle for job ID:", event.JobID)
+		p.provisioner = compute.NewProvisioner(event.JobID)
+	}
+
 	// Configure the provisioner with instances from DB
 	if err := p.provisioner.Configure(ctx, instances); err != nil {
 		return fmt.Errorf("failed to configure instances: %w", err)
