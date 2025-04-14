@@ -39,7 +39,7 @@ type Provisioner interface {
 	CreateInventory(instances map[string]string, keyPath string) error
 
 	// RunAnsiblePlaybook runs the Ansible playbook
-	RunAnsiblePlaybook(inventoryName string) error
+	RunAnsiblePlaybook() error
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name

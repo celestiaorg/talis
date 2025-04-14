@@ -54,10 +54,18 @@ To avoid blocking implementation on the full RPC and task executor rollout, we w
 4.  **Implement validation logic** (path is absolute, clean path, size limit, file exists) in `handlers.InstanceHandler.CreateInstance`.
 5.  **Update `services.Instance.CreateInstance`** to pass the validated `payload_path` and `execute_payload` flag down, and set the initial `PayloadStatus`.
 6.  **Implement Payload Read & Copy (in Compute/Ansible Layer):** Modify the relevant infrastructure provisioning code (e.g., in `internal/compute/digitalocean.go`, `internal/compute/ansible.go`, or Ansible playbooks) to:
-    *   Check the `instance.PayloadPath` from the `InstanceRequest`.
-    *   If set, read the payload file content from `instance.PayloadPath`.
-    *   Determine the destination filename (e.g., `filepath.Base(instance.PayloadPath)`).
-    *   Copy the content to the target instance (`/root/<filename>.sh`).
+    *   **Go Code (`ansible.go`):**
+        *   Iterate through `InstanceRequest` objects associated with the successfully created `InstanceInfo`.
+        *   If `instance.PayloadPath` is set:
+            *   Determine the destination filename (e.g., `filepath.Base(instance.PayloadPath)`) and construct the destination path (e.g., `/root/<filename>.sh`).
+            *   Prepare a structure of host-specific "extra variables" (e.g., a map `host_payload_vars`) containing `payload_present: true`, `payload_src_path: "..."` (the validated path from `instance.PayloadPath`), `payload_dest_path: "/root/..."`, and `payload_execute: ...` for each instance with a payload. **Do not read the file content here.**
+        *   Pass this `host_payload_vars` map to `ansible-playbook` via the `-e` flag.
+    *   **Ansible Playbook (`ansible/main.yml` or similar):**
+        *   Add a task using `ansible.builtin.copy`.
+        *   Use the `src:` parameter to specify the source file on the Ansible controller, referencing the host-specific variable: `{{ hostvars[inventory_hostname].payload_src_path }}`.
+        *   Use the `dest:` parameter, referencing: `{{ hostvars[inventory_hostname].payload_dest_path }}`.
+        *   Set `owner: root`, `group: root`, `mode: '0700'`.
+        *   Use a `when: hostvars[inventory_hostname].payload_present | default(false)` condition to ensure the task only runs for hosts with payloads.
 7.  **Implement Copy Status Update (in Compute/Ansible Layer):** Modify the provisioning code to update the corresponding `models.Instance` record's `PayloadStatus` to `Copied` or `CopyFailed` (logging any error) based on the outcome of the read/copy operation.
 8.  **Implement Payload Execution (in Compute/Ansible Layer):** Modify the provisioning code (conditional on `instance.ExecutePayload` and successful copy) to execute the script (`/root/<filename>.sh`) as root on the target instance.
 9.  **Implement Execution Status Update (in Compute/Ansible Layer):** Modify the provisioning code to update the `models.Instance` record's `PayloadStatus` to `Executed` or `ExecutionFailed` (logging any error) based on the script execution outcome.

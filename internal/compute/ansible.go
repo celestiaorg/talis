@@ -85,7 +85,7 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, _ str
 }
 
 // RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
-func (a *AnsibleConfigurator) RunAnsiblePlaybook(_ string) error {
+func (a *AnsibleConfigurator) RunAnsiblePlaybook() error {
 	fmt.Println("🎭 Running Ansible playbook...")
 
 	// Create inventory path with name
@@ -204,7 +204,7 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 	}
 
 	// Run Ansible playbook
-	if err := a.RunAnsiblePlaybook(a.jobID); err != nil {
+	if err := a.RunAnsiblePlaybook(); err != nil {
 		return fmt.Errorf("failed to run Ansible playbook: %w", err)
 	}
 

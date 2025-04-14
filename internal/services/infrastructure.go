@@ -274,7 +274,7 @@ func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 
 	// Run Ansible playbook
 	fmt.Println("📝 Running Ansible playbook...")
-	if err := i.provisioner.RunAnsiblePlaybook(i.jobID); err != nil {
+	if err := i.provisioner.RunAnsiblePlaybook(); err != nil {
 		return fmt.Errorf("failed to run Ansible playbook: %w", err)
 	}
 
