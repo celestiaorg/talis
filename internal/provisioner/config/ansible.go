@@ -4,6 +4,7 @@ package config
 import "fmt"
 
 const (
+	// DefaultInventoryBasePath is the default base path for Ansible inventory files
 	DefaultInventoryBasePath = "ansible/inventory"
 )
 
