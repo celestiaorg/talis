@@ -37,6 +37,8 @@ const (
 	InventoryBasePath = "ansible/inventory"
 )
 
+var _ Provisioner = (*AnsibleProvisioner)(nil)
+
 // AnsibleProvisioner implements provisioning using Ansible
 type AnsibleProvisioner struct {
 	config     *config.AnsibleConfig
