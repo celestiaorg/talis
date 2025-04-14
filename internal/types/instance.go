@@ -45,6 +45,8 @@ type InstanceRequest struct {
 	Provision         bool              `json:"provision"`           // Whether to run Ansible provisioning
 	Volumes           []VolumeConfig    `json:"volumes"`             // Optional volumes to attach
 	OwnerID           uint              `json:"owner_id"`            // Owner ID of the instance
+	PayloadPath       string            `json:"payload_path,omitempty"` // Local path to the payload script on the API server
+	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure

@@ -75,6 +75,7 @@ type Instance struct {
 	Volumes       pq.StringArray `json:"volumes" gorm:"type:text[]"`
 	VolumeDetails VolumeDetails  `json:"volume_details" gorm:"type:jsonb"`
 	CreatedAt     time.Time      `json:"created_at" gorm:"index"`
+	PayloadStatus PayloadStatus  `json:"payload_status" gorm:"default:0;index"` // Default to PayloadStatusNone
 }
 
 func (s InstanceStatus) String() string {
