@@ -46,18 +46,22 @@ To avoid blocking implementation on the full RPC and task executor rollout, we w
 7.  **Status Tracking:** The `PayloadStatus` field on the `Instance` model will reflect the outcome (e.g., `Copied`, `Executed`, `Failed`).
 8.  **Error Handling:** Basic errors during copy or execution will be logged and stored in the `PayloadError` field on the `Instance`.
 
+**Note on File Handling (Phase 1):** To simplify initial implementation, Phase 1 will *not* read the payload file content within the main API process. The asynchronous `provisionInstances` function will read the file directly from the provided `payload_path` just before attempting to copy it. This assumes the API server and the process running `provisionInstances` have access to the same filesystem path, and acknowledges the potential reliability trade-offs (e.g., file changes/deletion between request and execution) which are acceptable for the current local-only deployment model but will be addressed in later phases.
+
 **Implementation Steps:**
 
 1.  **Define `PayloadStatus` enum** in `models` (e.g., `None`, `PendingCopy`, `CopyFailed`, `Copied`, `PendingExecution`, `ExecutionFailed`, `Executed`).
 2.  **Add `PayloadStatus`, `PayloadError` fields to `models.Instance`** and create the corresponding DB migration.
 3.  **Add `PayloadPath`, `ExecutePayload` fields** to `types.InstanceRequest`.
-4.  **Implement validation logic** (path is absolute, clean path, size limit) in `handlers.InstanceHandler.CreateInstance`.
-5.  **Update `services.Instance.CreateInstance`** to read payload file content, validate it further if needed, pass data down, and set the initial `PayloadStatus`.
-6.  **Refactor `provisionInstances` (or delegate)**: Modify the function signature to accept payload content, destination filename, and execution flag.
-7.  **Implement Payload Copy:** Add logic within the provisioning flow to copy the received payload content to the target instance (`/root/<filename>.sh`).
-8.  **Implement Copy Status Update:** Add logic to update the `Instance.PayloadStatus` to `Copied` or `CopyFailed` (setting `PayloadError`) based on the outcome of the copy operation.
+4.  **Implement validation logic** (path is absolute, clean path, size limit, file exists) in `handlers.InstanceHandler.CreateInstance`.
+5.  **Update `services.Instance.CreateInstance`** to pass the validated `payload_path` and `execute_payload` flag down, and set the initial `PayloadStatus`.
+6.  **Refactor `provisionInstances` (or delegate)**: Modify the function signature to accept `payloadPath`, destination filename, and `executePayload` flag.
+7.  **Implement Payload Read & Copy:** Add logic *within* the provisioning flow to:
+    *   Read the payload file content from the provided `payloadPath`.
+    *   Copy the content to the target instance (`/root/<filename>.sh`).
+8.  **Implement Copy Status Update:** Add logic to update the `Instance.PayloadStatus` to `Copied` or `CopyFailed` (logging any error) based on the outcome of the read/copy operation.
 9.  **Implement Payload Execution:** Add logic (conditional on `ExecutePayload` and successful copy) to execute the script (`/root/<filename>.sh`) as root on the target instance.
-10. **Implement Execution Status Update:** Add logic to update the `Instance.PayloadStatus` to `Executed` or `ExecutionFailed` (setting `PayloadError`) based on the script execution outcome.
+10. **Implement Execution Status Update:** Add logic to update the `Instance.PayloadStatus` to `Executed` or `ExecutionFailed` (logging any error) based on the script execution outcome.
 11. **Update API Client:** Modify the client interface and implementation (`client.go`) to support the new fields in `CreateInstance`.
 12. **Add Unit Tests:** Create unit tests for the validation logic (Step 4) and service layer changes (Step 5).
 13. **Add Integration Tests:** Update `client_test.go` to include tests covering the end-to-end scenarios:
