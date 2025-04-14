@@ -86,7 +86,7 @@ func TestEventSystem(t *testing.T) {
 		handlerCalls := make(map[string]bool)
 		var mu sync.Mutex
 
-		handler1 := func(_ context.Context, event Event) error {
+		handler1 := func(_ context.Context, _ Event) error {
 			mu.Lock()
 			handlerCalls["handler1"] = true
 			mu.Unlock()
@@ -94,7 +94,7 @@ func TestEventSystem(t *testing.T) {
 			return nil
 		}
 
-		handler2 := func(_ context.Context, event Event) error {
+		handler2 := func(_ context.Context, _ Event) error {
 			mu.Lock()
 			handlerCalls["handler2"] = true
 			mu.Unlock()
@@ -151,7 +151,7 @@ func TestEventSystem(t *testing.T) {
 		Start(ctx)
 
 		// Subscribe a handler that should not be called
-		Subscribe(EventInstancesCreated, func(_ context.Context, event Event) error {
+		Subscribe(EventInstancesCreated, func(_ context.Context, _ Event) error {
 			t.Error("Handler should not be called after context cancellation")
 			return nil
 		})
@@ -185,7 +185,7 @@ func TestEventSystem(t *testing.T) {
 		receivedEvents := make(map[EventType]bool)
 		var mu sync.Mutex
 
-		createdHandler := func(_ context.Context, event Event) error {
+		createdHandler := func(_ context.Context, _ Event) error {
 			mu.Lock()
 			receivedEvents[EventInstancesCreated] = true
 			mu.Unlock()
@@ -193,7 +193,7 @@ func TestEventSystem(t *testing.T) {
 			return nil
 		}
 
-		deletedHandler := func(_ context.Context, event Event) error {
+		deletedHandler := func(_ context.Context, _ Event) error {
 			mu.Lock()
 			receivedEvents[EventInstancesDeleted] = true
 			mu.Unlock()

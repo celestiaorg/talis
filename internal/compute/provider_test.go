@@ -15,15 +15,15 @@ func TestNewAnsibleProvisioner(t *testing.T) {
 
 	// Create ansible directory structure
 	ansibleDir := filepath.Join(tmpDir, "ansible")
-	require.NoError(t, os.MkdirAll(ansibleDir, 0755))
+	require.NoError(t, os.MkdirAll(ansibleDir, 0750))
 
 	// Create dummy playbook
 	playbookPath := filepath.Join(ansibleDir, "main.yml")
-	require.NoError(t, os.WriteFile(playbookPath, []byte("---\n"), 0644))
+	require.NoError(t, os.WriteFile(playbookPath, []byte("---\n"), 0600))
 
 	// Create inventory directory
 	inventoryDir := filepath.Join(ansibleDir, "inventory")
-	require.NoError(t, os.MkdirAll(inventoryDir, 0755))
+	require.NoError(t, os.MkdirAll(inventoryDir, 0750))
 
 	// Create dummy SSH key
 	sshDir := filepath.Join(tmpDir, ".ssh")
