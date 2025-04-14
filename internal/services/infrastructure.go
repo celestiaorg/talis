@@ -101,15 +101,15 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			// Convert types.InstanceInfo to our InstanceInfo and add to result
 			for _, instanceInfo := range info {
 				instances = append(instances, types.InstanceInfo{
-					Name:          instanceInfo.Name,
-					PublicIP:      instanceInfo.PublicIP,
-					Provider:      instanceInfo.Provider,
-					Tags:          instanceInfo.Tags,
-					Region:        instanceInfo.Region,
-					Size:          instanceInfo.Size,
-					Volumes:       instanceInfo.Volumes,
-					VolumeDetails: instanceInfo.VolumeDetails,
-					PayloadPath:   instanceInfo.PayloadPath,
+					Name:           instanceInfo.Name,
+					PublicIP:       instanceInfo.PublicIP,
+					Provider:       instanceInfo.Provider,
+					Tags:           instanceInfo.Tags,
+					Region:         instanceInfo.Region,
+					Size:           instanceInfo.Size,
+					Volumes:        instanceInfo.Volumes,
+					VolumeDetails:  instanceInfo.VolumeDetails,
+					PayloadPath:    instanceInfo.PayloadPath,
 					ExecutePayload: instanceInfo.ExecutePayload,
 				})
 			}
