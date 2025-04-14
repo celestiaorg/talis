@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/celestiaorg/talis/internal/provisioner/config"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,7 +24,7 @@ func TestAnsibleProvisioner_Configure_SSHFailure(t *testing.T) {
 	}()
 
 	// Create test config
-	cfg := &config.AnsibleConfig{
+	cfg := &AnsibleConfig{
 		JobID:             "test-job-ssh-fail",
 		OwnerID:           1,
 		SSHUser:           DefaultSSHUser,

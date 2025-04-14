@@ -3,8 +3,6 @@ package provisioner
 
 import (
 	"fmt"
-
-	"github.com/celestiaorg/talis/internal/provisioner/config"
 )
 
 // Type represents the type of provisioner
@@ -19,9 +17,9 @@ const (
 func NewProvisioner(typ Type, cfg Config) (Provisioner, error) {
 	switch typ {
 	case ProvisionerAnsible:
-		ansibleConfig, ok := cfg.(*config.AnsibleConfig)
+		ansibleConfig, ok := cfg.(*AnsibleConfig)
 		if !ok {
-			return nil, fmt.Errorf("invalid config type for Ansible provisioner: expected *config.AnsibleConfig")
+			return nil, fmt.Errorf("invalid config type for Ansible provisioner: expected *AnsibleConfig")
 		}
 		return NewAnsibleProvisioner(ansibleConfig)
 	default:

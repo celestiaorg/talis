@@ -8,7 +8,6 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/provisioner"
-	"github.com/celestiaorg/talis/internal/provisioner/config"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
@@ -48,7 +47,7 @@ func NewProvisioner(jobID string) provisioner.Provisioner {
 	// Extract job name from job ID (format: "job-20250411-134559")
 	jobName := strings.TrimPrefix(jobID, "job-")
 
-	cfg := &config.AnsibleConfig{
+	cfg := &provisioner.AnsibleConfig{
 		JobID:             jobID,
 		JobName:           jobName,
 		SSHUser:           provisioner.DefaultSSHUser,
@@ -87,7 +86,7 @@ func NewAnsibleProvisioner(jobID string) (provisioner.Provisioner, error) {
 	// Extract job name from job ID (format: "job-20250411-134559")
 	jobName := strings.TrimPrefix(jobID, "job-")
 
-	cfg := &config.AnsibleConfig{
+	cfg := &provisioner.AnsibleConfig{
 		JobID:             jobID,
 		JobName:           jobName,
 		SSHUser:           provisioner.DefaultSSHUser,
