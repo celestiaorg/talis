@@ -77,8 +77,30 @@ func NewProvisioner(jobID string) Provisioner {
 	return p
 }
 
+// validateJobID validates the format of a job ID (should be "job-YYYYMMDD-HHMMSS")
+func validateJobID(jobID string) error {
+	if jobID == "" {
+		return fmt.Errorf("job ID is required")
+	}
+
+	if !strings.HasPrefix(jobID, "job-") {
+		return fmt.Errorf("invalid job ID format: must start with 'job-'")
+	}
+
+	parts := strings.Split(jobID, "-")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid job ID format: must be 'job-YYYYMMDD-HHMMSS'")
+	}
+
+	return nil
+}
+
 // NewAnsibleProvisioner creates a new Ansible provisioner
 func NewAnsibleProvisioner(jobID string) (Provisioner, error) {
+	if err := validateJobID(jobID); err != nil {
+		return nil, err
+	}
+
 	// Extract job name from job ID (format: "job-20250411-134559")
 	jobName := strings.TrimPrefix(jobID, "job-")
 

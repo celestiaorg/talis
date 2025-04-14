@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/celestiaorg/talis/internal/events"
 	"github.com/celestiaorg/talis/internal/logger"
@@ -40,7 +39,8 @@ const (
 
 // AnsibleProvisioner implements provisioning using Ansible
 type AnsibleProvisioner struct {
-	config *config.AnsibleConfig
+	config     *config.AnsibleConfig
+	sshChecker SSHChecker
 }
 
 // NewAnsibleProvisioner creates a new Ansible provisioner
@@ -49,8 +49,11 @@ func NewAnsibleProvisioner(config *config.AnsibleConfig) (*AnsibleProvisioner, e
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
+	sshChecker := NewDefaultSSHChecker(config.SSHUser, os.ExpandEnv(config.SSHKeyPath))
+
 	return &AnsibleProvisioner{
-		config: config,
+		config:     config,
+		sshChecker: sshChecker,
 	}, nil
 }
 
@@ -82,7 +85,7 @@ func (a *AnsibleProvisioner) Configure(_ context.Context, instances []types.Inst
 		wg.Add(1)
 		go func(inst types.InstanceInfo) {
 			defer wg.Done()
-			if err := a.waitForSSH(inst.PublicIP); err != nil {
+			if err := a.sshChecker.WaitForSSH(inst.PublicIP); err != nil {
 				errChan <- fmt.Errorf("failed waiting for SSH on instance %s: %w", inst.Name, err)
 				return
 			}
@@ -125,33 +128,54 @@ func (a *AnsibleProvisioner) Configure(_ context.Context, instances []types.Inst
 	return nil
 }
 
-// waitForSSH waits for SSH to be available on the given host
-func (a *AnsibleProvisioner) waitForSSH(host string) error {
-	logger.Infof("⏳ Waiting for SSH to be available on %s...", host)
+// RunPlaybook runs the Ansible playbook with the given inventory
+func (a *AnsibleProvisioner) RunPlaybook(inventoryPath string) error {
+	logger.InfoWithFields("Running Ansible playbook", map[string]interface{}{
+		"job_id":         a.config.JobID,
+		"inventory_path": inventoryPath,
+		"playbook_path":  a.config.PlaybookPath,
+	})
 
-	for i := 0; i < 30; i++ {
-		args := []string{
-			"-i", DefaultSSHKeyPath,
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", "ConnectTimeout=5",
-			fmt.Sprintf("%s@%s", DefaultSSHUser, host),
-			"echo 'SSH is ready'",
-		}
+	// Validate paths exist
+	if _, err := os.Stat(inventoryPath); err != nil {
+		return fmt.Errorf("inventory file not found: %w", err)
+	}
 
-		// #nosec G204 -- command arguments are constructed from validated inputs
-		checkCmd := exec.Command("ssh", args...)
-		if err := checkCmd.Run(); err == nil {
-			logger.Infof("✅ SSH connection established to %s", host)
-			return nil
-		}
+	if _, err := os.Stat(a.config.PlaybookPath); err != nil {
+		return fmt.Errorf("playbook file not found: %w", err)
+	}
 
-		if i == 29 {
-			return fmt.Errorf("timeout waiting for SSH to be ready on %s after 5 minutes", host)
-		}
+	// Prepare command arguments
+	args := []string{
+		"-i", inventoryPath,
+		// Run serially for consistency
+		"--forks", "1",
+	}
 
-		logger.Infof("  Retrying SSH connection to %s in 10 seconds... (%d/30)", host, i+1)
-		time.Sleep(10 * time.Second)
+	// Add verbosity if debug mode is enabled
+	if AnsibleDebug {
+		args = append(args, "-vvv")
+	}
+
+	// Add playbook path
+	args = append(args, a.config.PlaybookPath)
+
+	// Run ansible-playbook command
+	// #nosec G204 -- command arguments are constructed from validated inputs
+	cmd := exec.Command("ansible-playbook", args...)
+
+	// Set environment variables
+	env := os.Environ()
+	env = append(env, "ANSIBLE_HOST_KEY_CHECKING=false")
+	env = append(env, "ANSIBLE_RETRY_FILES_ENABLED=false")
+	cmd.Env = env
+
+	// Redirect output
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to run ansible playbook (check output above for details): %w", err)
 	}
 
 	return nil
@@ -202,58 +226,5 @@ func (a *AnsibleProvisioner) CreateInventory(instances map[string]string, keyPat
 	}
 
 	logger.Info("✅ Created inventory file at ", inventoryPath)
-	return nil
-}
-
-// RunPlaybook implements Provisioner.RunPlaybook
-func (a *AnsibleProvisioner) RunPlaybook(inventoryPath string) error {
-	logger.InfoWithFields("Running Ansible playbook", map[string]interface{}{
-		"job_id":         a.config.JobID,
-		"inventory_path": inventoryPath,
-		"playbook_path":  a.config.PlaybookPath,
-	})
-
-	// Validate paths exist
-	if _, err := os.Stat(inventoryPath); err != nil {
-		return fmt.Errorf("inventory file not found: %w", err)
-	}
-
-	if _, err := os.Stat(a.config.PlaybookPath); err != nil {
-		return fmt.Errorf("playbook file not found: %w", err)
-	}
-
-	// Prepare command arguments
-	args := []string{
-		"-i", inventoryPath,
-		// Run serially for consistency
-		"--forks", "1",
-	}
-
-	// Add verbosity if debug mode is enabled
-	if AnsibleDebug {
-		args = append(args, "-vvv")
-	}
-
-	// Add playbook path
-	args = append(args, a.config.PlaybookPath)
-
-	// Run ansible-playbook command
-	// #nosec G204 -- command arguments are constructed from validated inputs
-	cmd := exec.Command("ansible-playbook", args...)
-
-	// Set environment variables
-	env := os.Environ()
-	env = append(env, "ANSIBLE_HOST_KEY_CHECKING=false")
-	env = append(env, "ANSIBLE_RETRY_FILES_ENABLED=false")
-	cmd.Env = env
-
-	// Redirect output
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to run ansible playbook (check output above for details): %w", err)
-	}
-
 	return nil
 }

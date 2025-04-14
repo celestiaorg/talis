@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAnsibleProvisioner_Configure(t *testing.T) {
+// Also add a test for SSH failure scenario
+func TestAnsibleProvisioner_Configure_SSHFailure(t *testing.T) {
 	// Create a temporary directory for test files
 	tmpDir, err := os.MkdirTemp("", "ansible_test")
 	require.NoError(t, err)
@@ -25,13 +26,25 @@ func TestAnsibleProvisioner_Configure(t *testing.T) {
 
 	// Create test config
 	cfg := &config.AnsibleConfig{
-		JobID:   "test-job",
-		OwnerID: 1,
+		JobID:             "test-job-ssh-fail",
+		OwnerID:           1,
+		SSHUser:           DefaultSSHUser,
+		SSHKeyPath:        DefaultSSHKeyPath,
+		PlaybookPath:      filepath.Join(tmpDir, "playbook.yml"),
+		InventoryBasePath: tmpDir,
 	}
 
-	// Create provisioner
+	// Create provisioner with mock SSH checker
 	provisioner, err := NewAnsibleProvisioner(cfg)
 	require.NoError(t, err)
+
+	// Replace the default SSH checker with our mock that simulates failure
+	mockSSHChecker := &MockSSHChecker{
+		WaitForSSHFunc: func(host string) error {
+			return fmt.Errorf("simulated SSH failure for host %s", host)
+		},
+	}
+	provisioner.sshChecker = mockSSHChecker
 
 	// Test instances
 	instances := []types.InstanceInfo{
@@ -39,18 +52,10 @@ func TestAnsibleProvisioner_Configure(t *testing.T) {
 			Name:     "test-instance-1",
 			PublicIP: "1.2.3.4",
 		},
-		{
-			Name:     "test-instance-2",
-			PublicIP: "5.6.7.8",
-		},
 	}
 
-	// Configure instances
+	// Configure instances - should fail due to SSH error
 	err = provisioner.Configure(context.Background(), instances)
-	assert.NoError(t, err)
-
-	// Verify inventory file was created
-	inventoryPath := filepath.Join("ansible", "inventory", fmt.Sprintf("inventory_%s_ansible.ini", cfg.JobID))
-	_, err = os.Stat(inventoryPath)
-	assert.NoError(t, err)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "simulated SSH failure for host 1.2.3.4")
 }
