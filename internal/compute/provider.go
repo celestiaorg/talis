@@ -31,18 +31,6 @@ type Provider interface {
 	DeleteInstance(ctx context.Context, name string, region string) error
 }
 
-// Provisioner is the interface for system configuration
-type Provisioner interface {
-	// Configure configures the system for the given instances
-	Configure(ctx context.Context, instances []types.InstanceInfo) error
-
-	// CreateInventory creates an inventory file for the provisioner
-	CreateInventory(instances map[string]string, keyPath string) error
-
-	// RunPlaybook runs the provisioning playbook
-	RunPlaybook(inventoryPath string) error
-}
-
 // NewComputeProvider creates a new compute provider based on the provider name
 func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 	switch provider {
@@ -56,7 +44,7 @@ func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 }
 
 // NewProvisioner creates a new system provisioner
-func NewProvisioner(jobID string) Provisioner {
+func NewProvisioner(jobID string) provisioner.Provisioner {
 	// Extract job name from job ID (format: "job-20250411-134559")
 	jobName := strings.TrimPrefix(jobID, "job-")
 
@@ -96,7 +84,7 @@ func validateJobID(jobID string) error {
 }
 
 // NewAnsibleProvisioner creates a new Ansible provisioner
-func NewAnsibleProvisioner(jobID string) (Provisioner, error) {
+func NewAnsibleProvisioner(jobID string) (provisioner.Provisioner, error) {
 	if err := validateJobID(jobID); err != nil {
 		return nil, err
 	}

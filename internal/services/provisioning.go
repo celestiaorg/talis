@@ -8,13 +8,14 @@ import (
 	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/celestiaorg/talis/internal/events"
 	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/provisioner"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
 // Provisioning represents the provisioning service that handles
 // configuration management of infrastructure resources.
 type Provisioning struct {
-	provisioner     compute.Provisioner
+	provisioner     provisioner.Provisioner
 	instanceService *Instance
 	jobService      *Job
 }
