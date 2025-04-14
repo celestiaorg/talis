@@ -17,6 +17,52 @@ Add the ability to send a payload (bash script) to instances during creation or 
 - Payload size will be limited for reliability
 - Payload operations will be executed asynchronously via the task executor
 
+## Implementation Phases
+
+To avoid blocking implementation on the full RPC and task executor rollout, we will implement payload support in phases.
+
+### Phase 1: Basic Payload on Creation
+
+**Goal:** Implement the core functionality of transferring and optionally executing a simple bash script payload during the initial instance creation process, without introducing new database models or relying on the task executor.
+
+**Scope:**
+
+1.  **Payload Type:** Simple bash script provided as a file path accessible by the API server.
+2.  **Trigger:** Payload configuration included *only* within the `CreateInstance` API request (`POST /api/v1/instances`). No support for updating payloads or deploying to existing instances.
+3.  **Configuration:**
+    *   `payload_path`: Local path on the API server pointing to the bash script.
+    *   `execute_payload`: Boolean flag indicating whether to execute the script after copying.
+4.  **Database:**
+    *   No new `Payload` database model.
+    *   Add a `PayloadStatus` field to the existing `models.Instance` model to track the state (`None`, `PendingCopy`, `CopyFailed`, `Copied`, `PendingExecution`, `ExecutionFailed`, `Executed`).
+    *   Add a `PayloadError` string field to `models.Instance` to store the last error message if execution fails.
+5.  **Execution:**
+    *   Payload is copied to the instance's `root` user home directory (`$HOME/<filename>.sh`, where `<filename>` is derived from the base name of `payload_path`).
+    *   If `execute_payload` is true, the script is executed immediately after copying as the `root` user.
+    *   Execution happens within the existing `provisionInstances` goroutine or equivalent asynchronous instance creation flow.
+6.  **Validation:**
+    *   `payload_path` must be an absolute path on the API server. It will be cleaned using `filepath.Clean` to prevent path traversal issues.
+    *   Enforce a maximum payload file size of 2MB.
+7.  **Status Tracking:** The `PayloadStatus` field on the `Instance` model will reflect the outcome (e.g., `Copied`, `Executed`, `Failed`).
+8.  **Error Handling:** Basic errors during copy or execution will be logged and stored in the `PayloadError` field on the `Instance`.
+
+**Implementation Steps:**
+
+1.  Define `PayloadStatus` enum (e.g., `None`, `PendingCopy`, `CopyFailed`, `Copied`, `PendingExecution`, `ExecutionFailed`, `Executed`).
+2.  Add `PayloadStatus` and `PayloadError` fields to `models.Instance`. Create DB migration.
+3.  Add `PayloadPath` and `ExecutePayload` fields to `types.InstanceRequest`.
+4.  Update `InstanceHandler.CreateInstance` to accept and validate these new fields (check path is absolute, clean path, check size limit).
+5.  Update `services.Instance.CreateInstance` to:
+    *   Read the payload file content from `PayloadPath`.
+    *   Pass content and execution flag to `provisionInstances`.
+    *   Set initial `PayloadStatus` on the new `Instance` record.
+6.  Modify `provisionInstances` (and underlying infrastructure/provisioning logic):
+    *   Receive payload content and execution flag.
+    *   Determine destination filename from `payload_path`.
+    *   Copy payload content to `/root/<filename>.sh` on the target instance. Update `PayloadStatus` to `Copied` or `CopyFailed`.
+    *   If `ExecutePayload` is true and copy succeeded, execute `/root/<filename>.sh` as root. Update `PayloadStatus` to `Executed` or `ExecutionFailed`. Store error in `PayloadError` if execution fails.
+7.  Update API client and tests (`client.go`, `client_test.go`) for the modified `CreateInstance` request.
+
 ## Architectural Assumptions
 > Note: These assumptions should be revisited once the RPC model and task executor implementation details are finalized.
 
