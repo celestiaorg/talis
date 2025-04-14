@@ -1,6 +1,12 @@
 // Package config provides configuration types for provisioners
 package config
 
+import "fmt"
+
+const (
+	DefaultInventoryBasePath = "ansible/inventory"
+)
+
 // AnsibleConfig represents the configuration for Ansible provisioner
 type AnsibleConfig struct {
 	// JobID is the unique identifier for the current job
@@ -21,7 +27,19 @@ type AnsibleConfig struct {
 
 // Validate validates the Ansible configuration
 func (c *AnsibleConfig) Validate() error {
-	// For now, we'll accept any configuration
-	// In the future, we can add validation logic here
+	// Validate required fields
+	if c.JobID == "" {
+		return fmt.Errorf("JobID is required")
+	}
+	// TODO: Add validation for OwnerID
+	// if c.OwnerID == 0 {
+	// 	return fmt.Errorf("OwnerID is required")
+	// }
+
+	// Set default values for optional fields
+	if c.InventoryBasePath == "" {
+		c.InventoryBasePath = DefaultInventoryBasePath
+	}
+
 	return nil
 }
