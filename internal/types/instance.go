@@ -3,10 +3,14 @@ package types
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
+
+const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
@@ -34,18 +38,18 @@ type InstancesRequest struct {
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Provider          models.ProviderID `json:"provider"`            // Cloud provider (e.g., "do")
-	Region            string            `json:"region"`              // Region where instances will be created
-	Size              string            `json:"size"`                // Instance size/type
-	Image             string            `json:"image"`               // OS image to use
-	SSHKeyName        string            `json:"ssh_key_name"`        // Name of the SSH key to use
-	Tags              []string          `json:"tags"`                // Tags to apply to instances
-	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
-	Name              string            `json:"name"`                // Optional custom name for instances
-	Provision         bool              `json:"provision"`           // Whether to run Ansible provisioning
-	Volumes           []VolumeConfig    `json:"volumes"`             // Optional volumes to attach
-	OwnerID           uint              `json:"owner_id"`            // Owner ID of the instance
-	PayloadPath       string            `json:"payload_path,omitempty"` // Local path to the payload script on the API server
+	Provider          models.ProviderID `json:"provider"`                  // Cloud provider (e.g., "do")
+	Region            string            `json:"region"`                    // Region where instances will be created
+	Size              string            `json:"size"`                      // Instance size/type
+	Image             string            `json:"image"`                     // OS image to use
+	SSHKeyName        string            `json:"ssh_key_name"`              // Name of the SSH key to use
+	Tags              []string          `json:"tags"`                      // Tags to apply to instances
+	NumberOfInstances int               `json:"number_of_instances"`       // Number of instances to create
+	Name              string            `json:"name"`                      // Optional custom name for instances
+	Provision         bool              `json:"provision"`                 // Whether to run Ansible provisioning
+	Volumes           []VolumeConfig    `json:"volumes"`                   // Optional volumes to attach
+	OwnerID           uint              `json:"owner_id"`                  // Owner ID of the instance
+	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
 	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
@@ -171,6 +175,39 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
+	}
+
+	// Validate payload path if provided
+	if i.PayloadPath != "" {
+		// Check if path is absolute
+		if !filepath.IsAbs(i.PayloadPath) {
+			return fmt.Errorf("payload_path must be an absolute path")
+		}
+
+		// Clean the path
+		i.PayloadPath = filepath.Clean(i.PayloadPath)
+
+		// Check file existence and size
+		fileInfo, err := os.Stat(i.PayloadPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("payload_path file does not exist: %s", i.PayloadPath)
+			}
+			return fmt.Errorf("error accessing payload_path file: %w", err)
+		}
+
+		if fileInfo.IsDir() {
+			return fmt.Errorf("payload_path cannot be a directory")
+		}
+
+		if fileInfo.Size() > maxPayloadSize {
+			return fmt.Errorf("payload file size exceeds the limit of 2MB")
+		}
+	}
+
+	// If execute_payload is true, payload_path must be provided
+	if i.ExecutePayload && i.PayloadPath == "" {
+		return fmt.Errorf("payload_path is required when execute_payload is true")
 	}
 
 	// Validate volumes if present
