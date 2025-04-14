@@ -75,11 +75,6 @@ func validateJobID(jobID string) error {
 		return fmt.Errorf("invalid job ID format: must start with 'job-'")
 	}
 
-	parts := strings.Split(jobID, "-")
-	if len(parts) != 3 {
-		return fmt.Errorf("invalid job ID format: must be 'job-YYYYMMDD-HHMMSS'")
-	}
-
 	return nil
 }
 
