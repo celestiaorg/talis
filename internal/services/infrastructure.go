@@ -92,6 +92,8 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 				NumberOfInstances: instance.NumberOfInstances,
 				CustomName:        instance.Name,
 				Volumes:           instance.Volumes,
+				PayloadPath:       instance.PayloadPath,
+				ExecutePayload:    instance.ExecutePayload,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
@@ -107,6 +109,8 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 					Size:          instanceInfo.Size,
 					Volumes:       instanceInfo.Volumes,
 					VolumeDetails: instanceInfo.VolumeDetails,
+					PayloadPath:   instanceInfo.PayloadPath,
+					ExecutePayload: instanceInfo.ExecutePayload,
 				})
 			}
 		}
@@ -254,39 +258,24 @@ func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 	extraVars := make(map[string]interface{})
 	hostPayloadVars := make(map[string]map[string]interface{}) // Per-host payload vars
 
-	// Create a map for easy lookup of request by instance name
-	requestMap := make(map[string]types.InstanceRequest)
-	for _, req := range i.instances { // Use i.instances which holds the original requests
-		// Handle potential naming variations if necessary (e.g., base name + index)
-		if req.NumberOfInstances == 1 {
-			requestMap[req.Name] = req
-		} else {
-			baseName := req.Name
-			for idx := 0; idx < req.NumberOfInstances; idx++ {
-				instanceName := fmt.Sprintf("%s-%d", baseName, idx)
-				requestMap[instanceName] = req
-			}
-		}
-	}
-
 	// Loop through provisioned instances to prepare payload vars
-	for _, pInstance := range instances {
+	for _, pInstance := range instances { // pInstance is of type types.InstanceInfo
 		instanceVars := make(map[string]interface{})
 		instanceVars["payload_present"] = false // Default
 
-		// Find the corresponding request
-		if req, ok := requestMap[pInstance.Name]; ok && req.PayloadPath != "" {
-			logger.Debugf("Preparing payload vars for instance %s from path %s", pInstance.Name, req.PayloadPath)
+		// Access payload info directly from pInstance (types.InstanceInfo)
+		if pInstance.PayloadPath != "" {
+			logger.Debugf("Preparing payload vars for instance %s from path %s", pInstance.Name, pInstance.PayloadPath)
 			// Determine destination path
-			destFilename := filepath.Base(req.PayloadPath)
+			destFilename := filepath.Base(pInstance.PayloadPath)
 			destPath := filepath.Join("/root", destFilename) // Use filepath.Join for safety
 
 			// Set vars for this host
 			instanceVars["payload_present"] = true
-			instanceVars["payload_src_path"] = req.PayloadPath // Pass the source path
+			instanceVars["payload_src_path"] = pInstance.PayloadPath // Pass the source path
 			instanceVars["payload_dest_path"] = destPath
-			instanceVars["payload_execute"] = req.ExecutePayload
-			logger.Debugf("Payload vars for %s: src=%s, dest=%s, execute=%t", pInstance.Name, req.PayloadPath, destPath, req.ExecutePayload)
+			instanceVars["payload_execute"] = pInstance.ExecutePayload
+			logger.Debugf("Payload vars for %s: src=%s, dest=%s, execute=%t", pInstance.Name, pInstance.PayloadPath, destPath, pInstance.ExecutePayload)
 		}
 		// Add host-specific vars under the instance name key
 		hostPayloadVars[pInstance.Name] = instanceVars

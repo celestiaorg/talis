@@ -23,6 +23,8 @@ type InstanceConfig struct {
 	NumberOfInstances int            `json:"number_of_instances"`   // Number of instances to create
 	CustomName        string         `json:"custom_name,omitempty"` // Optional custom name for this specific instance
 	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
+	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
+	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
 // InstancesRequest represents a request to manage instances, including creation and deletion.
@@ -119,6 +121,8 @@ type InstanceInfo struct {
 	Tags          []string          // Tags of the instance
 	Volumes       []string          `json:"volumes,omitempty"`        // List of attached volume IDs
 	VolumeDetails []VolumeDetails   `json:"volume_details,omitempty"` // Detailed information about attached volumes
+	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
+	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
 // Validate validates the infrastructure request
