@@ -210,6 +210,11 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("payload_path is required when execute_payload is true")
 	}
 
+	// If payload_path is provided, provision must be true
+	if i.PayloadPath != "" && !i.Provision {
+		return fmt.Errorf("provision must be true when payload_path is provided")
+	}
+
 	// Validate volumes if present
 	for j, vol := range i.Volumes {
 		if err := ValidateVolume(&vol, i.Region); err != nil {
