@@ -40,8 +40,8 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 }
 
 // CreateInventory creates the inventory file with all instances
-func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, _ string) error {
-	fmt.Printf("�� Creating inventory for job %s...\n", a.jobID)
+func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error {
+	fmt.Printf("Creating inventory for job %s...\n", a.jobID)
 
 	// Create inventory path with base name
 	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
@@ -71,9 +71,8 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, _ str
 
 	// Write all instances
 	for name, ip := range instances {
-		// Always use the provided key path and root user for SSH
-		expandedKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
-		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s", name, ip, expandedKeyPath)
+		// Use the keyPath provided by the caller and root user for SSH
+		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s", name, ip, keyPath)
 		line += "\n"
 
 		if _, err := f.WriteString(line); err != nil {

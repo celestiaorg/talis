@@ -53,6 +53,8 @@ type InstanceRequest struct {
 	OwnerID           uint              `json:"owner_id"`                  // Owner ID of the instance
 	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
 	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
+	SSHKeyType        string            `json:"ssh_key_type,omitempty"`    // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
+	SSHKeyPath        string            `json:"ssh_key_path,omitempty"`    // Custom path to the private SSH key file for Ansible. Overrides defaults.
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure

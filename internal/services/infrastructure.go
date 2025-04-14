@@ -224,6 +224,30 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 	return result, err
 }
 
+// getAnsibleSSHKeyPath determines the appropriate SSH private key path for Ansible
+// based on the instance requests, prioritizing custom paths, then key types,
+// and falling back to the default RSA key path.
+// It assumes the key configuration from the first request applies to the whole job.
+func getAnsibleSSHKeyPath(instanceRequests []types.InstanceRequest) string {
+	sshKeyPath := "$HOME/.ssh/id_rsa" // Default
+	if len(instanceRequests) > 0 {
+		firstReq := instanceRequests[0]
+		if firstReq.SSHKeyPath != "" { // Priority 1: Custom path
+			sshKeyPath = firstReq.SSHKeyPath
+		} else if firstReq.SSHKeyType != "" { // Priority 2: Key type
+			switch strings.ToLower(firstReq.SSHKeyType) {
+			case "ed25519":
+				sshKeyPath = "$HOME/.ssh/id_ed25519"
+			case "ecdsa":
+				sshKeyPath = "$HOME/.ssh/id_ecdsa"
+				// Add other types if needed
+			}
+		}
+	}
+	// Expand environment variables like $HOME (Ansible handles this, but doing it here is safe)
+	return os.ExpandEnv(sshKeyPath)
+}
+
 // RunProvisioning applies Ansible configuration to all instances
 func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 	// Check if any instance requires provisioning
@@ -248,8 +272,10 @@ func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 		instanceMap[instance.Name] = instance.PublicIP
 	}
 
-	// Create inventory file with the user's SSH key
-	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+	// Determine the SSH private key path using the helper function
+	sshKeyPath := getAnsibleSSHKeyPath(i.instances)
+
+	// Create inventory file with the determined SSH key path
 	if err := i.provisioner.CreateInventory(instanceMap, sshKeyPath); err != nil {
 		return fmt.Errorf("failed to create inventory: %w", err)
 	}
@@ -324,8 +350,9 @@ func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 func (i *Infrastructure) provisionInstance(instance types.InstanceInfo) error {
 	fmt.Printf("🔧 Starting provisioning for %s (%s)...\n", instance.Name, instance.PublicIP)
 
-	// Use the user's SSH key path
-	sshKeyPath := os.ExpandEnv("$HOME/.ssh/id_rsa")
+	// Determine the SSH private key path using the helper function
+	sshKeyPath := getAnsibleSSHKeyPath(i.instances)
+
 	if err := i.provisioner.ConfigureHost(instance.PublicIP, sshKeyPath); err != nil {
 		return fmt.Errorf("failed to configure host: %w", err)
 	}
