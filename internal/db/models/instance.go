@@ -36,6 +36,27 @@ const (
 	InstanceStatusTerminated
 )
 
+// PayloadStatus represents the state of a payload operation on an instance
+type PayloadStatus int
+
+// Payload status constants
+const (
+	// PayloadStatusNone indicates no payload operation has been initiated
+	PayloadStatusNone PayloadStatus = iota
+	// PayloadStatusPendingCopy indicates the payload is waiting to be copied
+	PayloadStatusPendingCopy
+	// PayloadStatusCopyFailed indicates the payload copy operation failed
+	PayloadStatusCopyFailed
+	// PayloadStatusCopied indicates the payload has been successfully copied
+	PayloadStatusCopied
+	// PayloadStatusPendingExecution indicates the payload is waiting to be executed
+	PayloadStatusPendingExecution
+	// PayloadStatusExecutionFailed indicates the payload execution failed
+	PayloadStatusExecutionFailed
+	// PayloadStatusExecuted indicates the payload was executed successfully
+	PayloadStatusExecuted
+)
+
 // Instance represents a compute instance in the system
 type Instance struct {
 	gorm.Model
@@ -66,6 +87,19 @@ func (s InstanceStatus) String() string {
 	}[s]
 }
 
+// String returns the string representation of PayloadStatus
+func (ps PayloadStatus) String() string {
+	return []string{
+		"none",
+		"pending_copy",
+		"copy_failed",
+		"copied",
+		"pending_execution",
+		"execution_failed",
+		"executed",
+	}[ps]
+}
+
 // ParseInstanceStatus converts a string representation of an instance status to InstanceStatus type
 func ParseInstanceStatus(str string) (InstanceStatus, error) {
 	for i, status := range []string{
@@ -83,9 +117,32 @@ func ParseInstanceStatus(str string) (InstanceStatus, error) {
 	return InstanceStatus(0), fmt.Errorf("invalid instance status: %s", str)
 }
 
+// ParsePayloadStatus converts a string representation to PayloadStatus type
+func ParsePayloadStatus(str string) (PayloadStatus, error) {
+	for i, status := range []string{
+		"none",
+		"pending_copy",
+		"copy_failed",
+		"copied",
+		"pending_execution",
+		"execution_failed",
+		"executed",
+	} {
+		if status == str {
+			return PayloadStatus(i), nil
+		}
+	}
+	return PayloadStatus(0), fmt.Errorf("invalid payload status: %s", str)
+}
+
 // MarshalJSON implements the json.Marshaler interface for InstanceStatus
 func (s InstanceStatus) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
+}
+
+// MarshalJSON implements the json.Marshaler interface for PayloadStatus
+func (ps PayloadStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ps.String())
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for InstanceStatus
@@ -101,6 +158,22 @@ func (s *InstanceStatus) UnmarshalJSON(data []byte) error {
 	}
 
 	*s = status
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for PayloadStatus
+func (ps *PayloadStatus) UnmarshalJSON(data []byte) error {
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+
+	status, err := ParsePayloadStatus(str)
+	if err != nil {
+		return err
+	}
+
+	*ps = status
 	return nil
 }
 
