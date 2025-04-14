@@ -66,12 +66,24 @@ To avoid blocking implementation on the full RPC and task executor rollout, we w
         *   Use the `dest:` parameter, referencing: `{{ hostvars[inventory_hostname].payload_dest_path }}`.
         *   Set `owner: root`, `group: root`, `mode: '0700'`.
         *   Use a `when: hostvars[inventory_hostname].payload_present | default(false)` condition to ensure the task only runs for hosts with payloads.
-7.  **Implement Copy Status Update (in Compute/Ansible Layer):** Modify the provisioning code to update the corresponding `models.Instance` record's `PayloadStatus` to `Copied` or `CopyFailed` (logging any error) based on the outcome of the read/copy operation.
-8.  **Implement Payload Execution (in Compute/Ansible Layer):** Modify the provisioning code (conditional on `instance.ExecutePayload` and successful copy) to execute the script (`/root/<filename>.sh`) as root on the target instance.
-9.  **Implement Execution Status Update (in Compute/Ansible Layer):** Modify the provisioning code to update the `models.Instance` record's `PayloadStatus` to `Executed` or `ExecutionFailed` (logging any error) based on the script execution outcome.
-10. **Update API Client:** Modify the client interface and implementation (`client.go`) to support the new fields in `CreateInstance`.
-11. **Add Unit Tests:** Create unit tests for the validation logic (Step 4) and service layer changes (Step 5).
-12. **Add Integration Tests:** Update `client_test.go` to include tests covering the end-to-end scenarios:
+        *   Assign appropriate tags (e.g., `payload`).
+7.  **Implement Payload Execution Task (Ansible):**
+    *   **Ansible Playbook (`ansible/main.yml` or similar):**
+        *   Add a task *after* the copy task using `ansible.builtin.shell` or `ansible.builtin.command`.
+        *   Set the command to execute the script: `cmd: "bash {{ hostvars[inventory_hostname].payload_dest_path }}"`.
+        *   Use a `when:` condition checking both `payload_present` and `payload_execute` variables for the host: `when: hostvars[inventory_hostname].payload_present | default(false) and hostvars[inventory_hostname].payload_execute | default(false)`.
+        *   Assign appropriate tags (e.g., `payload`). Let errors in this task fail the playbook.
+8.  **Implement Final Status Update Logic (Go):**
+    *   **Location:** `internal/services/infrastructure.go` after `provisioner.RunAnsiblePlaybook` completes.
+    *   **Logic:** Based on the success or failure (`err`) of the entire `RunAnsiblePlaybook` call:
+        *   Iterate through the original `InstanceRequest`s that had `PayloadPath` set.
+        *   Find the corresponding `models.Instance` record(s) in the database.
+        *   If the playbook succeeded (`err == nil`): Update status to `Executed` if `ExecutePayload` was true, else update to `Copied`.
+        *   If the playbook failed (`err != nil`): Update status to `ExecutionFailed` if `ExecutePayload` was true, else update to `CopyFailed`.
+        *   Log any errors during the DB update. Requires access to instance data and a DB repository/service.
+9.  **Update API Client:** Modify the client interface and implementation (`client.go`) to support the new fields in `CreateInstance`.
+10. **Add Unit Tests:** Create unit tests for the validation logic (Step 4) and service layer changes (Step 5).
+11. **Add Integration Tests:** Update `client_test.go` to include tests covering the end-to-end scenarios:
     *   Instance creation with payload copy only.
     *   Instance creation with successful payload execution.
     *   Instance creation with failed payload copy.
