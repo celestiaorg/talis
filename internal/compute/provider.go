@@ -38,8 +38,8 @@ type Provisioner interface {
 	// CreateInventory creates an Ansible inventory file
 	CreateInventory(instances map[string]string, keyPath string) error
 
-	// RunAnsiblePlaybook runs the Ansible playbook
-	RunAnsiblePlaybook() error
+	// RunAnsiblePlaybook runs the Ansible playbook, accepting extra variables
+	RunAnsiblePlaybook(inventoryName string, extraVars map[string]interface{}) error
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name

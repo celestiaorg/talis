@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -249,6 +250,54 @@ func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 		return fmt.Errorf("failed to create inventory: %w", err)
 	}
 
+	// --- Prepare Extra Variables ---
+	extraVars := make(map[string]interface{})
+	hostPayloadVars := make(map[string]map[string]interface{}) // Per-host payload vars
+
+	// Create a map for easy lookup of request by instance name
+	requestMap := make(map[string]types.InstanceRequest)
+	for _, req := range i.instances { // Use i.instances which holds the original requests
+		// Handle potential naming variations if necessary (e.g., base name + index)
+		if req.NumberOfInstances == 1 {
+			requestMap[req.Name] = req
+		} else {
+			baseName := req.Name
+			for idx := 0; idx < req.NumberOfInstances; idx++ {
+				instanceName := fmt.Sprintf("%s-%d", baseName, idx)
+				requestMap[instanceName] = req
+			}
+		}
+	}
+
+	// Loop through provisioned instances to prepare payload vars
+	for _, pInstance := range instances {
+		instanceVars := make(map[string]interface{})
+		instanceVars["payload_present"] = false // Default
+
+		// Find the corresponding request
+		if req, ok := requestMap[pInstance.Name]; ok && req.PayloadPath != "" {
+			logger.Debugf("Preparing payload vars for instance %s from path %s", pInstance.Name, req.PayloadPath)
+			// Determine destination path
+			destFilename := filepath.Base(req.PayloadPath)
+			destPath := filepath.Join("/root", destFilename) // Use filepath.Join for safety
+
+			// Set vars for this host
+			instanceVars["payload_present"] = true
+			instanceVars["payload_src_path"] = req.PayloadPath // Pass the source path
+			instanceVars["payload_dest_path"] = destPath
+			instanceVars["payload_execute"] = req.ExecutePayload
+			logger.Debugf("Payload vars for %s: src=%s, dest=%s, execute=%t", pInstance.Name, req.PayloadPath, destPath, req.ExecutePayload)
+		}
+		// Add host-specific vars under the instance name key
+		hostPayloadVars[pInstance.Name] = instanceVars
+	}
+
+	// Add the per-host payload vars to the main extraVars
+	extraVars["host_payload_vars"] = hostPayloadVars
+
+	// Add other necessary extra vars if needed (e.g., common settings)
+	extraVars["target_hosts"] = "all"
+
 	// Configure hosts in parallel
 	errChan := make(chan error, len(instances))
 	var wg sync.WaitGroup
@@ -272,9 +321,9 @@ func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
 		}
 	}
 
-	// Run Ansible playbook
+	// Run Ansible playbook with prepared extra variables
 	fmt.Println("📝 Running Ansible playbook...")
-	if err := i.provisioner.RunAnsiblePlaybook(); err != nil {
+	if err := i.provisioner.RunAnsiblePlaybook(i.jobID, extraVars); err != nil {
 		return fmt.Errorf("failed to run Ansible playbook: %w", err)
 	}
 

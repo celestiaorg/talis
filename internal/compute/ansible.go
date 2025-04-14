@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -85,11 +86,11 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, _ str
 }
 
 // RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
-func (a *AnsibleConfigurator) RunAnsiblePlaybook() error {
+func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string, extraVars map[string]interface{}) error {
 	fmt.Println("🎭 Running Ansible playbook...")
 
 	// Create inventory path with name
-	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
+	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", inventoryName)
 
 	// Prepare command arguments
 	args := []string{
@@ -105,6 +106,15 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook() error {
 
 	// Add playbook path
 	args = append(args, pathToPlaybook)
+
+	// Add extra variables if provided
+	if len(extraVars) > 0 {
+		extraVarsJSON, err := json.Marshal(extraVars)
+		if err != nil {
+			return fmt.Errorf("failed to marshal extra variables: %w", err)
+		}
+		args = append(args, "-e", string(extraVarsJSON))
+	}
 
 	// Run ansible-playbook command
 	// #nosec G204 -- command arguments are constructed from validated inputs
@@ -124,6 +134,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook() error {
 		return fmt.Errorf("failed to run ansible playbook (check output above for details): %w", err)
 	}
 
+	fmt.Println("✅ Ansible playbook completed successfully")
 	return nil
 }
 
@@ -204,7 +215,7 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 	}
 
 	// Run Ansible playbook
-	if err := a.RunAnsiblePlaybook(); err != nil {
+	if err := a.RunAnsiblePlaybook(a.jobID, nil); err != nil {
 		return fmt.Errorf("failed to run Ansible playbook: %w", err)
 	}
 
