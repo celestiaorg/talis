@@ -102,7 +102,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 	}
 	return c.JSON(types.UserResponse{
 		Users: users,
-		Pagination: types.PaginationResponse{
+		Pagination: &types.PaginationResponse{
 			Total:  len(users),
 			Page:   page,
 			Offset: paginationOpts.Offset,
@@ -125,7 +125,8 @@ func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string) error {
 	}
 
 	return c.JSON(types.UserResponse{
-		User: *user,
+		User:       *user,
+		Pagination: nil,
 	})
 }
 
