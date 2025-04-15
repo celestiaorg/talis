@@ -24,6 +24,7 @@ func initClient() error {
 func init() {
 	RootCmd.AddCommand(GetInfraCmd())
 	RootCmd.AddCommand(GetJobsCmd())
+	RootCmd.AddCommand(GetUsersCmd())
 }
 
 // RootCmd represents the base command when called without any subcommands
