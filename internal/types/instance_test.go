@@ -26,7 +26,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
-						Volumes:           []VolumeConfig{{}},
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -45,7 +51,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
-						Volumes:           []VolumeConfig{{}},
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 					{
 						Name:              "instance-2",
@@ -55,7 +67,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
-						Volumes:           []VolumeConfig{{}},
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -65,8 +83,24 @@ func TestInstancesRequest_Validate(t *testing.T) {
 			name: "valid_request_using_InstanceName",
 			request: &InstancesRequest{
 				ProjectName:  "test-project",
-				InstanceName: "valid-instance",
-				Instances:    []InstanceRequest{{Provider: "do", NumberOfInstances: 1, Region: "nyc1", Size: "s-1vcpu-1gb", Image: "ubuntu", SSHKeyName: "key", Volumes: []VolumeConfig{{}}}},
+				InstanceName: "base-instance",
+				Instances: []InstanceRequest{
+					{
+						Provider:          "do",
+						NumberOfInstances: 1,
+						Region:            "nyc1",
+						Size:              "s-1vcpu-1gb",
+						Image:             "ubuntu-20-04-x64",
+						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -82,6 +116,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -92,6 +133,24 @@ func TestInstancesRequest_Validate(t *testing.T) {
 			name: "missing instances",
 			request: &InstancesRequest{
 				ProjectName: "test-project",
+				Instances: []InstanceRequest{
+					{
+						Name:              "invalid_hostname$123",
+						Provider:          "do",
+						NumberOfInstances: 1,
+						Region:            "nyc1",
+						Size:              "s-1vcpu-1gb",
+						Image:             "ubuntu-20-04-x64",
+						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
+					},
+				},
 			},
 			wantErr: true,
 			errMsg:  "at least one instance configuration is required",
@@ -108,6 +167,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
