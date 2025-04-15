@@ -19,10 +19,10 @@ func init() {
 	listUsersCmd.Flags().StringP("username", "u", "", "returns a user with given username")
 
 	createUserCmd.Flags().StringP("username", "u", "", "username of the user to be created")
-	createUserCmd.MarkFlagRequired("username")
+	_ = createUserCmd.MarkFlagRequired("username")
 
 	deleteUserCmd.Flags().StringP("id", "i", "", "ID of the user to be deleted")
-	deleteUserCmd.MarkFlagRequired("id")
+	_ = deleteUserCmd.MarkFlagRequired("id")
 }
 
 var userCmd = &cobra.Command{
@@ -35,7 +35,7 @@ var listUsersCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List users",
 	Long:  `List all users with optional filtering by username.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		username, _ := cmd.Flags().GetString("username")
 
 		// Build query options
@@ -69,7 +69,7 @@ var createUserCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a user",
 	Long:  "Create a user with the given username",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		username, _ := cmd.Flags().GetString("username")
 
 		var req = types.CreateUserRequest{Username: username}
@@ -93,7 +93,7 @@ var deleteUserCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a user",
 	Long:  "Delete a user with a given ID",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		userID, _ := cmd.Flags().GetString("id")
 
 		err := apiClient.DeleteUser(context.Background(), userID)
