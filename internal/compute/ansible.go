@@ -151,6 +151,8 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 }
 
 // ConfigureHost implements the Provisioner interface
+//
+// NOTE: this isn't a create name since all it is really doing is ensuring SSH readiness
 func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) error {
 	// Store instance and SSH key path
 	a.mutex.Lock()
@@ -194,6 +196,8 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 
 // ConfigureHosts ensures SSH readiness for multiple hosts in parallel.
 // It no longer creates the inventory or runs the playbook.
+//
+// NOTE: this isn't a create name since all it is really doing is ensuring SSH readiness
 func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(hosts))
