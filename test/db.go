@@ -24,7 +24,6 @@ func NewInMemoryDB() (*gorm.DB, error) {
 func RunMigrations(db *gorm.DB) error {
 	// Run migrations for all models
 	err := db.AutoMigrate(
-		&models.Job{},
 		&models.Instance{},
 		&models.User{},
 		&models.Project{},
@@ -53,7 +52,6 @@ func SetupTestDB(suite *Suite, database *gorm.DB) {
 	}
 
 	// Initialize repositories
-	suite.JobRepo = repos.NewJobRepository(suite.DB)
 	suite.InstanceRepo = repos.NewInstanceRepository(suite.DB)
 	suite.UserRepo = repos.NewUserRepository(suite.DB)
 	suite.ProjectRepo = repos.NewProjectRepository(suite.DB)

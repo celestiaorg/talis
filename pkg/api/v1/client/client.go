@@ -20,7 +20,7 @@ import (
 // DefaultTimeout is the default timeout for API requests
 const DefaultTimeout = 30 * time.Second
 
-// Client defines the interface for interacting with the Talis API
+// Client is the interface for API client
 type Client interface {
 	// Admin Endpoints
 	AdminGetInstances(ctx context.Context) (types.ListInstancesResponse, error)
@@ -35,17 +35,7 @@ type Client interface {
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req types.InstancesRequest) error
-	DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) error
-
-	// Jobs Endpoints
-	GetJobs(ctx context.Context, opts *models.ListOptions) (types.ListJobsResponse, error)
-	GetJob(ctx context.Context, id string) (models.Job, error)
-	GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.InstanceMetadataResponse, error)
-	GetInstancesByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.JobInstancesResponse, error)
-	GetJobStatus(ctx context.Context, id string) (models.JobStatus, error)
-	CreateJob(ctx context.Context, req types.JobRequest) error
-	UpdateJob(ctx context.Context, id string, req types.JobRequest) error
-	DeleteJob(ctx context.Context, id string) error
+	DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) (types.TaskResponse, error)
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, id string) (types.UserResponse, error)
@@ -159,12 +149,33 @@ func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
 		return fmt.Errorf("error sending request: %w", errs[0])
 	}
 
+	// Print the raw response for debugging
+	// fmt.Printf("DEBUG - Response body: %s\n", string(body))
+
 	// Check for non-success status codes
 	if statusCode < 200 || statusCode >= 300 {
 		// If we can't decode the error response, return an error with the raw body as the message
 		return &fiber.Error{
 			Code:    statusCode,
 			Message: string(body),
+		}
+	}
+
+	// Check if this is a SlugResponse
+	if _, ok := v.(*types.TaskResponse); ok {
+		var slugResponse types.SlugResponse
+		if err := json.Unmarshal(body, &slugResponse); err != nil {
+			return fmt.Errorf("error decoding slug response: %w", err)
+		}
+
+		// Extract the TaskResponse from the Data field
+		if slugResponse.Data != nil {
+			dataJSON, err := json.Marshal(slugResponse.Data)
+			if err != nil {
+				return fmt.Errorf("error marshaling data: %w", err)
+			}
+
+			return json.Unmarshal(dataJSON, v)
 		}
 	}
 
@@ -188,6 +199,14 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 	return c.doRequest(agent, response)
 }
 
+// RPCResponseWrapper is a wrapper for RPC responses
+type RPCResponseWrapper struct {
+	Data    json.RawMessage `json:"data"`
+	Error   interface{}     `json:"error,omitempty"`
+	ID      string          `json:"id,omitempty"`
+	Success bool            `json:"success"`
+}
+
 // rpcRequest executes an RPC-style request to the API
 func (c *APIClient) rpcRequest(ctx context.Context, method string, params interface{}, response interface{}) error {
 	endpoint := routes.RPCURL()
@@ -198,7 +217,49 @@ func (c *APIClient) rpcRequest(ctx context.Context, method string, params interf
 		"params": params,
 	}
 
-	return c.executeRequest(ctx, http.MethodPost, endpoint, requestBody, response)
+	// Create the agent
+	agent, err := c.createAgent(ctx, http.MethodPost, endpoint, requestBody)
+	if err != nil {
+		return err
+	}
+
+	// Execute the request and get the response body
+	statusCode, body, errs := agent.Bytes()
+	if len(errs) > 0 {
+		return fmt.Errorf("error sending RPC request: %w", errs[0])
+	}
+
+	// Check for non-success status codes
+	if statusCode < 200 || statusCode >= 300 {
+		return &fiber.Error{
+			Code:    statusCode,
+			Message: string(body), // Raw body as error message
+		}
+	}
+
+	// Unmarshal the response into the wrapper
+	var wrapper RPCResponseWrapper
+	if err := json.Unmarshal(body, &wrapper); err != nil {
+		return fmt.Errorf("error decoding RPC response wrapper: %w. Body: %s", err, string(body))
+	}
+
+	// Check for application-level errors in the response
+	if !wrapper.Success {
+		if wrapper.Error != nil {
+			errBytes, _ := json.Marshal(wrapper.Error)
+			return fmt.Errorf("RPC request failed: %s", string(errBytes))
+		}
+		return fmt.Errorf("RPC request failed with no error details")
+	}
+
+	// Unmarshal the actual data from the wrapper into the target response object
+	if response != nil && wrapper.Data != nil {
+		if err := json.Unmarshal(wrapper.Data, response); err != nil {
+			return fmt.Errorf("error decoding RPC data: %w. Data: %s", err, string(wrapper.Data))
+		}
+	}
+
+	return nil
 }
 
 // Admin methods implementation
@@ -292,32 +353,6 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 		}
 		q.Set("instance_status", statusStr)
 	}
-	// Job status params
-	if opts.JobStatus != nil {
-		status := *opts.JobStatus
-		var statusStr string
-		switch status {
-		case models.JobStatusUnknown:
-			statusStr = "unknown"
-		case models.JobStatusPending:
-			statusStr = "pending"
-		case models.JobStatusInitializing:
-			statusStr = "initializing"
-		case models.JobStatusProvisioning:
-			statusStr = "provisioning"
-		case models.JobStatusConfiguring:
-			statusStr = "configuring"
-		case models.JobStatusDeleting:
-			statusStr = "deleting"
-		case models.JobStatusCompleted:
-			statusStr = "completed"
-		case models.JobStatusFailed:
-			statusStr = "failed"
-		default:
-			return nil, fmt.Errorf("invalid job status: %v", status)
-		}
-		q.Set("job_status", statusStr)
-	}
 
 	return q, nil
 }
@@ -384,112 +419,13 @@ func (c *APIClient) CreateInstance(ctx context.Context, req types.InstancesReque
 }
 
 // DeleteInstance deletes an instance by ID
-func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) error {
+func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) (types.TaskResponse, error) {
 	endpoint := routes.TerminateInstancesURL()
-	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
-}
-
-// Job methods implementation
-
-// GetJobs lists jobs with optional filtering
-func (c *APIClient) GetJobs(ctx context.Context, opts *models.ListOptions) (types.ListJobsResponse, error) {
-	q, err := getQueryParams(opts)
-	if err != nil {
-		return types.ListJobsResponse{}, err
-	}
-
-	endpoint := routes.GetJobsURL(q)
-	var response types.ListJobsResponse
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.ListJobsResponse{}, err
+	var response types.TaskResponse
+	if err := c.executeRequest(ctx, http.MethodDelete, endpoint, req, &response); err != nil {
+		return types.TaskResponse{}, err
 	}
 	return response, nil
-}
-
-// GetJob retrieves a job by ID
-func (c *APIClient) GetJob(ctx context.Context, id string) (models.Job, error) {
-	endpoint := routes.GetJobURL(id)
-	var response types.SlugResponse
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return models.Job{}, err
-	}
-
-	// Convert the response data to a Job
-	if response.Data == nil {
-		return models.Job{}, fmt.Errorf("no job data in response")
-	}
-
-	// Convert the response data to JSON
-	jobData, err := json.Marshal(response.Data)
-	if err != nil {
-		return models.Job{}, fmt.Errorf("failed to marshal job data: %w", err)
-	}
-
-	// Unmarshal into a Job struct
-	var job models.Job
-	if err := json.Unmarshal(jobData, &job); err != nil {
-		return models.Job{}, fmt.Errorf("failed to unmarshal job data: %w", err)
-	}
-
-	return job, nil
-}
-
-// GetMetadataByJobID retrieves metadata for a job by ID
-func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.InstanceMetadataResponse, error) {
-	q, err := getQueryParams(opts)
-	if err != nil {
-		return types.InstanceMetadataResponse{}, err
-	}
-
-	endpoint := routes.GetJobMetadataURL(id, q)
-	var response types.InstanceMetadataResponse
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.InstanceMetadataResponse{}, err
-	}
-	return response, nil
-}
-
-// GetInstancesByJobID retrieves instances for a job by ID
-func (c *APIClient) GetInstancesByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.JobInstancesResponse, error) {
-	q, err := getQueryParams(opts)
-	if err != nil {
-		return types.JobInstancesResponse{}, err
-	}
-
-	endpoint := routes.GetJobInstancesURL(id, q)
-	var response types.JobInstancesResponse
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.JobInstancesResponse{}, err
-	}
-	return response, nil
-}
-
-// GetJobStatus retrieves the status of a job by ID
-func (c *APIClient) GetJobStatus(ctx context.Context, id string) (models.JobStatus, error) {
-	endpoint := routes.GetJobStatusURL(id)
-	var response models.JobStatus
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return "", err
-	}
-	return response, nil
-}
-
-// CreateJob creates a new job
-func (c *APIClient) CreateJob(ctx context.Context, req types.JobRequest) error {
-	endpoint := routes.CreateJobURL()
-	return c.executeRequest(ctx, http.MethodPost, endpoint, req, nil)
-}
-
-// UpdateJob updates a job by ID
-func (c *APIClient) UpdateJob(ctx context.Context, id string, req types.JobRequest) error {
-	endpoint := routes.UpdateJobURL(id)
-	return c.executeRequest(ctx, http.MethodPut, endpoint, req, nil)
-}
-
-// DeleteJob deletes a job by ID
-func (c *APIClient) DeleteJob(ctx context.Context, id string) error {
-	endpoint := routes.DeleteJobURL(id)
-	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
 }
 
 // User method implementation
@@ -543,82 +479,35 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 	return project, nil
 }
 
-// RPCResponseWrapper is a wrapper for RPC responses
-type RPCResponseWrapper struct {
-	Data    json.RawMessage `json:"data"`
-	Error   interface{}     `json:"error,omitempty"`
-	ID      string          `json:"id,omitempty"`
-	Success bool            `json:"success"`
-}
-
 // GetProject retrieves a project by name
 func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error) {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.ProjectGet, params, &wrapper); err != nil {
+	var project models.Project
+	if err := c.rpcRequest(ctx, handlers.ProjectGet, params, &project); err != nil {
 		return models.Project{}, err
 	}
-
-	if !wrapper.Success {
-		return models.Project{}, fmt.Errorf("request failed")
-	}
-
-	var project models.Project
-	if err := json.Unmarshal(wrapper.Data, &project); err != nil {
-		return models.Project{}, fmt.Errorf("error decoding project data: %w", err)
-	}
-
 	return project, nil
 }
 
 // ListProjects lists all projects
 func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.ProjectList, params, &wrapper); err != nil {
+	var listResponse types.ListResponse[models.Project]
+	if err := c.rpcRequest(ctx, handlers.ProjectList, params, &listResponse); err != nil {
 		return nil, err
 	}
-
-	if !wrapper.Success {
-		return nil, fmt.Errorf("request failed")
-	}
-
-	var listResponse types.ListResponse[models.Project]
-	if err := json.Unmarshal(wrapper.Data, &listResponse); err != nil {
-		return nil, fmt.Errorf("error decoding projects list data: %w", err)
-	}
-
 	return listResponse.Rows, nil
 }
 
 // DeleteProject deletes a project by name
 func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.ProjectDelete, params, &wrapper); err != nil {
-		return err
-	}
-
-	if !wrapper.Success {
-		return fmt.Errorf("failed to delete project: %v", wrapper.Error)
-	}
-
-	return nil
+	return c.rpcRequest(ctx, handlers.ProjectDelete, params, nil)
 }
 
 // ListProjectInstances lists all instances for a project
 func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.ProjectListInstances, params, &wrapper); err != nil {
+	var listResponse types.ListResponse[models.Instance]
+	if err := c.rpcRequest(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
 		return nil, err
 	}
-
-	if !wrapper.Success {
-		return nil, fmt.Errorf("request failed")
-	}
-
-	var listResponse types.ListResponse[models.Instance]
-	if err := json.Unmarshal(wrapper.Data, &listResponse); err != nil {
-		return nil, fmt.Errorf("error decoding instances list data: %w", err)
-	}
-
 	return listResponse.Rows, nil
 }
 
@@ -626,66 +515,28 @@ func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.Pr
 
 // GetTask retrieves a task by name
 func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error) {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.TaskGet, params, &wrapper); err != nil {
+	var task models.Task
+	if err := c.rpcRequest(ctx, handlers.TaskGet, params, &task); err != nil {
 		return models.Task{}, err
 	}
-
-	if !wrapper.Success {
-		return models.Task{}, fmt.Errorf("request failed")
-	}
-
-	var task models.Task
-	if err := json.Unmarshal(wrapper.Data, &task); err != nil {
-		return models.Task{}, fmt.Errorf("error decoding task data: %w", err)
-	}
-
 	return task, nil
 }
 
 // ListTasks lists all tasks
 func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.TaskList, params, &wrapper); err != nil {
+	var listResponse types.ListResponse[models.Task]
+	if err := c.rpcRequest(ctx, handlers.TaskList, params, &listResponse); err != nil {
 		return nil, err
 	}
-
-	if !wrapper.Success {
-		return nil, fmt.Errorf("request failed")
-	}
-
-	var listResponse types.ListResponse[models.Task]
-	if err := json.Unmarshal(wrapper.Data, &listResponse); err != nil {
-		return nil, fmt.Errorf("error decoding tasks list data: %w", err)
-	}
-
 	return listResponse.Rows, nil
 }
 
 // TerminateTask terminates a task by name
 func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.TaskTerminate, params, &wrapper); err != nil {
-		return err
-	}
-
-	if !wrapper.Success {
-		return fmt.Errorf("failed to terminate task: %v", wrapper.Error)
-	}
-
-	return nil
+	return c.rpcRequest(ctx, handlers.TaskTerminate, params, nil)
 }
 
 // UpdateTaskStatus updates the status of a task
 func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error {
-	var wrapper RPCResponseWrapper
-	if err := c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, &wrapper); err != nil {
-		return err
-	}
-
-	if !wrapper.Success {
-		return fmt.Errorf("failed to update task status: %v", wrapper.Error)
-	}
-
-	return nil
+	return c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, nil)
 }

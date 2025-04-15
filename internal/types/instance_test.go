@@ -15,7 +15,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "valid request with instance name",
 			request: &InstancesRequest{
-				JobName:     "test-job",
+				TaskName:    "test-job",
 				ProjectName: "test-project",
 				Instances: []InstanceRequest{
 					{
@@ -34,7 +34,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "valid request with multiple instances",
 			request: &InstancesRequest{
-				JobName:     "test-job",
+				TaskName:    "test-job",
 				ProjectName: "test-project",
 				Instances: []InstanceRequest{
 					{
@@ -62,7 +62,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "valid request using InstanceName",
 			request: &InstancesRequest{
-				JobName:      "test-job",
+				TaskName:     "test-job",
 				ProjectName:  "test-project",
 				InstanceName: "base-instance",
 				Instances: []InstanceRequest{
@@ -79,7 +79,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "missing job name",
+			name: "missing task_name",
 			request: &InstancesRequest{
 				ProjectName: "test-project",
 				Instances: []InstanceRequest{
@@ -95,12 +95,12 @@ func TestInstancesRequest_Validate(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "job_name is required",
+			errMsg:  "task_name is required",
 		},
 		{
 			name: "missing project name",
 			request: &InstancesRequest{
-				JobName: "test-job",
+				TaskName: "test-job",
 				Instances: []InstanceRequest{
 					{
 						Name:              "valid-instance",
@@ -119,7 +119,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "invalid hostname",
 			request: &InstancesRequest{
-				JobName:     "test-job",
+				TaskName:    "test-job",
 				ProjectName: "test-project",
 				Instances: []InstanceRequest{
 					{
@@ -139,7 +139,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "missing instance name and instance name in request",
 			request: &InstancesRequest{
-				JobName:     "test-job",
+				TaskName:    "test-job",
 				ProjectName: "test-project",
 				Instances: []InstanceRequest{
 					{
@@ -158,7 +158,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "empty instances array",
 			request: &InstancesRequest{
-				JobName:     "test-job",
+				TaskName:    "test-job",
 				ProjectName: "test-project",
 				Instances:   []InstanceRequest{},
 			},
@@ -168,7 +168,7 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "nil instances array",
 			request: &InstancesRequest{
-				JobName:     "test-job",
+				TaskName:    "test-job",
 				ProjectName: "test-project",
 			},
 			wantErr: true,

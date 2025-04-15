@@ -15,10 +15,7 @@ var (
 func initClient() error {
 	var err error
 	apiClient, err = client.NewClient(client.DefaultOptions())
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // RootCmd represents the base command when called without any subcommands

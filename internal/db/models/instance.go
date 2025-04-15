@@ -12,11 +12,11 @@ import (
 
 // Field names for instance model
 const (
-	// InstanceCreatedAtField is the field name for instance creation timestamp
 	InstanceCreatedAtField = "created_at"
 	InstanceDeletedField   = "deleted"
 	InstanceStatusField    = "status"
 	InstancePublicIPField  = "public_ip"
+	InstanceNameField      = "name"
 )
 
 // InstanceStatus represents the current state of an instance
@@ -41,8 +41,7 @@ type Instance struct {
 	gorm.Model
 	OwnerID       uint           `json:"owner_id" gorm:"not null;index"`
 	ProjectID     uint           `json:"project_id" gorm:"not null;index"`
-	TaskID        uint           `json:"task_id" gorm:"not null;index"`
-	JobID         uint           `json:"job_id" gorm:"not null;index"` // ID from the jobs table
+	LastTaskID    uint           `json:"last_task_id" gorm:"not null;index"`
 	ProviderID    ProviderID     `json:"provider_id" gorm:"not null"`
 	Name          string         `json:"name" gorm:"not null;index"`
 	PublicIP      string         `json:"public_ip" gorm:"varchar(100)"`

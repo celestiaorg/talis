@@ -20,7 +20,8 @@ Complete documentation is available at https://github.com/celestiaorg/talis`,
 func init() {
 	// Add all subcommands to root command
 	rootCmd.AddCommand(commands.GetInfraCmd())
-	rootCmd.AddCommand(commands.GetJobsCmd())
+	rootCmd.AddCommand(commands.GetProjectsCmd())
+	rootCmd.AddCommand(commands.GetTasksCmd())
 }
 
 func main() {

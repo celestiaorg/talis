@@ -23,7 +23,7 @@ type InstanceConfig struct {
 
 // InstancesRequest represents a request to manage instances, including creation and deletion.
 type InstancesRequest struct {
-	JobName      string            `json:"job_name"`
+	TaskName     string            `json:"task_name"`
 	InstanceName string            `json:"instance_name"`
 	Instances    []InstanceRequest `json:"instances"`
 	WebhookURL   string            `json:"webhook_url"`
@@ -57,7 +57,7 @@ type InstanceCreateRequest struct {
 
 // DeleteInstanceRequest represents the request body for deleting instances
 type DeleteInstanceRequest struct {
-	JobName       string   `json:"job_name" validate:"required"`             // Job name of the job
+	ProjectName   string   `json:"project_name" validate:"required"`         // Project name
 	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
 }
 
@@ -117,8 +117,8 @@ type InstanceInfo struct {
 
 // Validate validates the infrastructure request
 func (r *InstancesRequest) Validate() error {
-	if r.JobName == "" {
-		return fmt.Errorf("job_name is required")
+	if r.TaskName == "" {
+		return fmt.Errorf("task_name is required")
 	}
 
 	if r.ProjectName == "" {

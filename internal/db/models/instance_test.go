@@ -129,7 +129,7 @@ func TestInstance_Validation(t *testing.T) {
 			CreatedAt: now,
 			UpdatedAt: now,
 		},
-		JobID:      1,
+		ProjectID:  1,
 		ProviderID: ProviderDO,
 		Name:       "test-instance",
 		PublicIP:   "192.0.2.1",
@@ -151,7 +151,7 @@ func TestInstance_Validation(t *testing.T) {
 
 		// Verify fields were correctly marshaled/unmarshaled
 		// Don't check ID as it's not part of the JSON output
-		assert.Equal(t, validInstance.JobID, unmarshaledInstance.JobID)
+		assert.Equal(t, validInstance.ProjectID, unmarshaledInstance.ProjectID)
 		assert.Equal(t, validInstance.ProviderID, unmarshaledInstance.ProviderID)
 		assert.Equal(t, validInstance.Name, unmarshaledInstance.Name)
 		assert.Equal(t, validInstance.PublicIP, unmarshaledInstance.PublicIP)

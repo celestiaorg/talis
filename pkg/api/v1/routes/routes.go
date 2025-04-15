@@ -54,16 +54,6 @@ const (
 	CreateInstance     = "CreateInstance"
 	TerminateInstances = "TerminateInstances"
 
-	// Jobs routes
-	GetJobs             = "GetJobs"
-	GetJob              = "GetJob"
-	GetMetadataByJobID  = "GetMetadataByJobID"
-	GetInstancesByJobID = "GetInstancesByJobID"
-	GetJobStatus        = "GetJobStatus"
-	CreateJob           = "CreateJob"
-	UpdateJob           = "UpdateJob"
-	TerminateJob        = "TerminateJob"
-
 	// User routes
 	GetUsers    = "GetUsers"
 	GetUserByID = "GetUserByID"
@@ -88,7 +78,6 @@ var (
 func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
-	jobHandler *handlers.JobHandler,
 	userHandler *handlers.UserHandler,
 	rpcHandler *handlers.RPCHandler,
 ) {
@@ -117,19 +106,6 @@ func RegisterRoutes(
 	instances.Delete("/", instanceHandler.TerminateInstances).Name(TerminateInstances)
 
 	// ---------------------------
-	// Jobs endpoints
-	// TODO: These should be filtered by OwnerID
-	jobs := v1.Group("/jobs")
-	jobs.Get("/", jobHandler.ListJobs).Name(GetJobs)
-	jobs.Get("/:id", jobHandler.GetJob).Name(GetJob)
-	jobs.Get("/:id/all-metadata", instanceHandler.GetAllMetadata).Name(GetMetadataByJobID)
-	jobs.Get("/:id/instances", instanceHandler.GetInstancesByJobID).Name(GetInstancesByJobID)
-	jobs.Get("/:id/status", jobHandler.GetJobStatus).Name(GetJobStatus)
-	jobs.Post("/", jobHandler.CreateJob).Name(CreateJob)
-	jobs.Put("/:id", jobHandler.UpdateJob).Name(UpdateJob)
-	jobs.Delete("/:id", jobHandler.TerminateJob).Name(TerminateJob)
-
-	// ---------------------------
 	// User endpoints
 	users := v1.Group("/users")
 	users.Get("/", userHandler.GetUsers).Name(GetUsers)
@@ -151,12 +127,11 @@ func initRouteCache() {
 
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
-		mockJobHandler := &handlers.JobHandler{}
 		mockUserHandler := &handlers.UserHandler{}
 		mockRPCHandler := &handlers.RPCHandler{}
 
 		// Register routes with mock handlers - project and task handlers are handled via RPC
-		RegisterRoutes(app, mockInstanceHandler, mockJobHandler, mockUserHandler, mockRPCHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockUserHandler, mockRPCHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -258,49 +233,7 @@ func TerminateInstancesURL() string {
 	return BuildURL(TerminateInstances, nil, nil)
 }
 
-// Job Routes
-
-// GetJobsURL returns the URL for getting jobs
-func GetJobsURL(queryParams url.Values) string {
-	return BuildURL(GetJobs, nil, queryParams)
-}
-
-// GetJobURL returns the URL for getting a job by ID
-func GetJobURL(id string) string {
-	return BuildURL(GetJob, map[string]string{"id": id}, nil)
-}
-
-// GetJobMetadataURL returns the URL for getting job metadata
-func GetJobMetadataURL(id string, queryParams url.Values) string {
-	return BuildURL(GetMetadataByJobID, map[string]string{"id": id}, queryParams)
-}
-
-// GetJobInstancesURL returns the URL for getting job instances
-func GetJobInstancesURL(jobID string, queryParams url.Values) string {
-	return BuildURL(GetInstancesByJobID, map[string]string{"id": jobID}, queryParams)
-}
-
-// GetJobStatusURL returns the URL for getting a job status
-func GetJobStatusURL(id string) string {
-	return BuildURL(GetJobStatus, map[string]string{"id": id}, nil)
-}
-
-// CreateJobURL returns the URL for creating a job
-func CreateJobURL() string {
-	return BuildURL(CreateJob, nil, nil)
-}
-
-// UpdateJobURL returns the URL for updating a job
-func UpdateJobURL(id string) string {
-	return BuildURL(UpdateJob, map[string]string{"id": id}, nil)
-}
-
-// DeleteJobURL returns the URL for deleting a job
-func DeleteJobURL(id string) string {
-	return BuildURL(TerminateJob, map[string]string{"id": id}, nil)
-}
-
-// User Routes
+// User route helpers
 
 // GetUsersURL returns the URL for getting users
 func GetUsersURL(queryParams url.Values) string {
@@ -322,7 +255,7 @@ func DeleteUserURL(id string) string {
 	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
 }
 
-// RPC URL helper
+// RPC route helper
 
 // RPCURL returns the URL for the RPC endpoint
 func RPCURL() string {

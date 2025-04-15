@@ -27,14 +27,12 @@ func SetupServer(suite *Suite) {
 	suite.App.Use(logger.APILogger())
 
 	// Create services
-	jobService := services.NewJobService(suite.JobRepo, suite.InstanceRepo)
-	instanceService := services.NewInstanceService(suite.InstanceRepo, jobService)
 	userService := services.NewUserService(suite.UserRepo)
 	projectService := services.NewProjectService(suite.ProjectRepo)
-	taskService := services.NewTaskService(suite.TaskRepo, suite.ProjectRepo)
+	taskService := services.NewTaskService(suite.TaskRepo, projectService)
+	instanceService := services.NewInstanceService(suite.InstanceRepo, taskService, projectService)
 
 	// Create handlers
-	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
 	userHandler := handlers.NewUserHandler(userService)
 	rpcHandler := &handlers.RPCHandler{
@@ -43,7 +41,7 @@ func SetupServer(suite *Suite) {
 	}
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, jobHandler, userHandler, rpcHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, userHandler, rpcHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))

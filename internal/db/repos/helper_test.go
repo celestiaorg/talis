@@ -21,9 +21,10 @@ type DBRepositoryTestSuite struct {
 	suite.Suite
 	db           *gorm.DB
 	ctx          context.Context
-	jobRepo      *JobRepository
 	instanceRepo *InstanceRepository
 	userRepo     *UserRepository
+	projectRepo  *ProjectRepository
+	taskRepo     *TaskRepository
 }
 
 // randomOwnerID creates a random owner ID using crypto/rand
@@ -55,14 +56,15 @@ func (s *DBRepositoryTestSuite) SetupTest() {
 	require.NoError(s.T(), err, "Failed to create in-memory database")
 
 	// Run migrations
-	err = db.AutoMigrate(&models.Instance{}, &models.Job{}, &models.User{})
+	err = db.AutoMigrate(&models.Instance{}, &models.User{}, &models.Project{}, &models.Task{})
 	require.NoError(s.T(), err, "Failed to run database migrations")
 
 	// Initialize repositories
 	s.db = db
-	s.jobRepo = NewJobRepository(s.db)
 	s.instanceRepo = NewInstanceRepository(s.db)
 	s.userRepo = NewUserRepository(s.db)
+	s.projectRepo = NewProjectRepository(s.db)
+	s.taskRepo = NewTaskRepository(s.db)
 	s.ctx = context.Background()
 }
 
@@ -82,7 +84,6 @@ func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
 	instance := &models.Instance{
 		OwnerID:    ownerID,
-		JobID:      1,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance",
 		PublicIP:   "192.0.2.1",
@@ -98,27 +99,6 @@ func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models
 	return instance
 }
 
-func (s *DBRepositoryTestSuite) createTestJob() *models.Job {
-	return s.createTestJobForOwner(s.randomOwnerID())
-}
-
-func (s *DBRepositoryTestSuite) createTestJobForOwner(ownerID uint) *models.Job {
-	job := &models.Job{
-		Name:         "test-job",
-		InstanceName: "test-instance",
-		ProjectName:  "test-project",
-		OwnerID:      ownerID,
-		Status:       models.JobStatusPending,
-		SSHKeys:      models.SSHKeys{"key1", "key2"},
-		WebhookURL:   "https://example.com/webhook",
-		WebhookSent:  false,
-		CreatedAt:    time.Now(),
-	}
-	err := s.jobRepo.Create(s.ctx, job)
-	s.Require().NoError(err)
-	return job
-}
-
 func (s *DBRepositoryTestSuite) createTestUser() *models.User {
 	user := &models.User{
 		Username: "test-user",
@@ -128,6 +108,42 @@ func (s *DBRepositoryTestSuite) createTestUser() *models.User {
 	err := s.userRepo.CreateUser(s.ctx, user)
 	s.Require().NoError(err)
 	return user
+}
+
+func (s *DBRepositoryTestSuite) createTestProject() *models.Project {
+	return s.createTestProjectForOwner(s.randomOwnerID())
+}
+
+func (s *DBRepositoryTestSuite) createTestProjectForOwner(ownerID uint) *models.Project {
+	project := &models.Project{
+		Name:        "test-project",
+		Description: "Test project description",
+		OwnerID:     ownerID,
+		CreatedAt:   time.Now(),
+	}
+	err := s.projectRepo.Create(s.ctx, project)
+	s.Require().NoError(err)
+	return project
+}
+
+func (s *DBRepositoryTestSuite) createTestTask() *models.Task {
+	project := s.createTestProject()
+	return s.createTestTaskForProject(project.OwnerID, project.ID)
+}
+
+func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint) *models.Task {
+	task := &models.Task{
+		Name:      "test-task",
+		ProjectID: projectID,
+		OwnerID:   ownerID,
+		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionCreateInstances,
+		Logs:      "Task logs",
+		CreatedAt: time.Now(),
+	}
+	err := s.taskRepo.Create(s.ctx, task)
+	s.Require().NoError(err)
+	return task
 }
 
 // TestDBRepository runs the test suite for the DBRepository to verify no panic

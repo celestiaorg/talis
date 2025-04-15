@@ -26,25 +26,31 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 	return r.db.WithContext(ctx).Create(task).Error
 }
 
-// Get retrieves a task by ID from the database
-func (r *TaskRepository) Get(ctx context.Context, id uint) (*models.Task, error) {
+// GetByID retrieves a task by ID from the database
+func (r *TaskRepository) GetByID(ctx context.Context, ownerID uint, id uint) (*models.Task, error) {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
 	var task models.Task
-	if err := r.db.WithContext(ctx).First(&task, id).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Where(models.Task{
+			Model:   gorm.Model{ID: id},
+			OwnerID: ownerID,
+		}).First(&task).Error; err != nil {
 		return nil, err
 	}
 	return &task, nil
 }
 
 // GetByName retrieves a task by name within a project from the database
-func (r *TaskRepository) GetByName(ctx context.Context, ownerID uint, projectID uint, name string) (*models.Task, error) {
+func (r *TaskRepository) GetByName(ctx context.Context, ownerID uint, name string) (*models.Task, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 	var task models.Task
 	err := r.db.WithContext(ctx).Where(models.Task{
-		OwnerID:   ownerID,
-		ProjectID: projectID,
-		Name:      name,
+		OwnerID: ownerID,
+		Name:    name,
 	}).First(&task).Error
 	return &task, err
 }
@@ -71,4 +77,15 @@ func (r *TaskRepository) UpdateStatus(ctx context.Context, ownerID uint, id uint
 		Model:   gorm.Model{ID: id},
 		OwnerID: ownerID,
 	}).Update(models.TaskStatusField, status).Error
+}
+
+// Update updates an existing task in the database.
+func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.Task) error {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return fmt.Errorf("invalid owner_id: %w", err)
+	}
+	return r.db.WithContext(ctx).Model(&models.Task{}).Where(models.Task{
+		Model:   gorm.Model{ID: task.ID},
+		OwnerID: ownerID,
+	}).Updates(task).Error
 }

@@ -16,6 +16,10 @@ import (
 	"github.com/celestiaorg/talis/internal/types"
 )
 
+// Define status variables used in tests
+var pendingStatus = models.InstanceStatusPending
+var invalidInstanceStatus = models.InstanceStatus(999)
+
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -270,46 +274,14 @@ func TestGetQueryParams(t *testing.T) {
 		},
 		{
 			name: "instance status test",
-			opts: &models.ListOptions{
-				InstanceStatus: func() *models.InstanceStatus {
-					s := models.InstanceStatusReady
-					return &s
-				}(),
-			},
+			opts: &models.ListOptions{InstanceStatus: &pendingStatus},
 			want: map[string][]string{
-				"instance_status": {"ready"},
+				"instance_status": {"pending"},
 			},
 		},
 		{
-			name: "job status test",
-			opts: &models.ListOptions{
-				JobStatus: func() *models.JobStatus {
-					s := models.JobStatusCompleted
-					return &s
-				}(),
-			},
-			want: map[string][]string{
-				"job_status": {"completed"},
-			},
-		},
-		{
-			name: "invalid instance status",
-			opts: &models.ListOptions{
-				InstanceStatus: func() *models.InstanceStatus {
-					s := models.InstanceStatus(999)
-					return &s
-				}(),
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid job status",
-			opts: &models.ListOptions{
-				JobStatus: func() *models.JobStatus {
-					s := models.JobStatus("invalid")
-					return &s
-				}(),
-			},
+			name:    "invalid instance status",
+			opts:    &models.ListOptions{InstanceStatus: &invalidInstanceStatus},
 			wantErr: true,
 		},
 	}

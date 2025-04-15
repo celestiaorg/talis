@@ -2,8 +2,13 @@ package types
 
 // Response represents the response from the infrastructure API
 type Response struct {
-	ID     uint   `json:"id"`     // ID of the job
-	Status string `json:"status"` // Status of the job
+	ID     uint   `json:"id"`     // ID of the infrastructure job
+	Status string `json:"status"` // Status of the infrastructure job
+}
+
+// TaskResponse represents the response when a task is created or acted upon.
+type TaskResponse struct {
+	TaskName string `json:"task_name"` // Name of the task
 }
 
 // PaginationResponse represents pagination information
@@ -16,7 +21,6 @@ type PaginationResponse struct {
 
 // PublicIPs represents the public IPs of the instances
 type PublicIPs struct {
-	JobID    uint   `json:"job_id"`
 	PublicIP string `json:"public_ip"`
 }
 

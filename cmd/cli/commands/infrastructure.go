@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/api/v1/client"
 	"github.com/spf13/cobra"
 )
 
@@ -65,7 +66,7 @@ var createInfraCmd = &cobra.Command{
 
 		// Create the delete request
 		deleteReq := types.DeleteInstanceRequest{
-			JobName: req.JobName,
+			ProjectName: req.ProjectName,
 			InstanceNames: func() []string {
 				names := make([]string, 0)
 				for _, instance := range req.Instances {
@@ -98,7 +99,7 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error writing delete file: %w", err)
 		}
 
-		fmt.Printf("Delete file generated: %s (with job name: %s)\n", deleteFilePath, deleteReq.JobName)
+		fmt.Printf("Delete file generated: %s (with project name: %s)\n", deleteFilePath, deleteReq.ProjectName)
 		return nil
 	},
 }
@@ -107,13 +108,13 @@ var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		jsonFile, _ := cmd.Flags().GetString("file")
-		if err := validateFilePath(jsonFile); err != nil {
-			return fmt.Errorf("error validating file path: %w", err)
+		filePath, err := cmd.Flags().GetString("file")
+		if err != nil {
+			return fmt.Errorf("error getting file path: %w", err)
 		}
 
 		// Read and parse the JSON file
-		data, err := os.ReadFile(jsonFile) //nolint:gosec
+		data, err := os.ReadFile(filepath.Clean(filePath))
 		if err != nil {
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
@@ -124,11 +125,12 @@ var deleteInfraCmd = &cobra.Command{
 		}
 
 		// Call the API client
-		if err := apiClient.DeleteInstance(context.Background(), req); err != nil {
+		resp, err := apiClient.DeleteInstance(context.Background(), req)
+		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
 
-		fmt.Println("Infrastructure deletion request submitted successfully")
+		fmt.Printf("Infrastructure deletion task %s started. Use 'talis tasks get -n %s' to check the status\n", resp.TaskName, resp.TaskName)
 		return nil
 	},
 }
@@ -147,4 +149,71 @@ func validateFilePath(path string) error {
 		return err
 	}
 	return nil
+}
+
+// DeleteInstancesCmd returns a command that deletes instances
+func DeleteInstancesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete infrastructure",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			filePath, err := cmd.Flags().GetString("file")
+			if err != nil {
+				return err
+			}
+
+			// Validate file path
+			if filePath == "" {
+				return fmt.Errorf("required flag(s) \"file\" not set")
+			}
+			if _, err := os.Stat(filePath); err != nil {
+				return fmt.Errorf("error validating file path: %w", err)
+			}
+
+			// Read and parse file. Ensure the filePath is cleaned before use.
+			cleanedPath := filepath.Clean(filePath)
+			data, err := os.ReadFile(cleanedPath)
+			if err != nil {
+				return fmt.Errorf("error reading file: %w", err)
+			}
+			var body types.InstancesRequest
+			if err := json.Unmarshal(data, &body); err != nil {
+				return fmt.Errorf("error parsing JSON file: %w", err)
+			}
+
+			if len(body.Instances) == 0 {
+				return fmt.Errorf("no instances specified in the JSON file")
+			}
+
+			// Extract instance names
+			instanceNames := make([]string, 0, len(body.Instances))
+			for _, inst := range body.Instances {
+				instanceNames = append(instanceNames, inst.Name)
+			}
+
+			deleteReq := types.DeleteInstanceRequest{
+				ProjectName:   body.ProjectName,
+				InstanceNames: instanceNames,
+			}
+
+			// Call API
+			cl, err := client.NewClient(nil)
+			if err != nil {
+				return fmt.Errorf("error creating API client: %w", err)
+			}
+
+			resp, err := cl.DeleteInstance(context.Background(), deleteReq)
+			if err != nil {
+				return fmt.Errorf("error deleting instances: %w", err)
+			}
+
+			fmt.Printf("Instances deletion task %s started. Use 'talis tasks get -n %s' to check the status\n", resp.TaskName, resp.TaskName)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringP("file", "f", "", "JSON file containing infrastructure configuration")
+	// Mark the file flag required
+	_ = cmd.MarkFlagRequired("file")
+	return cmd
 }

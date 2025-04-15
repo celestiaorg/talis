@@ -41,7 +41,6 @@ type Suite struct {
 
 	// Database components
 	DB           *gorm.DB
-	JobRepo      *repos.JobRepository
 	InstanceRepo *repos.InstanceRepository
 	UserRepo     *repos.UserRepository
 	ProjectRepo  *repos.ProjectRepository
@@ -85,7 +84,6 @@ func (s *Suite) SetupSuite() {
 	s.DB = db
 
 	// Create repositories
-	s.JobRepo = repos.NewJobRepository(db)
 	s.InstanceRepo = repos.NewInstanceRepository(db)
 	s.UserRepo = repos.NewUserRepository(db)
 	s.ProjectRepo = repos.NewProjectRepository(db)

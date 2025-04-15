@@ -54,22 +54,19 @@ func main() {
 	// defer DB.Close()
 
 	// Initialize repositories
-	jobRepo := repos.NewJobRepository(DB)
 	instanceRepo := repos.NewInstanceRepository(DB)
 	userRepo := repos.NewUserRepository(DB)
 	projectRepo := repos.NewProjectRepository(DB)
 	taskRepo := repos.NewTaskRepository(DB)
 
 	// Initialize services
-	jobService := services.NewJobService(jobRepo, instanceRepo)
-	instanceService := services.NewInstanceService(instanceRepo, jobService)
-	userService := services.NewUserService(userRepo)
 	projectService := services.NewProjectService(projectRepo)
-	taskService := services.NewTaskService(taskRepo, projectRepo)
+	taskService := services.NewTaskService(taskRepo, projectService)
+	instanceService := services.NewInstanceService(instanceRepo, taskService, projectService)
+	userService := services.NewUserService(userRepo)
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
-	jobHandler := handlers.NewJobHandler(jobService, instanceService)
 	userHandler := handlers.NewUserHandler(userService)
 
 	// Create RPC handler and assign handlers directly
@@ -87,7 +84,7 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes - no need for project and task handlers as they're handled via RPC
-	routes.RegisterRoutes(app, instanceHandler, jobHandler, userHandler, rpcHandler)
+	routes.RegisterRoutes(app, instanceHandler, userHandler, rpcHandler)
 
 	// Start server
 	port := os.Getenv("SERVER_PORT")

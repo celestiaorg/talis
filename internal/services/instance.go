@@ -3,6 +3,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -17,15 +18,17 @@ import (
 
 // Instance provides business logic for instance operations
 type Instance struct {
-	repo       *repos.InstanceRepository
-	jobService *Job
+	repo           *repos.InstanceRepository
+	taskService    *Task
+	projectService *Project
 }
 
 // NewInstanceService creates a new instance service instance
-func NewInstanceService(repo *repos.InstanceRepository, jobService *Job) *Instance {
+func NewInstanceService(repo *repos.InstanceRepository, taskService *Task, projectService *Project) *Instance {
 	return &Instance{
-		repo:       repo,
-		jobService: jobService,
+		repo:           repo,
+		taskService:    taskService,
+		projectService: projectService,
 	}
 }
 
@@ -35,12 +38,29 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 }
 
 // CreateInstance creates a new instance
-func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName string, instances []types.InstanceRequest) error {
-	job, err := s.jobService.jobRepo.GetByName(ctx, ownerID, jobName)
+func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName string, instances []types.InstanceRequest) (taskName string, err error) {
+	project, err := s.projectService.GetByName(ctx, ownerID, projectName)
 	if err != nil {
-		return fmt.Errorf("failed to get job: %w", err)
+		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
+	taskName = uuid.New().String()
+	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
+		Name:      taskName,
+		ProjectID: project.ID,
+		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionCreateInstances,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create task: %w", err)
+	}
+
+	task, err := s.taskService.GetByName(ctx, ownerID, taskName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get task: %w", err)
+	}
+
+	totalInstances := 0
 	for _, i := range instances {
 		// Sanity check the ownerID fields.
 		// TODO: this is a little verbose, maybe we can clean it up?
@@ -48,15 +68,11 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 		bothNonZero := i.OwnerID != 0 && ownerID != 0
 		// At least one of the ownerID fields is required
 		if bothZero {
-			return fmt.Errorf("instance owner_id is required")
+			return "", fmt.Errorf("instance owner_id is required")
 		}
 		// Sanity check that a user is not trying to create an instance for another user
 		if bothNonZero && i.OwnerID != ownerID {
-			return fmt.Errorf("instance owner_id does not match job owner_id")
-		}
-		// Ensure the instance owner_id is set
-		if i.OwnerID == 0 {
-			i.OwnerID = ownerID
+			return "", fmt.Errorf("instance owner_id does not match project owner_id")
 		}
 
 		baseName := i.Name
@@ -79,7 +95,8 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 			instance := &models.Instance{
 				Name:          instanceName,
 				OwnerID:       i.OwnerID,
-				JobID:         job.ID,
+				ProjectID:     project.ID,
+				LastTaskID:    task.ID,
 				ProviderID:    i.Provider,
 				Status:        models.InstanceStatusPending,
 				Region:        i.Region,
@@ -89,16 +106,23 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 				VolumeDetails: models.VolumeDetails{},
 			}
 
+			// TODO: find a way to create it in batch
 			if err := s.repo.Create(ctx, instance); err != nil {
-				return fmt.Errorf("failed to create instance: %w", err)
+				err = fmt.Errorf("failed to create instance: %w", err)
+				s.updateTaskError(ctx, ownerID, task, err)
+				return taskName, err
 			}
+			totalInstances++
 		}
 	}
 
-	// Start provisioning in background
-	go s.provisionInstances(ctx, job.ID, instances)
+	s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Created %d instances in database", totalInstances))
+	s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusRunning)
 
-	return nil
+	// Start provisioning in background
+	go s.provisionInstances(ctx, ownerID, task.ID, instances)
+
+	return taskName, nil
 }
 
 // GetInstance retrieves an instance by ID
@@ -114,7 +138,7 @@ func (s *Instance) updateInstanceVolumes(
 	volumeDetails []types.VolumeDetails,
 ) error {
 	// Get the instance first to get its ownerID
-	instance, err := s.repo.GetByName(ctx, instanceName)
+	instance, err := s.repo.GetByName(ctx, models.AdminID, instanceName)
 	if err != nil {
 		return fmt.Errorf("failed to get instance %s: %w", instanceName, err)
 	}
@@ -155,7 +179,7 @@ func (s *Instance) updateInstanceVolumes(
 	}
 
 	// Verify the update immediately
-	updatedInstance, err := s.repo.GetByName(ctx, instanceName)
+	updatedInstance, err := s.repo.GetByName(ctx, instance.OwnerID, instanceName)
 	if err != nil {
 		logger.Warnf("⚠️ Could not verify volume update for instance %s: %v", instanceName, err)
 		return nil // Don't return error here as the update might have succeeded
@@ -178,18 +202,18 @@ func (s *Instance) updateInstanceVolumes(
 }
 
 // provisionInstances provisions the job asynchronously
-func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances []types.InstanceRequest) {
+func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint, instances []types.InstanceRequest) {
 	go func() {
-		// Get job name
-		job, err := s.jobService.jobRepo.GetByID(ctx, 0, jobID)
+		// Get task details
+		task, err := s.taskService.GetByID(ctx, ownerID, taskID)
 		if err != nil {
-			logger.Errorf("❌ Failed to get job details: %v", err)
+			logger.Errorf("❌ Failed to get task details for taskID %d: %v", taskID, err)
 			return
 		}
 
 		// Create infrastructure client
 		infraReq := &types.InstancesRequest{
-			JobName:   job.Name,
+			TaskName:  task.Name,
 			Instances: instances,
 			Action:    "create",
 			Provider:  instances[0].Provider,
@@ -197,21 +221,27 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		infra, err := NewInfrastructure(infraReq)
 		if err != nil {
-			logger.Errorf("❌ Failed to create infrastructure client: %v", err)
+			err = fmt.Errorf("❌ failed to create infrastructure client: %w", err)
+			logger.Error(err)
+			s.updateTaskError(ctx, ownerID, task, err)
 			return
 		}
 
 		// Execute infrastructure creation
 		result, err := infra.Execute()
 		if err != nil {
-			logger.Errorf("❌ Failed to create infrastructure: %v", err)
+			err = fmt.Errorf("❌ failed to create infrastructure: %w", err)
+			logger.Error(err)
+			s.updateTaskError(ctx, ownerID, task, err)
 			return
 		}
 
 		// Type assert the result
 		pInstances, ok := result.([]types.InstanceInfo)
 		if !ok {
-			logger.Errorf("❌ Invalid result type: %T", result)
+			err = fmt.Errorf("❌ Invalid result type: %T", result)
+			logger.Error(err)
+			s.updateTaskError(ctx, ownerID, task, err)
 			return
 		}
 
@@ -229,30 +259,45 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			if len(instance.Volumes) > 0 || len(instance.VolumeDetails) > 0 {
 				logger.Debugf("🔄 Updating volumes for instance %s", instance.Name)
 				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
-					logger.Errorf("❌ Failed to update volumes for instance %s: %v", instance.Name, err)
+					err = fmt.Errorf("❌ Failed to update volumes for instance %s: %w", instance.Name, err)
+					logger.Error(err)
+					s.addTaskLogs(ctx, ownerID, task, err.Error())
 					continue
 				}
 				logger.Debugf("✅ Successfully updated volumes for instance %s", instance.Name)
+				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Updated volumes for instance %s", instance.Name))
 
 				// Verify the update was successful
-				updatedInstance, err := s.repo.GetByName(ctx, instance.Name)
+				updatedInstance, err := s.repo.GetByName(ctx, ownerID, instance.Name)
 				if err != nil {
-					logger.Errorf("❌ Failed to verify volume update for instance %s: %v", instance.Name, err)
-				} else {
-					logger.Debugf("📊 Current instance state after volume update:")
-					logger.Debugf("  - Volumes: %v", updatedInstance.Volumes)
-					logger.Debugf("  - Volume Details: %+v", updatedInstance.VolumeDetails)
+					errMsg := fmt.Sprintf("❌ Failed to verify volume update for instance %s: %v", instance.Name, err)
+					logger.Error(errMsg)
+					s.addTaskLogs(ctx, ownerID, task, errMsg)
+					continue
 				}
+
+				logger.Debugf("📊 Current instance state after volume update:")
+				logger.Debugf("  - Volumes: %v", updatedInstance.Volumes)
+				logger.Debugf("  - Volume Details: %+v", updatedInstance.VolumeDetails)
+				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Verified volume update for instance %s", instance.Name))
 			}
 
 			// Then update instance status and IP
-			updateInstance := &models.Instance{
-				PublicIP: instance.PublicIP,
-				Status:   models.InstanceStatusReady,
+			updateInstance, err := s.repo.GetByName(ctx, ownerID, instance.Name)
+			if err != nil {
+				errMsg := fmt.Sprintf("❌ Failed to get instance %s: %v", instance.Name, err)
+				logger.Error(errMsg)
+				s.addTaskLogs(ctx, ownerID, task, errMsg)
+				continue
 			}
 
-			if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
-				logger.Errorf("❌ Failed to update instance %s: %v", instance.Name, err)
+			updateInstance.PublicIP = instance.PublicIP
+			updateInstance.Status = models.InstanceStatusReady
+
+			if err := s.repo.UpdateByID(ctx, ownerID, updateInstance.ID, updateInstance); err != nil {
+				errMsg := fmt.Sprintf("❌ Failed to update instance %s: %v", instance.Name, err)
+				logger.Error(errMsg)
+				s.addTaskLogs(ctx, ownerID, task, errMsg)
 				continue
 			}
 			logger.Debugf("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
@@ -260,49 +305,55 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 
 		// Start Ansible provisioning if requested
 		if instances[0].Provision {
+			s.addTaskLogs(ctx, ownerID, task, "Running Ansible provisioning")
 			if err := infra.RunProvisioning(pInstances); err != nil {
-				logger.Errorf("❌ Failed to run provisioning: %v", err)
+				err = fmt.Errorf("❌ Failed to run provisioning: %w", err)
+				logger.Error(err)
+				s.updateTaskError(ctx, ownerID, task, err)
 				return
 			}
+			s.addTaskLogs(ctx, ownerID, task, "Ansible provisioning completed")
 		}
 
-		logger.Debugf("✅ Infrastructure creation completed for job ID %d", jobID)
+		s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted)
+		logger.Debugf("✅ Infrastructure creation completed for task %s", task.Name)
 	}()
 }
 
-// GetInstancesByJobID retrieves all instances for a specific job
-func (s *Instance) GetInstancesByJobID(ctx context.Context, ownerID uint, jobID uint) ([]models.Instance, error) {
-	fmt.Printf("📥 Getting instances for job ID %d from database...\n", jobID)
-
-	// Get instances for the specific job
-	instances, err := s.repo.GetByJobID(ctx, ownerID, jobID)
+// Terminate handles the termination of instances for a given project name and instance names.
+func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName string, instanceNames []string) (taskName string, err error) {
+	// First verify the project exists and belongs to the owner
+	project, err := s.projectService.GetByName(ctx, ownerID, projectName)
 	if err != nil {
-		logger.Errorf("❌ Error getting instances for job %d: %v", jobID, err)
-		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	logger.Infof("✅ Retrieved %d instances for job %d from database", len(instances), jobID)
-	return instances, nil
-}
-
-// Terminate handles the termination of instances for a given job name and instance names.
-func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, instanceNames []string) error {
-	// First verify the job exists and belongs to the owner
-	job, err := s.jobService.jobRepo.GetByName(ctx, ownerID, jobName)
+	// Get instances that belong to this project and match the provided names
+	instances, err := s.repo.GetByProjectIDAndInstanceNames(ctx, ownerID, project.ID, instanceNames)
 	if err != nil {
-		return fmt.Errorf("failed to get job: %w", err)
+		return "", fmt.Errorf("failed to get instances: %w", err)
 	}
 
-	// Get instances that belong to this job and match the provided names
-	instances, err := s.repo.GetByJobIDAndNames(ctx, ownerID, job.ID, instanceNames)
+	taskName = uuid.New().String()
+	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
+		Name:   taskName,
+		Status: models.TaskStatusPending,
+		Action: models.TaskActionTerminateInstances,
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get instances: %w", err)
+		return "", fmt.Errorf("failed to create task: %w", err)
+	}
+
+	task, err := s.taskService.GetByName(ctx, ownerID, taskName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get task: %w", err)
 	}
 
 	// Verify we found all requested instances
 	if len(instances) == 0 {
-		logger.Infof("No active instances found with the specified names for job '%s', request is a no-op", jobName)
-		return nil
+		logger.Infof("No active instances found with the specified names for project '%s', request is a no-op", projectName)
+		s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted)
+		return taskName, nil
 	}
 	if len(instances) != len(instanceNames) {
 		// Some instances were not found, log which ones
@@ -316,11 +367,13 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, jobName string, 
 				missingNames = append(missingNames, name)
 			}
 		}
-		logger.Infof("Some instances were not found or are already deleted for job '%s': %v", jobName, missingNames)
+		logMsg := fmt.Sprintf("Some instances were not found or are already deleted for project '%s': %v", projectName, missingNames)
+		logger.Infof("%s", logMsg)
+		s.addTaskLogs(ctx, ownerID, task, logMsg)
 	}
 
-	s.terminate(ctx, job.Name, instances)
-	return nil
+	s.terminate(ctx, ownerID, task.ID, instances)
+	return taskName, nil
 }
 
 // deleteRequest represents a single instance deletion request with tracking
@@ -339,21 +392,31 @@ type deletionResults struct {
 }
 
 // terminate handles the infrastructure deletion process
-func (s *Instance) terminate(ctx context.Context, jobName string, instances []models.Instance) {
+func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instances []models.Instance) {
 	go func() {
+		task, err := s.taskService.GetByID(ctx, ownerID, taskID)
+		if err != nil {
+			logger.Errorf("❌ Failed to get task details for taskID %d: %v", taskID, err)
+			return
+		}
+
 		if len(instances) == 0 {
-			logger.Error("❌ No instances found to terminate")
+			err := fmt.Errorf("❌ No instances found to terminate")
+			logger.Error(err)
+			s.updateTaskError(ctx, ownerID, task, err)
 			return
 		}
 
 		// Create queue of delete requests
 		queue := make([]*deleteRequest, 0, len(instances))
 		for _, instance := range instances {
-			logger.Infof("🗑️ Attempting to delete instance: %s", instance.Name)
+			logMsg := fmt.Sprintf("🗑️ Attempting to terminate instance: %s", instance.Name)
+			logger.Infof("%s", logMsg)
+			s.addTaskLogs(ctx, ownerID, task, logMsg)
 
 			// Create a new infrastructure request for each instance
 			infraReq := &types.InstancesRequest{
-				JobName: jobName,
+				TaskName: task.Name,
 				Instances: []types.InstanceRequest{
 					{
 						Name:     instance.Name,
@@ -441,12 +504,18 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 
 		// Log final results
 		if len(results.successful) > 0 {
-			logger.Infof("Successfully deleted instances: %v", results.successful)
+			logMsg := fmt.Sprintf("Successfully deleted instances: %v", results.successful)
+			logger.Infof("%s", logMsg)
+			s.addTaskLogs(ctx, ownerID, task, logMsg)
 		}
 		if len(results.failed) > 0 {
-			logger.Infof("Failed to delete instances:")
+			logMsg := "Failed to delete instances:"
+			logger.Infof("%s", logMsg)
+			s.addTaskLogs(ctx, ownerID, task, logMsg)
 			for name, err := range results.failed {
-				logger.Infof("  %s: %v", name, err)
+				logMsg := fmt.Sprintf("  %s: %v", name, err)
+				logger.Infof("%s", logMsg)
+				s.addTaskLogs(ctx, ownerID, task, logMsg)
 			}
 		}
 
@@ -457,10 +526,38 @@ func (s *Instance) terminate(ctx context.Context, jobName string, instances []mo
 			"failed":    results.failed,
 			"completed": time.Now().UTC(),
 		}
+		task.Result, err = json.Marshal(deletionResult)
+		if err != nil {
+			logger.Errorf("failed to marshal deletion result: %v", err)
+		}
+		task.Status = models.TaskStatusCompleted
 
 		// Update final status with result
-		if err := s.jobService.UpdateJobStatus(ctx, instances[0].JobID, models.JobStatusCompleted, deletionResult, ""); err != nil {
-			logger.Errorf("Failed to update final job status: %v", err)
+		if err := s.taskService.Update(ctx, ownerID, task); err != nil {
+			logger.Errorf("failed to update task: %v", err)
 		}
 	}()
+}
+
+func (s *Instance) updateTaskError(ctx context.Context, ownerID uint, task *models.Task, err error) {
+	if err != nil {
+		task.Error += fmt.Sprintf("\n%s", err.Error())
+		task.Status = models.TaskStatusFailed
+	}
+	if err := s.taskService.Update(ctx, ownerID, task); err != nil {
+		logger.Errorf("failed to update task: %v", err)
+	}
+}
+
+func (s *Instance) addTaskLogs(ctx context.Context, ownerID uint, task *models.Task, logs string) {
+	task.Logs += fmt.Sprintf("\n%s", logs)
+	if err := s.taskService.Update(ctx, ownerID, task); err != nil {
+		logger.Errorf("failed to update task: %v", err)
+	}
+}
+
+func (s *Instance) updateTaskStatus(ctx context.Context, ownerID uint, taskID uint, status models.TaskStatus) {
+	if err := s.taskService.UpdateStatus(ctx, ownerID, taskID, status); err != nil {
+		logger.Errorf("failed to update task status: %v", err)
+	}
 }

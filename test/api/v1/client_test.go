@@ -13,14 +13,9 @@ import (
 	"github.com/celestiaorg/talis/test"
 )
 
-var defaultJobRequest = types.JobRequest{
-	Name:    "test-job",
-	OwnerID: models.AdminID,
-}
-
 var defaultInstancesRequest = types.InstancesRequest{
-	JobName:      "test-job",
 	ProjectName:  "test-project",
+	TaskName:     "test-project",
 	InstanceName: "test-instance",
 	Instances: []types.InstanceRequest{
 		defaultInstanceRequest1,
@@ -59,17 +54,23 @@ var defaultUser2 = types.CreateUserRequest{
 	Username: "user12",
 }
 
+// Create a project request for testing
+var defaultProjectParams = handlers.ProjectCreateParams{
+	Name:        "test-project",
+	Description: "Test project for instances",
+}
+
 // This file contains the comprehensive test suite for the API client.
 
 // TestClientAdminMethods tests the admin methods of the API client.
 //
-// TODO: once ownerID is implemented, we should test the admin methods with a specific ownerID and that it can see instances and jobs across different ownerIDs.
+// TODO: once ownerID is implemented, we should test the admin methods with a specific ownerID and that it can see instances and projects across different ownerIDs.
 func TestClientAdminMethods(t *testing.T) {
 	suite := test.NewSuite(t)
 	defer suite.Cleanup()
 
-	// Create a job
-	err := suite.APIClient.CreateJob(suite.Context(), defaultJobRequest)
+	// Create a project
+	_, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectParams)
 	require.NoError(t, err)
 
 	// Create an instance
@@ -127,9 +128,8 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, instanceList.Instances)
 
-	// Create a job to create an instance against
-	jobRequest := defaultJobRequest
-	err = suite.APIClient.CreateJob(suite.Context(), jobRequest)
+	// Create a project for the instances
+	_, err = suite.APIClient.CreateProject(suite.Context(), defaultProjectParams)
 	require.NoError(t, err)
 
 	// Create 2 instances
@@ -177,11 +177,12 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Delete both instances
 	deleteRequest := types.DeleteInstanceRequest{
-		JobName:       jobRequest.Name,
+		ProjectName:   defaultProjectParams.Name,
 		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	response, err := suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
+	require.NotEmpty(t, response.TaskName)
 
 	// Verify the instances eventually get terminated
 	err = suite.Retry(func() error {
@@ -209,111 +210,17 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Submit the same deletion request again - should be a no-op
 	// We do this after verifying termination to ensure the first deletion completed
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	response, err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
+	require.NotEmpty(t, response.TaskName)
+
+	// Add a small delay to avoid database lock issues
+	time.Sleep(500 * time.Millisecond)
 
 	// Verify that the default list (non-terminated) shows no instances
 	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
 	require.Empty(t, instanceList.Instances, "expected no non-terminated instances")
-}
-
-func TestClientJobMethods(t *testing.T) {
-	suite := test.NewSuite(t)
-	defer suite.Cleanup()
-
-	// Get jobs to verify there are none
-	jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
-		Limit: handlers.DefaultPageSize,
-	})
-	require.NoError(t, err)
-	require.Empty(t, jobsList.Jobs)
-
-	// Create a job
-	jobRequest := defaultJobRequest
-	err = suite.APIClient.CreateJob(suite.Context(), jobRequest)
-	require.NoError(t, err)
-
-	// Wait for the job to be available
-	err = suite.Retry(func() error {
-		jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
-			Limit: handlers.DefaultPageSize,
-		})
-		if err != nil {
-			return err
-		}
-		if len(jobsList.Jobs) != 1 {
-			return fmt.Errorf("expected 1 job, got %d", len(jobsList.Jobs))
-		}
-		return nil
-	}, 100, 100*time.Millisecond)
-	require.NoError(t, err)
-
-	// Grab the job from the list of jobs
-	jobList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
-		Limit: handlers.DefaultPageSize,
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, jobList.Jobs)
-	require.Equal(t, 1, len(jobList.Jobs))
-	require.Equal(t, jobRequest.Name, jobList.Jobs[0].Name)
-
-	actualJob := jobList.Jobs[0]
-	// Ignore unused variable warning
-	_ = actualJob
-
-	t.Skip("Skipping job ID issue")
-	// Get the job
-	job, err := suite.APIClient.GetJob(suite.Context(), fmt.Sprint(actualJob.ID))
-	require.NoError(t, err)
-	require.NotNil(t, job)
-	// TODO: the job appears to be mismatched?
-
-	// Get instance metadata for the job
-	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
-	require.NoError(t, err)
-	require.NotNil(t, instanceMetadata)
-	// TODO Job ID issue causing this as well.
-	// require.Equal(t, 1, len(instanceMetadata.Instances))
-
-	// Get instances for the job
-	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
-	require.NoError(t, err)
-	require.NotNil(t, instances)
-	// TODO Job ID issue causing this as well.
-	// require.Equal(t, 1, len(instances.Instances))
-
-	// Verify returned instances are the same
-	require.Equal(t, instanceMetadata.Instances, instances.Instances)
-
-	// Get the job status
-	jobStatus, err := suite.APIClient.GetJobStatus(suite.Context(), fmt.Sprint(actualJob.ID))
-	require.NoError(t, err)
-	require.NotNil(t, jobStatus)
-
-	// Update the job
-	// TODO: this is not implemented yet, update when it is
-	err = suite.APIClient.UpdateJob(suite.Context(), fmt.Sprint(actualJob.ID), jobRequest)
-	require.NoError(t, err)
-
-	// Delete the job
-	err = suite.APIClient.DeleteJob(suite.Context(), fmt.Sprint(actualJob.ID))
-	require.NoError(t, err)
-
-	// Verify the job is deleted
-	err = suite.Retry(func() error {
-		jobsList, err := suite.APIClient.GetJobs(suite.Context(), &models.ListOptions{
-			Limit: handlers.DefaultPageSize,
-		})
-		if err != nil {
-			return err
-		}
-		if len(jobsList.Jobs) > 0 {
-			return fmt.Errorf("job not deleted: %v", jobsList.Jobs)
-		}
-		return nil
-	}, 100, 100*time.Millisecond)
-	require.NoError(t, err)
 }
 
 func TestClientUserMethods(t *testing.T) {
