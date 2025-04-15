@@ -111,21 +111,26 @@ DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 make build-cli
 
 # Copy and modify the example create configuration
+cp create_job.json_example create_job.json
+
+# Create a job
+./bin/talis-cli jobs create -f create_job.json
+
+# Copy and modify the example create configuration
 cp create.json_example create.json
-# Edit create.json with your specific configuration
 
 # Create infrastructure using your configuration
-talis infra create -f create.json
+./bin/talis-cli infra create -f create.json
 # A delete.json file will be automatically generated after successful creation
 
 # Delete infrastructure using the auto-generated file
-talis infra delete -f delete.json
+./bin/talis-cli infra delete -f delete.json
 
 # List all jobs
-talis jobs list
+./bin/talis-cli jobs list
 
 # Get job status
-talis jobs get --id job-20240315-123456
+./bin/talis-cli jobs get --id job-20240315-123456
 ```
 
 ### Example Configuration Files
@@ -144,7 +149,14 @@ talis jobs get --id job-20240315-123456
             "size": "s-1vcpu-1gb",
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-do-instance"],
-            "ssh_key_name": "your-ssh-key-name"
+            "ssh_key_name": "your-ssh-key-name",
+            "volumes": [
+                {
+                    "name": "talis-volume",
+                    "size_gb": 15,
+                    "mount_point": "/mnt/data"
+                }
+            ]
         },
         {
             "provider": "do",
@@ -155,7 +167,14 @@ talis jobs get --id job-20240315-123456
             "size": "s-2vcpu-2gb",
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-validator"],
-            "ssh_key_name": "your-ssh-key-name"
+            "ssh_key_name": "your-ssh-key-name",
+            "volumes": [
+                {
+                    "name": "talis-volume",
+                    "size_gb": 15,
+                    "mount_point": "/mnt/data"
+                }
+            ]
         }
     ]
 }

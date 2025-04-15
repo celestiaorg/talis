@@ -32,6 +32,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -51,6 +58,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 					{
 						Name:              "instance-2",
@@ -60,6 +74,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -79,6 +100,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -97,6 +125,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -116,6 +151,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -136,6 +178,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
@@ -155,6 +204,13 @@ func TestInstancesRequest_Validate(t *testing.T) {
 						Size:              "s-1vcpu-1gb",
 						Image:             "ubuntu-20-04-x64",
 						SSHKeyName:        "test-key",
+						Volumes: []VolumeConfig{
+							{
+								Name:       "test-volume",
+								SizeGB:     10,
+								MountPoint: "/mnt/data",
+							},
+						},
 					},
 				},
 			},
