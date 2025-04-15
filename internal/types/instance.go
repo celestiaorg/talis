@@ -14,17 +14,15 @@ const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
-	Region            string         `json:"region"`                    // Region where to create the instance
-	OwnerID           uint           `json:"owner_id"`                  // Owner ID of the instance
-	Size              string         `json:"size"`                      // Size/type of the instance
-	Image             string         `json:"image"`                     // OS image to use
-	SSHKeyID          string         `json:"ssh_key_id"`                // SSH key name to use
-	Tags              []string       `json:"tags,omitempty"`            // Tags to apply to the instance
-	NumberOfInstances int            `json:"number_of_instances"`       // Number of instances to create
-	CustomName        string         `json:"custom_name,omitempty"`     // Optional custom name for this specific instance
-	Volumes           []VolumeConfig `json:"volumes,omitempty"`         // Volumes to attach to the instance
-	PayloadPath       string         `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
-	ExecutePayload    bool           `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
+	Region            string         `json:"region"`                // Region where to create the instance
+	OwnerID           uint           `json:"owner_id"`              // Owner ID of the instance
+	Size              string         `json:"size"`                  // Size/type of the instance
+	Image             string         `json:"image"`                 // OS image to use
+	SSHKeyID          string         `json:"ssh_key_id"`            // SSH key name to use
+	Tags              []string       `json:"tags,omitempty"`        // Tags to apply to the instance
+	NumberOfInstances int            `json:"number_of_instances"`   // Number of instances to create
+	CustomName        string         `json:"custom_name,omitempty"` // Optional custom name for this specific instance
+	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
 }
 
 // InstancesRequest represents a request to manage instances, including creation and deletion.

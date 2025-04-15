@@ -1,12 +1,15 @@
 package compute
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/types"
 )
 
 const (
@@ -39,9 +42,14 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	}
 }
 
-// CreateInventory creates the inventory file with all instances
-func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPath string) error {
-	fmt.Printf("Creating inventory for job %s...\n", a.jobID)
+// CreateInventory creates the inventory file directly from InstanceInfo
+func (a *AnsibleConfigurator) CreateInventory(instances []types.InstanceInfo, sshKeyPath string) error {
+	fmt.Printf("⚙️ Creating Ansible inventory for job %s...\n", a.jobID)
+
+	if len(instances) == 0 {
+		logger.Warnf("No instances provided to CreateInventory for job %s, skipping inventory creation.", a.jobID)
+		return nil // Nothing to do
+	}
 
 	// Create inventory path with base name
 	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
@@ -69,23 +77,37 @@ func (a *AnsibleConfigurator) CreateInventory(instances map[string]string, keyPa
 		return fmt.Errorf("failed to write inventory header: %w", err)
 	}
 
-	// Write all instances
-	for name, ip := range instances {
-		// Use the keyPath provided by the caller and root user for SSH
-		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s", name, ip, keyPath)
+	// Write all instances using data from InstanceInfo
+	for _, instance := range instances {
+		// Start base line with name, host, user, and key
+		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s",
+			instance.Name, instance.PublicIP, sshKeyPath)
+
+		// Add payload variables directly from InstanceInfo
+		payloadPresent := instance.PayloadPath != ""
+		line += fmt.Sprintf(" payload_present=%t", payloadPresent)
+		if payloadPresent {
+			destFilename := filepath.Base(instance.PayloadPath)
+			destPath := filepath.Join("/root", destFilename) // Ensure consistent path joining
+			// Quote string values for safety in inventory
+			line += fmt.Sprintf(" payload_src_path=\"%s\"", instance.PayloadPath)
+			line += fmt.Sprintf(" payload_dest_path=\"%s\"", destPath)
+			line += fmt.Sprintf(" payload_execute=%t", instance.ExecutePayload)
+		}
+
 		line += "\n"
 
 		if _, err := f.WriteString(line); err != nil {
-			return fmt.Errorf("failed to write instance to inventory: %w", err)
+			return fmt.Errorf("failed to write instance '%s' to inventory: %w", instance.Name, err)
 		}
 	}
 
-	fmt.Printf("✅ Created inventory file at %s\n", inventoryPath)
+	fmt.Printf("✅ Created inventory file at %s with %d instances\n", inventoryPath, len(instances))
 	return nil
 }
 
 // RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
-func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string, extraVars map[string]interface{}) error {
+func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
 	fmt.Println("🎭 Running Ansible playbook...")
 
 	// Create inventory path with name
@@ -105,15 +127,6 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string, extraVars
 
 	// Add playbook path
 	args = append(args, pathToPlaybook)
-
-	// Add extra variables if provided
-	if len(extraVars) > 0 {
-		extraVarsJSON, err := json.Marshal(extraVars)
-		if err != nil {
-			return fmt.Errorf("failed to marshal extra variables: %w", err)
-		}
-		args = append(args, "-e", string(extraVarsJSON))
-	}
 
 	// Run ansible-playbook command
 	// #nosec G204 -- command arguments are constructed from validated inputs
@@ -179,17 +192,20 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 	return nil
 }
 
-// ConfigureHosts configures multiple hosts in parallel
+// ConfigureHosts ensures SSH readiness for multiple hosts in parallel.
+// It no longer creates the inventory or runs the playbook.
 func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(hosts))
+
+	fmt.Printf("🔧 Ensuring SSH readiness for %d hosts...\n", len(hosts))
 
 	for _, host := range hosts {
 		wg.Add(1)
 		go func(h string) {
 			defer wg.Done()
 			if err := a.ConfigureHost(h, sshKeyPath); err != nil {
-				errChan <- fmt.Errorf("failed to configure host %s: %w", h, err)
+				errChan <- fmt.Errorf("failed to ensure SSH readiness for host %s: %w", h, err)
 			}
 		}(host)
 	}
@@ -205,18 +221,9 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("failed to configure some hosts: %v", errors)
+		return fmt.Errorf("failed to ensure SSH readiness for some hosts: %v", errors)
 	}
 
-	// Create/update inventory with all instances
-	if err := a.CreateInventory(a.instances, sshKeyPath); err != nil {
-		return fmt.Errorf("failed to create inventory: %w", err)
-	}
-
-	// Run Ansible playbook
-	if err := a.RunAnsiblePlaybook(a.jobID, nil); err != nil {
-		return fmt.Errorf("failed to run Ansible playbook: %w", err)
-	}
-
+	fmt.Printf("✅ SSH readiness confirmed for all hosts.\n")
 	return nil
 }

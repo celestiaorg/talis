@@ -32,14 +32,14 @@ type Provisioner interface {
 	// ConfigureHost configures a single host
 	ConfigureHost(host string, sshKeyPath string) error
 
-	// ConfigureHosts configures multiple hosts in parallel
+	// ConfigureHosts configures multiple hosts in parallel, ensuring SSH readiness
 	ConfigureHosts(hosts []string, sshKeyPath string) error
 
-	// CreateInventory creates an Ansible inventory file
-	CreateInventory(instances map[string]string, keyPath string) error
+	// CreateInventory creates an Ansible inventory file from instance info
+	CreateInventory(instances []types.InstanceInfo, sshKeyPath string) error
 
-	// RunAnsiblePlaybook runs the Ansible playbook, accepting extra variables
-	RunAnsiblePlaybook(inventoryName string, extraVars map[string]interface{}) error
+	// RunAnsiblePlaybook runs the Ansible playbook
+	RunAnsiblePlaybook(inventoryName string) error
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
