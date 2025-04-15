@@ -23,6 +23,7 @@ func init() {
 	RootCmd.AddCommand(GetUsersCmd())
 	RootCmd.AddCommand(GetTasksCmd())
 	RootCmd.AddCommand(GetProjectsCmd())
+	RootCmd.AddCommand(GetUsersCmd())
 }
 
 // RootCmd represents the base command when called without any subcommands
