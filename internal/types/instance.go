@@ -143,10 +143,6 @@ func (r *InstancesRequest) Validate() error {
 			return fmt.Errorf("invalid hostname at index %d: %w", i, err)
 		}
 
-		if len(instance.Volumes) == 0 {
-			return fmt.Errorf("at least one volume configuration is required for instance at index %d", i)
-		}
-
 		if err := instance.Validate(); err != nil {
 			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
 		}
@@ -174,6 +170,10 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
+	}
+
+	if len(i.Volumes) == 0 {
+		return fmt.Errorf("at least one volume configuration is required")
 	}
 
 	// Validate volumes if present
