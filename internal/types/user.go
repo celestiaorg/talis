@@ -29,7 +29,7 @@ type UserResponse struct {
 	Users []models.User `json:"users,omitempty"`
 
 	// Pagination info included only when returning multiple users
-	Pagination PaginationResponse `json:"pagination,omitempty"`
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
 }
 
 // Validate validates the create user request
