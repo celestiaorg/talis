@@ -129,18 +129,16 @@ func (r *InstancesRequest) Validate() error {
 		return fmt.Errorf("at least one instance configuration is required")
 	}
 
+	// Validate the instances name
+	if r.InstanceName != "" {
+		if err := validateHostname(r.InstanceName); err != nil {
+			return fmt.Errorf("invalid instance_name: %w", err)
+		}
+	}
+
 	for i, instance := range r.Instances {
 		if instance.Name == "" && r.InstanceName == "" {
 			return fmt.Errorf("instance_name or instance.name is required")
-		}
-
-		// Validate hostname format
-		nameToValidate := instance.Name
-		if nameToValidate == "" {
-			nameToValidate = r.InstanceName
-		}
-		if err := validateHostname(nameToValidate); err != nil {
-			return fmt.Errorf("invalid hostname at index %d: %w", i, err)
 		}
 
 		if err := instance.Validate(); err != nil {
@@ -170,6 +168,12 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
+	}
+
+	if i.Name != "" {
+		if err := validateHostname(i.Name); err != nil {
+			return fmt.Errorf("invalid instance name: %w", err)
+		}
 	}
 
 	if len(i.Volumes) == 0 {
