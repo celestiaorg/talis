@@ -93,7 +93,7 @@
     - payload
     - debug # Separate tag for debug tasks
   # Only run debug if payload_present seems true, avoids clutter otherwise
-  when: hostvars[inventory_hostname].payload_present | default(false)
+  when: hostvars[inventory_hostname].payload_present | default(false) | bool
 
 - name: Copy payload script to instance if present
   ansible.builtin.copy:
@@ -117,7 +117,7 @@
     # chdir: /root
   # This task only runs if payload is present AND execution is requested
   when:
-    - hostvars[inventory_hostname].payload_present | default(false)
-    - hostvars[inventory_hostname].payload_execute | default(false)
+    - hostvars[inventory_hostname].payload_present | default(false) | bool
+    - hostvars[inventory_hostname].payload_execute | default(false) | bool
   tags:
     - payload # Keep the same tag for consistency
