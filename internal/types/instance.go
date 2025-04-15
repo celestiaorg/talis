@@ -30,6 +30,7 @@ type InstancesRequest struct {
 	Action       string            `json:"action"`
 	ProjectName  string            `json:"project_name"`
 	Provider     models.ProviderID `json:"provider"`
+	Volumes      []VolumeConfig    `json:"volumes"`
 }
 
 // InstanceRequest represents a request to create or modify a compute instance
@@ -140,6 +141,10 @@ func (r *InstancesRequest) Validate() error {
 		}
 		if err := validateHostname(nameToValidate); err != nil {
 			return fmt.Errorf("invalid hostname at index %d: %w", i, err)
+		}
+
+		if len(instance.Volumes) == 0 {
+			return fmt.Errorf("at least one volume configuration is required for instance at index %d", i)
 		}
 
 		if err := instance.Validate(); err != nil {
