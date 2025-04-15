@@ -28,6 +28,8 @@ type User struct {
 	Email        string   `json:"email" gorm:""`
 	Role         UserRole `json:"role" gorm:"index"`
 	PublicSSHKey string   `json:"public_ssh_key" gorm:""`
+	CreatedAt    string   `json:"created_at" gorm:""`
+	UpdatedAt    string   `json:"updated_at" gorm:""`
 }
 
 // MarshalJSON implements the json.Marshaler interface for User

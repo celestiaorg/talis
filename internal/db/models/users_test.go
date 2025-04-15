@@ -62,6 +62,7 @@ func TestUserRole(t *testing.T) {
 }
 
 func TestUser_Validation(t *testing.T) {
+	timeStr := "2024-03-25T12:00:00Z"
 	validUser := User{
 		Model: gorm.Model{
 			ID:        1,
@@ -72,6 +73,8 @@ func TestUser_Validation(t *testing.T) {
 		Email:        "test@example.com",
 		Role:         UserRoleAdmin,
 		PublicSSHKey: "ssh-rsa AAAAB3NzaC1yc2E...",
+		CreatedAt:    timeStr,
+		UpdatedAt:    timeStr,
 	}
 
 	t.Run("Valid user", func(t *testing.T) {
