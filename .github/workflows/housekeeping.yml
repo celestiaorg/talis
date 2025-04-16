@@ -9,7 +9,7 @@ jobs:
   auto-add-reviewer:
     name: Auto add reviewer to PR
     if: github.event.pull_request
-    uses: celestiaorg/.github/.github/workflows/reusable_housekeeping.yml@v0.5.0
+    uses: celestiaorg/.github/.github/workflows/reusable_housekeeping.yml@v0.6.1
     secrets: inherit
     permissions:
       issues: write

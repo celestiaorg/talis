@@ -32,6 +32,13 @@ var defaultInstanceRequest1 = types.InstanceRequest{
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
 	Image:             "ubuntu-20-04-x64",
+	Volumes: []types.VolumeConfig{
+		{
+			Name:       "test-volume",
+			SizeGB:     10,
+			MountPoint: "/mnt/data",
+		},
+	},
 }
 
 var defaultInstanceRequest2 = types.InstanceRequest{
@@ -43,6 +50,13 @@ var defaultInstanceRequest2 = types.InstanceRequest{
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
 	Image:             "ubuntu-20-04-x64",
+	Volumes: []types.VolumeConfig{
+		{
+			Name:       "test-volume",
+			SizeGB:     10,
+			MountPoint: "/mnt/data",
+		},
+	},
 }
 
 var defaultUser1 = types.CreateUserRequest{

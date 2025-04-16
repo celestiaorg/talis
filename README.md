@@ -25,63 +25,7 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 
 ## Project Structure
 
-```
-talis/
-├── cmd/
-│   └── main.go                    # Main entry point
-├── internal/
-│   ├── api/                       # API related code
-│   │   └── v1/
-│   │       ├── handlers/         # Request handlers (instances, jobs)
-│   │       ├── middleware/       # API middleware
-│   │       ├── routes/          # Route definitions
-│   │       └── services/        # Business logic services
-│   ├── compute/                   # Cloud provider implementations
-│   │   ├── provider.go           # ComputeProvider interface and common types
-│   │   ├── digitalocean.go       # DigitalOcean implementation
-│   │   └── ansible.go            # Ansible configuration and provisioning
-│   ├── db/                        # Database layer
-│   │   ├── db.go                 # Database connection and configuration
-│   │   ├── models/              # Database models (instances, jobs)
-│   │   └── repos/               # Database repositories
-│   └── types/                     # Common types and models
-│       └── infrastructure/        # Infrastructure types and logic
-├── ansible/                       # Ansible configurations
-│   ├── main.yml                  # Main Ansible configuration
-│   ├── stages/                   # Task stages for different configurations
-│   │   └── setup.yml            # Initial setup and configuration tasks
-│   ├── vars/                     # Variable definitions
-│   │   └── main.yml             # Main variables file
-│   └── inventory_*_ansible.ini   # Generated inventory files
-├── scripts/                       # Utility scripts
-└── .env.example                   # Environment variables example
-```
-
-## Key Components
-
-### internal/api/v1/
-- **handlers/**: HTTP request handlers for instances and jobs
-- **middleware/**: API middleware (logging, auth, etc.)
-- **routes/**: API route definitions
-- **services/**: Business logic services
-
-### internal/db/
-- **models/**: Database models for instances and jobs
-- **repos/**: Database repositories with CRUD operations
-- **db.go**: Database connection and configuration
-
-### internal/compute/
-- **provider.go**: Defines the `ComputeProvider` interface and common types
-- **digitalocean.go**: Implementation for DigitalOcean with comprehensive test coverage
-- **ansible.go**: Ansible configuration and provisioning
-
-### ansible/
-- **main.yml**: Main Ansible configuration file
-- **stages/**: Contains different stages of configuration
-  - **setup.yml**: Initial setup and configuration tasks
-- **vars/**: Variable definitions for Ansible
-  - **main.yml**: Main variables configuration
-- **inventory_*_ansible.ini**: Generated inventory files for each deployment
+See [architecture doc](./docs/architecture.md)
 
 ## Setup
 
@@ -111,21 +55,26 @@ DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 make build-cli
 
 # Copy and modify the example create configuration
+cp create_job.json_example create_job.json
+
+# Create a job
+./bin/talis-cli jobs create -f create_job.json
+
+# Copy and modify the example create configuration
 cp create.json_example create.json
-# Edit create.json with your specific configuration
 
 # Create infrastructure using your configuration
-talis infra create -f create.json
+./bin/talis-cli infra create -f create.json
 # A delete.json file will be automatically generated after successful creation
 
 # Delete infrastructure using the auto-generated file
-talis infra delete -f delete.json
+./bin/talis-cli infra delete -f delete.json
 
 # List all jobs
-talis jobs list
+./bin/talis-cli jobs list
 
 # Get job status
-talis jobs get --id job-20240315-123456
+./bin/talis-cli jobs get --id job-20240315-123456
 ```
 
 ### Example Configuration Files
@@ -144,7 +93,14 @@ talis jobs get --id job-20240315-123456
             "size": "s-1vcpu-1gb",
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-do-instance"],
-            "ssh_key_name": "your-ssh-key-name"
+            "ssh_key_name": "your-ssh-key-name",
+            "volumes": [
+                {
+                    "name": "talis-volume",
+                    "size_gb": 15,
+                    "mount_point": "/mnt/data"
+                }
+            ]
         },
         {
             "provider": "do",
@@ -155,7 +111,14 @@ talis jobs get --id job-20240315-123456
             "size": "s-2vcpu-2gb",
             "image": "ubuntu-22-04-x64",
             "tags": ["talis-validator"],
-            "ssh_key_name": "your-ssh-key-name"
+            "ssh_key_name": "your-ssh-key-name",
+            "volumes": [
+                {
+                    "name": "talis-volume",
+                    "size_gb": 15,
+                    "mount_point": "/mnt/data"
+                }
+            ]
         }
     ]
 }

@@ -75,7 +75,14 @@ func TestCreateInfraCmd(t *testing.T) {
       "size": "s-1vcpu-1gb",
       "image": "ubuntu-20-04-x64",
       "ssh_key_name": "test-key-1",
-      "tags": ["test", "dev"]
+      "tags": ["test", "dev"],
+      "volumes": [
+        {
+          "name": "test-volume",
+          "size_gb": 10,
+          "mount_point": "/mnt/data"
+        }
+      ]
     }
   ]
 }`,
