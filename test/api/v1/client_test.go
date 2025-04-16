@@ -96,11 +96,11 @@ func TestClientAdminMethods(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(instanceList.Instances) != 2 {
-			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
+		if len(instanceList) != 2 {
+			return fmt.Errorf("expected 2 instances, got %d", len(instanceList))
 		}
 		// Verify both instances are in non-terminated state
-		for _, instance := range instanceList.Instances {
+		for _, instance := range instanceList {
 			if instance.Status == models.InstanceStatusTerminated {
 				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
 			}
@@ -110,16 +110,16 @@ func TestClientAdminMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// List instances metadata and verify there are two
-	instanceMetadata, err := suite.APIClient.AdminGetInstancesMetadata(suite.Context())
+	instances, err := suite.APIClient.AdminGetInstancesMetadata(suite.Context())
 	require.NoError(t, err)
-	require.NotEmpty(t, instanceMetadata.Instances)
-	require.Equal(t, 2, len(instanceMetadata.Instances))
-	require.Equal(t, defaultInstanceRequest1.Provider, instanceMetadata.Instances[0].ProviderID)
-	require.Equal(t, defaultInstanceRequest1.Region, instanceMetadata.Instances[0].Region)
-	require.Equal(t, defaultInstanceRequest1.Size, instanceMetadata.Instances[0].Size)
-	require.Equal(t, defaultInstanceRequest2.Provider, instanceMetadata.Instances[1].ProviderID)
-	require.Equal(t, defaultInstanceRequest2.Region, instanceMetadata.Instances[1].Region)
-	require.Equal(t, defaultInstanceRequest2.Size, instanceMetadata.Instances[1].Size)
+	require.NotEmpty(t, instances)
+	require.Equal(t, 2, len(instances))
+	require.Equal(t, defaultInstanceRequest1.Provider, instances[0].ProviderID)
+	require.Equal(t, defaultInstanceRequest1.Region, instances[0].Region)
+	require.Equal(t, defaultInstanceRequest1.Size, instances[0].Size)
+	require.Equal(t, defaultInstanceRequest2.Provider, instances[1].ProviderID)
+	require.Equal(t, defaultInstanceRequest2.Region, instances[1].Region)
+	require.Equal(t, defaultInstanceRequest2.Size, instances[1].Size)
 }
 
 func TestClientHealthCheck(t *testing.T) {
@@ -139,7 +139,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	// List instances and verify there are none (using include_deleted to ensure we see all instances)
 	instanceList, err := suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 	require.NoError(t, err)
-	require.Empty(t, instanceList.Instances)
+	require.Empty(t, instanceList)
 
 	// Create a job to create an instance against
 	jobRequest := defaultJobRequest
@@ -156,11 +156,11 @@ func TestClientInstanceMethods(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(instanceList.Instances) != 2 {
-			return fmt.Errorf("expected 2 instances, got %d", len(instanceList.Instances))
+		if len(instanceList) != 2 {
+			return fmt.Errorf("expected 2 instances, got %d", len(instanceList))
 		}
 		// Verify both instances are in non-terminated state
-		for _, instance := range instanceList.Instances {
+		for _, instance := range instanceList {
 			if instance.Status == models.InstanceStatusTerminated {
 				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
 			}
@@ -172,16 +172,16 @@ func TestClientInstanceMethods(t *testing.T) {
 	// Grab the instance from the list of instances
 	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{IncludeDeleted: true})
 	require.NoError(t, err)
-	require.NotEmpty(t, instanceList.Instances)
-	require.Equal(t, 2, len(instanceList.Instances))
-	actualInstances := instanceList.Instances
+	require.NotEmpty(t, instanceList)
+	require.Equal(t, 2, len(instanceList))
+	actualInstances := instanceList
 
 	// Get instance metadata
-	instanceMetadata, err := suite.APIClient.GetInstancesMetadata(suite.Context(), &models.ListOptions{})
+	instances, err := suite.APIClient.GetInstancesMetadata(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
-	require.NotEmpty(t, instanceMetadata.Instances)
-	require.Equal(t, 2, len(instanceMetadata.Instances))
-	require.Equal(t, actualInstances, instanceMetadata.Instances)
+	require.NotEmpty(t, instances)
+	require.Equal(t, 2, len(instances))
+	require.Equal(t, actualInstances, instances)
 
 	// Get public IPs
 	publicIPs, err := suite.APIClient.GetInstancesPublicIPs(suite.Context(), &models.ListOptions{})
@@ -208,11 +208,11 @@ func TestClientInstanceMethods(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(instanceList.Instances) != 2 {
-			return fmt.Errorf("expected 2 terminated instances, got %d", len(instanceList.Instances))
+		if len(instanceList) != 2 {
+			return fmt.Errorf("expected 2 terminated instances, got %d", len(instanceList))
 		}
 		// Verify both instances are in terminated state
-		for _, instance := range instanceList.Instances {
+		for _, instance := range instanceList {
 			if instance.Status != models.InstanceStatusTerminated {
 				return fmt.Errorf("expected instance %s to be terminated, got %s", instance.Name, instance.Status)
 			}
@@ -229,7 +229,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	// Verify that the default list (non-terminated) shows no instances
 	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
-	require.Empty(t, instanceList.Instances, "expected no non-terminated instances")
+	require.Empty(t, instanceList, "expected no non-terminated instances")
 }
 
 func TestClientJobMethods(t *testing.T) {
@@ -284,21 +284,21 @@ func TestClientJobMethods(t *testing.T) {
 	// TODO: the job appears to be mismatched?
 
 	// Get instance metadata for the job
-	instanceMetadata, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
+	instances, err := suite.APIClient.GetMetadataByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
 	require.NoError(t, err)
-	require.NotNil(t, instanceMetadata)
+	require.NotNil(t, instances)
 	// TODO Job ID issue causing this as well.
 	// require.Equal(t, 1, len(instanceMetadata.Instances))
 
 	// Get instances for the job
-	instances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
+	jobInstances, err := suite.APIClient.GetInstancesByJobID(suite.Context(), fmt.Sprint(actualJob.ID), &models.ListOptions{})
 	require.NoError(t, err)
-	require.NotNil(t, instances)
+	require.NotNil(t, jobInstances)
 	// TODO Job ID issue causing this as well.
 	// require.Equal(t, 1, len(instances.Instances))
 
 	// Verify returned instances are the same
-	require.Equal(t, instanceMetadata.Instances, instances.Instances)
+	require.Equal(t, instances, jobInstances.Instances)
 
 	// Get the job status
 	jobStatus, err := suite.APIClient.GetJobStatus(suite.Context(), fmt.Sprint(actualJob.ID))

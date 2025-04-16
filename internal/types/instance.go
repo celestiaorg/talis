@@ -25,7 +25,8 @@ type InstanceConfig struct {
 	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
 }
 
-// InstancesRequest represents a request to manage instances, including creation and deletion.
+// InstancesRequest represents an RPC request multiple instances
+// NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstancesRequest struct {
 	JobName      string            `json:"job_name"`
 	InstanceName string            `json:"instance_name"`
@@ -37,7 +38,8 @@ type InstancesRequest struct {
 	Volumes      []VolumeConfig    `json:"volumes"`
 }
 
-// InstanceRequest represents a request to create or modify a compute instance
+// InstanceRequest represents an RPC request for a single instance
+// NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstanceRequest struct {
 	Provider          models.ProviderID `json:"provider"`                  // Cloud provider (e.g., "do")
 	Region            string            `json:"region"`                    // Region where instances will be created
@@ -56,39 +58,10 @@ type InstanceRequest struct {
 	SSHKeyPath        string            `json:"ssh_key_path,omitempty"`    // Custom path to the private SSH key file for Ansible. Overrides defaults.
 }
 
-// InstanceCreateRequest represents the JSON structure for creating infrastructure
-type InstanceCreateRequest struct {
-	InstanceName string            `json:"instance_name"`
-	ProjectName  string            `json:"project_name"`
-	WebhookURL   string            `json:"webhook_url,omitempty"`
-	Instances    []InstanceRequest `json:"instances"`
-}
-
 // DeleteInstanceRequest represents the request body for deleting instances
 type DeleteInstanceRequest struct {
 	JobName       string   `json:"job_name" validate:"required"`             // Job name of the job
 	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
-}
-
-// DeleteRequest represents a request to delete infrastructure
-type DeleteRequest struct {
-	InstanceName string            `json:"instance_name"` // Base name for instances
-	ProjectName  string            `json:"project_name"`  // Project name of the job
-	WebhookURL   string            `json:"webhook_url"`   // Webhook URL of the job
-	Provider     models.ProviderID `json:"provider"`      // Provider of the compute service
-	Instances    []DeleteInstance  `json:"instances"`     // Instances to delete
-}
-
-// DeleteInstance represents the configuration for deleting an instance
-type DeleteInstance struct {
-	Provider          models.ProviderID `json:"provider"`            // Provider of the compute service
-	Name              string            `json:"name"`                // Optional specific instance name to delete
-	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to delete
-	Region            string            `json:"region"`              // Region of the instance
-	Size              string            `json:"size"`                // Size of the instance
-	Image             string            `json:"image"`               // Image of the instance
-	Tags              []string          `json:"tags"`                // Tags of the instance
-	SSHKeyName        string            `json:"ssh_key_name"`        // SSH key name of the instance
 }
 
 // CreateRequest represents a request to create infrastructure
@@ -97,18 +70,6 @@ type CreateRequest struct {
 	ProjectName string            `json:"project_name"` // Project name of the job
 	WebhookURL  string            `json:"webhook_url"`  // Webhook URL of the job
 	Instances   []InstanceRequest `json:"instances"`    // Instances to create
-}
-
-// ListInstancesResponse represents the response from the list instances endpoint
-type ListInstancesResponse struct {
-	Instances  []models.Instance  `json:"instances"`  // List of instances
-	Pagination PaginationResponse `json:"pagination"` // Pagination information
-}
-
-// InstanceMetadataResponse represents the metadata response for instances
-type InstanceMetadataResponse struct {
-	Instances  []models.Instance  `json:"instances"`  // List of instances
-	Pagination PaginationResponse `json:"pagination"` // Pagination information
 }
 
 // InstanceInfo represents information about a created instance
@@ -237,43 +198,5 @@ func (i *InstanceRequest) Validate() error {
 	}
 
 	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
-	return nil
-}
-
-// Validate validates the delete request
-func (r *DeleteRequest) Validate() error {
-	if r.InstanceName == "" {
-		return fmt.Errorf("instance_name is required")
-	}
-	if r.ProjectName == "" {
-		return fmt.Errorf("project_name is required")
-	}
-	if len(r.Instances) == 0 {
-		return fmt.Errorf("at least one instance configuration is required")
-	}
-
-	for i, instance := range r.Instances {
-		if err := instance.Validate(); err != nil {
-			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
-		}
-	}
-
-	return nil
-}
-
-// Validate validates the delete instance configuration
-func (i *DeleteInstance) Validate() error {
-	if i.Provider == "" {
-		return fmt.Errorf("provider is required")
-	}
-	if i.NumberOfInstances < 1 {
-		return fmt.Errorf("number_of_instances must be greater than 0")
-	}
-	if i.Region == "" {
-		return fmt.Errorf("region is required")
-	}
-	if i.Size == "" {
-		return fmt.Errorf("size is required")
-	}
 	return nil
 }
