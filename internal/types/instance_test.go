@@ -6,7 +6,24 @@ import (
 )
 
 // TestInstancesRequest_Validate tests the Validate method for InstancesRequest. It does not test the Validate method for InstanceRequest.
+// TestInstancesRequest_Validate tests the Validate method for InstancesRequest. It does not test the Validate method for InstanceRequest.
 func TestInstancesRequest_Validate(t *testing.T) {
+	// create a default valid InstanceRequest
+	defaultInstanceRequest := InstanceRequest{
+		Provider:          "do",
+		NumberOfInstances: 1,
+		Region:            "nyc1",
+		Size:              "s-1vcpu-1gb",
+		Image:             "ubuntu-20-04-x64",
+		SSHKeyName:        "test-key",
+		Volumes: []VolumeConfig{
+			{
+				Name:       "test-volume",
+				SizeGB:     10,
+				MountPoint: "/mnt/data",
+			},
+		},
+	}
 	tests := []struct {
 		name    string
 		request *InstancesRequest
@@ -83,24 +100,8 @@ func TestInstancesRequest_Validate(t *testing.T) {
 			name: "valid_request_using_InstanceName",
 			request: &InstancesRequest{
 				ProjectName:  "test-project",
-				InstanceName: "base-instance",
-				Instances: []InstanceRequest{
-					{
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-				},
+				InstanceName: "valid-instance",
+				Instances:    []InstanceRequest{defaultInstanceRequest, defaultInstanceRequest},
 			},
 			wantErr: false,
 		},
@@ -131,28 +132,12 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		},
 		{
 			name: "missing instances",
+			name: "missing instances",
 			request: &InstancesRequest{
 				ProjectName: "test-project",
-				Instances: []InstanceRequest{
-					{
-						Name:              "invalid_hostname$123",
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-				},
 			},
 			wantErr: true,
+			errMsg:  "at least one instance configuration is required",
 			errMsg:  "at least one instance configuration is required",
 		},
 		{
@@ -192,20 +177,23 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		{
 			name: "invalid hostname",
 			request: &InstancesRequest{
+				TaskName:     "test-job",
 				ProjectName:  "test-project",
 				InstanceName: "invalid_hostname$123",
-				Instances:    []InstanceRequest{{Provider: "do", NumberOfInstances: 1, Region: "nyc1", Size: "s-1vcpu-1gb", Image: "ubuntu", SSHKeyName: "key", Volumes: []VolumeConfig{{}}}},
+				Instances:    []InstanceRequest{defaultInstanceRequest},
 			},
 			wantErr: true,
 			errMsg:  "invalid hostname format",
 		},
 		{
-			name: "missing_instance_name_and_instance_name_in_request#01",
+			name: "missing instance name and instance name in request",
 			request: &InstancesRequest{
+				TaskName:    "test-job",
 				ProjectName: "test-project",
-				Instances:   []InstanceRequest{{Provider: "do", NumberOfInstances: 1, Region: "nyc1", Size: "s-1vcpu-1gb", Image: "ubuntu", SSHKeyName: "key", Volumes: []VolumeConfig{{}}}},
+				Instances:   []InstanceRequest{defaultInstanceRequest},
 			},
 			wantErr: true,
+			errMsg:  "instance_name or instance.name is required",
 			errMsg:  "instance_name or instance.name is required",
 		},
 	}
@@ -230,6 +218,11 @@ func TestInstanceRequest_Validate(t *testing.T) {
 		SizeGB:     10,
 		MountPoint: "/mnt/data",
 	}
+	defaultVolumeConfig := VolumeConfig{
+		Name:       "test-volume",
+		SizeGB:     10,
+		MountPoint: "/mnt/data",
+	}
 	tests := []struct {
 		name    string
 		request *InstanceRequest
@@ -247,6 +240,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: false,
 		},
@@ -259,6 +253,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
@@ -275,6 +270,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
 			errMsg:  "number_of_instances must be greater than 0",
@@ -288,6 +284,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
@@ -303,6 +300,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
 			errMsg:  "size is required",
@@ -316,6 +314,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Region:            "nyc1",
 				Size:              "s-1vcpu-1gb",
 				SSHKeyName:        "test-key",
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
@@ -331,9 +330,39 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
 			errMsg:  "ssh_key_name is required",
+		},
+		{
+			name: "missing volumes",
+			request: &InstanceRequest{
+				Name:              "valid-instance",
+				Provider:          "do",
+				NumberOfInstances: 1,
+				Region:            "nyc1",
+				Size:              "s-1vcpu-1gb",
+				Image:             "ubuntu-20-04-x64",
+				SSHKeyName:        "test-key",
+			},
+			wantErr: true,
+			errMsg:  "at least one volume configuration is required",
+		},
+		{
+			name: "invalid instance name",
+			request: &InstanceRequest{
+				Name:              "invalid_hostname$123",
+				Provider:          "do",
+				NumberOfInstances: 1,
+				Region:            "nyc1",
+				Size:              "s-1vcpu-1gb",
+				Image:             "ubuntu-20-04-x64",
+				SSHKeyName:        "test-key",
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
+			},
+			wantErr: true,
+			errMsg:  "invalid instance name",
 		},
 		{
 			name: "missing volumes",
