@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/celestiaorg/talis/cmd/cli/commands"
-	"github.com/spf13/cobra"
 )
 
 func main() {

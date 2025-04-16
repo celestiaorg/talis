@@ -132,12 +132,10 @@ func TestInstancesRequest_Validate(t *testing.T) {
 		},
 		{
 			name: "missing instances",
-			name: "missing instances",
 			request: &InstancesRequest{
 				ProjectName: "test-project",
 			},
 			wantErr: true,
-			errMsg:  "at least one instance configuration is required",
 			errMsg:  "at least one instance configuration is required",
 		},
 		{
@@ -194,7 +192,6 @@ func TestInstancesRequest_Validate(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "instance_name or instance.name is required",
-			errMsg:  "instance_name or instance.name is required",
 		},
 	}
 
@@ -218,11 +215,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 		SizeGB:     10,
 		MountPoint: "/mnt/data",
 	}
-	defaultVolumeConfig := VolumeConfig{
-		Name:       "test-volume",
-		SizeGB:     10,
-		MountPoint: "/mnt/data",
-	}
 	tests := []struct {
 		name    string
 		request *InstanceRequest
@@ -240,7 +232,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: false,
 		},
@@ -253,7 +244,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
@@ -270,7 +260,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
 			errMsg:  "number_of_instances must be greater than 0",
@@ -284,7 +273,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
@@ -300,7 +288,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Image:             "ubuntu-20-04-x64",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
 			errMsg:  "size is required",
@@ -315,7 +302,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Size:              "s-1vcpu-1gb",
 				SSHKeyName:        "test-key",
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
 			errMsg:  "image is required",
@@ -329,7 +315,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				Region:            "nyc1",
 				Size:              "s-1vcpu-1gb",
 				Image:             "ubuntu-20-04-x64",
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
 				Volumes:           []VolumeConfig{defaultVolumeConfig},
 			},
 			wantErr: true,
