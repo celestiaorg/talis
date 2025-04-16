@@ -25,63 +25,7 @@ Talis is a multi-cloud infrastructure provisioning and configuration project tha
 
 ## Project Structure
 
-```
-talis/
-├── cmd/
-│   └── main.go                    # Main entry point
-├── internal/
-│   ├── api/                       # API related code
-│   │   └── v1/
-│   │       ├── handlers/         # Request handlers (instances, jobs)
-│   │       ├── middleware/       # API middleware
-│   │       ├── routes/          # Route definitions
-│   │       └── services/        # Business logic services
-│   ├── compute/                   # Cloud provider implementations
-│   │   ├── provider.go           # ComputeProvider interface and common types
-│   │   ├── digitalocean.go       # DigitalOcean implementation
-│   │   └── ansible.go            # Ansible configuration and provisioning
-│   ├── db/                        # Database layer
-│   │   ├── db.go                 # Database connection and configuration
-│   │   ├── models/              # Database models (instances, jobs)
-│   │   └── repos/               # Database repositories
-│   └── types/                     # Common types and models
-│       └── infrastructure/        # Infrastructure types and logic
-├── ansible/                       # Ansible configurations
-│   ├── main.yml                  # Main Ansible configuration
-│   ├── stages/                   # Task stages for different configurations
-│   │   └── setup.yml            # Initial setup and configuration tasks
-│   ├── vars/                     # Variable definitions
-│   │   └── main.yml             # Main variables file
-│   └── inventory_*_ansible.ini   # Generated inventory files
-├── scripts/                       # Utility scripts
-└── .env.example                   # Environment variables example
-```
-
-## Key Components
-
-### internal/api/v1/
-- **handlers/**: HTTP request handlers for instances and jobs
-- **middleware/**: API middleware (logging, auth, etc.)
-- **routes/**: API route definitions
-- **services/**: Business logic services
-
-### internal/db/
-- **models/**: Database models for instances and jobs
-- **repos/**: Database repositories with CRUD operations
-- **db.go**: Database connection and configuration
-
-### internal/compute/
-- **provider.go**: Defines the `ComputeProvider` interface and common types
-- **digitalocean.go**: Implementation for DigitalOcean with comprehensive test coverage
-- **ansible.go**: Ansible configuration and provisioning
-
-### ansible/
-- **main.yml**: Main Ansible configuration file
-- **stages/**: Contains different stages of configuration
-  - **setup.yml**: Initial setup and configuration tasks
-- **vars/**: Variable definitions for Ansible
-  - **main.yml**: Main variables configuration
-- **inventory_*_ansible.ini**: Generated inventory files for each deployment
+See [architecture doc](./docs/architecture.md)
 
 ## Setup
 
