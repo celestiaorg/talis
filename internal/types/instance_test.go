@@ -325,50 +325,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "provision must be true when payload_path is provided",
 		},
-		// --- Valid Cases --- //
-		{
-			name: "Valid: Minimal request without payload",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				// Provision defaults to false, which is valid here
-			},
-			wantErr: false,
-		},
-		{
-			name: "Valid: Request with payload copy only",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true, // Required for payload
-				ExecutePayload:    false,
-				PayloadPath:       validPayloadFile,
-			},
-			wantErr: false,
-		},
-		{
-			name: "Valid: Request with payload copy and execute",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true, // Required for payload
-				ExecutePayload:    true,
-				PayloadPath:       validPayloadFile,
-			},
-			wantErr: false,
-		},
 		{
 			name: "missing volumes",
 			request: InstanceRequest{
@@ -397,6 +353,53 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "invalid instance name",
+		},
+		// --- Valid Cases --- //
+		{
+			name: "Valid: Minimal request without payload",
+			request: InstanceRequest{
+				Provider:          models.ProviderID("mock"),
+				NumberOfInstances: 1,
+				Region:            "nyc1",
+				Size:              "s-1vcpu-1gb",
+				Image:             "ubuntu",
+				SSHKeyName:        "test-key",
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
+				// Provision defaults to false, which is valid here
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid: Request with payload copy only",
+			request: InstanceRequest{
+				Provider:          models.ProviderID("mock"),
+				NumberOfInstances: 1,
+				Region:            "nyc1",
+				Size:              "s-1vcpu-1gb",
+				Image:             "ubuntu",
+				SSHKeyName:        "test-key",
+				Provision:         true, // Required for payload
+				ExecutePayload:    false,
+				PayloadPath:       validPayloadFile,
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid: Request with payload copy and execute",
+			request: InstanceRequest{
+				Provider:          models.ProviderID("mock"),
+				NumberOfInstances: 1,
+				Region:            "nyc1",
+				Size:              "s-1vcpu-1gb",
+				Image:             "ubuntu",
+				SSHKeyName:        "test-key",
+				Provision:         true, // Required for payload
+				ExecutePayload:    true,
+				PayloadPath:       validPayloadFile,
+				Volumes:           []VolumeConfig{defaultVolumeConfig},
+			},
+			wantErr: false,
 		},
 	}
 
