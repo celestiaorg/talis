@@ -25,7 +25,6 @@ type ListOptions struct {
 	StatusFilter   StatusFilter `json:"status_filter,omitempty"` // How to filter by status
 	// Statuses
 	InstanceStatus *InstanceStatus `json:"instance_status,omitempty"` // Filter by instance status
-	JobStatus      *JobStatus      `json:"job_status,omitempty"`      // Filter by job status
 }
 
 // UserQueryOptions represents query params for GetUserByUsername operation

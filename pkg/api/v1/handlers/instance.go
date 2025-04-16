@@ -104,7 +104,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	taskName, err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.TaskName, instancesReq.Instances)
+	taskName, err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.ProjectName, instancesReq.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))

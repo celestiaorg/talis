@@ -37,14 +37,15 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 	return s.repo.List(ctx, ownerID, opts)
 }
 
-// CreateInstance creates a new instance
-func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName string, instances []types.InstanceRequest) (taskName string, err error) {
+// CreateInstance creates a new task to track instance creation and starts the process.
+func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName string, instances []types.InstanceRequest) (string, error) {
 	project, err := s.projectService.GetByName(ctx, ownerID, projectName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	taskName = uuid.New().String()
+	// Generate TaskName internally
+	taskName := uuid.New().String()
 	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
 		Name:      taskName,
 		ProjectID: project.ID,

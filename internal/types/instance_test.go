@@ -79,25 +79,6 @@ func TestInstancesRequest_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "missing task_name",
-			request: &InstancesRequest{
-				ProjectName: "test-project",
-				Instances: []InstanceRequest{
-					{
-						Name:              "valid-instance",
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "task_name is required",
-		},
-		{
 			name: "missing project name",
 			request: &InstancesRequest{
 				TaskName: "test-job",
