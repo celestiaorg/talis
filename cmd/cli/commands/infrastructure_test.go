@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/test"
 )
 
@@ -149,6 +151,20 @@ func TestCreateInfraCmd(t *testing.T) {
 			originalClient := apiClient
 			apiClient = suite.APIClient
 			defer func() { apiClient = originalClient }()
+
+			// Create the test project before running the infra command
+			if tt.name == "successful create" {
+				projectName := "test-project" // Project name used in test JSON
+				createProjectReq := handlers.ProjectCreateParams{
+					Name:        projectName,
+					Description: "Test project for infra commands",
+				}
+				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
+				// Ignore "already exists" errors if the project was created in a previous step/test
+				if err != nil && !strings.Contains(err.Error(), "already exists") {
+					t.Fatalf("Failed to create prerequisite project '%s': %v", projectName, err)
+				}
+			}
 
 			// Create a buffer to capture output
 			buf := new(bytes.Buffer)
@@ -301,6 +317,20 @@ func TestDeleteInfraCmd(t *testing.T) {
 			originalClient := apiClient
 			apiClient = suite.APIClient
 			defer func() { apiClient = originalClient }()
+
+			// Create the test project before running the infra command
+			if tt.name == "successful delete" {
+				projectName := "test-project" // Project name used in test JSON
+				createProjectReq := handlers.ProjectCreateParams{
+					Name:        projectName,
+					Description: "Test project for infra commands",
+				}
+				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
+				// Ignore "already exists" errors if the project was created in a previous step/test
+				if err != nil && !strings.Contains(err.Error(), "already exists") {
+					t.Fatalf("Failed to create prerequisite project '%s': %v", projectName, err)
+				}
+			}
 
 			// Create a buffer to capture output
 			buf := new(bytes.Buffer)
