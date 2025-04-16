@@ -3,10 +3,14 @@ package types
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
+
+const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
@@ -35,17 +39,21 @@ type InstancesRequest struct {
 
 // InstanceRequest represents a request to create or modify a compute instance
 type InstanceRequest struct {
-	Provider          models.ProviderID `json:"provider"`            // Cloud provider (e.g., "do")
-	Region            string            `json:"region"`              // Region where instances will be created
-	Size              string            `json:"size"`                // Instance size/type
-	Image             string            `json:"image"`               // OS image to use
-	SSHKeyName        string            `json:"ssh_key_name"`        // Name of the SSH key to use
-	Tags              []string          `json:"tags"`                // Tags to apply to instances
-	NumberOfInstances int               `json:"number_of_instances"` // Number of instances to create
-	Name              string            `json:"name"`                // Optional custom name for instances
-	Provision         bool              `json:"provision"`           // Whether to run Ansible provisioning
-	Volumes           []VolumeConfig    `json:"volumes"`             // Optional volumes to attach
-	OwnerID           uint              `json:"owner_id"`            // Owner ID of the instance
+	Provider          models.ProviderID `json:"provider"`                  // Cloud provider (e.g., "do")
+	Region            string            `json:"region"`                    // Region where instances will be created
+	Size              string            `json:"size"`                      // Instance size/type
+	Image             string            `json:"image"`                     // OS image to use
+	SSHKeyName        string            `json:"ssh_key_name"`              // Name of the SSH key to use
+	Tags              []string          `json:"tags"`                      // Tags to apply to instances
+	NumberOfInstances int               `json:"number_of_instances"`       // Number of instances to create
+	Name              string            `json:"name"`                      // Optional custom name for instances
+	Provision         bool              `json:"provision"`                 // Whether to run Ansible provisioning
+	Volumes           []VolumeConfig    `json:"volumes"`                   // Optional volumes to attach
+	OwnerID           uint              `json:"owner_id"`                  // Owner ID of the instance
+	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
+	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
+	SSHKeyType        string            `json:"ssh_key_type,omitempty"`    // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
+	SSHKeyPath        string            `json:"ssh_key_path,omitempty"`    // Custom path to the private SSH key file for Ansible. Overrides defaults.
 }
 
 // InstanceCreateRequest represents the JSON structure for creating infrastructure
@@ -105,15 +113,17 @@ type InstanceMetadataResponse struct {
 
 // InstanceInfo represents information about a created instance
 type InstanceInfo struct {
-	ID            string            // Provider-specific instance ID
-	Name          string            // Instance name
-	PublicIP      string            // Public IP address
-	Provider      models.ProviderID // Provider name (e.g., "do")
-	Region        string            // Region where instance was created
-	Size          string            // Instance size/type
-	Tags          []string          // Tags of the instance
-	Volumes       []string          `json:"volumes,omitempty"`        // List of attached volume IDs
-	VolumeDetails []VolumeDetails   `json:"volume_details,omitempty"` // Detailed information about attached volumes
+	ID             string            // Provider-specific instance ID
+	Name           string            // Instance name
+	PublicIP       string            // Public IP address
+	Provider       models.ProviderID // Provider name (e.g., "do")
+	Region         string            // Region where instance was created
+	Size           string            // Instance size/type
+	Tags           []string          // Tags of the instance
+	Volumes        []string          `json:"volumes,omitempty"`         // List of attached volume IDs
+	VolumeDetails  []VolumeDetails   `json:"volume_details,omitempty"`  // Detailed information about attached volumes
+	PayloadPath    string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
+	ExecutePayload bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
 // Validate validates the infrastructure request
@@ -170,6 +180,45 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("ssh_key_name is required")
 	}
 
+	// Validate payload path if provided
+	if i.PayloadPath != "" {
+		// Check if path is absolute
+		if !filepath.IsAbs(i.PayloadPath) {
+			return fmt.Errorf("payload_path must be an absolute path")
+		}
+
+		// Clean the path
+		i.PayloadPath = filepath.Clean(i.PayloadPath)
+
+		// Check file existence and size
+		fileInfo, err := os.Stat(i.PayloadPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("payload_path file does not exist: %s", i.PayloadPath)
+			}
+			return fmt.Errorf("error accessing payload_path file: %w", err)
+		}
+
+		if fileInfo.IsDir() {
+			return fmt.Errorf("payload_path cannot be a directory")
+		}
+
+		if fileInfo.Size() > maxPayloadSize {
+			return fmt.Errorf("payload file size exceeds the limit of 2MB")
+		}
+	}
+
+	// If execute_payload is true, payload_path must be provided
+	if i.ExecutePayload && i.PayloadPath == "" {
+		return fmt.Errorf("payload_path is required when execute_payload is true")
+	}
+
+	// If payload_path is provided, provision must be true
+	if i.PayloadPath != "" && !i.Provision {
+		return fmt.Errorf("provision must be true when payload_path is provided")
+	}
+
+	// Validate the instance name
 	if i.Name != "" {
 		if err := validateHostname(i.Name); err != nil {
 			return fmt.Errorf("invalid instance name: %w", err)

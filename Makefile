@@ -90,7 +90,7 @@ tidy:
 .PHONY: tidy
 
 ## run: Run the application
-run:
+run: check-env
 	@echo "Running $(APP_NAME)..."
 	@go run ./cmd/main.go
 .PHONY: run
@@ -98,11 +98,24 @@ run:
 ## check-env: Check required environment variables
 check-env:
 	@echo "Checking environment variables..."
-	@test -n "$(DIGITALOCEAN_TOKEN)" || (echo "Error: DIGITALOCEAN_TOKEN is not set" && exit 1)
-	@test -n "$(PULUMI_ACCESS_TOKEN)" || (echo "Error: PULUMI_ACCESS_TOKEN is not set" && exit 1)
-	@test -n "$(PULUMI_ORG)" || (echo "Error: PULUMI_ORG is not set" && exit 1)
-	@test -f ~/.ssh/id_rsa || (echo "Error: SSH key not found at ~/.ssh/id_rsa" && exit 1)
-	@test -f ~/.ssh/id_rsa.pub || (echo "Error: SSH public key not found at ~/.ssh/id_rsa.pub" && exit 1)
+	@# Check if DIGITALOCEAN_TOKEN is set in environment
+	@if [ -n "$(DIGITALOCEAN_TOKEN)" ]; then \
+		: ; \
+	elif grep -q "DIGITALOCEAN_TOKEN=" .env 2>/dev/null; then \
+		: ; \
+	else \
+		echo "Error: DIGITALOCEAN_TOKEN is not set in environment or .env file" && exit 1; \
+	fi
+	@# Check if SSH keys are present
+	@if [ -f ~/.ssh/id_rsa ] && [ -f ~/.ssh/id_rsa.pub ]; then \
+		: ; \
+	elif [ -f ~/.ssh/id_ed25519 ] && [ -f ~/.ssh/id_ed25519.pub ]; then \
+		: ; \
+	else \
+		echo "Error: No SSH keys found. Please generate either RSA or ED25519 keys" && exit 1; \
+	fi
+	@# Check if ansible-playbook is installed
+	@command -v ansible-playbook >/dev/null || (echo "Error: ansible-playbook executable not found in PATH" && exit 1)
 .PHONY: check-env
 
 ## install-hooks: Install git hooks

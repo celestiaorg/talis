@@ -76,6 +76,12 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 				instanceName = fmt.Sprintf("%s-%d", baseName, idx)
 			}
 
+			// Determine initial payload status
+			initialPayloadStatus := models.PayloadStatusNone
+			if i.PayloadPath != "" {
+				initialPayloadStatus = models.PayloadStatusPendingCopy
+			}
+
 			instance := &models.Instance{
 				Name:          instanceName,
 				OwnerID:       i.OwnerID,
@@ -87,6 +93,7 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, jobName str
 				Tags:          i.Tags,
 				Volumes:       []string{},
 				VolumeDetails: models.VolumeDetails{},
+				PayloadStatus: initialPayloadStatus,
 			}
 
 			if err := s.repo.Create(ctx, instance); err != nil {
@@ -263,6 +270,21 @@ func (s *Instance) provisionInstances(ctx context.Context, jobID uint, instances
 			if err := infra.RunProvisioning(pInstances); err != nil {
 				logger.Errorf("❌ Failed to run provisioning: %v", err)
 				return
+			}
+			// Update payload status for instances with payloads
+			for _, instance := range pInstances {
+				if instance.PayloadPath == "" {
+					continue
+				}
+				updateInstance := &models.Instance{
+					PayloadStatus: models.PayloadStatusExecuted,
+				}
+
+				if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
+					logger.Errorf("❌ Failed to update payload status for instance %s: %v", instance.Name, err)
+					continue
+				}
+				logger.Debugf("✅ Updated payload status to executed for instance %s", instance.Name)
 			}
 		}
 

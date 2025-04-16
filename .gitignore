@@ -28,3 +28,7 @@ TODO*
 coverage.out
 coverage.html
 *.coverprofile
+
+# Custom local file for dumping test/debug files
+ignore/
+
