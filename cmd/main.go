@@ -2,10 +2,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
+	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
@@ -86,16 +91,56 @@ func main() {
 	// Register routes - no need for project and task handlers as they're handled via RPC
 	routes.RegisterRoutes(app, instanceHandler, userHandler, rpcHandler)
 
-	// Start server
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8080"
+	// Create context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Create a WaitGroup to wait for goroutines to finish
+	var wg sync.WaitGroup
+
+	// Launch worker with the cancellable context and WaitGroup
+	wg.Add(1) // Increment counter before launching goroutine
+	go services.LaunchWorker(ctx, &wg)
+
+	// Start server in a goroutine so that it doesn't block.
+	go func() {
+		port := os.Getenv("SERVER_PORT")
+		if port == "" {
+			port = "8080"
+		}
+		log.Info("Server starting on :" + port)
+		if err := app.Listen(":" + port); err != nil {
+			// Use Errorf here as Fatalf would exit the program immediately
+			log.Errorf("Failed to start server: %v", err)
+			// We might want to signal an error to the main goroutine here
+			// For now, just logging is okay, but the shutdown might not be clean if Listen fails.
+		}
+	}()
+
+	// Listen for the interrupt signal.
+	<-ctx.Done()
+
+	// Restore default behavior on the interrupt signal and notify user of shutdown.
+	stop()
+	log.Info("Shutting down gracefully, press Ctrl+C again to force")
+
+	// Perform application shutdown with a timeout.
+	// TODO: Add a mechanism here if needed to wait for LaunchWorker to fully complete its cleanup.
+	// This might involve a WaitGroup or a channel signal from the worker.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 second timeout for shutdown
+	defer cancel()
+
+	if err := app.ShutdownWithContext(shutdownCtx); err != nil {
+		log.Errorf("Server shutdown failed: %v", err) // Use Errorf instead of Fatalf
+	} else {
+		log.Info("Server shut down gracefully")
 	}
 
-	log.Info("Server starting on :" + port)
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	// Wait for background goroutines to finish.
+	log.Info("Waiting for background processes to shut down...")
+	wg.Wait() // Block until wg.Done() is called by all goroutines
+
+	log.Info("Shut down successfully. Exiting.")
 }
 
 // customErrorHandler handles errors returned by the handlers
