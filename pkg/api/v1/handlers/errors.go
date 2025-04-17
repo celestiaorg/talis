@@ -31,4 +31,5 @@ const (
 	ErrMsgTaskStatusReqd      = "Status is required"
 	ErrMsgInvalidReqBody      = "Invalid request body"
 	ErrMsgTaskStatusInvalid   = "Invalid task status"
+	ErrMsgTaskGetFailed       = "Failed to get task"
 )

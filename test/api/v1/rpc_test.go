@@ -17,8 +17,7 @@ var defaultProjectCreateParams = handlers.ProjectCreateParams{
 }
 
 var defaultTaskGetParams = handlers.TaskGetParams{
-	ProjectName: "test-project",
-	TaskName:    "test-task",
+	TaskName: "test-task",
 }
 
 func TestProjectRPCMethods(t *testing.T) {
@@ -44,15 +43,11 @@ func TestProjectRPCMethods(t *testing.T) {
 	require.Equal(t, project.Config, retrievedProject.Config)
 
 	// List projects using RPC
-	listParams := handlers.ProjectListParams{
-		Page: 1,
-	}
-	projects, err := suite.APIClient.ListProjects(suite.Context(), listParams)
+	listParams := handlers.ProjectListParams{Page: 1}
+	listResponse, err := suite.APIClient.ListProjects(suite.Context(), listParams)
 	require.NoError(t, err)
-	require.NotEmpty(t, projects)
-	require.Equal(t, 1, len(projects))
-	// Don't check ID since it's auto-incremented by the DB
-	require.Equal(t, project.Name, projects[0].Name)
+	require.NotEmpty(t, listResponse, "ListProjects should return projects")
+	require.Equal(t, defaultProjectCreateParams.Name, listResponse[0].Name, "Project name mismatch in list")
 
 	// Create another project
 	secondProjectParams := handlers.ProjectCreateParams{
@@ -65,23 +60,23 @@ func TestProjectRPCMethods(t *testing.T) {
 	require.Equal(t, secondProjectParams.Name, secondProject.Name)
 
 	// List projects again to verify we get both
-	projects, err = suite.APIClient.ListProjects(suite.Context(), listParams)
+	listParams = handlers.ProjectListParams{Page: 1}
+	listResponse, err = suite.APIClient.ListProjects(suite.Context(), listParams)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(projects))
+	require.Equal(t, 2, len(listResponse))
 
 	// Delete a project using RPC
-	deleteParams := handlers.ProjectDeleteParams{
-		Name: secondProject.Name,
-	}
+	deleteParams := handlers.ProjectDeleteParams{Name: secondProject.Name}
 	err = suite.APIClient.DeleteProject(suite.Context(), deleteParams)
 	require.NoError(t, err)
 
 	// List projects again to verify the delete worked
-	projects, err = suite.APIClient.ListProjects(suite.Context(), listParams)
+	listParams = handlers.ProjectListParams{Page: 1}
+	listResponse, err = suite.APIClient.ListProjects(suite.Context(), listParams)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(projects))
+	require.Equal(t, 1, len(listResponse))
 	// Don't check ID since it's auto-incremented by the DB
-	require.Equal(t, defaultProjectCreateParams.Name, projects[0].Name)
+	require.Equal(t, defaultProjectCreateParams.Name, listResponse[0].Name)
 }
 
 func TestTaskRPCMethods(t *testing.T) {
@@ -93,13 +88,13 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, defaultProjectCreateParams.Name, project.Name)
 
-	// Since we don't have a CreateTask API client method, we'll need to use the repository directly
-	// TODO: Add CreateTask API client method
+	// Create a task directly using the repository for setup
 	task := models.Task{
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
 		Name:      "test-task",
 		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionCreateInstances,
 	}
 	err = suite.TaskRepo.Create(suite.Context(), &task)
 	require.NoError(t, err)
@@ -114,52 +109,31 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.Equal(t, task.Status, retrievedTask.Status)
 
 	// List tasks using RPC
-	listParams := handlers.TaskListParams{
-		ProjectName: project.Name,
-		Page:        1,
-	}
-	tasks, err := suite.APIClient.ListTasks(suite.Context(), listParams)
+	listParams := handlers.TaskListParams{ProjectName: project.Name, Page: 1}
+	listResponse, err := suite.APIClient.ListTasks(suite.Context(), listParams)
 	require.NoError(t, err)
-	require.NotEmpty(t, tasks)
-	require.Equal(t, 1, len(tasks))
-	// Don't check ID since it's auto-incremented by the DB
-	require.Equal(t, task.Name, tasks[0].Name)
+	require.NotEmpty(t, listResponse, "ListTasks should return tasks")
+	require.Equal(t, task.Name, listResponse[0].Name, "Task name mismatch in list")
 
 	// Create another task
-	// TODO: Add CreateTask API client method
 	secondTask := models.Task{
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
 		Name:      "second-task",
 		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionCreateInstances,
 	}
 	err = suite.TaskRepo.Create(suite.Context(), &secondTask)
 	require.NoError(t, err)
 
 	// List tasks again to verify we get both
-	tasks, err = suite.APIClient.ListTasks(suite.Context(), listParams)
+	listParams = handlers.TaskListParams{ProjectName: project.Name, Page: 1}
+	listResponse, err = suite.APIClient.ListTasks(suite.Context(), listParams)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(tasks))
-
-	// Update a task status using RPC
-	updateParams := handlers.TaskUpdateStatusParams{
-		ProjectName: project.Name,
-		TaskName:    task.Name,
-		Status:      models.TaskStatusRunning,
-	}
-	err = suite.APIClient.UpdateTaskStatus(suite.Context(), updateParams)
-	require.NoError(t, err)
-
-	// Get the updated task to verify the status change
-	retrievedTask, err = suite.APIClient.GetTask(suite.Context(), getParams)
-	require.NoError(t, err)
-	require.Equal(t, models.TaskStatusRunning, retrievedTask.Status)
+	require.Equal(t, 2, len(listResponse))
 
 	// Abort a task using RPC
-	terminateParams := handlers.TaskTerminateParams{
-		ProjectName: project.Name,
-		TaskName:    task.Name,
-	}
+	terminateParams := handlers.TaskTerminateParams{TaskName: task.Name}
 	err = suite.APIClient.TerminateTask(suite.Context(), terminateParams)
 	require.NoError(t, err)
 

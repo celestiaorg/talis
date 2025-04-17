@@ -104,19 +104,22 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.JobName, instancesReq.Instances)
+	taskName, err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.ProjectName, instancesReq.Instances)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(types.Success(nil))
+		JSON(types.Success(
+			types.TaskResponse{
+				TaskName: taskName,
+			}))
 }
 
-// GetPublicIPs returns a list of public IPs and their associated job IDs
+// GetPublicIPs returns a list of public IPs for all instances
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
-	fmt.Println("🔍 Getting public IPs...")
+	fmt.Println("🔍 Getting all public IPs...")
 
 	var opts models.ListOptions
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
@@ -130,10 +133,10 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
-	// Get instances
+	// Get instances with their details using the service
 	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
-		fmt.Printf("❌ Error getting instances: %v\n", err)
+		fmt.Printf("❌ Error getting public IPs: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get public IPs: %v", err),
 		})
@@ -145,7 +148,6 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	publicIPs := make([]types.PublicIPs, len(instances))
 	for i, instance := range instances {
 		publicIPs[i] = types.PublicIPs{
-			JobID:    instance.JobID,
 			PublicIP: instance.PublicIP,
 		}
 	}
@@ -178,9 +180,6 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 		opts.StatusFilter = models.StatusFilterNotEqual
 	}
 
-	// TODO: should check for JobID and filter by it
-	// TODO: should check for OwnerID and filter by it
-
 	// Get instances with their details using the service
 	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
@@ -202,65 +201,6 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 			Offset: opts.Offset,
 		},
 	})
-}
-
-// GetInstancesByJobID returns a list of instances for a specific job
-func (h *InstanceHandler) GetInstancesByJobID(c *fiber.Ctx) error {
-	jobID, err := c.ParamsInt("jobId")
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid job id",
-		})
-	}
-	if jobID <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "job id is required",
-		})
-	}
-
-	fmt.Printf("🔍 Getting instances for job ID %d...\n", jobID)
-
-	// Get instances using the service
-	instances, err := h.service.GetInstancesByJobID(c.Context(), models.AdminID, uint(jobID))
-	if err != nil {
-		fmt.Printf("❌ Error getting instances for job %d: %v\n", jobID, err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to get instances for job %d: %v", jobID, err),
-		})
-	}
-
-	fmt.Printf("✅ Found %d instances for job %d\n", len(instances), jobID)
-
-	// Return response using JobInstancesResponse type
-	return c.JSON(types.JobInstancesResponse{
-		Instances: instances,
-		Total:     len(instances),
-		JobID:     uint(jobID),
-	})
-}
-
-// TerminateInstances handles the request to terminate instances
-func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
-	var deleteReq types.DeleteInstanceRequest
-	if err := c.BodyParser(&deleteReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).
-			JSON(types.ErrInvalidInput(err.Error()))
-	}
-
-	if deleteReq.JobName == "" || len(deleteReq.InstanceNames) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "job name and instance names are required",
-		})
-	}
-
-	err := h.service.Terminate(c.Context(), models.AdminID, deleteReq.JobName, deleteReq.InstanceNames)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("failed to terminate instances: %v", err),
-		})
-	}
-
-	return c.Status(fiber.StatusOK).JSON(types.Success(nil))
 }
 
 // GetInstances handles the request to list instances
@@ -297,4 +237,32 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 			Offset: opts.Offset,
 		},
 	})
+}
+
+// TerminateInstances handles the request to terminate instances
+func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
+	var deleteReq types.DeleteInstanceRequest
+	if err := c.BodyParser(&deleteReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(types.ErrInvalidInput(err.Error()))
+	}
+
+	if deleteReq.ProjectName == "" || len(deleteReq.InstanceNames) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "project name and instance names are required",
+		})
+	}
+
+	taskName, err := h.service.Terminate(c.Context(), models.AdminID, deleteReq.ProjectName, deleteReq.InstanceNames)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fmt.Sprintf("failed to terminate instances: %v", err),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).
+		JSON(types.Success(
+			types.TaskResponse{
+				TaskName: taskName,
+			}))
 }

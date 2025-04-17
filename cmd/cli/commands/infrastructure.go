@@ -64,7 +64,7 @@ var createInfraCmd = &cobra.Command{
 
 		// Create the delete request
 		deleteReq := types.DeleteInstanceRequest{
-			JobName: req.JobName,
+			ProjectName: req.ProjectName,
 			InstanceNames: func() []string {
 				names := make([]string, 0)
 				for _, instance := range req.Instances {
@@ -97,7 +97,7 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error writing delete file: %w", err)
 		}
 
-		fmt.Printf("Delete file generated: %s (with job name: %s)\n", deleteFilePath, deleteReq.JobName)
+		fmt.Printf("Delete file generated: %s (with project name: %s)\n", deleteFilePath, deleteReq.ProjectName)
 		return nil
 	},
 }
@@ -106,13 +106,13 @@ var deleteInfraCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete infrastructure",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		jsonFile, _ := cmd.Flags().GetString("file")
-		if err := validateFilePath(jsonFile); err != nil {
-			return fmt.Errorf("error validating file path: %w", err)
+		filePath, err := cmd.Flags().GetString("file")
+		if err != nil {
+			return fmt.Errorf("error getting file path: %w", err)
 		}
 
 		// Read and parse the JSON file
-		data, err := os.ReadFile(jsonFile) //nolint:gosec
+		data, err := os.ReadFile(filepath.Clean(filePath))
 		if err != nil {
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
@@ -123,11 +123,12 @@ var deleteInfraCmd = &cobra.Command{
 		}
 
 		// Call the API client
-		if err := apiClient.DeleteInstance(context.Background(), req); err != nil {
+		resp, err := apiClient.DeleteInstance(context.Background(), req)
+		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
 
-		fmt.Println("Infrastructure deletion request submitted successfully")
+		fmt.Printf("Infrastructure deletion task %s started. Use 'talis tasks get -n %s' to check the status\n", resp.TaskName, resp.TaskName)
 		return nil
 	},
 }

@@ -116,8 +116,6 @@ func (h *RPCHandler) handleTaskMethod(c *fiber.Ctx, req RPCRequest) error {
 		return h.TaskHandlers.List(c, ownerID, req)
 	case TaskTerminate:
 		return h.TaskHandlers.Terminate(c, ownerID, req)
-	case TaskUpdateStatus:
-		return h.TaskHandlers.UpdateStatus(c, ownerID, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown task method", nil, req.ID)
 	}

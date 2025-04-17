@@ -28,12 +28,12 @@ type InstanceConfig struct {
 // InstancesRequest represents an RPC request multiple instances
 // NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstancesRequest struct {
-	JobName      string            `json:"job_name"`
 	InstanceName string            `json:"instance_name"`
+	ProjectName  string            `json:"project_name"`
+	TaskName     string            `json:"-"` // used internally by the Infra API
 	Instances    []InstanceRequest `json:"instances"`
 	WebhookURL   string            `json:"webhook_url"`
 	Action       string            `json:"action"`
-	ProjectName  string            `json:"project_name"`
 	Provider     models.ProviderID `json:"provider"`
 	Volumes      []VolumeConfig    `json:"volumes"`
 }
@@ -60,7 +60,7 @@ type InstanceRequest struct {
 
 // DeleteInstanceRequest represents the request body for deleting instances
 type DeleteInstanceRequest struct {
-	JobName       string   `json:"job_name" validate:"required"`             // Job name of the job
+	ProjectName   string   `json:"project_name" validate:"required"`         // Project name
 	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
 }
 
@@ -89,10 +89,6 @@ type InstanceInfo struct {
 
 // Validate validates the infrastructure request
 func (r *InstancesRequest) Validate() error {
-	if r.JobName == "" {
-		return fmt.Errorf("job_name is required")
-	}
-
 	if r.ProjectName == "" {
 		return fmt.Errorf("project_name is required")
 	}

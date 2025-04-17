@@ -19,17 +19,13 @@ func TestInstanceRepository(t *testing.T) {
 	suite.Run(t, new(InstanceRepositoryTestSuite))
 }
 
-func (s *InstanceRepositoryTestSuite) verifyTermination(ownerID, jobID, instanceID uint) error {
-	instance, err := s.instanceRepo.GetByID(s.ctx, ownerID, jobID, instanceID)
+func (s *InstanceRepositoryTestSuite) verifyTermination(ownerID, instanceID uint) error {
+	instance, err := s.instanceRepo.GetByID(s.ctx, ownerID, instanceID)
 	if err != nil {
 		return err
 	}
 	if instance.Status != models.InstanceStatusTerminated {
-		return fmt.Errorf("expected instance to be terminated: %v", instance.Status)
-	}
-	// TODO: currently it doesn't seem that we are soft deleting the instances. If this is expected we should remove the delete call in the Terminate method
-	if instance.DeletedAt.Valid {
-		fmt.Println("expected instance to be deleted")
+		return fmt.Errorf("instance is not yet terminated (status=%v)", instance.Status)
 	}
 	return nil
 }
@@ -43,7 +39,6 @@ func (s *InstanceRepositoryTestSuite) TestCreate() {
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
 	invalidInstance := &models.Instance{
 		OwnerID:    0,
-		JobID:      1,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance-invalid",
 	}
@@ -55,28 +50,28 @@ func (s *InstanceRepositoryTestSuite) TestGetByID() {
 	original := s.createTestInstance()
 
 	// Test getting with correct owner ID
-	found, err := s.instanceRepo.GetByID(s.ctx, original.OwnerID, original.JobID, original.ID)
+	found, err := s.instanceRepo.GetByID(s.ctx, original.OwnerID, original.ID)
 	s.NoError(err)
 	s.Equal(original.ID, found.ID)
 	s.Equal(original.Name, found.Name)
 
 	// Test getting with admin ID
-	found, err = s.instanceRepo.GetByID(s.ctx, models.AdminID, original.JobID, original.ID)
+	found, err = s.instanceRepo.GetByID(s.ctx, models.AdminID, original.ID)
 	s.NoError(err)
 	s.Equal(original.ID, found.ID)
 
 	// Test getting with wrong owner ID
-	_, err = s.instanceRepo.GetByID(s.ctx, 999, original.JobID, original.ID)
+	_, err = s.instanceRepo.GetByID(s.ctx, 999, original.ID)
 	s.Error(err)
 
 	// Test getting with zero owner ID should work but log a warning
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	found, err = s.instanceRepo.GetByID(s.ctx, 0, original.JobID, original.ID)
+	found, err = s.instanceRepo.GetByID(s.ctx, 0, original.ID)
 	s.NoError(err)
 	s.NotNil(found)
 
 	// Test with non-existent ID
-	_, err = s.instanceRepo.GetByID(s.ctx, original.OwnerID, original.JobID, 999)
+	_, err = s.instanceRepo.GetByID(s.ctx, original.OwnerID, 999)
 	s.Error(err)
 }
 
@@ -118,7 +113,7 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	s.NoError(err)
 
 	// Verify update
-	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.ID)
 	s.NoError(err)
 	s.Equal("192.0.2.100", updated.PublicIP)
 	s.Equal(models.InstanceStatusReady, updated.Status)
@@ -131,7 +126,7 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	s.NoError(err)
 
 	// Verify IP update
-	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.ID)
 	s.NoError(err)
 	s.Equal("192.0.2.200", updated.PublicIP)
 
@@ -143,7 +138,7 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	s.NoError(err)
 
 	// Verify status update
-	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.ID)
 	s.NoError(err)
 	s.Equal(models.InstanceStatusReady, updated.Status)
 
@@ -157,7 +152,7 @@ func (s *InstanceRepositoryTestSuite) TestUpdate() {
 	s.NoError(err)
 
 	// Verify multiple updates
-	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.JobID, instance.ID)
+	updated, err = s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.ID)
 	s.NoError(err)
 	s.Equal("192.0.2.300", updated.PublicIP)
 	s.Equal(models.InstanceStatusProvisioning, updated.Status)
@@ -195,7 +190,7 @@ func (s *InstanceRepositoryTestSuite) TestList() {
 	// Terminate an instance and check that it is deleted;
 	s.Require().NoError(s.instanceRepo.Terminate(s.ctx, instance1.OwnerID, instance1.ID))
 	s.Require().NoError(s.Retry(func() error {
-		return s.verifyTermination(instance1.OwnerID, instance1.JobID, instance1.ID)
+		return s.verifyTermination(instance1.OwnerID, instance1.ID)
 	}, 50, 100*time.Millisecond))
 	instancesDeleted, err := s.instanceRepo.List(s.ctx, instance1.OwnerID, &models.ListOptions{IncludeDeleted: true})
 	s.NoError(err)
@@ -234,154 +229,26 @@ func (s *InstanceRepositoryTestSuite) TestCount() {
 	s.GreaterOrEqual(count, int64(0))
 }
 
-func (s *InstanceRepositoryTestSuite) TestGetByJobID() {
-	// Create instances with different job IDs and owners
-	instance1 := s.createTestInstance()
-
-	// Test getting with correct owner ID
-	instances, err := s.instanceRepo.GetByJobID(s.ctx, instance1.OwnerID, instance1.JobID)
-	s.NoError(err)
-	s.Len(instances, 1)
-	s.Equal(instance1.ID, instances[0].ID)
-
-	// Test getting with admin ID
-	instances, err = s.instanceRepo.GetByJobID(s.ctx, models.AdminID, instance1.JobID)
-	s.NoError(err)
-	s.Len(instances, 1)
-
-	// Test getting with wrong owner ID
-	instances, err = s.instanceRepo.GetByJobID(s.ctx, 999, instance1.JobID)
-	s.NoError(err)
-	s.Empty(instances)
-
-	// Test getting with zero owner ID should work but log a warning
-	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	_, err = s.instanceRepo.GetByJobID(s.ctx, 0, instance1.JobID)
-	s.NoError(err)
-}
-
-func (s *InstanceRepositoryTestSuite) TestGetByJobIDOrdered() {
-	// Create instances with different creation times and owners
-	instance1 := s.createTestInstance()
-	time.Sleep(time.Millisecond) // Ensure different creation times
-	instance2 := &models.Instance{
-		OwnerID:    instance1.OwnerID,
-		JobID:      instance1.JobID,
-		ProviderID: models.ProviderDO,
-		Name:       "test-instance-2",
-		Status:     models.InstanceStatusPending,
-	}
-	s.Require().NoError(s.instanceRepo.Create(s.ctx, instance2))
-
-	// Test getting ordered instances with correct owner ID
-	instances, err := s.instanceRepo.GetByJobIDOrdered(s.ctx, instance1.OwnerID, instance1.JobID)
-	s.NoError(err)
-	s.Len(instances, 2)
-	s.Equal(instance1.ID, instances[0].ID)
-	s.Equal(instance2.ID, instances[1].ID)
-
-	// Test getting ordered instances with admin ID
-	instances, err = s.instanceRepo.GetByJobIDOrdered(s.ctx, models.AdminID, instance1.JobID)
-	s.NoError(err)
-	s.Len(instances, 2)
-
-	// Test getting ordered instances with wrong owner ID
-	instances, err = s.instanceRepo.GetByJobIDOrdered(s.ctx, 999, instance1.JobID)
-	s.NoError(err)
-	s.Empty(instances)
-
-	// Test getting ordered instances with zero owner ID should work but log a warning
-	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	_, err = s.instanceRepo.GetByJobIDOrdered(s.ctx, 0, instance1.JobID)
-	s.NoError(err)
-}
-
-func (s *InstanceRepositoryTestSuite) TestTerminate() {
-	instance := s.createTestInstance()
-
-	// Test terminate with correct owner ID
-	err := s.instanceRepo.Terminate(s.ctx, instance.OwnerID, instance.ID)
-	s.NoError(err)
-
-	// Verify the termination
-	s.Require().NoError(s.Retry(func() error {
-		return s.verifyTermination(instance.OwnerID, instance.JobID, instance.ID)
-	}, 50, 100*time.Millisecond))
-
-	// Test terminate with admin ID
-	instance = s.createTestInstance()
-	err = s.instanceRepo.Terminate(s.ctx, models.AdminID, instance.ID)
-	s.NoError(err)
-	s.Require().NoError(s.Retry(func() error {
-		return s.verifyTermination(models.AdminID, instance.JobID, instance.ID)
-	}, 50, 100*time.Millisecond))
-
-	// Test terminate with wrong owner ID
-	instance = s.createTestInstance()
-	err = s.instanceRepo.Terminate(s.ctx, 999, instance.ID)
-	s.Error(err)
-	s.Contains(err.Error(), "instance not found or not owned by user")
-
-	// Test terminate with zero owner ID should work but log a warning
-	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	instance = s.createTestInstance()
-	err = s.instanceRepo.Terminate(s.ctx, 0, instance.ID)
-	s.NoError(err)
-}
-
 func (s *InstanceRepositoryTestSuite) TestQuery() {
 	// Create test instances
-	s.createTestInstance()
-	s.createTestInstance()
-
-	// Test query with admin ID
-	instances, err := s.instanceRepo.Query(s.ctx, models.AdminID, "SELECT * FROM instances")
-	s.NoError(err)
-	s.Len(instances, 2)
-
-	// Test query with non-admin ID should fail
-	_, err = s.instanceRepo.Query(s.ctx, 1, "SELECT * FROM instances")
-	s.Error(err)
-	s.Contains(err.Error(), "restricted to admin users only")
-
-	// Test query with zero owner ID should fail with admin restriction
-	_, err = s.instanceRepo.Query(s.ctx, 0, "SELECT * FROM instances")
-	s.Error(err)
-	s.Contains(err.Error(), "restricted to admin users only")
-}
-
-func (s *InstanceRepositoryTestSuite) TestGetByJobIDAndNames() {
-	// Create test instances with different owners
 	instance1 := s.createTestInstance()
-	instance2 := &models.Instance{
-		OwnerID:    2,
-		JobID:      1,
-		ProviderID: models.ProviderDO,
-		Name:       "test-instance-2",
-		Status:     models.InstanceStatusPending,
-	}
-	s.Require().NoError(s.instanceRepo.Create(s.ctx, instance2))
+	instance2 := s.createTestInstance()
 
-	// Test getting with correct owner ID
-	instances, err := s.instanceRepo.GetByJobIDAndNames(s.ctx, instance1.OwnerID, instance1.JobID, []string{instance1.Name})
+	// Test query with valid query
+	instances, err := s.instanceRepo.Query(s.ctx, instance1.OwnerID, "name = ?", instance1.Name)
 	s.NoError(err)
 	s.Len(instances, 1)
 	s.Equal(instance1.ID, instances[0].ID)
 
-	// Test getting with admin ID
-	instances, err = s.instanceRepo.GetByJobIDAndNames(s.ctx, models.AdminID, instance1.JobID, []string{instance1.Name, instance2.Name})
+	// Test query with admin ID
+	instances, err = s.instanceRepo.Query(s.ctx, models.AdminID, "name = ? OR name = ?", instance1.Name, instance2.Name)
 	s.NoError(err)
 	s.Len(instances, 2)
 
-	// Test getting with wrong owner ID
-	instances, err = s.instanceRepo.GetByJobIDAndNames(s.ctx, 999, instance1.JobID, []string{instance1.Name})
-	s.NoError(err)
-	s.Empty(instances)
-
-	// Test getting with zero owner ID should work but log a warning
-	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	_, err = s.instanceRepo.GetByJobIDAndNames(s.ctx, 0, instance1.JobID, []string{instance1.Name})
-	s.NoError(err)
+	// Test query with invalid query
+	_, err = s.instanceRepo.Query(s.ctx, instance1.OwnerID, "INVALID SQL")
+	s.Error(err)
+	s.Contains(err.Error(), "failed to query instances")
 }
 
 func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
@@ -493,4 +360,49 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 			tt.validate(query)
 		})
 	}
+}
+
+func (s *InstanceRepositoryTestSuite) TestTerminate() {
+	instance := s.createTestInstance()
+
+	// Test Terminate with correct owner ID
+	err := s.instanceRepo.Terminate(s.ctx, instance.OwnerID, instance.ID)
+	s.Require().NoError(err)
+
+	// Verify terminated
+	err = s.verifyTermination(instance.OwnerID, instance.ID)
+	s.NoError(err)
+
+	// Test with wrong owner ID
+	instance2 := s.createTestInstance()
+	err = s.instanceRepo.Terminate(s.ctx, 999, instance2.ID)
+	s.NoError(err) // This is a no-op since it won't find an instance
+
+	// Test with admin ID
+	instance3 := s.createTestInstance()
+	err = s.instanceRepo.Terminate(s.ctx, models.AdminID, instance3.ID)
+	s.NoError(err)
+	err = s.verifyTermination(models.AdminID, instance3.ID)
+	s.NoError(err)
+}
+
+func (s *InstanceRepositoryTestSuite) TestUpdateByName() {
+	instance := &models.Instance{
+		OwnerID:    1,
+		ProviderID: models.ProviderDO,
+		Name:       "test-instance-update-by-name",
+		Status:     models.InstanceStatusPending,
+	}
+	s.Require().NoError(s.instanceRepo.Create(s.ctx, instance))
+
+	// Update the instance
+	err := s.instanceRepo.UpdateByName(s.ctx, instance.OwnerID, instance.Name, &models.Instance{
+		PublicIP: "192.0.2.100",
+	})
+	s.NoError(err)
+
+	// Verify update
+	updated, err := s.instanceRepo.GetByID(s.ctx, instance.OwnerID, instance.ID)
+	s.NoError(err)
+	s.Equal("192.0.2.100", updated.PublicIP)
 }

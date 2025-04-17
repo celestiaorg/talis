@@ -15,16 +15,14 @@ var (
 func initClient() error {
 	var err error
 	apiClient, err = client.NewClient(client.DefaultOptions())
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func init() {
 	RootCmd.AddCommand(GetInfraCmd())
-	RootCmd.AddCommand(GetJobsCmd())
 	RootCmd.AddCommand(GetUsersCmd())
+	RootCmd.AddCommand(GetTasksCmd())
+	RootCmd.AddCommand(GetProjectsCmd())
 }
 
 // RootCmd represents the base command when called without any subcommands

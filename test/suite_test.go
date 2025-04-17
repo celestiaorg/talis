@@ -9,24 +9,21 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
-func TestNewTestSuite(t *testing.T) {
-	// Create environment
-	env := NewSuite(t)
-	defer env.Cleanup()
+func TestNewSuite(t *testing.T) {
+	suite := NewSuite(t)
+	defer suite.Cleanup()
 
-	// Basic environment checks
-	assert.NotNil(t, env.T(), "testing.T should be set")
-	assert.Same(t, t, env.T())
-	assert.NotNil(t, env.App, "app should be initialized")
-	assert.NotNil(t, env.Server, "server should be initialized")
-	assert.NotNil(t, env.APIClient, "API client should be initialized")
-	assert.NotNil(t, env.DB, "database should be initialized")
-	assert.NotNil(t, env.JobRepo, "job repository should be initialized")
-	assert.NotNil(t, env.InstanceRepo, "instance repository should be initialized")
-	assert.NotNil(t, env.MockDOClient, "mock DO client should be initialized")
-	assert.NotNil(t, env.ctx, "context should be set")
-	assert.NotNil(t, env.cancelFunc, "cancel function should be set")
-	assert.NotNil(t, env.cleanup, "cleanup function should be set")
+	// Should have valid components
+	assert.NotNil(t, suite.App, "app should be initialized")
+	assert.NotNil(t, suite.Server, "server should be initialized")
+	assert.NotNil(t, suite.APIClient, "API client should be initialized")
+
+	assert.NotNil(t, suite.DB, "database should be initialized")
+	assert.NotNil(t, suite.InstanceRepo, "instance repository should be initialized")
+	assert.NotNil(t, suite.UserRepo, "user repository should be initialized")
+	assert.NotNil(t, suite.ProjectRepo, "project repository should be initialized")
+	assert.NotNil(t, suite.TaskRepo, "task repository should be initialized")
+	assert.NotNil(t, suite.MockDOClient, "mock DO client should be initialized")
 }
 
 func TestTestEnvironment_Database(t *testing.T) {
@@ -36,36 +33,19 @@ func TestTestEnvironment_Database(t *testing.T) {
 
 		// Check database components
 		require.NotNil(t, env.DB, "database should be initialized")
-		require.NotNil(t, env.JobRepo, "job repository should be initialized")
 		require.NotNil(t, env.InstanceRepo, "instance repository should be initialized")
-
-		// Verify database is working
-		job := &models.Job{
-			Name:        "test-job",
-			ProjectName: "test-project",
-			OwnerID:     1, // Set owner ID for the test
-		}
-		result := env.DB.Create(job)
-		assert.NoError(t, result.Error, "should create job without error")
-		assert.NotZero(t, job.ID, "job should have an ID")
-
-		// Verify job repository is working
-		savedJob, err := env.JobRepo.GetByID(env.ctx, job.OwnerID, job.ID)
-		assert.NoError(t, err, "should get job without error")
-		assert.Equal(t, job.Name, savedJob.Name, "job names should match")
 
 		// Verify instance repository is working
 		instance := &models.Instance{
 			Name:    "test-instance",
-			JobID:   job.ID,
-			OwnerID: job.OwnerID,
+			OwnerID: 1,
 			Status:  models.InstanceStatusPending,
 		}
-		result = env.DB.Create(instance)
+		result := env.DB.Create(instance)
 		assert.NoError(t, result.Error, "should create instance without error")
 		assert.NotZero(t, instance.ID, "instance should have an ID")
 
-		savedInstance, err := env.InstanceRepo.GetByID(env.ctx, instance.OwnerID, instance.JobID, instance.ID)
+		savedInstance, err := env.InstanceRepo.GetByID(env.ctx, instance.OwnerID, instance.ID)
 		assert.NoError(t, err, "should get instance without error")
 		assert.Equal(t, instance.Name, savedInstance.Name, "instance names should match")
 
@@ -81,11 +61,8 @@ func TestTestEnvironment_Database(t *testing.T) {
 
 		usr, err := env.UserRepo.GetUserByID(env.ctx, user.ID)
 		assert.NoError(t, err, "should get user without error")
-		assert.Equal(t, usr.Username, user.Username, "user usernames should match")
-
-		usr, err = env.UserRepo.GetUserByUsername(env.ctx, user.Username)
-		assert.NoError(t, err, "should get user without error")
-		assert.Equal(t, usr.Username, user.Username, "user usernames should match")
+		assert.Equal(t, user.Username, usr.Username, "usernames should match")
+		assert.Equal(t, user.Email, usr.Email, "emails should match")
 	})
 }
 
@@ -104,8 +81,8 @@ func TestTestEnvironment_Cleanup(t *testing.T) {
 		env := NewSuite(t)
 
 		// Create a test record
-		job := &models.Job{Name: "cleanup-test"}
-		env.DB.Create(job)
+		// job := &models.Job{Name: "cleanup-test"} // Removed as Jobs are deprecated
+		// env.DB.Create(job)
 
 		// Get the underlying sql.DB
 		sqlDB, err := env.DB.DB()

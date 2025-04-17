@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -30,7 +31,7 @@ func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instan
 
 // GetByID retrieves an instance by its ID
 // if the ownerID is models.AdminID, it will return the instance regardless of ownership
-func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, JobID, ID uint) (*models.Instance, error) {
+func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, ID uint) (*models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
@@ -38,7 +39,6 @@ func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, JobID, ID uin
 	var instance models.Instance
 	qry := &models.Instance{
 		Model: gorm.Model{ID: ID},
-		JobID: JobID,
 	}
 	if ownerID != models.AdminID {
 		qry.OwnerID = ownerID
@@ -206,13 +206,17 @@ func (r *InstanceRepository) Query(ctx context.Context, ownerID uint, query stri
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
-	if ownerID != models.AdminID {
-		return nil, fmt.Errorf("query method is restricted to admin users only")
-	}
 
 	var instances []models.Instance
-	result := r.db.WithContext(ctx).Raw(query, args...).Scan(&instances)
-	return instances, result.Error
+	dbQuery := r.db.WithContext(ctx).Unscoped()
+	if ownerID != models.AdminID {
+		dbQuery = dbQuery.Where(&models.Instance{OwnerID: ownerID})
+	}
+	err := dbQuery.Where(query, args...).Find(&instances).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query instances: %w", err)
+	}
+	return instances, nil
 }
 
 // Get retrieves an instance by ID
@@ -235,47 +239,61 @@ func (r *InstanceRepository) Get(ctx context.Context, ownerID, id uint) (*models
 	return &instance, nil
 }
 
-// GetByJobID retrieves all instances for a given job ID
-func (r *InstanceRepository) GetByJobID(ctx context.Context, ownerID, jobID uint) ([]models.Instance, error) {
+// GetByProjectIDAndInstanceNames retrieves instances that belong to a specific project and match the given names
+func (r *InstanceRepository) GetByProjectIDAndInstanceNames(
+	ctx context.Context,
+	ownerID uint,
+	projectID uint,
+	names []string,
+) ([]models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
+
+	if len(names) == 0 {
+		return nil, fmt.Errorf("instance names cannot be empty")
+	}
+
+	// Convert []string to []interface{} for clause.IN
+	nameInterfaces := make([]interface{}, len(names))
+	for i, name := range names {
+		nameInterfaces[i] = name
 	}
 
 	var instances []models.Instance
 	query := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{JobID: jobID})
+		Where(&models.Instance{ProjectID: projectID}).
+		Where(clause.IN{Column: models.InstanceNameField, Values: nameInterfaces})
 	if ownerID != models.AdminID {
 		query = query.Where(&models.Instance{OwnerID: ownerID})
 	}
 
 	err := query.Find(&instances).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+		return nil, fmt.Errorf("failed to get instances by project and names: %w", err)
+	}
+	if len(instances) != len(names) {
+		return nil, fmt.Errorf("not all instances found")
 	}
 	return instances, nil
 }
 
-// GetByJobIDOrdered retrieves all instances for a given job ID, ordered by creation date (oldest first)
-func (r *InstanceRepository) GetByJobIDOrdered(ctx context.Context, ownerID, jobID uint) ([]models.Instance, error) {
+// GetByName retrieves an instance by its name
+func (r *InstanceRepository) GetByName(ctx context.Context, ownerID uint, name string) (*models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
-	query := r.db.WithContext(ctx).
+	var instance models.Instance
+	err := r.db.WithContext(ctx).
 		Unscoped().
-		Where(&models.Instance{JobID: jobID})
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
-	query = query.Order(models.InstanceCreatedAtField + " ASC") // ASC order to get oldest first
-
-	var instances []models.Instance
-	err := query.Find(&instances).Error
+		Where(&models.Instance{Name: name, OwnerID: ownerID}).
+		First(&instance).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instances for job %d: %w", jobID, err)
+		return nil, fmt.Errorf("failed to get instance by name: %w", err)
 	}
-	return instances, nil
+	return &instance, nil
 }
 
 // Terminate updates the status of an instance to terminated and performs a soft delete
@@ -295,54 +313,7 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 		if err := result.Error; err != nil {
 			return fmt.Errorf("failed to update instance status: %w", err)
 		}
-		if result.RowsAffected == 0 {
-			return fmt.Errorf("instance not found or not owned by user")
-		}
-
-		// Then perform the soft delete
-		if err := tx.Delete(&models.Instance{}, id).Error; err != nil {
-			return fmt.Errorf("failed to soft delete instance: %w", err)
-		}
 
 		return nil
 	})
-}
-
-// GetByJobIDAndNames retrieves instances that belong to a specific job and match the given names
-func (r *InstanceRepository) GetByJobIDAndNames(
-	ctx context.Context,
-	ownerID uint,
-	jobID uint,
-	names []string,
-) ([]models.Instance, error) {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return nil, fmt.Errorf("invalid owner_id: %w", err)
-	}
-
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Where("job_id = ? AND name IN (?) AND deleted_at IS NULL", jobID, names)
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
-
-	var instances []models.Instance
-	err := query.Find(&instances).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get instances: %w", err)
-	}
-	return instances, nil
-}
-
-// GetByName retrieves an instance by its name
-func (r *InstanceRepository) GetByName(ctx context.Context, name string) (*models.Instance, error) {
-	var instance models.Instance
-	err := r.db.WithContext(ctx).
-		Unscoped().
-		Where(&models.Instance{Name: name}).
-		First(&instance).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get instance by name: %w", err)
-	}
-	return &instance, nil
 }

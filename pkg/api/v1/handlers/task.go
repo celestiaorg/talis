@@ -2,22 +2,25 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
+	"gorm.io/gorm"
 
 	fiber "github.com/gofiber/fiber/v2"
 )
 
 // TaskHandlers contains all task related handlers
 type TaskHandlers struct {
-	taskService *services.TaskService
+	service *services.Task
 }
 
 // NewTaskHandlers creates a new task handlers instance
-func NewTaskHandlers(taskService *services.TaskService) *TaskHandlers {
+func NewTaskHandlers(taskService *services.Task) *TaskHandlers {
 	return &TaskHandlers{
-		taskService: taskService,
+		service: taskService,
 	}
 }
 
@@ -32,9 +35,12 @@ func (h *TaskHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	task, err := h.taskService.GetByName(c.Context(), ownerID, params.ProjectName, params.TaskName)
+	task, err := h.service.GetByName(c.Context(), ownerID, params.TaskName)
 	if err != nil {
-		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgTaskNotFound, err.Error(), req.ID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgTaskNotFound, err.Error(), req.ID)
+		}
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskGetFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{
@@ -62,7 +68,7 @@ func (h *TaskHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 
 	listOpts := getPaginationOptions(page)
 
-	tasks, err := h.taskService.ListByProject(c.Context(), ownerID, params.ProjectName, listOpts)
+	tasks, err := h.service.ListByProject(c.Context(), ownerID, params.ProjectName, listOpts)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskListFailed, err.Error(), req.ID)
 	}
@@ -94,29 +100,8 @@ func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 	}
 
 	// First update the task status to "terminated"
-	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, models.TaskStatusTerminated); err != nil {
+	if err := h.service.UpdateStatusByName(c.Context(), ownerID, params.TaskName, models.TaskStatusTerminated); err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskTerminateFailed, err.Error(), req.ID)
-	}
-
-	return c.JSON(RPCResponse{
-		Success: true,
-		ID:      req.ID,
-	})
-}
-
-// UpdateStatus handles updating a task's status
-func (h *TaskHandlers) UpdateStatus(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
-	params, err := parseParams[TaskUpdateStatusParams](req)
-	if err != nil {
-		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
-	}
-
-	if err := params.Validate(); err != nil {
-		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
-	}
-
-	if err := h.taskService.UpdateStatus(c.Context(), ownerID, params.ProjectName, params.TaskName, params.Status); err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskStatusFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{

@@ -10,15 +10,11 @@ import (
 
 // TaskGetParams defines the parameters for retrieving a task
 type TaskGetParams struct {
-	ProjectName string `json:"projectName"`
-	TaskName    string `json:"taskName"`
+	TaskName string `json:"taskName"`
 }
 
 // Validate validates the parameters for retrieving a task
 func (p TaskGetParams) Validate() error {
-	if p.ProjectName == "" {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgProjNameRequired))
-	}
 	if p.TaskName == "" {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskNameRequired))
 	}
@@ -44,15 +40,11 @@ func (p TaskListParams) Validate() error {
 
 // TaskTerminateParams defines the parameters for terminating a task
 type TaskTerminateParams struct {
-	ProjectName string `json:"projectName"`
-	TaskName    string `json:"taskName"`
+	TaskName string `json:"taskName"`
 }
 
 // Validate validates the parameters for terminating a task
 func (p TaskTerminateParams) Validate() error {
-	if p.ProjectName == "" {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgProjNameRequired))
-	}
 	if p.TaskName == "" {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskNameRequired))
 	}
@@ -61,16 +53,12 @@ func (p TaskTerminateParams) Validate() error {
 
 // TaskUpdateStatusParams defines the parameters for updating a task's status
 type TaskUpdateStatusParams struct {
-	ProjectName string            `json:"projectName"`
-	TaskName    string            `json:"taskName"`
-	Status      models.TaskStatus `json:"status"`
+	TaskName string            `json:"taskName"`
+	Status   models.TaskStatus `json:"status"`
 }
 
 // Validate validates the parameters for updating a task's status
 func (p TaskUpdateStatusParams) Validate() error {
-	if p.ProjectName == "" {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgProjNameRequired))
-	}
 	if p.TaskName == "" {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskNameRequired))
 	}
