@@ -100,12 +100,16 @@ func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models
 	return instance
 }
 
-func (s *DBRepositoryTestSuite) createTestUser() *models.User {
-	user := &models.User{
-		Username: "test-user",
-		Email:    "test@example.com",
+func (s *DBRepositoryTestSuite) randomUser() *models.User {
+	return &models.User{
+		Username: fmt.Sprintf("test-user-%v", s.randomOwnerID()),
+		Email:    fmt.Sprintf("test@example.com-%v", s.randomOwnerID()),
 		Role:     models.UserRoleUser,
 	}
+}
+
+func (s *DBRepositoryTestSuite) createTestUser() *models.User {
+	user := s.randomUser()
 	err := s.userRepo.CreateUser(s.ctx, user)
 	s.Require().NoError(err)
 	return user
