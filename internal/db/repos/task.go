@@ -89,3 +89,39 @@ func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.
 		OwnerID: ownerID,
 	}).Updates(task).Error
 }
+
+// GetSchedulableTasks retrieves tasks that are ready for processing,
+// ordered by error status (no error first) and then by creation date (oldest first).
+// It fetches tasks with statuses other than Completed or Terminated.
+func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
+	var tasks []models.Task
+
+	// Define statuses to exclude
+	excludedStatuses := []models.TaskStatus{
+		models.TaskStatusCompleted,
+		models.TaskStatusTerminated,
+	}
+
+	// Build the query
+	query := r.db.WithContext(ctx).Model(&models.Task{}).Where(
+		"status NOT IN ?", excludedStatuses,
+	)
+
+	// Order by error presence (errors last), then by creation date (oldest first)
+	// Use DB-specific syntax for CASE WHEN or similar logic if needed, assuming standard SQL here.
+	// GORM automatically quotes column names.
+	query = query.Order("CASE WHEN error = '' THEN 0 ELSE 1 END").Order("created_at ASC")
+
+	// Apply limit
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	// Execute the query
+	err := query.Find(&tasks).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query schedulable tasks: %w", err)
+	}
+
+	return tasks, nil
+}
