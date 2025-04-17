@@ -30,7 +30,6 @@ type projectListOutput struct {
 }
 
 func init() {
-	RootCmd.AddCommand(projectsCmd)
 	projectsCmd.AddCommand(createProjectCmd)
 	projectsCmd.AddCommand(getProjectCmd)
 	projectsCmd.AddCommand(listProjectsCmd)

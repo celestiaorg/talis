@@ -54,11 +54,8 @@ DIGITALOCEAN_TOKEN=your_digitalocean_token_here
 # Build the CLI
 make build-cli
 
-# Copy and modify the example create configuration
-cp create_job.json_example create_job.json
-
-# Create a job
-./bin/talis-cli jobs create -f create_job.json
+# Create a project
+./bin/talis-cli project create -n my-project
 
 # Copy and modify the example create configuration
 cp create.json_example create.json
@@ -69,12 +66,6 @@ cp create.json_example create.json
 
 # Delete infrastructure using the auto-generated file
 ./bin/talis-cli infra delete -f delete.json
-
-# List all jobs
-./bin/talis-cli jobs list
-
-# Get job status
-./bin/talis-cli jobs get --id job-20240315-123456
 ```
 
 ### Example Configuration Files
