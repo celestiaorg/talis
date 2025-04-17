@@ -77,12 +77,12 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 
 // Helper methods for creating test data
 
-func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
-	return s.createTestInstanceForOwner(s.randomOwnerID())
+func (s *DBRepositoryTestSuite) randomInstance() *models.Instance {
+	return s.randomInstanceForOwner(s.randomOwnerID())
 }
 
-func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
-	instance := &models.Instance{
+func (s *DBRepositoryTestSuite) randomInstanceForOwner(ownerID uint) *models.Instance {
+	return &models.Instance{
 		OwnerID:    ownerID,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance",
@@ -94,6 +94,14 @@ func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models
 		Status:     models.InstanceStatusPending,
 		CreatedAt:  time.Now(),
 	}
+}
+
+func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
+	return s.createTestInstanceForOwner(s.randomOwnerID())
+}
+
+func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
+	instance := s.randomInstanceForOwner(ownerID)
 	err := s.instanceRepo.Create(s.ctx, instance)
 	s.Require().NoError(err)
 	return instance
