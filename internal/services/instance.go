@@ -46,8 +46,9 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 
 	// Generate TaskName internally
 	taskName := uuid.New().String()
-	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
+	err = s.taskService.Create(ctx, &models.Task{
 		Name:      taskName,
+		OwnerID:   ownerID,
 		ProjectID: project.ID,
 		Status:    models.TaskStatusPending,
 		Action:    models.TaskActionCreateInstances,
@@ -358,10 +359,12 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName stri
 	}
 
 	taskName = uuid.New().String()
-	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
-		Name:   taskName,
-		Status: models.TaskStatusPending,
-		Action: models.TaskActionTerminateInstances,
+	err = s.taskService.Create(ctx, &models.Task{
+		Name:      taskName,
+		OwnerID:   ownerID,
+		ProjectID: project.ID,
+		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionTerminateInstances,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create task: %w", err)

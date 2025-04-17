@@ -25,9 +25,7 @@ func NewTaskService(repo *repos.TaskRepository, projectService *Project) *Task {
 }
 
 // Create creates a new task
-func (s *Task) Create(ctx context.Context, ownerID uint, projectID uint, task *models.Task) error {
-	task.ProjectID = projectID
-	task.OwnerID = ownerID
+func (s *Task) Create(ctx context.Context, task *models.Task) error {
 	return s.repo.Create(ctx, task)
 }
 
