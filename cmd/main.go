@@ -103,6 +103,7 @@ func main() {
 	go services.LaunchWorker(ctx, &wg, taskService)
 
 	// Start server in a goroutine so that it doesn't block.
+	var errChan = make(chan error)
 	go func() {
 		port := os.Getenv("SERVER_PORT")
 		if port == "" {
@@ -110,15 +111,18 @@ func main() {
 		}
 		log.Info("Server starting on :" + port)
 		if err := app.Listen(":" + port); err != nil {
-			// Use Errorf here as Fatalf would exit the program immediately
-			log.Errorf("Failed to start server: %v", err)
-			// We might want to signal an error to the main goroutine here
-			// For now, just logging is okay, but the shutdown might not be clean if Listen fails.
+			// Send error to the channel
+			errChan <- err
 		}
 	}()
 
-	// Listen for the interrupt signal.
-	<-ctx.Done()
+	// Listen for the interrupt signal or the server error.
+	select {
+	case err := <-errChan:
+		log.Errorf("Server failed to start: %v", err)
+	case <-ctx.Done():
+		log.Info("Received interrupt signal, shutting down gracefully")
+	}
 
 	// Restore default behavior on the interrupt signal and notify user of shutdown.
 	stop()
