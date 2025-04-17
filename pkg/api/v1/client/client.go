@@ -23,15 +23,15 @@ const DefaultTimeout = 30 * time.Second
 // Client defines the interface for interacting with the Talis API
 type Client interface {
 	// Admin Endpoints
-	AdminGetInstances(ctx context.Context) (types.ListInstancesResponse, error)
-	AdminGetInstancesMetadata(ctx context.Context) (types.InstanceMetadataResponse, error)
+	AdminGetInstances(ctx context.Context) ([]models.Instance, error)
+	AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error)
 
 	// Health Check
 	HealthCheck(ctx context.Context) (map[string]string, error)
 
 	// Instance Endpoints
-	GetInstances(ctx context.Context, opts *models.ListOptions) (types.ListInstancesResponse, error)
-	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) (types.InstanceMetadataResponse, error)
+	GetInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
+	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req types.InstancesRequest) error
@@ -40,7 +40,7 @@ type Client interface {
 	// Jobs Endpoints
 	GetJobs(ctx context.Context, opts *models.ListOptions) (types.ListJobsResponse, error)
 	GetJob(ctx context.Context, id string) (models.Job, error)
-	GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.InstanceMetadataResponse, error)
+	GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) ([]models.Instance, error)
 	GetInstancesByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.JobInstancesResponse, error)
 	GetJobStatus(ctx context.Context, id string) (models.JobStatus, error)
 	CreateJob(ctx context.Context, req types.JobRequest) error
@@ -204,23 +204,23 @@ func (c *APIClient) rpcRequest(ctx context.Context, method string, params interf
 // Admin methods implementation
 
 // AdminGetInstances retrieves all instances
-func (c *APIClient) AdminGetInstances(ctx context.Context) (types.ListInstancesResponse, error) {
+func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, error) {
 	endpoint := routes.AdminInstancesURL()
-	var response types.ListInstancesResponse
+	var response types.ListResponse[models.Instance]
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.ListInstancesResponse{}, err
+		return []models.Instance{}, err
 	}
-	return response, nil
+	return response.Rows, nil
 }
 
 // AdminGetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) (types.InstanceMetadataResponse, error) {
+func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error) {
 	endpoint := routes.AdminInstancesMetadataURL()
-	var response types.InstanceMetadataResponse
+	var response types.ListResponse[models.Instance]
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.InstanceMetadataResponse{}, err
+		return []models.Instance{}, err
 	}
-	return response, nil
+	return response.Rows, nil
 }
 
 // Health check implementation
@@ -323,33 +323,33 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 }
 
 // GetInstances lists instances with optional filtering
-func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) (types.ListInstancesResponse, error) {
+func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return types.ListInstancesResponse{}, err
+		return []models.Instance{}, err
 	}
 
 	endpoint := routes.GetInstancesURL(q)
-	var response types.ListInstancesResponse
+	var response types.ListResponse[models.Instance]
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.ListInstancesResponse{}, err
+		return []models.Instance{}, err
 	}
-	return response, nil
+	return response.Rows, nil
 }
 
 // GetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) (types.InstanceMetadataResponse, error) {
+func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return types.InstanceMetadataResponse{}, err
+		return []models.Instance{}, err
 	}
 
 	endpoint := routes.GetInstanceMetadataURL(q)
-	var response types.InstanceMetadataResponse
+	var response types.ListResponse[models.Instance]
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.InstanceMetadataResponse{}, err
+		return []models.Instance{}, err
 	}
-	return response, nil
+	return response.Rows, nil
 }
 
 // GetInstancesPublicIPs retrieves public IPs for all instances
@@ -435,18 +435,18 @@ func (c *APIClient) GetJob(ctx context.Context, id string) (models.Job, error) {
 }
 
 // GetMetadataByJobID retrieves metadata for a job by ID
-func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) (types.InstanceMetadataResponse, error) {
+func (c *APIClient) GetMetadataByJobID(ctx context.Context, id string, opts *models.ListOptions) ([]models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return types.InstanceMetadataResponse{}, err
+		return []models.Instance{}, err
 	}
 
 	endpoint := routes.GetJobMetadataURL(id, q)
-	var response types.InstanceMetadataResponse
+	var response types.ListResponse[models.Instance]
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.InstanceMetadataResponse{}, err
+		return []models.Instance{}, err
 	}
-	return response, nil
+	return response.Rows, nil
 }
 
 // GetInstancesByJobID retrieves instances for a job by ID

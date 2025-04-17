@@ -54,8 +54,8 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(types.ListInstancesResponse{
-		Instances: instances,
+	return c.JSON(types.ListResponse[models.Instance]{
+		Rows: instances,
 		Pagination: types.PaginationResponse{
 			Total:  len(instances),
 			Page:   1,
@@ -193,8 +193,8 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Printf("✅ Found %d instances\n", len(instances))
 
 	// Return instances with pagination info
-	return c.JSON(types.InstanceMetadataResponse{
-		Instances: instances,
+	return c.JSON(types.ListResponse[models.Instance]{
+		Rows: instances,
 		Pagination: types.PaginationResponse{
 			Total:  len(instances),
 			Page:   1,
@@ -288,8 +288,8 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(types.ListInstancesResponse{
-		Instances: instances,
+	return c.JSON(types.ListResponse[models.Instance]{
+		Rows: instances,
 		Pagination: types.PaginationResponse{
 			Total:  len(instances),
 			Page:   1,
