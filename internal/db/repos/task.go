@@ -117,7 +117,7 @@ func (r *TaskRepository) UpdateBatch(ctx context.Context, tasks []*models.Task) 
 				// Updates only non-zero fields of the task struct by default
 				// Use Updates for partial updates, Save for full replacement
 				if err := tx.Model(&models.Task{}).Where(models.Task{
-					Model:   gorm.Model{ID: task.ID},
+					Model: gorm.Model{ID: task.ID},
 				}).Updates(task).Error; err != nil {
 					return fmt.Errorf("failed to update task %d: %w", task.ID, err) // Rollback
 				}
