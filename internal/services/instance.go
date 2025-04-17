@@ -61,6 +61,17 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 		}
 
 		for idx := 0; idx < i.NumberOfInstances; idx++ {
+			// Create new instance request for task payload
+			req := i
+			req.Name = fmt.Sprintf("%s-%d", i.Name, idx)
+			req.Action = "create"
+
+			// Marshal the request to JSON
+			payload, err := json.Marshal(req)
+			if err != nil {
+				return fmt.Errorf("failed to marshal instance request: %w", err)
+			}
+
 			// Generate TaskName internally
 			taskName := uuid.New().String()
 			taskToCreate = append(taskToCreate, &models.Task{
@@ -69,6 +80,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 				ProjectID: project.ID,
 				Status:    models.TaskStatusPending,
 				Action:    models.TaskActionCreateInstances,
+				Payload:   payload,
 			})
 
 			// Determine initial payload status
@@ -78,14 +90,14 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			}
 
 			instancesToCreate = append(instancesToCreate, &models.Instance{
-				Name:          fmt.Sprintf("%s-%d", i.Name, idx),
-				OwnerID:       i.OwnerID,
+				Name:          req.Name,
+				OwnerID:       req.OwnerID,
 				ProjectID:     project.ID,
-				ProviderID:    i.Provider,
+				ProviderID:    req.Provider,
 				Status:        models.InstanceStatusPending,
-				Region:        i.Region,
-				Size:          i.Size,
-				Tags:          i.Tags,
+				Region:        req.Region,
+				Size:          req.Size,
+				Tags:          req.Tags,
 				Volumes:       []string{},
 				VolumeDetails: models.VolumeDetails{},
 				PayloadStatus: initialPayloadStatus,

@@ -2,11 +2,29 @@ package services
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/internal/types"
 )
+
+type worker struct {
+	instanceService *Instance
+	projectService  *Project
+	taskService     *Task
+}
+
+func NewWorker(instanceService *Instance, projectService *Project, taskService *Task) *worker {
+	return &worker{
+		instanceService: instanceService,
+		projectService:  projectService,
+		taskService:     taskService,
+	}
+}
 
 // LaunchWorker launches a goroutine that will initialize the worker and execute tasks
 func LaunchWorker(ctx context.Context, wg *sync.WaitGroup, taskService *Task) {
@@ -49,7 +67,49 @@ func LaunchWorker(ctx context.Context, wg *sync.WaitGroup, taskService *Task) {
 		// TODO: Implement actual task processing logic here
 		// For now, we just log and discard them.
 
+		for _, task := range tasks {
+			// Check for shutdown signal here as well in case of long running tasks
+			select {
+			case <-ctx.Done():
+				logger.Info("Worker received shutdown signal, stopping...")
+				return
+			default:
+			}
+			switch task.Action {
+			case models.TaskActionCreateInstances:
+				processCreateInstances(ctx, &task)
+			case models.TaskActionTerminateInstances:
+				processTerminateInstances(ctx, &task)
+			default:
+				logger.Errorf("Worker error fetching tasks: %v", err)
+				// Wait before retrying to avoid spamming logs on persistent DB errors
+				time.Sleep(backoff)
+				continue
+			}
+		}
+
 		// Wait before the next check
 		time.Sleep(time.Second)
 	}
+}
+
+func processCreateInstances(ctx context.Context, task *models.Task) error {
+	// Unmarshal the payload
+	var instancesRequest types.InstancesRequest
+	if err := json.Unmarshal(task.Payload, &instancesRequest); err != nil {
+		return fmt.Errorf("failed to unmarshal payload: %w", err)
+	}
+
+	// Create infrastructure client
+	infraReq := &types.InstancesRequest{
+		TaskName:  task.Name,
+		Instances: instancesRequest.Instances,
+		Action:    "create",
+		Provider:  instancesRequest.Provider,
+	}
+	return nil
+}
+
+func processTerminateInstances(ctx context.Context, task *models.Task) error {
+	return nil
 }
