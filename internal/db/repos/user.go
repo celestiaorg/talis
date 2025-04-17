@@ -34,6 +34,13 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 	return r.db.WithContext(ctx).Create(user).Error
 }
 
+// CreateBatch creates a batch of users in the database
+func (r *UserRepository) CreateBatch(ctx context.Context, users []*models.User) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(users, 100).Error
+	})
+}
+
 // GetUserByUsername retrieves a user by their username
 // Returns ErrRecordNotFound if the user doesn't exist
 func (r *UserRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
@@ -70,13 +77,15 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID uint) (*models.
 func (r *UserRepository) GetUsers(ctx context.Context, opts *models.ListOptions) ([]models.User, error) {
 	var users []models.User
 	db := r.db.WithContext(ctx)
-	if !opts.IncludeDeleted {
-		db = db.Unscoped().Where("deleted_at IS NULL")
-	}
 
-	err := db.Model(&models.User{}).
-		Limit(opts.Limit).Offset(opts.Offset).
-		Find(&users).Error
+	query := db.Model(&models.User{})
+	if opts != nil {
+		query = query.Limit(opts.Limit).Offset(opts.Offset)
+		if !opts.IncludeDeleted {
+			query = query.Unscoped().Where("deleted_at IS NULL")
+		}
+	}
+	err := query.Find(&users).Error
 
 	return users, err
 }

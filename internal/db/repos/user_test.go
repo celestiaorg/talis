@@ -30,6 +30,18 @@ func (s *UserRepositoryTestSuite) TestCreateUser() {
 	err := s.userRepo.CreateUser(s.ctx, duplicateUser)
 	s.Error(err)
 	s.Contains(err.Error(), "username already exists")
+
+	// Test batch creation
+	users := []*models.User{
+		s.randomUser(),
+		s.randomUser(),
+		s.randomUser(),
+	}
+	err = s.userRepo.CreateBatch(s.ctx, users)
+	s.NoError(err)
+	foundUsers, err := s.userRepo.GetUsers(s.ctx, nil)
+	s.NoError(err)
+	s.Equal(len(foundUsers), 4)
 }
 
 func (s *UserRepositoryTestSuite) TestGetUserByUsername() {
