@@ -28,7 +28,9 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 
 // CreateBatch creates a batch of tasks in the database
 func (r *TaskRepository) CreateBatch(ctx context.Context, tasks []*models.Task) error {
-	return r.db.WithContext(ctx).CreateInBatches(tasks, 100).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(tasks, 100).Error
+	})
 }
 
 // GetByID retrieves a task by ID from the database
@@ -93,43 +95,4 @@ func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.
 		Model:   gorm.Model{ID: task.ID},
 		OwnerID: ownerID,
 	}).Updates(task).Error
-}
-
-// UpdateBatch updates a batch of tasks in the database, processing them in smaller chunks within transactions.
-func (r *TaskRepository) UpdateBatch(ctx context.Context, tasks []*models.Task) error {
-	batchSize := 10
-	for i := 0; i < len(tasks); i += batchSize {
-		end := i + batchSize
-		if end > len(tasks) {
-			end = len(tasks)
-		}
-		batch := tasks[i:end]
-
-		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			for _, task := range batch {
-				if err := models.ValidateOwnerID(task.OwnerID); err != nil {
-					return fmt.Errorf("invalid owner_id: %w", err)
-				}
-				// Ensure task has an ID, otherwise update is meaningless
-				if task.ID == 0 {
-					return fmt.Errorf("task missing ID for update")
-				}
-				// Updates only non-zero fields of the task struct by default
-				// Use Updates for partial updates, Save for full replacement
-				if err := tx.Model(&models.Task{}).Where(models.Task{
-					Model: gorm.Model{ID: task.ID},
-				}).Updates(task).Error; err != nil {
-					return fmt.Errorf("failed to update task %d: %w", task.ID, err) // Rollback
-				}
-			}
-			return nil // Commit
-		})
-
-		if err != nil {
-			// Transaction failed, return the error
-			return fmt.Errorf("batch update transaction failed: %w", err)
-		}
-	}
-
-	return nil
 }

@@ -18,15 +18,7 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	project := s.createTestProject()
 
 	// Create a test task
-	task := &models.Task{
-		Name:      "test-task-create",
-		ProjectID: project.ID,
-		OwnerID:   project.OwnerID,
-		Status:    models.TaskStatusPending,
-		Action:    models.TaskActionCreateInstances,
-		Logs:      "Initial logs",
-		CreatedAt: time.Now(),
-	}
+	task := s.randomTask(project.OwnerID, project.ID)
 
 	// Test creation
 	err := s.taskRepo.Create(s.ctx, task)
@@ -45,7 +37,7 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	s.Require().Equal(task.Logs, createdTask.Logs)
 
 	// Test batch creation
-	tasks := []*models.Task{task, task, task}
+	tasks := []*models.Task{s.randomTask(project.OwnerID, project.ID), s.randomTask(project.OwnerID, project.ID), s.randomTask(project.OwnerID, project.ID)}
 	err = s.taskRepo.CreateBatch(s.ctx, tasks)
 	s.Require().NoError(err)
 	s.Require().Equal(len(tasks), 3)

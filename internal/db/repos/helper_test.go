@@ -3,6 +3,7 @@ package repos
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -110,17 +111,21 @@ func (s *DBRepositoryTestSuite) createTestUser() *models.User {
 	return user
 }
 
+func (s *DBRepositoryTestSuite) randomProject(ownerID uint) *models.Project {
+	return &models.Project{
+		Name:        fmt.Sprintf("test-project-%v", s.randomOwnerID()),
+		Description: "Test project description",
+		OwnerID:     ownerID,
+		CreatedAt:   time.Now(),
+	}
+}
+
 func (s *DBRepositoryTestSuite) createTestProject() *models.Project {
 	return s.createTestProjectForOwner(s.randomOwnerID())
 }
 
 func (s *DBRepositoryTestSuite) createTestProjectForOwner(ownerID uint) *models.Project {
-	project := &models.Project{
-		Name:        "test-project",
-		Description: "Test project description",
-		OwnerID:     ownerID,
-		CreatedAt:   time.Now(),
-	}
+	project := s.randomProject(ownerID)
 	err := s.projectRepo.Create(s.ctx, project)
 	s.Require().NoError(err)
 	return project
@@ -131,16 +136,18 @@ func (s *DBRepositoryTestSuite) createTestTask() *models.Task {
 	return s.createTestTaskForProject(project.OwnerID, project.ID)
 }
 
-func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint) *models.Task {
-	task := &models.Task{
-		Name:      "test-task",
+func (s *DBRepositoryTestSuite) randomTask(ownerID, projectID uint) *models.Task {
+	return &models.Task{
+		Name:      fmt.Sprintf("test-task-%v", s.randomOwnerID()),
 		ProjectID: projectID,
 		OwnerID:   ownerID,
 		Status:    models.TaskStatusPending,
 		Action:    models.TaskActionCreateInstances,
-		Logs:      "Task logs",
-		CreatedAt: time.Now(),
 	}
+}
+
+func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint) *models.Task {
+	task := s.randomTask(ownerID, projectID)
 	err := s.taskRepo.Create(s.ctx, task)
 	s.Require().NoError(err)
 	return task
