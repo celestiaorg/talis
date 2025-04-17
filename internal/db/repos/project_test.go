@@ -17,12 +17,7 @@ type ProjectRepositoryTestSuite struct {
 func (s *ProjectRepositoryTestSuite) TestCreateProject() {
 	// Create a test project
 	ownerID := s.randomOwnerID()
-	project := &models.Project{
-		Name:        "test-project-create",
-		Description: "Test project for create operation",
-		OwnerID:     ownerID,
-		CreatedAt:   time.Now(),
-	}
+	project := s.randomProject(ownerID)
 
 	// Test creation
 	err := s.projectRepo.Create(s.ctx, project)
@@ -36,6 +31,18 @@ func (s *ProjectRepositoryTestSuite) TestCreateProject() {
 	s.Require().Equal(project.Name, createdProject.Name)
 	s.Require().Equal(project.Description, createdProject.Description)
 	s.Require().Equal(project.OwnerID, createdProject.OwnerID)
+
+	// Test batch creation
+	projects := []*models.Project{
+		s.randomProject(ownerID),
+		s.randomProject(ownerID),
+		s.randomProject(ownerID),
+	}
+	err = s.projectRepo.CreateBatch(s.ctx, projects)
+	s.Require().NoError(err)
+	foundProjects, err := s.projectRepo.List(s.ctx, ownerID, nil)
+	s.Require().NoError(err)
+	s.Require().Equal(len(foundProjects), 4)
 }
 
 func (s *ProjectRepositoryTestSuite) TestGetProject() {

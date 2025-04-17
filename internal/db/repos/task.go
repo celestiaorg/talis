@@ -26,6 +26,13 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 	return r.db.WithContext(ctx).Create(task).Error
 }
 
+// CreateBatch creates a batch of tasks in the database
+func (r *TaskRepository) CreateBatch(ctx context.Context, tasks []*models.Task) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(tasks, 100).Error
+	})
+}
+
 // GetByID retrieves a task by ID from the database
 func (r *TaskRepository) GetByID(ctx context.Context, ownerID uint, id uint) (*models.Task, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
