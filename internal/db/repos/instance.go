@@ -325,5 +325,7 @@ func (r *InstanceRepository) CreateBatch(ctx context.Context, instances []*model
 			return fmt.Errorf("invalid owner_id: %w", err)
 		}
 	}
-	return r.db.WithContext(ctx).CreateInBatches(instances, 100).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(instances, 100).Error
+	})
 }
