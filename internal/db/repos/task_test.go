@@ -43,6 +43,12 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	s.Require().Equal(task.Status, createdTask.Status)
 	s.Require().Equal(task.Action, createdTask.Action)
 	s.Require().Equal(task.Logs, createdTask.Logs)
+
+	// Test batch creation
+	tasks := []*models.Task{task, task, task}
+	err = s.taskRepo.CreateBatch(s.ctx, tasks)
+	s.Require().NoError(err)
+	s.Require().Equal(len(tasks), 3)
 }
 
 func (s *TaskRepositoryTestSuite) TestGetTaskByID() {
