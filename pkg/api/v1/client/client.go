@@ -78,8 +78,9 @@ func DefaultOptions() *Options {
 
 // APIClient implements the Client interface
 type APIClient struct {
-	baseURL string
-	timeout time.Duration
+	baseURL   string
+	timeout   time.Duration
+	AuthToken string
 }
 
 // NewClient creates a new API client with the given options
@@ -149,9 +150,6 @@ func (c *APIClient) doRequest(agent *fiber.Agent, v interface{}) error {
 		return fmt.Errorf("error sending request: %w", errs[0])
 	}
 
-	// Print the raw response for debugging
-	// fmt.Printf("DEBUG - Response body: %s\n", string(body))
-
 	// Check for non-success status codes
 	if statusCode < 200 || statusCode >= 300 {
 		// If we can't decode the error response, return an error with the raw body as the message
@@ -199,16 +197,8 @@ func (c *APIClient) executeRequest(ctx context.Context, method, endpoint string,
 	return c.doRequest(agent, response)
 }
 
-// RPCResponseWrapper is a wrapper for RPC responses
-type RPCResponseWrapper struct {
-	Data    json.RawMessage `json:"data"`
-	Error   interface{}     `json:"error,omitempty"`
-	ID      string          `json:"id,omitempty"`
-	Success bool            `json:"success"`
-}
-
-// rpcRequest executes an RPC-style request to the API
-func (c *APIClient) rpcRequest(ctx context.Context, method string, params interface{}, response interface{}) error {
+// executeRPC performs the actual RPC call
+func (c *APIClient) executeRPC(ctx context.Context, method string, params interface{}, result interface{}) error {
 	endpoint := routes.RPCURL()
 
 	// Create the request body
@@ -237,26 +227,36 @@ func (c *APIClient) rpcRequest(ctx context.Context, method string, params interf
 		}
 	}
 
-	// Unmarshal the response into the wrapper
-	var wrapper RPCResponseWrapper
-	if err := json.Unmarshal(body, &wrapper); err != nil {
-		return fmt.Errorf("error decoding RPC response wrapper: %w. Body: %s", err, string(body))
+	// Unmarshal the response into the handlers.RPCResponse struct
+	var rpcResp handlers.RPCResponse
+	if err := json.Unmarshal(body, &rpcResp); err != nil {
+		return fmt.Errorf("failed to unmarshal RPC response body: %w", err)
 	}
 
-	// Check for application-level errors in the response
-	if !wrapper.Success {
-		if wrapper.Error != nil {
-			errBytes, _ := json.Marshal(wrapper.Error)
-			return fmt.Errorf("RPC request failed: %s", string(errBytes))
-		}
-		return fmt.Errorf("RPC request failed with no error details")
+	// Check for application-level errors
+	if rpcResp.Error != nil {
+		return fmt.Errorf("RPC error: %s (code: %d)", rpcResp.Error.Message, rpcResp.Error.Code)
 	}
 
-	// Unmarshal the actual data from the wrapper into the target response object
-	if response != nil && wrapper.Data != nil {
-		if err := json.Unmarshal(wrapper.Data, response); err != nil {
-			return fmt.Errorf("error decoding RPC data: %w. Data: %s", err, string(wrapper.Data))
-		}
+	if !rpcResp.Success {
+		return fmt.Errorf("RPC call failed without specific error details")
+	}
+
+	// If result is nil, we don't need to unmarshal data (e.g., for notification-style calls)
+	if result == nil {
+		return nil
+	}
+
+	// Unmarshal the Data field into the provided result interface{}
+	// Since rpcResp.Data is interface{}, we need to marshal it back to JSON
+	// and then unmarshal it into the target result struct.
+	dataBytes, err := json.Marshal(rpcResp.Data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal RPC data field: %w", err)
+	}
+
+	if err := json.Unmarshal(dataBytes, result); err != nil {
+		return fmt.Errorf("failed to unmarshal RPC data into result: %w", err)
 	}
 
 	return nil
@@ -473,7 +473,7 @@ func (c *APIClient) DeleteUser(ctx context.Context, id string) error {
 // CreateProject creates a new project
 func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error) {
 	var project models.Project
-	if err := c.rpcRequest(ctx, handlers.ProjectCreate, params, &project); err != nil {
+	if err := c.executeRPC(ctx, handlers.ProjectCreate, params, &project); err != nil {
 		return project, err
 	}
 	return project, nil
@@ -482,7 +482,7 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 // GetProject retrieves a project by name
 func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error) {
 	var project models.Project
-	if err := c.rpcRequest(ctx, handlers.ProjectGet, params, &project); err != nil {
+	if err := c.executeRPC(ctx, handlers.ProjectGet, params, &project); err != nil {
 		return models.Project{}, err
 	}
 	return project, nil
@@ -491,7 +491,7 @@ func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetPa
 // ListProjects lists all projects
 func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
 	var listResponse types.ListResponse[models.Project]
-	if err := c.rpcRequest(ctx, handlers.ProjectList, params, &listResponse); err != nil {
+	if err := c.executeRPC(ctx, handlers.ProjectList, params, &listResponse); err != nil {
 		return nil, err
 	}
 	return listResponse.Rows, nil
@@ -499,13 +499,13 @@ func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectLis
 
 // DeleteProject deletes a project by name
 func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error {
-	return c.rpcRequest(ctx, handlers.ProjectDelete, params, nil)
+	return c.executeRPC(ctx, handlers.ProjectDelete, params, nil)
 }
 
 // ListProjectInstances lists all instances for a project
 func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
 	var listResponse types.ListResponse[models.Instance]
-	if err := c.rpcRequest(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
+	if err := c.executeRPC(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
 		return nil, err
 	}
 	return listResponse.Rows, nil
@@ -516,7 +516,7 @@ func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.Pr
 // GetTask retrieves a task by name
 func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error) {
 	var task models.Task
-	if err := c.rpcRequest(ctx, handlers.TaskGet, params, &task); err != nil {
+	if err := c.executeRPC(ctx, handlers.TaskGet, params, &task); err != nil {
 		return models.Task{}, err
 	}
 	return task, nil
@@ -525,7 +525,7 @@ func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) 
 // ListTasks lists all tasks
 func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
 	var listResponse types.ListResponse[models.Task]
-	if err := c.rpcRequest(ctx, handlers.TaskList, params, &listResponse); err != nil {
+	if err := c.executeRPC(ctx, handlers.TaskList, params, &listResponse); err != nil {
 		return nil, err
 	}
 	return listResponse.Rows, nil
@@ -533,10 +533,10 @@ func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParam
 
 // TerminateTask terminates a task by name
 func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error {
-	return c.rpcRequest(ctx, handlers.TaskTerminate, params, nil)
+	return c.executeRPC(ctx, handlers.TaskTerminate, params, nil)
 }
 
 // UpdateTaskStatus updates the status of a task
 func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error {
-	return c.rpcRequest(ctx, handlers.TaskUpdateStatus, params, nil)
+	return c.executeRPC(ctx, handlers.TaskUpdateStatus, params, nil)
 }
