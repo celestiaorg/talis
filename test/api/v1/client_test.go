@@ -234,7 +234,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	// Verify that the default list (non-terminated) shows no instances
 	instanceList, err = suite.APIClient.GetInstances(suite.Context(), &models.ListOptions{})
 	require.NoError(t, err)
-	require.Empty(t, instanceList.Instances, "expected no non-terminated instances")
+	require.Empty(t, instanceList, "expected no non-terminated instances")
 }
 
 func TestClientUserMethods(t *testing.T) {
