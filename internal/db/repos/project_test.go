@@ -1,6 +1,7 @@
 package repos
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -153,7 +154,7 @@ func (s *ProjectRepositoryTestSuite) TestListProjectInstances() {
 			ProjectID:  project.ID,
 			ProviderID: models.ProviderDO,
 			Name:       "test-instance-list-" + time.Now().Format(time.RFC3339Nano),
-			PublicIP:   "192.0.2." + string(rune('1'+i)),
+			PublicIP:   fmt.Sprintf("192.0.2.%d", 1+i),
 			Region:     "nyc1",
 			Size:       "s-1vcpu-1gb",
 			Image:      "ubuntu-20-04-x64",
