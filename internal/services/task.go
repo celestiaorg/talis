@@ -29,6 +29,11 @@ func (s *Task) Create(ctx context.Context, task *models.Task) error {
 	return s.repo.Create(ctx, task)
 }
 
+// CreateBatch creates a batch of tasks
+func (s *Task) CreateBatch(ctx context.Context, tasks []*models.Task) error {
+	return s.repo.CreateBatch(ctx, tasks)
+}
+
 // GetByName retrieves a task by name
 func (s *Task) GetByName(ctx context.Context, ownerID uint, taskName string) (*models.Task, error) {
 	return s.repo.GetByName(ctx, ownerID, taskName)
