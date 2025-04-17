@@ -93,6 +93,12 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 				instanceName = fmt.Sprintf("%s-%d", baseName, idx)
 			}
 
+			// Determine initial payload status
+			initialPayloadStatus := models.PayloadStatusNone
+			if i.PayloadPath != "" {
+				initialPayloadStatus = models.PayloadStatusPendingCopy
+			}
+
 			instance := &models.Instance{
 				Name:          instanceName,
 				OwnerID:       i.OwnerID,
@@ -105,6 +111,7 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 				Tags:          i.Tags,
 				Volumes:       []string{},
 				VolumeDetails: models.VolumeDetails{},
+				PayloadStatus: initialPayloadStatus,
 			}
 
 			// TODO: find a way to create it in batch
@@ -314,6 +321,21 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 				return
 			}
 			s.addTaskLogs(ctx, ownerID, task, "Ansible provisioning completed")
+			// Update payload status for instances with payloads
+			for _, instance := range pInstances {
+				if instance.PayloadPath == "" {
+					continue
+				}
+				updateInstance := &models.Instance{
+					PayloadStatus: models.PayloadStatusExecuted,
+				}
+
+				if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
+					logger.Errorf("❌ Failed to update payload status for instance %s: %v", instance.Name, err)
+					continue
+				}
+				logger.Debugf("✅ Updated payload status to executed for instance %s", instance.Name)
+			}
 		}
 
 		s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted)
