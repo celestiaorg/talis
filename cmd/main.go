@@ -56,7 +56,6 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	// We will use connection pooling later
-	// defer DB.Close()
 
 	// Initialize repositories
 	instanceRepo := repos.NewInstanceRepository(DB)
@@ -129,8 +128,6 @@ func main() {
 	log.Info("Shutting down gracefully, press Ctrl+C again to force")
 
 	// Perform application shutdown with a timeout.
-	// TODO: Add a mechanism here if needed to wait for LaunchWorker to fully complete its cleanup.
-	// This might involve a WaitGroup or a channel signal from the worker.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 second timeout for shutdown
 	defer cancel()
 
