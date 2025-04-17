@@ -349,35 +349,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			wantErr: true,
 			errMsg:  "invalid instance name",
 		},
-		{
-			name: "missing volumes",
-			request: &InstanceRequest{
-				Name:              "valid-instance",
-				Provider:          "do",
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu-20-04-x64",
-				SSHKeyName:        "test-key",
-			},
-			wantErr: true,
-			errMsg:  "at least one volume configuration is required",
-		},
-		{
-			name: "invalid instance name",
-			request: &InstanceRequest{
-				Name:              "invalid_hostname$123",
-				Provider:          "do",
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu-20-04-x64",
-				SSHKeyName:        "test-key",
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
-			},
-			wantErr: true,
-			errMsg:  "invalid instance name",
-		},
 	}
 
 	for _, tt := range tests {

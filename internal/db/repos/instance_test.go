@@ -1,6 +1,7 @@
 package repos
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func (s *InstanceRepositoryTestSuite) verifyTermination(ownerID, instanceID uint
 		return err
 	}
 	if instance.Status != models.InstanceStatusTerminated {
-		return nil
+		return fmt.Errorf("instance is not yet terminated (status=%v)", instance.Status)
 	}
 	return nil
 }
