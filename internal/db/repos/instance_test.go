@@ -31,19 +31,24 @@ func (s *InstanceRepositoryTestSuite) verifyTermination(ownerID, instanceID uint
 }
 
 func (s *InstanceRepositoryTestSuite) TestCreate() {
-	// Test with valid owner ID
-	instance := s.createTestInstance()
-	s.NotZero(instance.ID)
-
 	// Test with zero owner ID should work but log a warning
 	// TODO: Once ValidateOwnerID returns an error, update this test to expect an error
-	invalidInstance := &models.Instance{
-		OwnerID:    0,
-		ProviderID: models.ProviderDO,
-		Name:       "test-instance-invalid",
-	}
+	invalidInstance := s.randomInstanceForOwner(0)
 	err := s.instanceRepo.Create(s.ctx, invalidInstance)
 	s.NoError(err) // Temporarily allowing zero owner_id
+
+	// Test CreateBatch
+	instances := []*models.Instance{
+		s.randomInstance(),
+		s.randomInstance(),
+	}
+	err = s.instanceRepo.CreateBatch(s.ctx, instances)
+	s.NoError(err)
+
+	// Confirm all instances were created
+	dbInstances, err := s.instanceRepo.List(s.ctx, models.AdminID, nil)
+	s.NoError(err)
+	s.Len(dbInstances, 3)
 }
 
 func (s *InstanceRepositoryTestSuite) TestGetByID() {
