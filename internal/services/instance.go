@@ -220,7 +220,6 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 
 		// Create infrastructure client
 		infraReq := &types.InstancesRequest{
-			TaskName:  task.Name,
 			Instances: instances,
 			Action:    "create",
 			Provider:  instances[0].Provider,
@@ -440,7 +439,6 @@ func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instance
 
 			// Create a new infrastructure request for each instance
 			infraReq := &types.InstancesRequest{
-				TaskName: task.Name,
 				Instances: []types.InstanceRequest{
 					{
 						Name:     instance.Name,

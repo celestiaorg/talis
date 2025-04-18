@@ -23,6 +23,13 @@ import (
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
+// Environment variable names (moved from internal/config)
+const (
+	// TalisServerSSHPrivateKeyEnvVar is the environment variable holding the
+	// PEM-encoded private SSH key for Talis Server internal operations.
+	TalisServerSSHPrivateKeyEnvVar = "TALIS_SERVER_SSH_PRIVATE_KEY"
+)
+
 func main() {
 	// Load .env file first
 	if err := godotenv.Load(); err != nil {
@@ -62,12 +69,14 @@ func main() {
 	userRepo := repos.NewUserRepository(DB)
 	projectRepo := repos.NewProjectRepository(DB)
 	taskRepo := repos.NewTaskRepository(DB)
+	sshKeyRepo := repos.NewSSHKeyRepository(DB)
 
 	// Initialize services
 	projectService := services.NewProjectService(projectRepo)
 	taskService := services.NewTaskService(taskRepo, projectService)
 	instanceService := services.NewInstanceService(instanceRepo, taskService, projectService)
 	userService := services.NewUserService(userRepo)
+	_ = services.NewSSHKeyService(sshKeyRepo)
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
