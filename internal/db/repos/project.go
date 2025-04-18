@@ -27,6 +27,13 @@ func (r *ProjectRepository) Create(ctx context.Context, project *models.Project)
 	return r.db.WithContext(ctx).Create(project).Error
 }
 
+// CreateBatch creates a batch of projects in the database
+func (r *ProjectRepository) CreateBatch(ctx context.Context, projects []*models.Project) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(projects, 100).Error
+	})
+}
+
 // Get retrieves a project by ID from the database
 func (r *ProjectRepository) Get(ctx context.Context, id uint) (*models.Project, error) {
 	var project models.Project
@@ -58,8 +65,11 @@ func (r *ProjectRepository) List(ctx context.Context, ownerID uint, opts *models
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 	var projects []models.Project
-	err := r.db.WithContext(ctx).Where(models.Project{OwnerID: ownerID}).
-		Limit(opts.Limit).Offset(opts.Offset).Find(&projects).Error
+	query := r.db.WithContext(ctx).Where(models.Project{OwnerID: ownerID})
+	if opts != nil {
+		query = query.Limit(opts.Limit).Offset(opts.Offset)
+	}
+	err := query.Find(&projects).Error
 	return projects, err
 }
 
