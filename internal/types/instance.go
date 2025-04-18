@@ -14,11 +14,13 @@ const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 
 // InstanceConfig represents the configuration for creating an instance
 type InstanceConfig struct {
-	Region            string         `json:"region"`                // Region where to create the instance
-	OwnerID           uint           `json:"owner_id"`              // Owner ID of the instance
-	Size              string         `json:"size"`                  // Size/type of the instance
-	Image             string         `json:"image"`                 // OS image to use
-	SSHKeyID          string         `json:"ssh_key_id"`            // SSH key name to use
+	Region  string `json:"region"`   // Region where to create the instance
+	OwnerID uint   `json:"owner_id"` // Owner ID of the instance
+	Size    string `json:"size"`     // Size/type of the instance
+	Image   string `json:"image"`    // OS image to use
+	// SSHKeyID            string         `json:"ssh_key_id,omitempty"`  // Removed
+	// UserSSHKeyIDs       []string       `json:"user_ssh_key_ids"`      // Removed
+	SSHKeyIDs         []string       `json:"ssh_key_ids"`           // SSH key names/IDs (from hypervisor) for access (includes server + user keys)
 	Tags              []string       `json:"tags,omitempty"`        // Tags to apply to the instance
 	NumberOfInstances int            `json:"number_of_instances"`   // Number of instances to create
 	CustomName        string         `json:"custom_name,omitempty"` // Optional custom name for this specific instance
@@ -41,21 +43,22 @@ type InstancesRequest struct {
 // InstanceRequest represents an RPC request for a single instance
 // NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstanceRequest struct {
-	Provider          models.ProviderID `json:"provider"`                  // Cloud provider (e.g., "do")
-	Region            string            `json:"region"`                    // Region where instances will be created
-	Size              string            `json:"size"`                      // Instance size/type
-	Image             string            `json:"image"`                     // OS image to use
-	SSHKeyName        string            `json:"ssh_key_name"`              // Name of the SSH key to use
-	Tags              []string          `json:"tags"`                      // Tags to apply to instances
-	NumberOfInstances int               `json:"number_of_instances"`       // Number of instances to create
-	Name              string            `json:"name"`                      // Optional custom name for instances
-	Provision         bool              `json:"provision"`                 // Whether to run Ansible provisioning
-	Volumes           []VolumeConfig    `json:"volumes"`                   // Optional volumes to attach
-	OwnerID           uint              `json:"owner_id"`                  // Owner ID of the instance
-	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
-	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
-	SSHKeyType        string            `json:"ssh_key_type,omitempty"`    // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
-	SSHKeyPath        string            `json:"ssh_key_path,omitempty"`    // Custom path to the private SSH key file for Ansible. Overrides defaults.
+	Provider models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
+	Region   string            `json:"region"`   // Region where instances will be created
+	Size     string            `json:"size"`     // Instance size/type
+	Image    string            `json:"image"`    // OS image to use
+	// SSHKeyName        string            `json:"ssh_key_name"`           // Removed
+	SSHKeyNames       []string       `json:"ssh_key_names"`             // Names of the SSH keys (registered in hypervisor) to grant user access
+	Tags              []string       `json:"tags"`                      // Tags to apply to instances
+	NumberOfInstances int            `json:"number_of_instances"`       // Number of instances to create
+	Name              string         `json:"name"`                      // Optional custom name for instances
+	Provision         bool           `json:"provision"`                 // Whether to run Ansible provisioning
+	Volumes           []VolumeConfig `json:"volumes"`                   // Optional volumes to attach
+	OwnerID           uint           `json:"owner_id"`                  // Owner ID of the instance
+	PayloadPath       string         `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
+	ExecutePayload    bool           `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
+	SSHKeyType        string         `json:"ssh_key_type,omitempty"`    // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
+	SSHKeyPath        string         `json:"ssh_key_path,omitempty"`    // Custom path to the private SSH key file for Ansible. Overrides defaults.
 }
 
 // DeleteInstanceRequest represents the request body for deleting instances
@@ -133,8 +136,11 @@ func (i *InstanceRequest) Validate() error {
 	if i.Image == "" {
 		return fmt.Errorf("image is required")
 	}
-	if i.SSHKeyName == "" {
-		return fmt.Errorf("ssh_key_name is required")
+	// if i.SSHKeyName == "" { // <-- Update validation
+	// 	return fmt.Errorf("ssh_key_name is required")
+	// }
+	if len(i.SSHKeyNames) == 0 {
+		return fmt.Errorf("at least one ssh_key_name is required")
 	}
 
 	// Validate payload path if provided
@@ -193,6 +199,9 @@ func (i *InstanceRequest) Validate() error {
 		}
 	}
 
-	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
+	// i.SSHKeyName = strings.ToLower(i.SSHKeyName) // <-- Update cleanup/normalization
+	for idx, name := range i.SSHKeyNames {
+		i.SSHKeyNames[idx] = strings.ToLower(name)
+	}
 	return nil
 }

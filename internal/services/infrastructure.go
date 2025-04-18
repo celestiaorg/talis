@@ -82,11 +82,13 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			}
 
 			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
-				Region:            instance.Region,
-				OwnerID:           instance.OwnerID,
-				Size:              instance.Size,
-				Image:             instance.Image,
-				SSHKeyID:          instance.SSHKeyName,
+				Region:  instance.Region,
+				OwnerID: instance.OwnerID,
+				Size:    instance.Size,
+				Image:   instance.Image,
+				// UserSSHKeyIDs:       []string{instance.SSHKeyName}, // Temporary: Use old field for now
+				// Combine server key (when available) and user keys
+				SSHKeyIDs:         append([]string{ /* TODO: Get Server Key ID from provider logic */ }, instance.SSHKeyNames...),
 				Tags:              instance.Tags,
 				NumberOfInstances: instance.NumberOfInstances,
 				CustomName:        instance.Name,
