@@ -13,6 +13,8 @@ func LaunchWorker(ctx context.Context, wg *sync.WaitGroup, taskService *Task) {
 	defer wg.Done()
 	const taskLimit = 10
 	const backoff = time.Second
+	// NOTE: tickers need a non-zero duration, this will just cause a small delay before the worker starts
+	t := time.NewTicker(time.Millisecond)
 
 	logger.Info("Worker started")
 
@@ -21,7 +23,7 @@ func LaunchWorker(ctx context.Context, wg *sync.WaitGroup, taskService *Task) {
 		case <-ctx.Done():
 			logger.Info("Worker received shutdown signal, stopping...")
 			return
-		default:
+		case <-t.C:
 		}
 
 		// Fetch schedulable tasks
@@ -29,14 +31,14 @@ func LaunchWorker(ctx context.Context, wg *sync.WaitGroup, taskService *Task) {
 		if err != nil {
 			logger.Errorf("Worker error fetching tasks: %v", err)
 			// Wait before retrying to avoid spamming logs on persistent DB errors
-			time.Sleep(backoff)
+			t.Reset(backoff)
 			continue
 		}
 
 		if len(tasks) == 0 {
 			logger.Debug("Worker: No tasks to process")
 			// Wait before retrying to give time for tasks to be created
-			time.Sleep(backoff)
+			t.Reset(backoff)
 			continue
 		}
 		// Log fetched tasks (just IDs for brevity)
@@ -50,6 +52,6 @@ func LaunchWorker(ctx context.Context, wg *sync.WaitGroup, taskService *Task) {
 		// For now, we just log and discard them.
 
 		// Wait before the next check
-		time.Sleep(time.Second)
+		t.Reset(time.Second)
 	}
 }

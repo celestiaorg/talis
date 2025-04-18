@@ -113,8 +113,11 @@ func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]
 	query = query.Order("CASE WHEN error = '' THEN 0 ELSE 1 END").Order("created_at ASC")
 
 	// Apply limit
+	defaultLimit := 100
 	if limit > 0 {
 		query = query.Limit(limit)
+	} else {
+		query = query.Limit(defaultLimit)
 	}
 
 	// Execute the query
