@@ -40,7 +40,9 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	tasks := []*models.Task{s.randomTask(project.OwnerID, project.ID), s.randomTask(project.OwnerID, project.ID), s.randomTask(project.OwnerID, project.ID)}
 	err = s.taskRepo.CreateBatch(s.ctx, tasks)
 	s.Require().NoError(err)
-	s.Require().Equal(len(tasks), 3)
+	foundTasks, err := s.taskRepo.ListByProject(s.ctx, project.OwnerID, project.ID, nil)
+	s.Require().NoError(err)
+	s.Require().Equal(4, len(foundTasks))
 }
 
 func (s *TaskRepositoryTestSuite) TestGetTaskByID() {

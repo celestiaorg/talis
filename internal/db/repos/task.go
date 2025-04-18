@@ -68,10 +68,14 @@ func (r *TaskRepository) ListByProject(ctx context.Context, ownerID uint, projec
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 	var tasks []models.Task
-	err := r.db.WithContext(ctx).Where(models.Task{
+	query := r.db.WithContext(ctx).Where(models.Task{
 		OwnerID:   ownerID,
 		ProjectID: projectID,
-	}).Limit(opts.Limit).Offset(opts.Offset).Find(&tasks).Error
+	})
+	if opts != nil {
+		query = query.Limit(opts.Limit).Offset(opts.Offset)
+	}
+	err := query.Find(&tasks).Error
 	return tasks, err
 }
 
