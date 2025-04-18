@@ -1,7 +1,6 @@
 {
     "name": "talis-cli",
     "project_name": "talis-1",
-    "job_name": "talis-cli",
     "owner_id": 1,
     "instances": [
         {
