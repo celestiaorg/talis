@@ -33,7 +33,6 @@ type taskListOutput struct {
 }
 
 func init() {
-	RootCmd.AddCommand(tasksCmd)
 	tasksCmd.AddCommand(getTaskCmd)
 	tasksCmd.AddCommand(listTasksCmd)
 	tasksCmd.AddCommand(terminateTaskCmd)

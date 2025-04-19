@@ -25,9 +25,7 @@ func NewTaskService(repo *repos.TaskRepository, projectService *Project) *Task {
 }
 
 // Create creates a new task
-func (s *Task) Create(ctx context.Context, ownerID uint, projectID uint, task *models.Task) error {
-	task.ProjectID = projectID
-	task.OwnerID = ownerID
+func (s *Task) Create(ctx context.Context, task *models.Task) error {
 	return s.repo.Create(ctx, task)
 }
 
@@ -153,4 +151,11 @@ func (s *Task) CompleteTask(ctx context.Context, ownerID uint, taskID uint, resu
 	}
 
 	return nil
+}
+
+// GetSchedulableTasks retrieves tasks ready for the worker to process.
+func (s *Task) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
+	// Note: Currently, this doesn't filter by ownerID as the worker is system-wide.
+	// If worker logic becomes owner-specific, ownerID filtering might be needed here or in the repo method.
+	return s.repo.GetSchedulableTasks(ctx, limit)
 }

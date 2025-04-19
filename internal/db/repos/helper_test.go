@@ -3,6 +3,7 @@ package repos
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -77,12 +78,12 @@ func (s *DBRepositoryTestSuite) TearDownTest() {
 
 // Helper methods for creating test data
 
-func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
-	return s.createTestInstanceForOwner(s.randomOwnerID())
+func (s *DBRepositoryTestSuite) randomInstance() *models.Instance {
+	return s.randomInstanceForOwner(s.randomOwnerID())
 }
 
-func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
-	instance := &models.Instance{
+func (s *DBRepositoryTestSuite) randomInstanceForOwner(ownerID uint) *models.Instance {
+	return &models.Instance{
 		OwnerID:    ownerID,
 		ProviderID: models.ProviderDO,
 		Name:       "test-instance",
@@ -94,20 +95,41 @@ func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models
 		Status:     models.InstanceStatusPending,
 		CreatedAt:  time.Now(),
 	}
+}
+
+func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
+	return s.createTestInstanceForOwner(s.randomOwnerID())
+}
+
+func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
+	instance := s.randomInstanceForOwner(ownerID)
 	err := s.instanceRepo.Create(s.ctx, instance)
 	s.Require().NoError(err)
 	return instance
 }
 
-func (s *DBRepositoryTestSuite) createTestUser() *models.User {
-	user := &models.User{
-		Username: "test-user",
-		Email:    "test@example.com",
+func (s *DBRepositoryTestSuite) randomUser() *models.User {
+	return &models.User{
+		Username: fmt.Sprintf("test-user-%v", s.randomOwnerID()),
+		Email:    fmt.Sprintf("test@example.com-%v", s.randomOwnerID()),
 		Role:     models.UserRoleUser,
 	}
+}
+
+func (s *DBRepositoryTestSuite) createTestUser() *models.User {
+	user := s.randomUser()
 	err := s.userRepo.CreateUser(s.ctx, user)
 	s.Require().NoError(err)
 	return user
+}
+
+func (s *DBRepositoryTestSuite) randomProject(ownerID uint) *models.Project {
+	return &models.Project{
+		Name:        fmt.Sprintf("test-project-%v", s.randomOwnerID()),
+		Description: "Test project description",
+		OwnerID:     ownerID,
+		CreatedAt:   time.Now(),
+	}
 }
 
 func (s *DBRepositoryTestSuite) createTestProject() *models.Project {
@@ -115,12 +137,7 @@ func (s *DBRepositoryTestSuite) createTestProject() *models.Project {
 }
 
 func (s *DBRepositoryTestSuite) createTestProjectForOwner(ownerID uint) *models.Project {
-	project := &models.Project{
-		Name:        "test-project",
-		Description: "Test project description",
-		OwnerID:     ownerID,
-		CreatedAt:   time.Now(),
-	}
+	project := s.randomProject(ownerID)
 	err := s.projectRepo.Create(s.ctx, project)
 	s.Require().NoError(err)
 	return project
@@ -131,16 +148,18 @@ func (s *DBRepositoryTestSuite) createTestTask() *models.Task {
 	return s.createTestTaskForProject(project.OwnerID, project.ID)
 }
 
-func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint) *models.Task {
-	task := &models.Task{
-		Name:      "test-task",
+func (s *DBRepositoryTestSuite) randomTask(ownerID, projectID uint) *models.Task {
+	return &models.Task{
+		Name:      fmt.Sprintf("test-task-%v", s.randomOwnerID()),
 		ProjectID: projectID,
 		OwnerID:   ownerID,
 		Status:    models.TaskStatusPending,
 		Action:    models.TaskActionCreateInstances,
-		Logs:      "Task logs",
-		CreatedAt: time.Now(),
 	}
+}
+
+func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint) *models.Task {
+	task := s.randomTask(ownerID, projectID)
 	err := s.taskRepo.Create(s.ctx, task)
 	s.Require().NoError(err)
 	return task

@@ -26,6 +26,13 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 	return r.db.WithContext(ctx).Create(task).Error
 }
 
+// CreateBatch creates a batch of tasks in the database
+func (r *TaskRepository) CreateBatch(ctx context.Context, tasks []*models.Task) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(tasks, 100).Error
+	})
+}
+
 // GetByID retrieves a task by ID from the database
 func (r *TaskRepository) GetByID(ctx context.Context, ownerID uint, id uint) (*models.Task, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
@@ -61,10 +68,14 @@ func (r *TaskRepository) ListByProject(ctx context.Context, ownerID uint, projec
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 	var tasks []models.Task
-	err := r.db.WithContext(ctx).Where(models.Task{
+	query := r.db.WithContext(ctx).Where(models.Task{
 		OwnerID:   ownerID,
 		ProjectID: projectID,
-	}).Limit(opts.Limit).Offset(opts.Offset).Find(&tasks).Error
+	})
+	if opts != nil {
+		query = query.Limit(opts.Limit).Offset(opts.Offset)
+	}
+	err := query.Find(&tasks).Error
 	return tasks, err
 }
 
@@ -88,4 +99,43 @@ func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.
 		Model:   gorm.Model{ID: task.ID},
 		OwnerID: ownerID,
 	}).Updates(task).Error
+}
+
+// GetSchedulableTasks retrieves tasks that are ready for processing,
+// ordered by error status (no error first) and then by creation date (oldest first).
+// It fetches tasks with statuses other than Completed or Terminated.
+func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
+	var tasks []models.Task
+
+	// Define statuses to exclude
+	excludedStatuses := []models.TaskStatus{
+		models.TaskStatusCompleted,
+		models.TaskStatusTerminated,
+	}
+
+	// Build the query
+	query := r.db.WithContext(ctx).Model(&models.Task{}).Where(
+		"status NOT IN ?", excludedStatuses,
+	)
+
+	// Order by error presence (errors last), then by creation date (oldest first)
+	// Use DB-specific syntax for CASE WHEN or similar logic if needed, assuming standard SQL here.
+	// GORM automatically quotes column names.
+	query = query.Order("CASE WHEN error = '' THEN 0 ELSE 1 END").Order("created_at ASC")
+
+	// Apply limit
+	defaultLimit := 100
+	if limit > 0 {
+		query = query.Limit(limit)
+	} else {
+		query = query.Limit(defaultLimit)
+	}
+
+	// Execute the query
+	err := query.Find(&tasks).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query schedulable tasks: %w", err)
+	}
+
+	return tasks, nil
 }

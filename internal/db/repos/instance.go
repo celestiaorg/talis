@@ -317,3 +317,15 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 		return nil
 	})
 }
+
+// CreateBatch creates a batch of instances
+func (r *InstanceRepository) CreateBatch(ctx context.Context, instances []*models.Instance) error {
+	for _, instance := range instances {
+		if err := models.ValidateOwnerID(instance.OwnerID); err != nil {
+			return fmt.Errorf("invalid owner_id: %w", err)
+		}
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(instances, 100).Error
+	})
+}

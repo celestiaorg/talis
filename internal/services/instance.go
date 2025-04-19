@@ -51,8 +51,9 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 	}
 	// Generate TaskName internally
 	taskName := uuid.New().String()
-	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
+	err = s.taskService.Create(ctx, &models.Task{
 		Name:      taskName,
+		OwnerID:   ownerID,
 		ProjectID: project.ID,
 		Status:    models.TaskStatusPending,
 		Action:    models.TaskActionCreateInstances,
@@ -66,7 +67,7 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 		return "", fmt.Errorf("failed to get task: %w", err)
 	}
 
-	totalInstances := 0
+	instancesToCreate := make([]*models.Instance, 0, len(instances))
 	for _, i := range instances {
 		// Sanity check the ownerID fields.
 		// TODO: this is a little verbose, maybe we can clean it up?
@@ -104,7 +105,7 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 				initialPayloadStatus = models.PayloadStatusPendingCopy
 			}
 
-			instance := &models.Instance{
+			instancesToCreate = append(instancesToCreate, &models.Instance{
 				Name:          instanceName,
 				OwnerID:       i.OwnerID,
 				ProjectID:     project.ID,
@@ -117,19 +118,17 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 				Volumes:       []string{},
 				VolumeDetails: models.VolumeDetails{},
 				PayloadStatus: initialPayloadStatus,
-			}
+			})
 
-			// TODO: find a way to create it in batch
-			if err := s.repo.Create(ctx, instance); err != nil {
-				err = fmt.Errorf("failed to create instance: %w", err)
-				s.updateTaskError(ctx, ownerID, task, err)
-				return taskName, err
-			}
-			totalInstances++
 		}
 	}
+	if err := s.repo.CreateBatch(ctx, instancesToCreate); err != nil {
+		err = fmt.Errorf("failed to add instances to database: %w", err)
+		s.updateTaskError(ctx, ownerID, task, err)
+		return taskName, err
+	}
 
-	s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Created %d instances in database", totalInstances))
+	s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Created %d instances in database", len(instancesToCreate)))
 	s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusRunning)
 
 	// Start provisioning in background
@@ -363,10 +362,12 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName stri
 	}
 
 	taskName = uuid.New().String()
-	err = s.taskService.Create(ctx, ownerID, project.ID, &models.Task{
-		Name:   taskName,
-		Status: models.TaskStatusPending,
-		Action: models.TaskActionTerminateInstances,
+	err = s.taskService.Create(ctx, &models.Task{
+		Name:      taskName,
+		OwnerID:   ownerID,
+		ProjectID: project.ID,
+		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionTerminateInstances,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create task: %w", err)

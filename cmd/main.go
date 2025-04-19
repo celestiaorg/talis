@@ -2,10 +2,15 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
+	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
@@ -51,7 +56,6 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	// We will use connection pooling later
-	// defer DB.Close()
 
 	// Initialize repositories
 	instanceRepo := repos.NewInstanceRepository(DB)
@@ -86,16 +90,58 @@ func main() {
 	// Register routes - no need for project and task handlers as they're handled via RPC
 	routes.RegisterRoutes(app, instanceHandler, userHandler, rpcHandler)
 
-	// Start server
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8080"
+	// Create context that listens for the interrupt signal from the OS.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Create a WaitGroup to wait for goroutines to finish
+	var wg sync.WaitGroup
+
+	// Launch worker with the cancellable context and WaitGroup
+	wg.Add(1) // Increment counter before launching goroutine
+	go services.LaunchWorker(ctx, &wg, taskService)
+
+	// Start server in a goroutine so that it doesn't block.
+	var errChan = make(chan error)
+	go func() {
+		port := os.Getenv("SERVER_PORT")
+		if port == "" {
+			port = "8080"
+		}
+		log.Info("Server starting on :" + port)
+		if err := app.Listen(":" + port); err != nil {
+			// Send error to the channel
+			errChan <- err
+		}
+	}()
+
+	// Listen for the interrupt signal or the server error.
+	select {
+	case err := <-errChan:
+		log.Errorf("Server failed to start: %v", err)
+	case <-ctx.Done():
+		log.Info("Received interrupt signal, shutting down gracefully")
 	}
 
-	log.Info("Server starting on :" + port)
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// Restore default behavior on the interrupt signal and notify user of shutdown.
+	stop()
+	log.Info("Shutting down gracefully, press Ctrl+C again to force")
+
+	// Perform application shutdown with a timeout.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // 5 second timeout for shutdown
+	defer cancel()
+
+	if err := app.ShutdownWithContext(shutdownCtx); err != nil {
+		log.Errorf("Server shutdown failed: %v", err) // Use Errorf instead of Fatalf
+	} else {
+		log.Info("Server shut down gracefully")
 	}
+
+	// Wait for background goroutines to finish.
+	log.Info("Waiting for background processes to shut down...")
+	wg.Wait() // Block until wg.Done() is called by all goroutines
+
+	log.Info("Shut down successfully. Exiting.")
 }
 
 // customErrorHandler handles errors returned by the handlers
