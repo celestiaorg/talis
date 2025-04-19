@@ -45,9 +45,16 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// validate the provider
-	if !compute.IsValidProvider(instances[0].Provider) {
-		return "", fmt.Errorf("unsupported provider: %s", instances[0].Provider)
+	// validate the instances array is not empty
+	if len(instances) == 0 {
+		return "", fmt.Errorf("at least one instance is required")
+	}
+
+	// validate the providers
+	for _, instance := range instances {
+		if !compute.IsValidProvider(instance.Provider) {
+			return "", fmt.Errorf("unsupported provider: %s", instance.Provider)
+		}
 	}
 	// Generate TaskName internally
 	taskName := uuid.New().String()
