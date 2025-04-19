@@ -54,6 +54,7 @@ func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 	}
 }
 
+// IsValidProvider checks whether the given provider ID is supported.
 func IsValidProvider(provider models.ProviderID) bool {
 	if _, ok := validProviders[provider]; !ok {
 		return false
