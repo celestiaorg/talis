@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
@@ -50,12 +49,6 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 		return "", fmt.Errorf("at least one instance is required")
 	}
 
-	// validate the providers
-	for _, instance := range instances {
-		if !compute.IsValidProvider(instance.Provider) {
-			return "", fmt.Errorf("unsupported provider: %s", instance.Provider)
-		}
-	}
 	// Generate TaskName internally
 	taskName := uuid.New().String()
 	err = s.taskService.Create(ctx, &models.Task{

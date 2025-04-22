@@ -54,18 +54,6 @@ func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 	}
 }
 
-// IsValidProvider checks whether the given provider ID is supported.
-func IsValidProvider(provider models.ProviderID) bool {
-	if _, ok := validProviders[provider]; !ok {
-		return false
-	}
-	return true
-}
-
-var validProviders = map[models.ProviderID]struct{}{
-	"do-mock": {}, "digitalocean-mock": {}, "do": {},
-}
-
 // NewProvisioner creates a new system provisioner
 func NewProvisioner(jobID string) Provisioner {
 	return NewAnsibleConfigurator(jobID)

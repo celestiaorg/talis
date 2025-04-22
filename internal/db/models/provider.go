@@ -25,6 +25,14 @@ const (
 	ProviderHetzner ProviderID = "hetzner"
 	// ProviderOVH represents OVH provider
 	ProviderOVH ProviderID = "ovh"
+
+	// Mock Providers
+	// ProviderDOMock1 represents DigitalOcean provider mock 1
+	ProviderDOMock1 ProviderID = "do-mock"
+	// ProviderDOMock2 represents DigitalOcean provider mock 2
+	ProviderDOMock2 ProviderID = "digitalocean-mock"
+	// ProviderDOMock3 represents a mock provider
+	ProviderMock3 ProviderID = "mock"
 )
 
 // String implements the fmt.Stringer interface
@@ -63,6 +71,8 @@ func (p ProviderID) IsValid() bool {
 	switch p {
 	case ProviderAWS, ProviderGCP, ProviderAzure, ProviderDO,
 		ProviderScaleway, ProviderVultr, ProviderLinode, ProviderHetzner, ProviderOVH:
+		return true
+	case ProviderDOMock1, ProviderDOMock2, ProviderMock3: // mocked providers
 		return true
 	default:
 		return false
