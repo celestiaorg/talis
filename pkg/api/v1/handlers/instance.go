@@ -90,31 +90,29 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 }
 
 // CreateInstance handles the request to create instances
-// TODO: this should return the Instance ID so that it can be immediately queried.
+// TODO: the RPC response for this should be the instances and tasks created.
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var instancesReq types.InstancesRequest
-	if err := c.BodyParser(&instancesReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).
-			JSON(types.ErrInvalidInput(err.Error()))
-	}
-	instancesReq.Action = "create"
-
-	if err := instancesReq.Validate(); err != nil {
+	var instanceReqs []types.InstanceRequest
+	if err := c.BodyParser(&instanceReqs); err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	taskName, err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.ProjectName, instancesReq.Instances)
+	for _, instanceReq := range instanceReqs {
+		if err := instanceReq.Validate(); err != nil {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(types.ErrInvalidInput(err.Error()))
+		}
+	}
+
+	err := h.service.CreateInstance(c.Context(), instanceReqs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(types.Success(
-			types.TaskResponse{
-				TaskName: taskName,
-			}))
+		JSON(types.Success(nil))
 }
 
 // GetPublicIPs returns a list of public IPs for all instances

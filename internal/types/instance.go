@@ -25,22 +25,15 @@ type InstanceConfig struct {
 	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
 }
 
-// InstancesRequest represents an RPC request multiple instances
-// NOTE: These should be cleaned up and replaced with specific RPC request types
-type InstancesRequest struct {
-	InstanceName string            `json:"instance_name"`
-	ProjectName  string            `json:"project_name"`
-	TaskName     string            `json:"-"` // used internally by the Infra API
-	Instances    []InstanceRequest `json:"instances"`
-	WebhookURL   string            `json:"webhook_url"`
-	Action       string            `json:"action"`
-	Provider     models.ProviderID `json:"provider"`
-	Volumes      []VolumeConfig    `json:"volumes"`
-}
-
 // InstanceRequest represents an RPC request for a single instance
 // NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstanceRequest struct {
+	// Metadata
+	Name        string `json:"name"` // Optional custom name for instances
+	ProjectName string `json:"project_name"`
+	OwnerID     uint   `json:"owner_id"` // Owner ID of the instance
+
+	// User Defined Configs
 	Provider          models.ProviderID `json:"provider"`                  // Cloud provider (e.g., "do")
 	Region            string            `json:"region"`                    // Region where instances will be created
 	Size              string            `json:"size"`                      // Instance size/type
@@ -48,14 +41,17 @@ type InstanceRequest struct {
 	SSHKeyName        string            `json:"ssh_key_name"`              // Name of the SSH key to use
 	Tags              []string          `json:"tags"`                      // Tags to apply to instances
 	NumberOfInstances int               `json:"number_of_instances"`       // Number of instances to create
-	Name              string            `json:"name"`                      // Optional custom name for instances
 	Provision         bool              `json:"provision"`                 // Whether to run Ansible provisioning
 	Volumes           []VolumeConfig    `json:"volumes"`                   // Optional volumes to attach
-	OwnerID           uint              `json:"owner_id"`                  // Owner ID of the instance
 	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
 	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
-	SSHKeyType        string            `json:"ssh_key_type,omitempty"`    // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
-	SSHKeyPath        string            `json:"ssh_key_path,omitempty"`    // Custom path to the private SSH key file for Ansible. Overrides defaults.
+
+	// Talis Server Configs
+	SSHKeyType string `json:"ssh_key_type,omitempty"` // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
+	SSHKeyPath string `json:"ssh_key_path,omitempty"` // Custom path to the private SSH key file for Ansible. Overrides defaults.
+
+	// Internal Configs
+	Action string `json:"action"`
 }
 
 // DeleteInstanceRequest represents the request body for deleting instances
@@ -87,42 +83,25 @@ type InstanceInfo struct {
 	ExecutePayload bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
-// Validate validates the infrastructure request
-func (r *InstancesRequest) Validate() error {
-	if r.ProjectName == "" {
-		return fmt.Errorf("project_name is required")
-	}
-	if len(r.Instances) == 0 {
-		return fmt.Errorf("at least one instance configuration is required")
-	}
-
-	// Validate the instances name
-	if r.InstanceName != "" {
-		if err := validateHostname(r.InstanceName); err != nil {
-			return fmt.Errorf("invalid instance_name: %w", err)
-		}
-	}
-
-	for i, instance := range r.Instances {
-		if instance.Name == "" && r.InstanceName == "" {
-			return fmt.Errorf("instance_name or instance.name is required")
-		}
-
-		if err := instance.Validate(); err != nil {
-			return fmt.Errorf("invalid instance configuration at index %d: %w", i, err)
-		}
-	}
-
-	return nil
-}
-
 // Validate validates the instance configuration
 func (i *InstanceRequest) Validate() error {
+	// Validate Metadata
+	if i.Name == "" {
+		return fmt.Errorf("instance name is required")
+	}
+	if err := validateHostname(i.Name); err != nil {
+		return fmt.Errorf("invalid instance name: %w", err)
+	}
+	if i.ProjectName == "" {
+		return fmt.Errorf("project_name is required")
+	}
+	if i.OwnerID == 0 {
+		return fmt.Errorf("owner_id is required")
+	}
+
+	// Validate User Defined Configs
 	if i.Provider == "" {
 		return fmt.Errorf("provider is required")
-	}
-	if i.NumberOfInstances < 1 {
-		return fmt.Errorf("number_of_instances must be greater than 0")
 	}
 	if i.Region == "" {
 		return fmt.Errorf("region is required")
@@ -136,7 +115,19 @@ func (i *InstanceRequest) Validate() error {
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
 	}
-
+	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
+	if i.NumberOfInstances < 1 {
+		return fmt.Errorf("number_of_instances must be greater than 0")
+	}
+	if len(i.Volumes) == 0 {
+		return fmt.Errorf("at least one volume configuration is required")
+	}
+	// Validate volumes if present
+	for j, vol := range i.Volumes {
+		if err := ValidateVolume(&vol, i.Region); err != nil {
+			return fmt.Errorf("invalid volume configuration at index %d: %w", j, err)
+		}
+	}
 	// Validate payload path if provided
 	if i.PayloadPath != "" {
 		// Check if path is absolute
@@ -175,24 +166,5 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("provision must be true when payload_path is provided")
 	}
 
-	// Validate the instance name
-	if i.Name != "" {
-		if err := validateHostname(i.Name); err != nil {
-			return fmt.Errorf("invalid instance name: %w", err)
-		}
-	}
-
-	if len(i.Volumes) == 0 {
-		return fmt.Errorf("at least one volume configuration is required")
-	}
-
-	// Validate volumes if present
-	for j, vol := range i.Volumes {
-		if err := ValidateVolume(&vol, i.Region); err != nil {
-			return fmt.Errorf("invalid volume configuration at index %d: %w", j, err)
-		}
-	}
-
-	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
 	return nil
 }
