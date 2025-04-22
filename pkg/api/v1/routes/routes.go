@@ -54,12 +54,6 @@ const (
 	CreateInstance     = "CreateInstance"
 	TerminateInstances = "TerminateInstances"
 
-	// User routes
-	GetUsers    = "GetUsers"
-	GetUserByID = "GetUserByID"
-	CreateUser  = "CreateUser"
-	DeleteUser  = "DeleteUser"
-
 	// RPC routes
 	RPC = "RPC"
 )
@@ -221,28 +215,6 @@ func CreateInstanceURL() string {
 // TerminateInstancesURL returns the URL for terminating instances
 func TerminateInstancesURL() string {
 	return BuildURL(TerminateInstances, nil, nil)
-}
-
-// User route helpers
-
-// GetUsersURL returns the URL for getting users
-func GetUsersURL(queryParams url.Values) string {
-	return BuildURL(GetUsers, nil, queryParams)
-}
-
-// GetUserByIDURL returns the URL for getting a user by ID
-func GetUserByIDURL(id string) string {
-	return BuildURL(GetUserByID, map[string]string{"id": id}, nil)
-}
-
-// CreateUserURL returns the URL for creating a user
-func CreateUserURL() string {
-	return BuildURL(CreateUser, nil, nil)
-}
-
-// DeleteUserURL returns the URL for deleting a user
-func DeleteUserURL(id string) string {
-	return BuildURL(DeleteUser, map[string]string{"id": id}, nil)
 }
 
 // RPC route helper
