@@ -44,6 +44,11 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
+	// validate the instances array is not empty
+	if len(instances) == 0 {
+		return "", fmt.Errorf("at least one instance is required")
+	}
+
 	// Generate TaskName internally
 	taskName := uuid.New().String()
 	err = s.taskService.Create(ctx, &models.Task{
