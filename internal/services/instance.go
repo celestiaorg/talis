@@ -63,8 +63,8 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 		for idx := 0; idx < i.NumberOfInstances; idx++ {
 			// Create new instance request for task payload
 			req := i
+			// Update the name to be unique
 			req.Name = fmt.Sprintf("%s-%d", i.Name, idx)
-			req.Action = "create"
 
 			// Marshal the request to JSON
 			payload, err := json.Marshal(req)
@@ -113,6 +113,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 	}
 
 	// Map the task IDs to the instances
+	// TODO: LastTaskID needs to be set for the instance request 
 	for idx, task := range taskToCreate {
 		instancesToCreate[idx].LastTaskID = task.ID
 	}
@@ -130,7 +131,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 
 	// Start provisioning in background
 	// TODO: remove as this will be handled by the background worker
-	go s.provisionInstances(ctx, instancesToCreate)
+	go s.provisionInstances(ctx, instances)
 
 	return nil
 }
@@ -213,54 +214,34 @@ func (s *Instance) updateInstanceVolumes(
 
 // provisionInstances provisions the instances. To not block the main thread, it should be called in a goroutine.
 // NOTE: Currently this assumes that the instances are for the same provider.
-func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint, instances []types.InstanceRequest) {
-		// Get task details
-		task, err := s.taskService.GetByID(ctx, ownerID, taskID)
-		if err != nil {
-			logger.Errorf("❌ Failed to get task details for taskID %d: %v", taskID, err)
-			return
-		}
+func (s *Instance) provisionInstances(ctx context.Context, instances []types.InstanceRequest) {
 
-		// Create infrastructure client
-		infraReq := &types.InstancesRequest{
-			TaskName:  task.Name,
-			Instances: instances,
-			Action:    "create",
-			Provider:  instances[0].Provider,
-		}
-
-		infra, err := NewInfrastructure(infraReq)
-		if err != nil {
-			err = fmt.Errorf("❌ failed to create infrastructure client: %w", err)
-			logger.Error(err)
-			s.updateTaskError(ctx, ownerID, task, err)
-			return
-		}
+	infra, err := NewInfrastructure(instances[0].Provider)
+	if err != nil {
+		err = fmt.Errorf("❌ failed to create infrastructure client: %w", err)
+		logger.Error(err)
+		return
+	}
 
 		// Execute infrastructure creation
-		result, err := infra.Execute()
+		err = infra.Create(instances)
 		if err != nil {
 			err = fmt.Errorf("❌ failed to create infrastructure: %w", err)
 			logger.Error(err)
-			s.updateTaskError(ctx, ownerID, task, err)
 			return
 		}
 
-		// Type assert the result
-		pInstances, ok := result.([]types.InstanceInfo)
-		if !ok {
-			err = fmt.Errorf("❌ Invalid result type: %T", result)
-			logger.Error(err)
-			s.updateTaskError(ctx, ownerID, task, err)
-			return
-		}
-
-		logger.Debugf("📝 Created instances: %+v", pInstances)
+		logger.Debugf("📝 Created instances: %+v", instances)
 
 		// Update instances with IP and status
 		// Update instance information in database
-		ownerID := instances[0].OwnerID
-		for _, instance := range pInstances {
+		for _, instance := range instances {
+			// Get task details
+			task, err := s.taskService.GetByID(ctx, instance.OwnerID, instance.LastTaskID)
+			if err != nil {
+				logger.Errorf("❌ Failed to get task details for taskID %d: %v", instance.LastTaskID, err)
+				return
+			}
 			logger.Debugf("🔄 Processing instance update for %s", instance.Name)
 			logger.Debugf("  - Volumes: %v", instance.Volumes)
 			logger.Debugf("  - Volume Details: %+v", instance.VolumeDetails)
@@ -268,63 +249,61 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 			// Update volumes first if present
 			if len(instance.Volumes) > 0 || len(instance.VolumeDetails) > 0 {
 				logger.Debugf("🔄 Updating volumes for instance %s", instance.Name)
-				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
+				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.VolumeIDs, instance.VolumeDetails); err != nil {
 					err = fmt.Errorf("❌ Failed to update volumes for instance %s: %w", instance.Name, err)
 					logger.Error(err)
-					s.addTaskLogs(ctx, ownerID, task, err.Error())
+					s.addTaskLogs(ctx, instance.OwnerID, task, err.Error())
 					continue
 				}
 				logger.Debugf("✅ Successfully updated volumes for instance %s", instance.Name)
-				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Updated volumes for instance %s", instance.Name))
+				s.addTaskLogs(ctx, instance.OwnerID, task, fmt.Sprintf("Updated volumes for instance %s", instance.Name))
 
 				// Verify the update was successful
-				updatedInstance, err := s.repo.GetByName(ctx, ownerID, instance.Name)
+				updatedInstance, err := s.repo.GetByName(ctx, instance.OwnerID, instance.Name)
 				if err != nil {
 					errMsg := fmt.Sprintf("❌ Failed to verify volume update for instance %s: %v", instance.Name, err)
 					logger.Error(errMsg)
-					s.addTaskLogs(ctx, ownerID, task, errMsg)
+					s.addTaskLogs(ctx, instance.OwnerID, task, errMsg)
 					continue
 				}
 
 				logger.Debugf("📊 Current instance state after volume update:")
 				logger.Debugf("  - Volumes: %v", updatedInstance.Volumes)
 				logger.Debugf("  - Volume Details: %+v", updatedInstance.VolumeDetails)
-				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Verified volume update for instance %s", instance.Name))
+				s.addTaskLogs(ctx, instance.OwnerID, task, fmt.Sprintf("Verified volume update for instance %s", instance.Name))
 			}
 
 			// Then update instance status and IP
-			updateInstance, err := s.repo.GetByName(ctx, ownerID, instance.Name)
+			updateInstance, err := s.repo.GetByName(ctx, instance.OwnerID, instance.Name)
 			if err != nil {
 				errMsg := fmt.Sprintf("❌ Failed to get instance %s: %v", instance.Name, err)
 				logger.Error(errMsg)
-				s.addTaskLogs(ctx, ownerID, task, errMsg)
+				s.addTaskLogs(ctx, instance.OwnerID, task, errMsg)
 				continue
 			}
 
 			updateInstance.PublicIP = instance.PublicIP
 			updateInstance.Status = models.InstanceStatusReady
 
-			if err := s.repo.UpdateByID(ctx, ownerID, updateInstance.ID, updateInstance); err != nil {
+			if err := s.repo.UpdateByID(ctx, instance.OwnerID, updateInstance.ID, updateInstance); err != nil {
 				errMsg := fmt.Sprintf("❌ Failed to update instance %s: %v", instance.Name, err)
 				logger.Error(errMsg)
-				s.addTaskLogs(ctx, ownerID, task, errMsg)
+				s.addTaskLogs(ctx, instance.OwnerID, task, errMsg)
 				continue
 			}
 			logger.Debugf("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
-		}
 
 		// Start Ansible provisioning if requested
-		if instances[0].Provision {
-			s.addTaskLogs(ctx, ownerID, task, "Running Ansible provisioning")
-			if err := infra.RunProvisioning(pInstances); err != nil {
+		if instance.Provision {
+			s.addTaskLogs(ctx, instance.OwnerID, task, "Running Ansible provisioning")
+			if err := infra.RunProvisioning(instance); err != nil {
 				err = fmt.Errorf("❌ Failed to run provisioning: %w", err)
 				logger.Error(err)
-				s.updateTaskError(ctx, ownerID, task, err)
+				s.updateTaskError(ctx, instance.OwnerID, task, err)
 				return
 			}
-			s.addTaskLogs(ctx, ownerID, task, "Ansible provisioning completed")
+			s.addTaskLogs(ctx, instance.OwnerID, task, "Ansible provisioning completed")
 			// Update payload status for instances with payloads
-			for _, instance := range pInstances {
 				if instance.PayloadPath == "" {
 					continue
 				}
@@ -332,16 +311,16 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 					PayloadStatus: models.PayloadStatusExecuted,
 				}
 
-				if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
+				if err := s.repo.UpdateByName(ctx, instance.OwnerID, instance.Name, updateInstance); err != nil {
 					logger.Errorf("❌ Failed to update payload status for instance %s: %v", instance.Name, err)
 					continue
 				}
 				logger.Debugf("✅ Updated payload status to executed for instance %s", instance.Name)
-			}
+		}
+		s.updateTaskStatus(ctx, instance.OwnerID, task.ID, models.TaskStatusCompleted)
 		}
 
-		s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted)
-		logger.Debugf("✅ Infrastructure creation completed for task %s", task.Name)
+		logger.Debug("✅ Infrastructure creation completed")
 }
 
 // Terminate handles the termination of instances for a given project name and instance names.

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
 )
@@ -18,13 +19,9 @@ import (
 // It coordinates the creation and deletion of cloud resources across different providers
 // and handles the provisioning of those resources using configuration management tools.
 type Infrastructure struct {
-	name        string                  // Name of the infrastructure
-	projectName string                  // Name of the project
-	instances   []types.InstanceRequest // Instance configuration
 	provider    compute.Provider        // Compute provider implementation
 	provisioner compute.Provisioner
 	jobID       string
-	action      string // Action to perform (create/delete)
 }
 
 // NewInfrastructure creates a new infrastructure instance with the specified configuration.
@@ -36,8 +33,8 @@ type Infrastructure struct {
 // Returns:
 //   - *Infrastructure: A configured infrastructure manager
 //   - error: Any error that occurred during initialization
-func NewInfrastructure(req *types.InstancesRequest) (*Infrastructure, error) {
-	provider, err := compute.NewComputeProvider(req.Provider)
+func NewInfrastructure(providerID models.ProviderID) (*Infrastructure, error) {
+	provider, err := compute.NewComputeProvider(providerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute provider: %w", err)
 	}
@@ -47,53 +44,31 @@ func NewInfrastructure(req *types.InstancesRequest) (*Infrastructure, error) {
 	jobID := fmt.Sprintf("job-%s", timestamp)
 
 	return &Infrastructure{
-		name:        req.InstanceName,
-		projectName: req.ProjectName,
-		instances:   req.Instances,
 		provider:    provider,
 		provisioner: compute.NewProvisioner(jobID),
 		jobID:       jobID,
-		action:      req.Action,
 	}, nil
 }
 
-// Execute performs the requested infrastructure operation (create or delete).
+// Create performs the requested infrastructure operation (create).
 // For creation, it spawns the requested number of instances with the specified configuration.
-// For deletion, it removes the specified instances from the cloud provider.
 //
 // Returns:
 //   - interface{}: The result of the operation
 //   - For creation: []InstanceInfo containing details of created instances
-//   - For deletion: map[string]interface{} with operation status and deleted instances
 //   - error: Any error that occurred during execution
-func (i *Infrastructure) Execute() (interface{}, error) {
-	var result interface{}
-	var err error
-
-	switch i.action {
-	case "create":
+func (i *Infrastructure) Create(instances []types.InstanceRequest) error {
 		logger.Info("🚀 Creating infrastructure...")
-		instances := make([]types.InstanceInfo, 0, len(i.instances))
-		for _, instance := range i.instances {
+		for _, instance := range instances {
 			// Use instance name if provided, otherwise use base name
 			instanceName := instance.Name
 			if instanceName == "" {
 				instanceName = i.name
 			}
 
-			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
-				Region:            instance.Region,
-				OwnerID:           instance.OwnerID,
-				Size:              instance.Size,
-				Image:             instance.Image,
-				SSHKeyID:          instance.SSHKeyName,
-				Tags:              instance.Tags,
-				NumberOfInstances: instance.NumberOfInstances,
-				CustomName:        instance.Name,
-				Volumes:           instance.Volumes,
-			})
+			info, err := i.provider.CreateInstance(context.Background(), instance)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
+				return fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
 			}
 			// Convert types.InstanceInfo to our InstanceInfo and add to result
 			for _, instanceInfo := range info {
@@ -114,7 +89,21 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 		}
 		result = instances
 
-	case "delete":
+
+	return result, err
+}
+
+// Delete performs the requested infrastructure operation (delete).
+// For deletion, it removes the specified instances from the cloud provider.
+//
+// Returns:
+//   - interface{}: The result of the operation
+//   - For deletion: map[string]interface{} with operation status and deleted instances
+//   - error: Any error that occurred during execution
+func (i *Infrastructure) Delete() (interface{}, error) {
+	var result interface{}
+	var err error
+
 		logger.Info("🗑️ Deleting infrastructure...")
 		var wg sync.WaitGroup
 		deletedInstancesChan := make(chan string, 100)
@@ -214,10 +203,6 @@ func (i *Infrastructure) Execute() (interface{}, error) {
 			"count":   len(deletedInstances),
 		}
 
-	default:
-		logger.Errorf("unsupported action: %s", i.action)
-		return nil, fmt.Errorf("unsupported action: %s", i.action)
-	}
 
 	return result, err
 }

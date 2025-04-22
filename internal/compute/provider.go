@@ -21,7 +21,7 @@ type Provider interface {
 	ConfigureProvider(stack interface{}) error
 
 	// CreateInstance creates a new instance
-	CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error)
+	CreateInstance(ctx context.Context, req types.InstanceRequest) ([]types.InstanceInfo, error)
 
 	// DeleteInstance deletes an instance
 	DeleteInstance(ctx context.Context, name string, region string) error

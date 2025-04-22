@@ -46,6 +46,7 @@ type InstanceRequest struct {
 	// Internal Configs
 	Action string `json:"action"`
 	ProviderInstanceID             string            // Provider-specific instance ID
+	LastTaskID uint `json:"last_task_id"` // ID of the last task
 }
 
 // DeleteInstanceRequest represents the request body for deleting instances
@@ -143,6 +144,11 @@ func (i *InstanceRequest) Validate() error {
 	// If payload_path is provided, provision must be true
 	if i.PayloadPath != "" && !i.Provision {
 		return fmt.Errorf("provision must be true when payload_path is provided")
+	}
+
+	// Confirm an action is provided
+	if i.Action == "" {
+		return fmt.Errorf("action is required")
 	}
 
 	return nil
