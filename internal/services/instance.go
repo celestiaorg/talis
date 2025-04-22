@@ -38,61 +38,50 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 }
 
 // CreateInstance creates a new task to track instance creation and starts the process.
-func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName string, instances []types.InstanceRequest) (string, error) {
-	project, err := s.projectService.GetByName(ctx, ownerID, projectName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get project: %w", err)
-	}
-
-	// Generate TaskName internally
-	taskName := uuid.New().String()
-	err = s.taskService.Create(ctx, &models.Task{
-		Name:      taskName,
-		OwnerID:   ownerID,
-		ProjectID: project.ID,
-		Status:    models.TaskStatusPending,
-		Action:    models.TaskActionCreateInstances,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create task: %w", err)
-	}
-
-	task, err := s.taskService.GetByName(ctx, ownerID, taskName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get task: %w", err)
-	}
+func (s *Instance) CreateInstance(ctx context.Context, instances []types.InstanceRequest) error {
 
 	instancesToCreate := make([]*models.Instance, 0, len(instances))
+	taskToCreate := make([]*models.Task, 0, len(instances))
 	for _, i := range instances {
-		// Sanity check the ownerID fields.
-		// TODO: this is a little verbose, maybe we can clean it up?
-		bothZero := i.OwnerID == 0 && ownerID == 0
-		bothNonZero := i.OwnerID != 0 && ownerID != 0
-		// At least one of the ownerID fields is required
-		if bothZero {
-			return "", fmt.Errorf("instance owner_id is required")
+		// Validate the instance request
+		if err := i.Validate(); err != nil {
+			return fmt.Errorf("invalid instance request: %w", err)
 		}
+
+		// Get the project
+		project, err := s.projectService.GetByName(ctx, i.OwnerID, i.ProjectName)
+		if err != nil {
+			return fmt.Errorf("failed to get project: %w", err)
+		}
+
 		// Sanity check that a user is not trying to create an instance for another user
-		if bothNonZero && i.OwnerID != ownerID {
-			return "", fmt.Errorf("instance owner_id does not match project owner_id")
+		// TODO: in the future we should have authorized users for a project
+		if i.OwnerID != project.OwnerID {
+			return fmt.Errorf("instance owner_id does not match project owner_id")
 		}
 
-		baseName := i.Name
-		if baseName == "" {
-			baseName = fmt.Sprintf("instance-%s", uuid.New().String())
-		}
+		for idx := 0; idx < i.NumberOfInstances; idx++ {
+			// Create new instance request for task payload
+			req := i
+			req.Name = fmt.Sprintf("%s-%d", i.Name, idx)
+			req.Action = "create"
 
-		// Create multiple instances if requested
-		numInstances := i.NumberOfInstances
-		if numInstances < 1 {
-			numInstances = 1
-		}
-
-		for idx := 0; idx < numInstances; idx++ {
-			instanceName := baseName
-			if numInstances > 1 {
-				instanceName = fmt.Sprintf("%s-%d", baseName, idx)
+			// Marshal the request to JSON
+			payload, err := json.Marshal(req)
+			if err != nil {
+				return fmt.Errorf("failed to marshal instance request: %w", err)
 			}
+
+			// Generate TaskName internally
+			taskName := uuid.New().String()
+			taskToCreate = append(taskToCreate, &models.Task{
+				Name:      taskName,
+				OwnerID:   i.OwnerID,
+				ProjectID: project.ID,
+				Status:    models.TaskStatusPending,
+				Action:    models.TaskActionCreateInstances,
+				Payload:   payload,
+			})
 
 			// Determine initial payload status
 			initialPayloadStatus := models.PayloadStatusNone
@@ -101,15 +90,14 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 			}
 
 			instancesToCreate = append(instancesToCreate, &models.Instance{
-				Name:          instanceName,
-				OwnerID:       i.OwnerID,
+				Name:          req.Name,
+				OwnerID:       req.OwnerID,
 				ProjectID:     project.ID,
-				LastTaskID:    task.ID,
-				ProviderID:    i.Provider,
+				ProviderID:    req.Provider,
 				Status:        models.InstanceStatusPending,
-				Region:        i.Region,
-				Size:          i.Size,
-				Tags:          i.Tags,
+				Region:        req.Region,
+				Size:          req.Size,
+				Tags:          req.Tags,
 				Volumes:       []string{},
 				VolumeDetails: models.VolumeDetails{},
 				PayloadStatus: initialPayloadStatus,
@@ -117,19 +105,34 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 
 		}
 	}
-	if err := s.repo.CreateBatch(ctx, instancesToCreate); err != nil {
-		err = fmt.Errorf("failed to add instances to database: %w", err)
-		s.updateTaskError(ctx, ownerID, task, err)
-		return taskName, err
+
+	// Create the tasks
+	if err := s.taskService.CreateBatch(ctx, taskToCreate); err != nil {
+		err = fmt.Errorf("failed to add tasks to database: %w", err)
+		return err
 	}
 
-	s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Created %d instances in database", len(instancesToCreate)))
-	s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusRunning)
+	// Map the task IDs to the instances
+	for idx, task := range taskToCreate {
+		instancesToCreate[idx].LastTaskID = task.ID
+	}
+
+	// Create the instances
+	if err := s.repo.CreateBatch(ctx, instancesToCreate); err != nil {
+		err = fmt.Errorf("failed to add instances to database: %w", err)
+		// TODO: Delete the tasks that were created
+		return err
+	}
+
+	// TODO: remove these since the background worker would do this
+	// s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Created %d instances in database", len(instancesToCreate)))
+	// s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusRunning)
 
 	// Start provisioning in background
-	go s.provisionInstances(ctx, ownerID, task.ID, instances)
+	// TODO: remove as this will be handled by the background worker
+	go s.provisionInstances(ctx, instancesToCreate)
 
-	return taskName, nil
+	return nil
 }
 
 // GetInstance retrieves an instance by ID
