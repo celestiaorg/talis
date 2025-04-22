@@ -78,7 +78,6 @@ var (
 func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
-	userHandler *handlers.UserHandler,
 	rpcHandler *handlers.RPCHandler,
 ) {
 	// API v1 routes
@@ -105,14 +104,6 @@ func RegisterRoutes(
 	instances.Post("/", instanceHandler.CreateInstance).Name(CreateInstance)
 	instances.Delete("/", instanceHandler.TerminateInstances).Name(TerminateInstances)
 
-	// ---------------------------
-	// User endpoints
-	users := v1.Group("/users")
-	users.Get("/", userHandler.GetUsers).Name(GetUsers)
-	users.Get("/:id", userHandler.GetUserByID).Name(GetUserByID)
-	users.Post("/", userHandler.CreateUser).Name(CreateUser)
-	users.Delete("/:id", userHandler.DeleteUser).Name(DeleteUser)
-
 	// RPC endpoint as the root handler for all operations
 	v1.Post("/", rpcHandler.HandleRPC).Name(RPC)
 }
@@ -127,11 +118,10 @@ func initRouteCache() {
 
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
-		mockUserHandler := &handlers.UserHandler{}
 		mockRPCHandler := &handlers.RPCHandler{}
 
 		// Register routes with mock handlers - project and task handlers are handled via RPC
-		RegisterRoutes(app, mockInstanceHandler, mockUserHandler, mockRPCHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockRPCHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {

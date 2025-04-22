@@ -33,3 +33,23 @@ const (
 	ErrMsgTaskStatusInvalid   = "Invalid task status"
 	ErrMsgTaskGetFailed       = "Failed to get task"
 )
+
+// User error messages
+const (
+	ErrMsgInvalidUserID          = "Invalid user id"
+	ErrMsgUserIDRequired         = "User id is required"
+	ErrMsgUsernameRequired       = "Username is required"
+	ErrMsgInvalidUsername        = "Invalid username"
+	ErrMsgInvalidUserEmail       = "Invalid user email format"
+	ErrMsgUserNotFoundByID       = "User not found with provided id"
+	ErrMsgUserNotFoundByUsername = "User not found with provided username"
+	ErrMsgGetUsersFailed         = "Failed to get users"
+	ErrMsgGetUserFailed          = "Failed to get user"
+	ErrMsgNegativeUserID         = "User ID must be positive"
+	ErrMsgNilUserObject          = "User object is nil"
+)
+
+// Pagination error messages
+const (
+	ErrMsgNegativePagination = "Page must be a positive number from 1"
+)

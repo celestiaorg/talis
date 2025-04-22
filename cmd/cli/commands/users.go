@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/spf13/cobra"
 )
 
@@ -39,7 +38,7 @@ var listUsersCmd = &cobra.Command{
 		username, _ := cmd.Flags().GetString("username")
 
 		// Build query options
-		opts := &models.UserQueryOptions{}
+		opts := handlers.UserGetParams{}
 		if username != "" {
 			opts.Username = username
 		}
@@ -72,7 +71,7 @@ var createUserCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		username, _ := cmd.Flags().GetString("username")
 
-		var req = types.CreateUserRequest{Username: username}
+		var req = handlers.CreateUserParams{Username: username}
 
 		response, err := apiClient.CreateUser(context.Background(), req)
 		if err != nil {
@@ -94,9 +93,9 @@ var deleteUserCmd = &cobra.Command{
 	Short: "Delete a user",
 	Long:  "Delete a user with a given ID",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		userID, _ := cmd.Flags().GetString("id")
+		userID, _ := cmd.Flags().GetInt("id")
 
-		err := apiClient.DeleteUser(context.Background(), userID)
+		err := apiClient.DeleteUser(context.Background(), handlers.DeleteUserParams{ID: userID})
 		if err != nil {
 			return fmt.Errorf("error while deleting user : %w", err)
 		}
