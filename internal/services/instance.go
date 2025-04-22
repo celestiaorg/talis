@@ -63,6 +63,9 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 	}
 
 	instancesToCreate := make([]*models.Instance, 0, len(instances))
+	// Create a map to store the final generated instance name to its intended DB owner ID
+	instanceNameToOwnerID := make(map[string]uint)
+
 	for _, i := range instances {
 		// Sanity check the ownerID fields.
 		// TODO: this is a little verbose, maybe we can clean it up?
@@ -75,6 +78,12 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 		// Sanity check that a user is not trying to create an instance for another user
 		if bothNonZero && i.OwnerID != ownerID {
 			return "", fmt.Errorf("instance owner_id does not match project owner_id")
+		}
+
+		// Determine the OwnerID to be stored in the database for this instance
+		dbOwnerID := ownerID // Default to the authenticated user's ID
+		if i.OwnerID != 0 {
+			dbOwnerID = i.OwnerID // Override with the ID specified in the request item
 		}
 
 		baseName := i.Name
@@ -100,9 +109,12 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 				initialPayloadStatus = models.PayloadStatusPendingCopy
 			}
 
+			// Store the mapping from the final instance name to its DB owner ID
+			instanceNameToOwnerID[instanceName] = dbOwnerID
+
 			instancesToCreate = append(instancesToCreate, &models.Instance{
 				Name:          instanceName,
-				OwnerID:       i.OwnerID,
+				OwnerID:       dbOwnerID, // Use the determined DB owner ID
 				ProjectID:     project.ID,
 				LastTaskID:    task.ID,
 				ProviderID:    i.Provider,
@@ -126,8 +138,8 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 	s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Created %d instances in database", len(instancesToCreate)))
 	s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusRunning)
 
-	// Start provisioning in background
-	go s.provisionInstances(ctx, ownerID, task.ID, instances)
+	// Start provisioning in background, passing only the name-to-owner map
+	go s.provisionInstances(ctx, ownerID, task.ID, instances, instanceNameToOwnerID)
 
 	return taskName, nil
 }
@@ -141,17 +153,18 @@ func (s *Instance) GetInstance(ctx context.Context, ownerID, id uint) (*models.I
 func (s *Instance) updateInstanceVolumes(
 	ctx context.Context,
 	ownerID uint,
-	instanceName string,
+	instanceID uint,
 	volumes []string,
 	volumeDetails []types.VolumeDetails,
 ) error {
-	// Get the instance first to get its ownerID
-	instance, err := s.repo.GetByName(ctx, ownerID, instanceName)
+	// Get the instance first using ownerID and instanceID
+	instance, err := s.repo.Get(ctx, ownerID, instanceID)
 	if err != nil {
-		return fmt.Errorf("failed to get instance %s for owner %d: %w", instanceName, ownerID, err)
+		return fmt.Errorf("failed to get instance %d for owner %d: %w", instanceID, ownerID, err)
 	}
+	instanceName := instance.Name // Keep instanceName for logging
 
-	logger.Debugf("🔄 Converting volume details for instance %s", instanceName)
+	logger.Debugf("🔄 Converting volume details for instance %s (ID: %d)", instanceName, instanceID)
 	logger.Debugf("📥 Input data:")
 	logger.Debugf("  - Volumes: %v", volumes)
 	logger.Debugf("  - Volume Details: %+v", volumeDetails)
@@ -168,7 +181,7 @@ func (s *Instance) updateInstanceVolumes(
 		})
 	}
 
-	logger.Debugf("📦 Preparing to update instance %s", instanceName)
+	logger.Debugf("📦 Preparing to update instance %s (ID: %d)", instanceName, instanceID)
 	logger.Debugf("📝 Data to update:")
 	logger.Debugf("  - Volumes: %#v", volumes)
 	logger.Debugf("  - Volume Details: %#v", dbVolumeDetails)
@@ -180,20 +193,20 @@ func (s *Instance) updateInstanceVolumes(
 	}
 
 	// Update instance in database using a transaction to ensure atomicity
-	err = s.repo.UpdateByName(ctx, instance.OwnerID, instanceName, updateInstance)
+	err = s.repo.UpdateByID(ctx, ownerID, instanceID, updateInstance)
 	if err != nil {
-		logger.Errorf("❌ Failed to update instance %s volumes: %v", instanceName, err)
-		return fmt.Errorf("failed to update instance %s volumes: %w", instanceName, err)
+		logger.Errorf("❌ Failed to update instance %s (ID: %d) volumes: %v", instanceName, instanceID, err)
+		return fmt.Errorf("failed to update instance %s (ID: %d) volumes: %w", instanceName, instanceID, err)
 	}
 
 	// Verify the update immediately
-	updatedInstance, err := s.repo.GetByName(ctx, instance.OwnerID, instanceName)
+	updatedInstance, err := s.repo.Get(ctx, ownerID, instanceID)
 	if err != nil {
-		logger.Warnf("⚠️ Could not verify volume update for instance %s: %v", instanceName, err)
+		logger.Warnf("⚠️ Could not verify volume update for instance %s (ID: %d): %v", instanceName, instanceID, err)
 		return nil // Don't return error here as the update might have succeeded
 	}
 
-	logger.Debugf("✅ Verified volumes update for instance %s:", instanceName)
+	logger.Debugf("✅ Verified volumes update for instance %s (ID: %d):", instanceName, instanceID)
 	logger.Debugf("📊 Database state after update:")
 	logger.Debugf("  - Volumes: %#v", updatedInstance.Volumes)
 	logger.Debugf("  - Volume Details: %#v", updatedInstance.VolumeDetails)
@@ -210,9 +223,9 @@ func (s *Instance) updateInstanceVolumes(
 }
 
 // provisionInstances provisions the job asynchronously
-func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint, instances []types.InstanceRequest) {
+func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint, instances []types.InstanceRequest, instanceNameToOwnerID map[string]uint) {
 	go func() {
-		// Get task details
+		// Get task details (use the initial ownerID for task operations)
 		task, err := s.taskService.GetByID(ctx, ownerID, taskID)
 		if err != nil {
 			logger.Errorf("❌ Failed to get task details for taskID %d: %v", taskID, err)
@@ -257,28 +270,71 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 
 		// Update instances with IP and status
 		// Update instance information in database
-		ownerID := instances[0].OwnerID
-		for _, instance := range pInstances {
-			logger.Debugf("🔄 Processing instance update for %s", instance.Name)
-			logger.Debugf("  - Volumes: %v", instance.Volumes)
-			logger.Debugf("  - Volume Details: %+v", instance.VolumeDetails)
+		for _, pInstance := range pInstances {
+			logger.Debugf("🔄 Processing instance update for %s", pInstance.Name)
+			logger.Debugf("  - Provisioned Info: %+v", pInstance)
+
+			// Find the corresponding DB instance record (should be in Pending state for this task)
+			// Use the correct owner ID from the map passed from CreateInstance
+			dbOwnerID, ok := instanceNameToOwnerID[pInstance.Name]
+			if !ok {
+				errMsg := fmt.Sprintf("❌ Internal error: Owner ID not found in map for instance name %s", pInstance.Name)
+				logger.Error(errMsg)
+				s.addTaskLogs(ctx, ownerID, task, errMsg) // Log to the original task owner
+				continue
+			}
+
+			// Fetch the instance by name - this might return an old instance if name is reused
+			dbInstance, err := s.repo.GetByName(ctx, dbOwnerID, pInstance.Name)
+			if err != nil {
+				// This could be "record not found" or other DB errors
+				errMsg := fmt.Sprintf("❌ Failed to get DB record for instance %s (Owner: %d): %v", pInstance.Name, dbOwnerID, err)
+				logger.Error(errMsg)
+				s.addTaskLogs(ctx, ownerID, task, errMsg)
+				continue
+			}
+
+			// *** Crucial Check ***
+			// Verify that the instance returned by GetByName belongs to the CURRENT task.
+			if dbInstance.LastTaskID != taskID {
+				// This means GetByName returned an instance from a DIFFERENT task (likely an old one with the same name).
+				errMsg := fmt.Sprintf("⚠️ GetByName returned instance %s (ID: %d) from wrong task (TaskID: %d, Expected: %d). Skipping update for this provisioned resource.",
+					pInstance.Name, dbInstance.ID, dbInstance.LastTaskID, taskID)
+				logger.Warn(errMsg)
+				s.addTaskLogs(ctx, ownerID, task, errMsg)
+				continue // Skip this pInstance, as we couldn't link it to the DB record for THIS task
+			}
+
+			// Verify the instance fetched is still in the expected Pending state.
+			if dbInstance.Status != models.InstanceStatusPending {
+				errMsg := fmt.Sprintf("⚠️ Instance %s (ID: %d, Owner: %d, Task: %d) is not in Pending state (Status: %d). Skipping update.",
+					pInstance.Name, dbInstance.ID, dbOwnerID, taskID, dbInstance.Status)
+				logger.Warn(errMsg)
+				s.addTaskLogs(ctx, ownerID, task, errMsg)
+				continue // Skip processing if not pending
+			}
+
+			// If we reach here, dbInstance is the correct one for this task and is pending.
+			logger.Debugf("  - Matched DB Instance ID: %d, Owner: %d, Status: %d, TaskID: %d", dbInstance.ID, dbOwnerID, dbInstance.Status, dbInstance.LastTaskID)
 
 			// Update volumes first if present
-			if len(instance.Volumes) > 0 || len(instance.VolumeDetails) > 0 {
-				logger.Debugf("🔄 Updating volumes for instance %s", instance.Name)
-				if err := s.updateInstanceVolumes(ctx, ownerID, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
-					err = fmt.Errorf("❌ Failed to update volumes for instance %s: %w", instance.Name, err)
+			if len(pInstance.Volumes) > 0 || len(pInstance.VolumeDetails) > 0 {
+				logger.Debugf("🔄 Updating volumes for instance %s (ID: %d, Owner: %d)", pInstance.Name, dbInstance.ID, dbOwnerID)
+				// Pass the correct dbOwnerID and dbInstance.ID to updateInstanceVolumes
+				if err := s.updateInstanceVolumes(ctx, dbOwnerID, dbInstance.ID, pInstance.Volumes, pInstance.VolumeDetails); err != nil {
+					err = fmt.Errorf("❌ Failed to update volumes for instance %s (ID: %d, Owner: %d): %w", pInstance.Name, dbInstance.ID, dbOwnerID, err)
 					logger.Error(err)
-					s.addTaskLogs(ctx, ownerID, task, err.Error())
+					s.addTaskLogs(ctx, ownerID, task, err.Error()) // Log error to original task owner
 					continue
 				}
-				logger.Debugf("✅ Successfully updated volumes for instance %s", instance.Name)
-				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Updated volumes for instance %s", instance.Name))
+				logger.Debugf("✅ Successfully updated volumes for instance %s (ID: %d, Owner: %d)", pInstance.Name, dbInstance.ID, dbOwnerID)
+				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Updated volumes for instance %s (ID: %d, Owner: %d)", pInstance.Name, dbInstance.ID, dbOwnerID))
 
 				// Verify the update was successful
-				updatedInstance, err := s.repo.GetByName(ctx, ownerID, instance.Name)
+				// Use the correct dbOwnerID
+				updatedInstance, err := s.repo.Get(ctx, dbOwnerID, dbInstance.ID)
 				if err != nil {
-					errMsg := fmt.Sprintf("❌ Failed to verify volume update for instance %s: %v", instance.Name, err)
+					errMsg := fmt.Sprintf("❌ Failed to verify volume update for instance %s (ID: %d, Owner: %d): %v", pInstance.Name, dbInstance.ID, dbOwnerID, err)
 					logger.Error(errMsg)
 					s.addTaskLogs(ctx, ownerID, task, errMsg)
 					continue
@@ -287,28 +343,31 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 				logger.Debugf("📊 Current instance state after volume update:")
 				logger.Debugf("  - Volumes: %v", updatedInstance.Volumes)
 				logger.Debugf("  - Volume Details: %+v", updatedInstance.VolumeDetails)
-				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Verified volume update for instance %s", instance.Name))
+				s.addTaskLogs(ctx, ownerID, task, fmt.Sprintf("Verified volume update for instance %s (ID: %d, Owner: %d)", pInstance.Name, dbInstance.ID, dbOwnerID))
 			}
 
 			// Then update instance status and IP
-			updateInstance, err := s.repo.GetByName(ctx, ownerID, instance.Name)
+			// Re-fetch the instance AFTER potential volume updates to ensure we have the latest state
+			instanceToUpdate, err := s.repo.Get(ctx, dbOwnerID, dbInstance.ID)
 			if err != nil {
-				errMsg := fmt.Sprintf("❌ Failed to get instance %s: %v", instance.Name, err)
+				errMsg := fmt.Sprintf("❌ Failed to re-fetch instance %s (ID: %d, Owner: %d) before final update: %v", dbInstance.Name, dbInstance.ID, dbOwnerID, err)
 				logger.Error(errMsg)
 				s.addTaskLogs(ctx, ownerID, task, errMsg)
 				continue
 			}
 
-			updateInstance.PublicIP = instance.PublicIP
+			updateInstance := instanceToUpdate // Start with the re-fetched instance
+			updateInstance.PublicIP = pInstance.PublicIP
 			updateInstance.Status = models.InstanceStatusReady
 
-			if err := s.repo.UpdateByID(ctx, ownerID, updateInstance.ID, updateInstance); err != nil {
-				errMsg := fmt.Sprintf("❌ Failed to update instance %s: %v", instance.Name, err)
+			// Update using the specific ID and correct dbOwnerID
+			if err := s.repo.UpdateByID(ctx, dbOwnerID, updateInstance.ID, updateInstance); err != nil {
+				errMsg := fmt.Sprintf("❌ Failed to update instance %s (ID: %d, Owner: %d) IP/Status: %v", updateInstance.Name, updateInstance.ID, dbOwnerID, err)
 				logger.Error(errMsg)
 				s.addTaskLogs(ctx, ownerID, task, errMsg)
 				continue
 			}
-			logger.Debugf("✅ Updated instance %s with IP %s and status ready", instance.Name, instance.PublicIP)
+			logger.Debugf("✅ Updated instance %s (ID: %d, Owner: %d) with IP %s and status ready", updateInstance.Name, updateInstance.ID, dbOwnerID, updateInstance.PublicIP)
 		}
 
 		// Start Ansible provisioning if requested
@@ -322,19 +381,41 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 			}
 			s.addTaskLogs(ctx, ownerID, task, "Ansible provisioning completed")
 			// Update payload status for instances with payloads
-			for _, instance := range pInstances {
-				if instance.PayloadPath == "" {
+			for _, pInstance := range pInstances {
+				if pInstance.PayloadPath == "" {
 					continue
 				}
-				updateInstance := &models.Instance{
+				updateInstancePayload := &models.Instance{
 					PayloadStatus: models.PayloadStatusExecuted,
 				}
 
-				if err := s.repo.UpdateByName(ctx, ownerID, instance.Name, updateInstance); err != nil {
-					logger.Errorf("❌ Failed to update payload status for instance %s: %v", instance.Name, err)
+				// Find the correct DB instance ID and Owner ID again
+				dbOwnerID, ok := instanceNameToOwnerID[pInstance.Name]
+				if !ok {
+					logger.Errorf("❌ Internal error: Owner ID not found in map for payload status update on instance %s", pInstance.Name)
 					continue
 				}
-				logger.Debugf("✅ Updated payload status to executed for instance %s", instance.Name)
+
+				// Fetch the specific instance for this task to update payload status
+				// Use GetByName and verify TaskID, similar to the main update logic
+				dbInstanceToUpdatePayload, err := s.repo.GetByName(ctx, dbOwnerID, pInstance.Name)
+				if err != nil {
+					logger.Errorf("❌ Failed to get DB instance %s (Owner: %d) for payload status update: %v", pInstance.Name, dbOwnerID, err)
+					continue
+				}
+
+				// Verify it's the instance from the correct task
+				if dbInstanceToUpdatePayload.LastTaskID != taskID {
+					logger.Errorf("❌ Got wrong task instance %s (Owner: %d, Task: %d, Expected: %d) for payload status update.",
+						pInstance.Name, dbOwnerID, dbInstanceToUpdatePayload.LastTaskID, taskID)
+					continue
+				}
+
+				if err := s.repo.UpdateByID(ctx, dbOwnerID, dbInstanceToUpdatePayload.ID, updateInstancePayload); err != nil {
+					logger.Errorf("❌ Failed to update payload status for instance %s (ID: %d, Owner: %d): %v", pInstance.Name, dbInstanceToUpdatePayload.ID, dbOwnerID, err)
+					continue
+				}
+				logger.Debugf("✅ Updated payload status to executed for instance %s (ID: %d, Owner: %d)", pInstance.Name, dbInstanceToUpdatePayload.ID, dbOwnerID)
 			}
 		}
 
