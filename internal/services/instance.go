@@ -140,14 +140,15 @@ func (s *Instance) GetInstance(ctx context.Context, ownerID, id uint) (*models.I
 // updateInstanceVolumes updates the volumes and volume details for an instance
 func (s *Instance) updateInstanceVolumes(
 	ctx context.Context,
+	ownerID uint,
 	instanceName string,
 	volumes []string,
 	volumeDetails []types.VolumeDetails,
 ) error {
 	// Get the instance first to get its ownerID
-	instance, err := s.repo.GetByName(ctx, models.AdminID, instanceName)
+	instance, err := s.repo.GetByName(ctx, ownerID, instanceName)
 	if err != nil {
-		return fmt.Errorf("failed to get instance %s: %w", instanceName, err)
+		return fmt.Errorf("failed to get instance %s for owner %d: %w", instanceName, ownerID, err)
 	}
 
 	logger.Debugf("🔄 Converting volume details for instance %s", instanceName)
@@ -265,7 +266,7 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 			// Update volumes first if present
 			if len(instance.Volumes) > 0 || len(instance.VolumeDetails) > 0 {
 				logger.Debugf("🔄 Updating volumes for instance %s", instance.Name)
-				if err := s.updateInstanceVolumes(ctx, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
+				if err := s.updateInstanceVolumes(ctx, ownerID, instance.Name, instance.Volumes, instance.VolumeDetails); err != nil {
 					err = fmt.Errorf("❌ Failed to update volumes for instance %s: %w", instance.Name, err)
 					logger.Error(err)
 					s.addTaskLogs(ctx, ownerID, task, err.Error())
@@ -515,7 +516,7 @@ func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instance
 			}
 
 			// Try to update database
-			if err := s.repo.Terminate(ctx, ownerID, request.instance.ID); err != nil {
+			if err := s.repo.Terminate(ctx, request.instance.OwnerID, request.instance.ID); err != nil {
 				request.lastError = fmt.Errorf("failed to terminate in database: %w", err)
 				queue = append(queue, request) // add back to queue
 				time.Sleep(defaultErrorSleep)
@@ -574,9 +575,21 @@ func (s *Instance) updateTaskError(ctx context.Context, ownerID uint, task *mode
 }
 
 func (s *Instance) addTaskLogs(ctx context.Context, ownerID uint, task *models.Task, logs string) {
-	task.Logs += fmt.Sprintf("\n%s", logs)
-	if err := s.taskService.Update(ctx, ownerID, task); err != nil {
-		logger.Errorf("failed to update task: %v", err)
+	// Fetch the task again before updating to ensure we have the latest version
+	currentTask, err := s.taskService.GetByID(ctx, ownerID, task.ID)
+	if err != nil {
+		logger.Errorf("failed to get task %d before adding logs: %v", task.ID, err)
+		// Attempt to update with the potentially stale task object anyway
+		task.Logs += fmt.Sprintf("\n%s", logs)
+		if updateErr := s.taskService.Update(ctx, ownerID, task); updateErr != nil {
+			logger.Errorf("failed to update task %d after failing to fetch: %v", task.ID, updateErr)
+		}
+		return
+	}
+
+	currentTask.Logs += fmt.Sprintf("\n%s", logs)
+	if err := s.taskService.Update(ctx, ownerID, currentTask); err != nil {
+		logger.Errorf("failed to update task %d with new logs: %v", currentTask.ID, err)
 	}
 }
 
