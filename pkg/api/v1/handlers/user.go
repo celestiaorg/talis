@@ -43,7 +43,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx, req RPCRequest) error {
 
 	id, err := h.service.CreateUser(c.Context(), user)
 	if err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgGetUsersFailed, err.Error(), req.ID)
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgCreateUserFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{
@@ -160,7 +160,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByID, nil, req.ID)
 	}
 	if err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgGetUsersFailed, err.Error(), req.ID)
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgDeleteUserFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{

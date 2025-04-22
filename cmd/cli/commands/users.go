@@ -20,7 +20,7 @@ func init() {
 	createUserCmd.Flags().StringP("username", "u", "", "username of the user to be created")
 	_ = createUserCmd.MarkFlagRequired("username")
 
-	deleteUserCmd.Flags().StringP("id", "i", "", "ID of the user to be deleted")
+	deleteUserCmd.Flags().IntP("id", "i", 0, "ID of the user to be deleted")
 	_ = deleteUserCmd.MarkFlagRequired("id")
 }
 

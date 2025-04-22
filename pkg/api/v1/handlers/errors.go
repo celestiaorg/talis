@@ -45,6 +45,8 @@ const (
 	ErrMsgUserNotFoundByUsername = "User not found with provided username"
 	ErrMsgGetUsersFailed         = "Failed to get users"
 	ErrMsgGetUserFailed          = "Failed to get user"
+	ErrMsgCreateUserFailed       = "Failed to create user"
+	ErrMsgDeleteUserFailed       = "Failed to delete user"
 	ErrMsgNegativeUserID         = "User ID must be positive"
 	ErrMsgNilUserObject          = "User object is nil"
 )

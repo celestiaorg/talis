@@ -140,7 +140,7 @@ func (h *RPCHandler) handleUserMethod(c *fiber.Ctx, req RPCRequest) error {
 	case UserDelete:
 		return h.UserHandlers.DeleteUser(c, req)
 	default:
-		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown task method", nil, req.ID)
+		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown user method", nil, req.ID)
 	}
 }
 
