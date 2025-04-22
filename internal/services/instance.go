@@ -284,38 +284,68 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 				continue
 			}
 
-			// Fetch the instance by name - this might return an old instance if name is reused
-			dbInstance, err := s.repo.GetByName(ctx, dbOwnerID, pInstance.Name)
-			if err != nil {
-				// This could be "record not found" or other DB errors
-				errMsg := fmt.Sprintf("❌ Failed to get DB record for instance %s (Owner: %d): %v", pInstance.Name, dbOwnerID, err)
+			var foundCorrectInstance bool           // Flag to track if we identified the correct instance
+			var identifiedInstance *models.Instance // Store the identified instance here
+
+			// Attempt 1: GetByName
+			getInstance, err := s.repo.GetByName(ctx, dbOwnerID, pInstance.Name)
+			if err == nil {
+				// GetByName succeeded, check if it's the correct one
+				if getInstance.LastTaskID == taskID && getInstance.Status == models.InstanceStatusPending {
+					identifiedInstance = getInstance
+					foundCorrectInstance = true
+					logger.Debugf("Instance %s (ID: %d) identified via GetByName for Task %d", pInstance.Name, identifiedInstance.ID, taskID)
+				} else {
+					// GetByName returned the wrong instance (different task or status)
+					warnMsg := fmt.Sprintf("⚠️ GetByName returned instance %s (ID: %d) with wrong state (TaskID: %d/%d, Status: %d/%d). Attempting fallback List.",
+						pInstance.Name, getInstance.ID, getInstance.LastTaskID, taskID, getInstance.Status, models.InstanceStatusPending)
+					logger.Warn(warnMsg)
+					s.addTaskLogs(ctx, ownerID, task, warnMsg)
+				}
+			} else {
+				// GetByName failed. Log the error.
+				errMsg := fmt.Sprintf("ℹ️ GetByName failed for instance %s (Owner: %d): %v. Will attempt fallback List.", pInstance.Name, dbOwnerID, err)
+				logger.Warn(errMsg) // Log as warning because fallback might succeed
+				s.addTaskLogs(ctx, ownerID, task, errMsg)
+			}
+			// Regardless of GetByName outcome, if we haven't found the correct instance yet, try fallback.
+
+			// Attempt 2: Fallback List (if GetByName didn't find the correct one)
+			if !foundCorrectInstance {
+				logger.Debugf("Attempting fallback List search for instance %s (Owner: %d, Task: %d)", pInstance.Name, dbOwnerID, taskID)
+				// Fallback: List all instances for the owner and find the one matching name, task, and status
+				allInstances, err := s.repo.List(ctx, dbOwnerID, nil) // Assuming nil fetches all
+				if err != nil {
+					errMsg := fmt.Sprintf("❌ Fallback List search failed for owner %d: %v", dbOwnerID, err)
+					logger.Error(errMsg)
+					s.addTaskLogs(ctx, ownerID, task, errMsg)
+					// Cannot proceed without list result
+				} else {
+					// Iterate and find the match
+					for i := range allInstances {
+						inst := &allInstances[i]
+						if inst.Name == pInstance.Name && inst.LastTaskID == taskID && inst.Status == models.InstanceStatusPending {
+							identifiedInstance = inst // Assign the pointer
+							foundCorrectInstance = true
+							logger.Infof("✅ Fallback List search successful for instance %s (ID: %d, Task: %d)", pInstance.Name, identifiedInstance.ID, taskID)
+							break
+						}
+					}
+				}
+			} // End of fallback attempt
+
+			// Final Check: If we didn't find the correct instance by either method, log error and skip.
+			if !foundCorrectInstance {
+				errMsg := fmt.Sprintf("❌ Failed to identify unique pending DB instance for provisioned resource %s (Owner: %d, Task: %d). Skipping update.",
+					pInstance.Name, dbOwnerID, taskID)
 				logger.Error(errMsg)
 				s.addTaskLogs(ctx, ownerID, task, errMsg)
-				continue
+				continue // Skip this pInstance
 			}
 
-			// *** Crucial Check ***
-			// Verify that the instance returned by GetByName belongs to the CURRENT task.
-			if dbInstance.LastTaskID != taskID {
-				// This means GetByName returned an instance from a DIFFERENT task (likely an old one with the same name).
-				errMsg := fmt.Sprintf("⚠️ GetByName returned instance %s (ID: %d) from wrong task (TaskID: %d, Expected: %d). Skipping update for this provisioned resource.",
-					pInstance.Name, dbInstance.ID, dbInstance.LastTaskID, taskID)
-				logger.Warn(errMsg)
-				s.addTaskLogs(ctx, ownerID, task, errMsg)
-				continue // Skip this pInstance, as we couldn't link it to the DB record for THIS task
-			}
-
-			// Verify the instance fetched is still in the expected Pending state.
-			if dbInstance.Status != models.InstanceStatusPending {
-				errMsg := fmt.Sprintf("⚠️ Instance %s (ID: %d, Owner: %d, Task: %d) is not in Pending state (Status: %d). Skipping update.",
-					pInstance.Name, dbInstance.ID, dbOwnerID, taskID, dbInstance.Status)
-				logger.Warn(errMsg)
-				s.addTaskLogs(ctx, ownerID, task, errMsg)
-				continue // Skip processing if not pending
-			}
-
-			// If we reach here, dbInstance is the correct one for this task and is pending.
-			logger.Debugf("  - Matched DB Instance ID: %d, Owner: %d, Status: %d, TaskID: %d", dbInstance.ID, dbOwnerID, dbInstance.Status, dbInstance.LastTaskID)
+			// If we reach here, identifiedInstance points to the correct, pending instance.
+			dbInstance := identifiedInstance // Use the identified instance for subsequent operations
+			logger.Debugf("  - Processing DB Instance ID: %d, Owner: %d, Status: %d, TaskID: %d", dbInstance.ID, dbOwnerID, dbInstance.Status, dbInstance.LastTaskID)
 
 			// Update volumes first if present
 			if len(pInstance.Volumes) > 0 || len(pInstance.VolumeDetails) > 0 {
@@ -396,21 +426,61 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 					continue
 				}
 
-				// Fetch the specific instance for this task to update payload status
-				// Use GetByName and verify TaskID, similar to the main update logic
-				dbInstanceToUpdatePayload, err := s.repo.GetByName(ctx, dbOwnerID, pInstance.Name)
-				if err != nil {
-					logger.Errorf("❌ Failed to get DB instance %s (Owner: %d) for payload status update: %v", pInstance.Name, dbOwnerID, err)
+				var foundPayloadInstance bool
+				var identifiedPayloadInstance *models.Instance
+
+				// Attempt 1: GetByName for payload update
+				getInstancePayload, err := s.repo.GetByName(ctx, dbOwnerID, pInstance.Name)
+				if err == nil {
+					if getInstancePayload.LastTaskID == taskID {
+						identifiedPayloadInstance = getInstancePayload
+						foundPayloadInstance = true
+						logger.Debugf("Payload instance %s (ID: %d) identified via GetByName for Task %d", pInstance.Name, identifiedPayloadInstance.ID, taskID)
+					} else {
+						warnMsg := fmt.Sprintf("⚠️ GetByName returned wrong task (%d, expected %d) for payload update on %s. Attempting fallback List.",
+							getInstancePayload.LastTaskID, taskID, pInstance.Name)
+						logger.Warn(warnMsg)
+						s.addTaskLogs(ctx, ownerID, task, warnMsg)
+					}
+				} else {
+					// GetByName failed for payload update. Log the error.
+					errMsg := fmt.Sprintf("ℹ️ GetByName failed for payload update on %s: %v. Will attempt fallback List.", pInstance.Name, err)
+					logger.Warn(errMsg)
+					s.addTaskLogs(ctx, ownerID, task, errMsg)
+				}
+
+				// Attempt 2: Fallback List for payload update
+				if !foundPayloadInstance {
+					logger.Debugf("Attempting fallback List for payload update on instance %s (Owner: %d, Task: %d)", pInstance.Name, dbOwnerID, taskID)
+					allInstancesPayload, err := s.repo.List(ctx, dbOwnerID, nil)
+					if err != nil {
+						errMsg := fmt.Sprintf("❌ Fallback List failed for payload update owner %d: %v", dbOwnerID, err)
+						logger.Error(errMsg)
+						s.addTaskLogs(ctx, ownerID, task, errMsg)
+					} else {
+						for i := range allInstancesPayload {
+							inst := &allInstancesPayload[i]
+							if inst.Name == pInstance.Name && inst.LastTaskID == taskID {
+								identifiedPayloadInstance = inst // Assign the pointer
+								foundPayloadInstance = true
+								logger.Infof("✅ Fallback List successful for payload update on instance %s (ID: %d, Task: %d)", pInstance.Name, identifiedPayloadInstance.ID, taskID)
+								break
+							}
+						}
+					}
+				}
+
+				// Final Check: If we didn't find the correct instance for payload update, skip.
+				if !foundPayloadInstance {
+					errMsg := fmt.Sprintf("❌ Failed to identify unique DB instance for payload update on %s (Owner: %d, Task: %d). Skipping.",
+						pInstance.Name, dbOwnerID, taskID)
+					logger.Error(errMsg)
+					s.addTaskLogs(ctx, ownerID, task, errMsg)
 					continue
 				}
 
-				// Verify it's the instance from the correct task
-				if dbInstanceToUpdatePayload.LastTaskID != taskID {
-					logger.Errorf("❌ Got wrong task instance %s (Owner: %d, Task: %d, Expected: %d) for payload status update.",
-						pInstance.Name, dbOwnerID, dbInstanceToUpdatePayload.LastTaskID, taskID)
-					continue
-				}
-
+				// If we reach here, identifiedPayloadInstance points to the correct instance for this task
+				dbInstanceToUpdatePayload := identifiedPayloadInstance
 				if err := s.repo.UpdateByID(ctx, dbOwnerID, dbInstanceToUpdatePayload.ID, updateInstancePayload); err != nil {
 					logger.Errorf("❌ Failed to update payload status for instance %s (ID: %d, Owner: %d): %v", pInstance.Name, dbInstanceToUpdatePayload.ID, dbOwnerID, err)
 					continue
