@@ -127,7 +127,7 @@ func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string, req RPCRe
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByUsername, nil, req.ID)
 	} else if err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgGetUsersFailed, err.Error(), req.ID)
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgGetUserFailed, err.Error(), req.ID)
 	}
 
 	if user == nil {
