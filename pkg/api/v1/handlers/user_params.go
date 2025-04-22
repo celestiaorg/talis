@@ -24,13 +24,13 @@ func (p *UserGetParams) Validate() error {
 	return nil
 }
 
-// UserGetByIdParams defines the parameters for retrieving a user by id
-type UserGetByIdParams struct {
+// UserGetByIDParams defines the parameters for retrieving a user by id
+type UserGetByIDParams struct {
 	ID int `json:"id"`
 }
 
 // Validate validates the parameters for retrieving a user by id
-func (p UserGetByIdParams) Validate() error {
+func (p UserGetByIDParams) Validate() error {
 	if p.ID <= 0 {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgUserIDRequired))
 	}

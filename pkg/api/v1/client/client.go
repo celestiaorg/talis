@@ -38,7 +38,7 @@ type Client interface {
 	DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) (types.TaskResponse, error)
 
 	//User Endpoints
-	GetUserByID(ctx context.Context, params handlers.UserGetByIdParams) (models.User, error)
+	GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error)
 	GetUsers(ctx context.Context, params handlers.UserGetParams) (types.UserResponse, error)
 	CreateUser(ctx context.Context, params handlers.CreateUserParams) (types.CreateUserResponse, error)
 	DeleteUser(ctx context.Context, params handlers.DeleteUserParams) error
@@ -298,17 +298,6 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 
 // Instance methods implementation
 
-func getUsersQueryParams(opts *models.UserQueryOptions) (url.Values, error) {
-	q := url.Values{}
-	if opts == nil {
-		return q, nil
-	}
-	if opts.Username != "" {
-		q.Set("username", opts.Username)
-	}
-	return q, nil
-}
-
 // getQueryParams creates url.Values from ListOptions
 func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 	q := url.Values{}
@@ -431,7 +420,7 @@ func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstance
 // User method implementation
 
 // GetUserByID retrieves a user by id
-func (c *APIClient) GetUserByID(ctx context.Context, params handlers.UserGetByIdParams) (models.User, error) {
+func (c *APIClient) GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error) {
 	var response models.User
 	if err := c.executeRPC(ctx, handlers.UserGetByID, params, &response); err != nil {
 		return models.User{}, err

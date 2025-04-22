@@ -57,7 +57,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx, req RPCRequest) error {
 
 // GetUserByID retrieves a user by their ID
 func (h *UserHandler) GetUserByID(c *fiber.Ctx, req RPCRequest) error {
-	params, err := parseParams[UserGetByIdParams](req)
+	params, err := parseParams[UserGetByIDParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
 	}

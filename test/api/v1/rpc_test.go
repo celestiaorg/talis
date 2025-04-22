@@ -188,7 +188,7 @@ func TestClientUserMethods(t *testing.T) {
 		expectedUserCount++
 
 		// Get the user by ID
-		resp, err := suite.APIClient.GetUserByID(suite.Context(), handlers.UserGetByIdParams{ID: int(newUser.UserID)})
+		resp, err := suite.APIClient.GetUserByID(suite.Context(), handlers.UserGetByIDParams{ID: int(newUser.UserID)})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		require.Equal(t, "testuser_getbyid", resp.Username)
@@ -244,12 +244,12 @@ func TestClientUserMethods(t *testing.T) {
 		expectedUserCount--
 
 		// Verify the user is actually deleted
-		_, err = suite.APIClient.GetUserByID(suite.Context(), handlers.UserGetByIdParams{ID: int(user.UserID)})
+		_, err = suite.APIClient.GetUserByID(suite.Context(), handlers.UserGetByIDParams{ID: int(user.UserID)})
 		require.Error(t, err, "User should no longer exist after deletion")
 
 		// Delete an non existing user
 		nonExistingUserID := 234245
-		err = suite.APIClient.DeleteUser(suite.Context(), handlers.DeleteUserParams{ID: int(nonExistingUserID)})
+		err = suite.APIClient.DeleteUser(suite.Context(), handlers.DeleteUserParams{ID: nonExistingUserID})
 		require.Error(t, err)
 	})
 }
