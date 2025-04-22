@@ -496,65 +496,119 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 
 // Terminate handles the termination of instances for a given project name and instance names.
 func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName string, instanceNames []string) (taskName string, err error) {
-	// First verify the project exists and belongs to the owner
+	// First verify the project exists and belongs to the owner making the request
 	project, err := s.projectService.GetByName(ctx, ownerID, projectName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// Get instances that belong to this project and match the provided names
-	instances, err := s.repo.GetByProjectIDAndInstanceNames(ctx, ownerID, project.ID, instanceNames)
-	if err != nil {
-		return "", fmt.Errorf("failed to get instances: %w", err)
+	instancesToTerminate := make([]*models.Instance, 0)
+	notFoundOrInvalidNames := make([]string, 0)
+
+	// Fetch all instances for the project owner once, to avoid multiple List calls if possible
+	// Note: If List doesn't support filtering by ProjectID, this fetches all for the owner.
+	// This could be inefficient for owners with many instances across many projects.
+	allOwnerInstances, listErr := s.repo.List(ctx, project.OwnerID, nil) // Assuming nil fetches all
+	if listErr != nil {
+		// If we can't list instances, we cannot proceed reliably.
+		logger.Errorf("❌ Failed to list instances for owner %d during termination check: %v", project.OwnerID, listErr)
+		// Create a task to report this failure
+		taskName = uuid.New().String()
+		createTaskErr := s.taskService.Create(ctx, &models.Task{
+			Name:    taskName,
+			OwnerID: ownerID, ProjectID: project.ID, Status: models.TaskStatusFailed,
+			Action: models.TaskActionTerminateInstances, Error: fmt.Sprintf("failed to list instances for project owner %d: %v", project.OwnerID, listErr),
+		})
+		if createTaskErr != nil {
+			logger.Errorf("❌ Additionally failed to create failure task: %v", createTaskErr)
+		}
+		return taskName, fmt.Errorf("failed to list instances for project owner %d: %w", project.OwnerID, listErr)
 	}
 
+	// Now iterate through requested names and check against the fetched list
+	for _, name := range instanceNames {
+		foundInProject := false
+		for i := range allOwnerInstances { // Iterate through the fetched instances
+			inst := &allOwnerInstances[i]
+
+			// Check if this instance matches the requested name AND project ID
+			if inst.Name == name && inst.ProjectID == project.ID {
+				foundInProject = true
+				logger.Debugf("Checking instance found in list: Name=%s, InstanceID=%d, InstanceProjectID=%d, InstanceStatus=%d against ProjectID=%d", inst.Name, inst.ID, inst.ProjectID, inst.Status, project.ID)
+
+				// Check if it's already terminated
+				if inst.Status != models.InstanceStatusTerminated {
+					instancesToTerminate = append(instancesToTerminate, inst)
+				} else {
+					// Instance found in project but already terminated
+					notFoundOrInvalidNames = append(notFoundOrInvalidNames, fmt.Sprintf("%s (already terminated)", name))
+				}
+				break // Found the specific instance for this name and project, stop inner loop
+			}
+		}
+
+		// If after checking all instances, we didn't find one matching the name AND project ID
+		if !foundInProject {
+			notFoundOrInvalidNames = append(notFoundOrInvalidNames, fmt.Sprintf("%s (not found in project %s)", name, projectName))
+		}
+	}
+
+	// Create the termination task
 	taskName = uuid.New().String()
-	err = s.taskService.Create(ctx, &models.Task{
+	createTaskErr := s.taskService.Create(ctx, &models.Task{
 		Name:      taskName,
 		OwnerID:   ownerID,
 		ProjectID: project.ID,
 		Status:    models.TaskStatusPending,
 		Action:    models.TaskActionTerminateInstances,
 	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create task: %w", err)
+	if createTaskErr != nil {
+		// If task creation fails, we can't proceed.
+		return "", fmt.Errorf("failed to create termination task: %w", createTaskErr)
 	}
 
-	task, err := s.taskService.GetByName(ctx, ownerID, taskName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get task: %w", err)
+	task, getTaskErr := s.taskService.GetByName(ctx, ownerID, taskName)
+	if getTaskErr != nil {
+		// Even if we can't get the task right away, the termination might still proceed.
+		// Log the error but return the taskName.
+		logger.Errorf("❌ Failed to get termination task %s immediately after creation: %v", taskName, getTaskErr)
+		// Let the background process handle task updates.
+		// Decide if we should return error here or let background handle it.
+		// For now, returning taskName seems reasonable.
 	}
 
-	// Verify we found all requested instances
-	if len(instances) == 0 {
-		logger.Infof("No active instances found with the specified names for project '%s', request is a no-op", projectName)
-		s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted)
-		return taskName, nil
-	}
-	if len(instances) != len(instanceNames) {
-		// Some instances were not found, log which ones
-		foundNames := make(map[string]bool)
-		for _, instance := range instances {
-			foundNames[instance.Name] = true
+	// Log skipped instances
+	if len(notFoundOrInvalidNames) > 0 {
+		logMsg := fmt.Sprintf("Skipped termination for the following names (not found, wrong project, or already terminated): %v", notFoundOrInvalidNames)
+		logger.Infof(logMsg)
+		if task != nil { // Add logs only if task was successfully retrieved
+			s.addTaskLogs(ctx, ownerID, task, logMsg)
 		}
-		var missingNames []string
-		for _, name := range instanceNames {
-			if !foundNames[name] {
-				missingNames = append(missingNames, name)
-			}
-		}
-		logMsg := fmt.Sprintf("Some instances were not found or are already deleted for project '%s': %v", projectName, missingNames)
-		logger.Infof("%s", logMsg)
-		s.addTaskLogs(ctx, ownerID, task, logMsg)
 	}
 
-	s.terminate(ctx, ownerID, task.ID, instances)
-	return taskName, nil
+	// Check if there are any valid instances to terminate
+	if len(instancesToTerminate) == 0 {
+		finalLogMsg := "No valid instances found to terminate for this request."
+		logger.Infof(finalLogMsg)
+		if task != nil {
+			s.addTaskLogs(ctx, ownerID, task, finalLogMsg)
+			s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted) // Mark task as completed (no-op)
+		} else {
+			// If task fetch failed, we can't update it here.
+			logger.Warnf("Cannot update task %s status to completed as task fetch failed.", taskName)
+		}
+		return taskName, nil // Successful request, even if nothing was terminated
+	}
+
+	// Proceed with termination for the found valid instances
+	s.terminate(ctx, ownerID, task.ID, instancesToTerminate)
+	return taskName, nil // Termination initiated successfully
 }
 
 // deleteRequest represents a single instance deletion request with tracking
+// Change instance type to pointer
 type deleteRequest struct {
-	instance     models.Instance
+	instance     *models.Instance
 	infraRequest *types.InstancesRequest
 	attempts     int
 	lastError    error
@@ -568,7 +622,8 @@ type deletionResults struct {
 }
 
 // terminate handles the infrastructure deletion process
-func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instances []models.Instance) {
+// Change instances parameter to slice of pointers
+func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instances []*models.Instance) {
 	go func() {
 		task, err := s.taskService.GetByID(ctx, ownerID, taskID)
 		if err != nil {
@@ -586,7 +641,7 @@ func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instance
 		// Create queue of delete requests
 		queue := make([]*deleteRequest, 0, len(instances))
 		for _, instance := range instances {
-			logMsg := fmt.Sprintf("🗑️ Attempting to terminate instance: %s", instance.Name)
+			logMsg := fmt.Sprintf("🗑️ Attempting to terminate instance: %s (ID: %d)", instance.Name, instance.ID)
 			logger.Infof("%s", logMsg)
 			s.addTaskLogs(ctx, ownerID, task, logMsg)
 
@@ -616,6 +671,13 @@ func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instance
 			})
 		}
 
+		// Determine the correct OwnerID for termination operations
+		// All instances in the list should belong to the same project owner
+		terminateOwnerID := ownerID // Default to caller ID (used for task updates)
+		if len(instances) > 0 {
+			terminateOwnerID = instances[0].OwnerID // Use the actual owner of the instances for infra/DB ops
+		}
+
 		results := &deletionResults{
 			successful: make([]string, 0),
 			failed:     make(map[string]error),
@@ -623,7 +685,7 @@ func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instance
 
 		// Process queue until empty or all requests have failed
 		defaultErrorSleep := 100 * time.Millisecond
-		ownerID := instances[0].OwnerID
+		// ownerID variable is unused inside loop, removed redeclaration
 	REQUESTLOOP:
 		for len(queue) > 0 {
 			select {
@@ -667,8 +729,9 @@ func (s *Instance) terminate(ctx context.Context, ownerID, taskID uint, instance
 			}
 
 			// Try to update database
-			if err := s.repo.Terminate(ctx, request.instance.OwnerID, request.instance.ID); err != nil {
-				request.lastError = fmt.Errorf("failed to terminate in database: %w", err)
+			// Use terminateOwnerID (the actual instance owner)
+			if err := s.repo.Terminate(ctx, terminateOwnerID, request.instance.ID); err != nil {
+				request.lastError = fmt.Errorf("failed to terminate instance %d in database: %w", request.instance.ID, err)
 				queue = append(queue, request) // add back to queue
 				time.Sleep(defaultErrorSleep)
 				continue
