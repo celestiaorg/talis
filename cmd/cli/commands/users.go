@@ -93,7 +93,7 @@ var deleteUserCmd = &cobra.Command{
 	Short: "Delete a user",
 	Long:  "Delete a user with a given ID",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		userID, _ := cmd.Flags().GetInt("id")
+		userID, _ := cmd.Flags().GetUint("id")
 
 		err := apiClient.DeleteUser(context.Background(), handlers.DeleteUserParams{ID: userID})
 		if err != nil {

@@ -26,7 +26,7 @@ func (p *UserGetParams) Validate() error {
 
 // UserGetByIDParams defines the parameters for retrieving a user by id
 type UserGetByIDParams struct {
-	ID int `json:"id"`
+	ID uint `json:"id"`
 }
 
 // Validate validates the parameters for retrieving a user by id
@@ -60,7 +60,7 @@ func (p CreateUserParams) Validate() error {
 
 // DeleteUserParams defines the parameters for deleting a user with a given user id
 type DeleteUserParams struct {
-	ID int `json:"id"`
+	ID uint `json:"id"`
 }
 
 // Validate validates the parameters for deleting a user

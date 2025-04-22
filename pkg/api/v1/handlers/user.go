@@ -66,7 +66,7 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	user, err := h.service.GetUserByID(c.Context(), uint(params.ID))
+	user, err := h.service.GetUserByID(c.Context(), params.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByID, nil, req.ID)
 	} else if err != nil {
@@ -155,7 +155,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	err = h.service.DeleteUser(c.Context(), uint(params.ID))
+	err = h.service.DeleteUser(c.Context(), params.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByID, nil, req.ID)
 	}
