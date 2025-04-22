@@ -12,39 +12,32 @@ import (
 
 const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 
-// InstanceConfig represents the configuration for creating an instance
-type InstanceConfig struct {
-	Region            string         `json:"region"`                // Region where to create the instance
-	OwnerID           uint           `json:"owner_id"`              // Owner ID of the instance
-	Size              string         `json:"size"`                  // Size/type of the instance
-	Image             string         `json:"image"`                 // OS image to use
-	SSHKeyID          string         `json:"ssh_key_id"`            // SSH key name to use
-	Tags              []string       `json:"tags,omitempty"`        // Tags to apply to the instance
-	NumberOfInstances int            `json:"number_of_instances"`   // Number of instances to create
-	CustomName        string         `json:"custom_name,omitempty"` // Optional custom name for this specific instance
-	Volumes           []VolumeConfig `json:"volumes,omitempty"`     // Volumes to attach to the instance
-}
-
 // InstanceRequest represents an RPC request for a single instance
 // NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstanceRequest struct {
-	// Metadata
+	// DB Model Data - User Defined
 	Name        string `json:"name"` // Optional custom name for instances
-	ProjectName string `json:"project_name"`
 	OwnerID     uint   `json:"owner_id"` // Owner ID of the instance
-
-	// User Defined Configs
 	Provider          models.ProviderID `json:"provider"`                  // Cloud provider (e.g., "do")
 	Region            string            `json:"region"`                    // Region where instances will be created
 	Size              string            `json:"size"`                      // Instance size/type
 	Image             string            `json:"image"`                     // OS image to use
-	SSHKeyName        string            `json:"ssh_key_name"`              // Name of the SSH key to use
 	Tags              []string          `json:"tags"`                      // Tags to apply to instances
+
+// DB Model Data - Internally set
+	PublicIP       string            // Public IP address
+	VolumeIDs        []string          `json:"volume_ids,omitempty"`         // List of attached volume IDs
+	VolumeDetails  []VolumeDetails   `json:"volume_details,omitempty"`  // Detailed information about attached volumes
+
+	// User Defined Configs
+	ProjectName string `json:"project_name"`
+	SSHKeyName        string            `json:"ssh_key_name"`              // Name of the SSH key to use
 	NumberOfInstances int               `json:"number_of_instances"`       // Number of instances to create
 	Provision         bool              `json:"provision"`                 // Whether to run Ansible provisioning
-	Volumes           []VolumeConfig    `json:"volumes"`                   // Optional volumes to attach
 	PayloadPath       string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
+	Volumes           []VolumeConfig    `json:"volumes"`                   // Optional volumes to attach
 	ExecutePayload    bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
+
 
 	// Talis Server Configs
 	SSHKeyType string `json:"ssh_key_type,omitempty"` // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
@@ -52,6 +45,7 @@ type InstanceRequest struct {
 
 	// Internal Configs
 	Action string `json:"action"`
+	ProviderInstanceID             string            // Provider-specific instance ID
 }
 
 // DeleteInstanceRequest represents the request body for deleting instances
@@ -66,21 +60,6 @@ type CreateRequest struct {
 	ProjectName string            `json:"project_name"` // Project name of the job
 	WebhookURL  string            `json:"webhook_url"`  // Webhook URL of the job
 	Instances   []InstanceRequest `json:"instances"`    // Instances to create
-}
-
-// InstanceInfo represents information about a created instance
-type InstanceInfo struct {
-	ID             string            // Provider-specific instance ID
-	Name           string            // Instance name
-	PublicIP       string            // Public IP address
-	Provider       models.ProviderID // Provider name (e.g., "do")
-	Region         string            // Region where instance was created
-	Size           string            // Instance size/type
-	Tags           []string          // Tags of the instance
-	Volumes        []string          `json:"volumes,omitempty"`         // List of attached volume IDs
-	VolumeDetails  []VolumeDetails   `json:"volume_details,omitempty"`  // Detailed information about attached volumes
-	PayloadPath    string            `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
-	ExecutePayload bool              `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 }
 
 // Validate validates the instance configuration
