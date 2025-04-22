@@ -211,9 +211,9 @@ func (s *Instance) updateInstanceVolumes(
 	return nil
 }
 
-// provisionInstances provisions the job asynchronously
+// provisionInstances provisions the instances. To not block the main thread, it should be called in a goroutine.
+// NOTE: Currently this assumes that the instances are for the same provider.
 func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint, instances []types.InstanceRequest) {
-	go func() {
 		// Get task details
 		task, err := s.taskService.GetByID(ctx, ownerID, taskID)
 		if err != nil {
@@ -342,7 +342,6 @@ func (s *Instance) provisionInstances(ctx context.Context, ownerID, taskID uint,
 
 		s.updateTaskStatus(ctx, ownerID, task.ID, models.TaskStatusCompleted)
 		logger.Debugf("✅ Infrastructure creation completed for task %s", task.Name)
-	}()
 }
 
 // Terminate handles the termination of instances for a given project name and instance names.
