@@ -67,7 +67,11 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 	if err != nil {
 		// Log error, but maybe creation can continue? Depends on whether task ID is strictly needed later.
 		logger.Errorf("Failed to get task %s immediately after creation: %v", taskName, err)
-		// For now, let's return error as task ID is used below.
+		// Surface the failure on the task itself so users see the problem.
+		s.updateTaskError(ctx, ownerID, &models.Task{ // safe: we know Name & OwnerID
+			Name:    taskName,
+			OwnerID: ownerID,
+		}, fmt.Errorf("failed to fetch task after creation: %w", err))
 		return "", fmt.Errorf("failed to get task %s after creation: %w", taskName, err)
 	}
 
