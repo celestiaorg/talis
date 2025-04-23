@@ -38,10 +38,10 @@ type Client interface {
 	DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) (types.TaskResponse, error)
 
 	//User Endpoints
-	GetUserByID(ctx context.Context, id string) (types.UserResponse, error)
-	GetUsers(ctx context.Context, opts *models.UserQueryOptions) (types.UserResponse, error)
-	CreateUser(ctx context.Context, req types.CreateUserRequest) (types.CreateUserResponse, error)
-	DeleteUser(ctx context.Context, id string) error
+	GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error)
+	GetUsers(ctx context.Context, params handlers.UserGetParams) (types.UserResponse, error)
+	CreateUser(ctx context.Context, params handlers.CreateUserParams) (types.CreateUserResponse, error)
+	DeleteUser(ctx context.Context, params handlers.DeleteUserParams) error
 
 	// Project methods
 	CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error)
@@ -298,17 +298,6 @@ func (c *APIClient) HealthCheck(ctx context.Context) (map[string]string, error) 
 
 // Instance methods implementation
 
-func getUsersQueryParams(opts *models.UserQueryOptions) (url.Values, error) {
-	q := url.Values{}
-	if opts == nil {
-		return q, nil
-	}
-	if opts.Username != "" {
-		q.Set("username", opts.Username)
-	}
-	return q, nil
-}
-
 // getQueryParams creates url.Values from ListOptions
 func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 	q := url.Values{}
@@ -431,43 +420,35 @@ func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstance
 // User method implementation
 
 // GetUserByID retrieves a user by id
-func (c *APIClient) GetUserByID(ctx context.Context, id string) (types.UserResponse, error) {
-	endpoint := routes.GetUserByIDURL(id)
-	var response types.UserResponse
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return types.UserResponse{}, err
+func (c *APIClient) GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error) {
+	var response models.User
+	if err := c.executeRPC(ctx, handlers.UserGetByID, params, &response); err != nil {
+		return models.User{}, err
 	}
 	return response, nil
 }
 
 // GetUsers retrieves a user by username
-func (c *APIClient) GetUsers(ctx context.Context, opts *models.UserQueryOptions) (types.UserResponse, error) {
-	q, err := getUsersQueryParams(opts)
-	if err != nil {
-		return types.UserResponse{}, err
-	}
-	endpoint := routes.GetUsersURL(q)
+func (c *APIClient) GetUsers(ctx context.Context, params handlers.UserGetParams) (types.UserResponse, error) {
 	var response types.UserResponse
-	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
+	if err := c.executeRPC(ctx, handlers.UserGet, params, &response); err != nil {
 		return types.UserResponse{}, err
 	}
 	return response, nil
 }
 
 // CreateUser creates a new user
-func (c *APIClient) CreateUser(ctx context.Context, req types.CreateUserRequest) (types.CreateUserResponse, error) {
+func (c *APIClient) CreateUser(ctx context.Context, params handlers.CreateUserParams) (types.CreateUserResponse, error) {
 	var response types.CreateUserResponse
-	endpoint := routes.CreateUserURL()
-	if err := c.executeRequest(ctx, http.MethodPost, endpoint, req, &response); err != nil {
+	if err := c.executeRPC(ctx, handlers.UserCreate, params, &response); err != nil {
 		return types.CreateUserResponse{}, err
 	}
 	return response, nil
 }
 
 // DeleteUser user deletes a user
-func (c *APIClient) DeleteUser(ctx context.Context, id string) error {
-	endpoint := routes.DeleteUserURL(id)
-	return c.executeRequest(ctx, http.MethodDelete, endpoint, nil, nil)
+func (c *APIClient) DeleteUser(ctx context.Context, params handlers.DeleteUserParams) error {
+	return c.executeRPC(ctx, handlers.UserDelete, params, nil)
 }
 
 // CreateProject creates a new project

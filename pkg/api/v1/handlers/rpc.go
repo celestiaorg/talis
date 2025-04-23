@@ -52,6 +52,7 @@ type RPCError struct {
 type RPCHandler struct {
 	ProjectHandlers *ProjectHandlers
 	TaskHandlers    *TaskHandlers
+	UserHandlers    *UserHandler
 }
 
 // HandleRPC handles all RPC requests for various resource types
@@ -72,6 +73,8 @@ func (h *RPCHandler) HandleRPC(c *fiber.Ctx) error {
 		return h.handleProjectMethod(c, req)
 	case IsTaskMethod(req.Method):
 		return h.handleTaskMethod(c, req)
+	case IsUserMethod(req.Method):
+		return h.handleUserMethod(c, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown method", nil, req.ID)
 	}
@@ -118,6 +121,26 @@ func (h *RPCHandler) handleTaskMethod(c *fiber.Ctx, req RPCRequest) error {
 		return h.TaskHandlers.Terminate(c, ownerID, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown task method", nil, req.ID)
+	}
+}
+
+// handleUserMethod routes user methods to their respective handlers
+func (h *RPCHandler) handleUserMethod(c *fiber.Ctx, req RPCRequest) error {
+	if h.UserHandlers == nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, "User handlers not configured", nil, req.ID)
+	}
+
+	switch req.Method {
+	case UserCreate:
+		return h.UserHandlers.CreateUser(c, req)
+	case UserGet:
+		return h.UserHandlers.GetUsers(c, req)
+	case UserGetByID:
+		return h.UserHandlers.GetUserByID(c, req)
+	case UserDelete:
+		return h.UserHandlers.DeleteUser(c, req)
+	default:
+		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown user method", nil, req.ID)
 	}
 }
 
