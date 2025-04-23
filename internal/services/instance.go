@@ -172,7 +172,11 @@ func (s *Instance) updateInstanceVolumes(
 	dbVolumeDetails := make(models.VolumeDetails, 0, len(volumeDetails))
 	for _, vd := range volumeDetails {
 		dbVolumeDetails = append(dbVolumeDetails, models.VolumeDetail{
-			ID: vd.ID, Name: vd.Name, Region: vd.Region, SizeGB: vd.SizeGB, MountPoint: vd.MountPoint,
+			ID:         vd.ID,
+			Name:       vd.Name,
+			Region:     vd.Region,
+			SizeGB:     vd.SizeGB,
+			MountPoint: vd.MountPoint,
 		})
 	}
 
