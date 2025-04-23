@@ -180,6 +180,12 @@ func (s *Instance) updateInstanceVolumes(
 		})
 	}
 
+	logger.Debugf("📦 Preparing to update instance %s", instanceName)
+	logger.Debugf("📝 Data to update:")
+	logger.Debugf("  - Volumes: %#v", volumes)
+	logger.Debugf("  - Volume Details: %#v", dbVolumeDetails)
+
+	// Create update instance with only the fields we want to update
 	updateData := &models.Instance{
 		Volumes:       volumes,
 		VolumeDetails: dbVolumeDetails,
