@@ -164,6 +164,11 @@ func (s *Instance) updateInstanceVolumes(
 	instanceName := instance.Name
 
 	logger.Debugf("🔄 Converting volume details for instance %s (ID: %d)", instanceName, instanceID)
+	logger.Debugf("📥 Input data:")
+	logger.Debugf("  - Volumes: %v", volumes)
+	logger.Debugf("  - Volume Details: %+v", volumeDetails)
+
+	// Convert volume details to database model
 	dbVolumeDetails := make(models.VolumeDetails, 0, len(volumeDetails))
 	for _, vd := range volumeDetails {
 		dbVolumeDetails = append(dbVolumeDetails, models.VolumeDetail{
