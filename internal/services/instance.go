@@ -387,7 +387,7 @@ func (s *Instance) provisionInstances(
 
 	// --- Optional Ansible Provisioning ---
 	if !anyUpdateFailed && len(instancesReq) > 0 && instancesReq[0].Provision {
-		s.runAnsibleProvisioning(ctx, task, *infra, pInstances, instanceNameToOwnerID)
+		s.runAnsibleProvisioning(ctx, task, infra, pInstances, instanceNameToOwnerID)
 	} else if anyUpdateFailed {
 		logger.Warnf("Skipping Ansible provisioning for task %d due to previous update errors.", taskID)
 		s.addTaskLogs(ctx, callerOwnerID, task, "Skipping Ansible provisioning due to previous errors.")
@@ -406,7 +406,7 @@ func (s *Instance) provisionInstances(
 func (s *Instance) runAnsibleProvisioning(
 	ctx context.Context,
 	task *models.Task,
-	infra Infrastructure,
+	infra *Infrastructure,
 	pInstances []types.InstanceInfo,
 	instanceNameToOwnerID map[string]uint,
 ) {
