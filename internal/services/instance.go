@@ -218,15 +218,14 @@ func (s *Instance) findPendingInstanceForTask(ctx context.Context, task *models.
 			logger.Errorf("❌ Fallback List search failed for owner %d: %v", dbOwnerID, listErr)
 			s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
 			return nil, fmt.Errorf("fallback List search failed for owner %d: %w", dbOwnerID, listErr)
-		} else {
-			for i := range allInstances {
-				inst := &allInstances[i]
-				if inst.Name == instanceName && inst.LastTaskID == task.ID && inst.Status == models.InstanceStatusPending {
-					identifiedInstance = inst
-					foundCorrectInstance = true
-					logger.Infof("✅ Fallback List search successful for instance %s (ID: %d, Task: %d)", instanceName, identifiedInstance.ID, task.ID)
-					break
-				}
+		}
+		for i := range allInstances {
+			inst := &allInstances[i]
+			if inst.Name == instanceName && inst.LastTaskID == task.ID && inst.Status == models.InstanceStatusPending {
+				identifiedInstance = inst
+				foundCorrectInstance = true
+				logger.Infof("✅ Fallback List search successful for instance %s (ID: %d, Task: %d)", instanceName, identifiedInstance.ID, task.ID)
+				break
 			}
 		}
 	}
@@ -346,11 +345,10 @@ func (s *Instance) provisionInstances(ctx context.Context, callerOwnerID, taskID
 			s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
 			anyUpdateFailed = true
 			continue
-		} else {
-			logMsg := fmt.Sprintf("Updated instance %s (ID: %d) with IP %s and status Ready", pInstance.Name, instanceToUpdate.ID, pInstance.PublicIP)
-			logger.Debugf("✅ Updated instance %s (ID: %d) with IP %s and status Ready", pInstance.Name, instanceToUpdate.ID, pInstance.PublicIP)
-			s.addTaskLogs(ctx, callerOwnerID, task, logMsg)
 		}
+		logMsg := fmt.Sprintf("Updated instance %s (ID: %d) with IP %s and status Ready", pInstance.Name, instanceToUpdate.ID, pInstance.PublicIP)
+		logger.Debugf("✅ Updated instance %s (ID: %d) with IP %s and status Ready", pInstance.Name, instanceToUpdate.ID, pInstance.PublicIP)
+		s.addTaskLogs(ctx, callerOwnerID, task, logMsg)
 	}
 
 	// --- Optional Ansible Provisioning ---
@@ -424,48 +422,65 @@ func (s *Instance) runAnsibleProvisioning(ctx context.Context, task *models.Task
 // TODO: Combine common logic with findPendingInstanceForTask.
 func (s *Instance) findInstanceForTask(ctx context.Context, task *models.Task, dbOwnerID uint, instanceName string) (*models.Instance, error) {
 	callerOwnerID := task.OwnerID
+	foundCorrectInstance := false // Renamed from identifiedInstance to avoid shadowing later
+	var correctInstance *models.Instance
 
 	// Attempt 1: GetByName
 	getInstance, err := s.repo.GetByName(ctx, dbOwnerID, instanceName)
-	if err == nil {
+	if err != nil {
+		// Log error and prepare for fallback
+		errMsg := fmt.Sprintf("ℹ️ GetByName failed for instance %s (Owner: %d) during payload check: %v. Fallback List.", instanceName, dbOwnerID, err)
+		logger.Warnf("ℹ️ GetByName failed for instance %s (Owner: %d) during payload check: %v. Fallback List.", instanceName, dbOwnerID, err)
+		s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
+		// Go directly to fallback check below
+	} else {
+		// GetByName succeeded, check if it's the correct task
 		if getInstance.LastTaskID == task.ID {
 			logger.Debugf("Instance %s (ID: %d) identified via GetByName for Task %d (Payload Check)", instanceName, getInstance.ID, task.ID)
-			return getInstance, nil // Found the correct one by task ID
+			correctInstance = getInstance // Found the correct one
+			foundCorrectInstance = true
+			// No need for fallback if found here
 		} else {
+			// GetByName found instance from wrong task, log and prepare for fallback
 			warnMsg := fmt.Sprintf("⚠️ GetByName returned instance %s (ID: %d) from wrong task (%d, expected %d) during payload check. Fallback List.",
 				instanceName, getInstance.ID, getInstance.LastTaskID, task.ID)
 			logger.Warnf("⚠️ GetByName returned instance %s (ID: %d) from wrong task (%d, expected %d) during payload check. Fallback List.", instanceName, getInstance.ID, getInstance.LastTaskID, task.ID)
 			s.addTaskLogs(ctx, callerOwnerID, task, warnMsg)
-		}
-	} else {
-		errMsg := fmt.Sprintf("ℹ️ GetByName failed for instance %s (Owner: %d) during payload check: %v. Fallback List.", instanceName, dbOwnerID, err)
-		logger.Warnf("ℹ️ GetByName failed for instance %s (Owner: %d) during payload check: %v. Fallback List.", instanceName, dbOwnerID, err)
-		s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
-	}
-
-	// Attempt 2: Fallback List
-	logger.Debugf("Attempting fallback List search for instance %s (Owner: %d, Task: %d) for payload check", instanceName, dbOwnerID, task.ID)
-	allInstances, listErr := s.repo.List(ctx, dbOwnerID, nil)
-	if listErr != nil {
-		errMsg := fmt.Sprintf("❌ Fallback List search failed for owner %d during payload check: %v", dbOwnerID, listErr)
-		logger.Errorf("❌ Fallback List search failed for owner %d during payload check: %v", dbOwnerID, listErr)
-		s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
-		return nil, fmt.Errorf("fallback List search failed for owner %d during payload check: %w", dbOwnerID, listErr)
-	}
-
-	for i := range allInstances {
-		inst := &allInstances[i]
-		if inst.Name == instanceName && inst.LastTaskID == task.ID {
-			logger.Infof("✅ Fallback List search successful for instance %s (ID: %d, Task: %d) for payload check", instanceName, inst.ID, task.ID)
-			return inst, nil // Return the found instance
+			// Proceed to fallback check below
 		}
 	}
 
-	// If loop completes without finding, return error
-	errMsg := fmt.Sprintf("❌ Failed to identify DB instance for payload update %s (Owner: %d, Task: %d).", instanceName, dbOwnerID, task.ID)
-	logger.Errorf("❌ Failed to identify DB instance for payload update %s (Owner: %d, Task: %d).", instanceName, dbOwnerID, task.ID)
-	s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
-	return nil, fmt.Errorf("failed to identify DB instance for payload update %s (Owner: %d, Task: %d)", instanceName, dbOwnerID, task.ID)
+	// Attempt 2: Fallback List (only if not found by GetByName correctly)
+	if !foundCorrectInstance {
+		logger.Debugf("Attempting fallback List search for instance %s (Owner: %d, Task: %d) for payload check", instanceName, dbOwnerID, task.ID)
+		allInstances, listErr := s.repo.List(ctx, dbOwnerID, nil)
+		if listErr != nil {
+			errMsg := fmt.Sprintf("❌ Fallback List search failed for owner %d during payload check: %v", dbOwnerID, listErr)
+			logger.Errorf("❌ Fallback List search failed for owner %d during payload check: %v", dbOwnerID, listErr)
+			s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
+			return nil, fmt.Errorf("fallback List search failed for owner %d during payload check: %w", dbOwnerID, listErr)
+		}
+		// Removed else block, iterate directly
+		for i := range allInstances {
+			inst := &allInstances[i]
+			if inst.Name == instanceName && inst.LastTaskID == task.ID {
+				logger.Infof("✅ Fallback List search successful for instance %s (ID: %d, Task: %d) for payload check", instanceName, inst.ID, task.ID)
+				correctInstance = inst // Found it via fallback
+				foundCorrectInstance = true
+				break
+			}
+		}
+	}
+
+	// Final check after both attempts
+	if !foundCorrectInstance {
+		errMsg := fmt.Sprintf("❌ Failed to identify DB instance for payload update %s (Owner: %d, Task: %d).", instanceName, dbOwnerID, task.ID)
+		logger.Errorf("❌ Failed to identify DB instance for payload update %s (Owner: %d, Task: %d).", instanceName, dbOwnerID, task.ID)
+		s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
+		return nil, fmt.Errorf("failed to identify DB instance for payload update %s (Owner: %d, Task: %d)", instanceName, dbOwnerID, task.ID)
+	}
+
+	return correctInstance, nil // Return the instance found by either method
 }
 
 // findActiveInstancesForTermination finds instances matching the requested names for a project,
@@ -675,7 +690,7 @@ REQUESTLOOP:
 		queue = queue[1:]
 
 		if request.attempts >= request.maxAttempts {
-			results.failed[request.instance.Name] = fmt.Errorf("max attempts reached (%d): %v", request.maxAttempts, request.lastError)
+			results.failed[request.instance.Name] = fmt.Errorf("max attempts reached (%d): %w", request.maxAttempts, request.lastError) // Use %w to wrap error
 			continue
 		}
 		request.attempts++
