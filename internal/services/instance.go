@@ -205,7 +205,12 @@ func (s *Instance) updateInstanceVolumes(
 // findPendingInstanceForTask attempts to find the unique database instance record
 // corresponding to a given instance name for a specific task, ensuring it's in Pending state.
 // It uses GetByName first and falls back to listing all instances for the owner if necessary.
-func (s *Instance) findPendingInstanceForTask(ctx context.Context, task *models.Task, dbOwnerID uint, instanceName string) (*models.Instance, error) {
+func (s *Instance) findPendingInstanceForTask(
+	ctx context.Context,
+	task *models.Task,
+	dbOwnerID uint,
+	instanceName string,
+) (*models.Instance, error) {
 	var identifiedInstance *models.Instance
 	foundCorrectInstance := false
 	callerOwnerID := task.OwnerID // Owner who initiated the task
@@ -263,7 +268,12 @@ func (s *Instance) findPendingInstanceForTask(ctx context.Context, task *models.
 
 // provisionInstances handles the background process of provisioning infrastructure,
 // updating instance details (volumes, IP, status), and running optional provisioning.
-func (s *Instance) provisionInstances(ctx context.Context, callerOwnerID, taskID uint, instancesReq []types.InstanceRequest, instanceNameToOwnerID map[string]uint) {
+func (s *Instance) provisionInstances(
+	ctx context.Context,
+	callerOwnerID, taskID uint,
+	instancesReq []types.InstanceRequest,
+	instanceNameToOwnerID map[string]uint,
+) {
 	// Fetch the task using the caller's ID
 	task, err := s.taskService.GetByID(ctx, callerOwnerID, taskID)
 	if err != nil {
@@ -389,7 +399,13 @@ func (s *Instance) provisionInstances(ctx context.Context, callerOwnerID, taskID
 }
 
 // runAnsibleProvisioning executes the Ansible provisioning step and updates payload status.
-func (s *Instance) runAnsibleProvisioning(ctx context.Context, task *models.Task, infra Infrastructure, pInstances []types.InstanceInfo, instanceNameToOwnerID map[string]uint) {
+func (s *Instance) runAnsibleProvisioning(
+	ctx context.Context,
+	task *models.Task,
+	infra Infrastructure,
+	pInstances []types.InstanceInfo,
+	instanceNameToOwnerID map[string]uint,
+) {
 	callerOwnerID := task.OwnerID
 	s.addTaskLogs(ctx, callerOwnerID, task, "Running Ansible provisioning")
 
@@ -417,7 +433,7 @@ func (s *Instance) runAnsibleProvisioning(ctx context.Context, task *models.Task
 		// We need to find the instance ID again. Reuse the finder logic,
 		// but we don't need to check for Pending status here, just the TaskID.
 		// TODO: Refactor finding logic further to avoid repetition.
-		payloadInstance, err := s.findInstanceForTask(ctx, task, dbOwnerID, pInstance.Name) // Requires findInstanceForTask helper
+		payloadInstance, err := s.findInstanceForTask(ctx, task, dbOwnerID, pInstance.Name)
 		if err != nil {
 			// Error already logged by helper
 			continue
@@ -440,7 +456,12 @@ func (s *Instance) runAnsibleProvisioning(ctx context.Context, task *models.Task
 // findInstanceForTask is similar to findPendingInstanceForTask but doesn't require Pending status.
 // It prioritizes finding the instance associated with the specific task ID.
 // TODO: Combine common logic with findPendingInstanceForTask.
-func (s *Instance) findInstanceForTask(ctx context.Context, task *models.Task, dbOwnerID uint, instanceName string) (*models.Instance, error) {
+func (s *Instance) findInstanceForTask(
+	ctx context.Context,
+	task *models.Task,
+	dbOwnerID uint,
+	instanceName string,
+) (*models.Instance, error) {
 	callerOwnerID := task.OwnerID
 	foundCorrectInstance := false // Renamed from identifiedInstance to avoid shadowing later
 	var correctInstance *models.Instance
@@ -506,7 +527,11 @@ func (s *Instance) findInstanceForTask(ctx context.Context, task *models.Task, d
 // findActiveInstancesForTermination finds instances matching the requested names for a project,
 // excluding those already terminated. It returns a list of valid instances to terminate
 // and a list of names that were skipped (with reasons).
-func (s *Instance) findActiveInstancesForTermination(ctx context.Context, project *models.Project, instanceNames []string) ([]*models.Instance, []string, error) {
+func (s *Instance) findActiveInstancesForTermination(
+	ctx context.Context,
+	project *models.Project,
+	instanceNames []string,
+) ([]*models.Instance, []string, error) {
 	instancesToTerminate := make([]*models.Instance, 0)
 	notFoundOrInvalidNames := make([]string, 0)
 
