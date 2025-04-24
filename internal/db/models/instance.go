@@ -84,6 +84,7 @@ func (s InstanceStatus) String() string {
 	return []string{
 		"unknown",
 		"pending",
+		"created",
 		"provisioning",
 		"ready",
 		"terminated",
@@ -108,6 +109,7 @@ func ParseInstanceStatus(str string) (InstanceStatus, error) {
 	for i, status := range []string{
 		"unknown",
 		"pending",
+		"created",
 		"provisioning",
 		"ready",
 		"terminated",
