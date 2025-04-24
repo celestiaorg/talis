@@ -45,13 +45,13 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req types.InstancesRequest
+		var req []types.InstanceRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
 		// Validate that instances array is not empty
-		if len(req.Instances) == 0 {
+		if len(req) == 0 {
 			return fmt.Errorf("no instances specified in the JSON file")
 		}
 
@@ -63,17 +63,17 @@ var createInfraCmd = &cobra.Command{
 		fmt.Println("Infrastructure creation request submitted successfully")
 
 		// Create the delete request
-		deleteReq := types.DeleteInstanceRequest{
-			ProjectName: req.ProjectName,
+		deleteReq := types.DeleteInstancesRequest{
+			ProjectName: req[0].ProjectName,
 			InstanceNames: func() []string {
 				names := make([]string, 0)
-				for _, instance := range req.Instances {
+				for _, instance := range req {
 					if instance.Name != "" {
 						names = append(names, instance.Name)
 					} else {
 						// If no specific name, use the base name pattern
 						for i := 0; i < instance.NumberOfInstances; i++ {
-							names = append(names, fmt.Sprintf("%s-%d", req.InstanceName, i))
+							names = append(names, fmt.Sprintf("%s-%d", instance.Name, i))
 						}
 					}
 				}
@@ -117,7 +117,7 @@ var deleteInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req types.DeleteInstanceRequest
+		var req types.DeleteInstancesRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}

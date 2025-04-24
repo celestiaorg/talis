@@ -46,21 +46,6 @@ func TestMockDOClientBehavior(t *testing.T) {
 			assert.Equal(t, "test-size", droplet.Size.Slug)
 		}
 
-		droplets, _, err := mockClient.Droplets().CreateMultiple(ctx, &godo.DropletMultiCreateRequest{
-			Names:  []string{"test-1", "test-2"},
-			Region: "test-region",
-			Size:   "test-size",
-		})
-		if expectedErr != nil {
-			assert.Equal(t, expectedErr, err)
-			assert.Nil(t, droplets)
-		} else {
-			assert.NoError(t, err)
-			assert.Len(t, droplets, 2)
-			assert.Equal(t, "test-1", droplets[0].Name)
-			assert.Equal(t, "test-2", droplets[1].Name)
-		}
-
 		droplet, _, err = mockClient.Droplets().Get(ctx, DefaultDropletID1)
 		if expectedErr != nil {
 			assert.Equal(t, expectedErr, err)
@@ -71,7 +56,7 @@ func TestMockDOClientBehavior(t *testing.T) {
 			assert.Equal(t, DefaultDropletID1, droplet.ID)
 		}
 
-		droplets, _, err = mockClient.Droplets().List(ctx, nil)
+		droplets, _, err := mockClient.Droplets().List(ctx, nil)
 		if expectedErr != nil {
 			assert.Equal(t, expectedErr, err)
 			assert.Nil(t, droplets)

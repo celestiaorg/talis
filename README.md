@@ -161,7 +161,7 @@ When deleting instances, you can specify which instances to delete by providing 
        ValidateCredentials() error
        GetEnvironmentVars() map[string]string
        ConfigureProvider(stack interface{}) error
-       CreateInstance(ctx context.Context, name string, config InstanceConfig) ([]InstanceInfo, error)
+       CreateInstance(ctx context.Context, name string, config InstanceRequest) ([]InstanceRequest, error)
        DeleteInstance(ctx context.Context, name string, region string) error
    }
    ```

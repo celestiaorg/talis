@@ -236,7 +236,7 @@ func TestCreateInfraCmd(t *testing.T) {
 					// Delete file was created, check its content
 					content, err := os.ReadFile(deleteFilePath) //nolint:gosec
 					if err == nil {
-						var deleteReq types.DeleteInstanceRequest
+						var deleteReq types.DeleteInstancesRequest
 						if err := json.Unmarshal(content, &deleteReq); err == nil {
 							assert.Equal(t, "test-project", deleteReq.ProjectName)
 							assert.Contains(t, deleteReq.InstanceNames, "instance-1")

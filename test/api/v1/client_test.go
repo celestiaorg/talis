@@ -13,14 +13,9 @@ import (
 	"github.com/celestiaorg/talis/test"
 )
 
-var defaultInstancesRequest = types.InstancesRequest{
-	ProjectName:  "test-project",
-	TaskName:     "test-project",
-	InstanceName: "test-instance",
-	Instances: []types.InstanceRequest{
-		defaultInstanceRequest1,
-		defaultInstanceRequest2,
-	},
+var defaultInstancesRequest = []types.InstanceRequest{
+	defaultInstanceRequest1,
+	defaultInstanceRequest2,
 }
 
 var defaultInstanceRequest1 = types.InstanceRequest{
@@ -190,7 +185,7 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
 
 	// Delete both instances
-	deleteRequest := types.DeleteInstanceRequest{
+	deleteRequest := types.DeleteInstancesRequest{
 		ProjectName:   defaultProjectParams.Name,
 		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
