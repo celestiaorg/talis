@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git make
@@ -19,7 +19,7 @@ COPY . .
 RUN make build
 
 # Create a smaller final image
-FROM alpine:latest
+FROM alpine:3.21.3
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates openssh-client ansible
@@ -38,12 +38,6 @@ COPY --from=builder /app/.env.example /app/.env
 EXPOSE 8080
 
 # Set environment variables
-ENV DB_HOST=db
-ENV DB_PORT=5432
-ENV DB_USER=talis
-ENV DB_PASSWORD=talis
-ENV DB_NAME=talis
-ENV DB_SSL_MODE=disable
 ENV SERVER_PORT=8080
 
 # Run the application
