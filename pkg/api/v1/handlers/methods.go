@@ -15,6 +15,12 @@ const (
 	TaskList         = "task.list"
 	TaskTerminate    = "task.terminate"
 	TaskUpdateStatus = "task.updateStatus"
+
+	// User methods
+	UserCreate  = "user.create"
+	UserGet     = "user.get"
+	UserGetByID = "user.get.id"
+	UserDelete  = "user.delete"
 )
 
 // IsProjectMethod checks if the given method is a project operation
@@ -31,6 +37,16 @@ func IsProjectMethod(method string) bool {
 func IsTaskMethod(method string) bool {
 	switch method {
 	case TaskGet, TaskList, TaskTerminate, TaskUpdateStatus:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsUserMethod checks if the given method is a user operation
+func IsUserMethod(method string) bool {
+	switch method {
+	case UserCreate, UserGet, UserGetByID, UserDelete:
 		return true
 	default:
 		return false

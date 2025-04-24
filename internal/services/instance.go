@@ -99,7 +99,6 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 				VolumeDetails: models.VolumeDetails{},
 				PayloadStatus: initialPayloadStatus,
 			})
-
 		}
 	}
 
@@ -210,10 +209,26 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName stri
 	return nil
 }
 
+// addTaskLogs appends logs to the task record.
 func (s *Instance) addTaskLogs(ctx context.Context, ownerID uint, task *models.Task, logs string) {
-	task.Logs += fmt.Sprintf("\n%s", logs)
-	if err := s.taskService.Update(ctx, ownerID, task); err != nil {
-		logger.Errorf("failed to update task: %v", err)
+	if task == nil {
+		logger.Warnf("Attempted to add logs to a nil task: %s", logs)
+		return
+	}
+	currentTask, err := s.taskService.GetByID(ctx, ownerID, task.ID)
+	if err != nil {
+		logger.Errorf("failed to get task %d before adding logs: %v", task.ID, err)
+		// Attempt to update with potentially stale task object anyway
+		task.Logs += fmt.Sprintf("\n%s", logs)
+		if updateErr := s.taskService.Update(ctx, ownerID, task); updateErr != nil {
+			logger.Errorf("failed to update task %d with new logs: %v", task.ID, updateErr)
+		}
+		return
+	}
+
+	currentTask.Logs += fmt.Sprintf("\n%s", logs)
+	if err := s.taskService.Update(ctx, ownerID, currentTask); err != nil {
+		logger.Errorf("failed to update task %d with new logs: %v", task.ID, err)
 	}
 }
 

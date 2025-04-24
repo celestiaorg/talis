@@ -71,12 +71,12 @@ func main() {
 
 	// Initialize handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
-	userHandler := handlers.NewUserHandler(userService)
 
 	// Create RPC handler and assign handlers directly
 	rpcHandler := &handlers.RPCHandler{
 		ProjectHandlers: handlers.NewProjectHandlers(projectService),
 		TaskHandlers:    handlers.NewTaskHandlers(taskService),
+		UserHandlers:    handlers.NewUserHandler(userService),
 	}
 
 	// Setup Fiber app
@@ -88,7 +88,7 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes - no need for project and task handlers as they're handled via RPC
-	routes.RegisterRoutes(app, instanceHandler, userHandler, rpcHandler)
+	routes.RegisterRoutes(app, instanceHandler, rpcHandler)
 
 	// Create context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

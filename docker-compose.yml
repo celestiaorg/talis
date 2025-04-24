@@ -18,13 +18,17 @@ services:
       timeout: 5s
       retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@talis.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
+  api:
+    image: ghcr.io/celestiaorg/talis:latest
     ports:
-      - "5050:80"
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=talis
+      - DB_PASSWORD=talis
+      - DB_NAME=talis
     depends_on:
       - db
 

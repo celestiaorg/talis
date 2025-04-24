@@ -6,7 +6,6 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
-	"github.com/celestiaorg/talis/internal/types"
 )
 
 // User provides business logic for user operations
@@ -28,13 +27,7 @@ func NewUserService(repo *repos.UserRepository) *User {
 }
 
 // CreateUser creates a new user
-func (s User) CreateUser(ctx context.Context, userReq *types.CreateUserRequest) (uint, error) {
-	user := &models.User{
-		Username:     userReq.Username,
-		Email:        userReq.Email,
-		Role:         userReq.Role,
-		PublicSSHKey: userReq.PublicSSHKey,
-	}
+func (s User) CreateUser(ctx context.Context, user *models.User) (uint, error) {
 	if err := s.repo.CreateUser(ctx, user); err != nil {
 		return 0, errors.Join(ErrUserCreateFailed, err)
 	}

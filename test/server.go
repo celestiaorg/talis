@@ -35,14 +35,14 @@ func SetupServer(suite *Suite) {
 
 	// Create handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
-	userHandler := handlers.NewUserHandler(userService)
 	rpcHandler := &handlers.RPCHandler{
 		ProjectHandlers: handlers.NewProjectHandlers(projectService),
 		TaskHandlers:    handlers.NewTaskHandlers(taskService),
+		UserHandlers:    handlers.NewUserHandler(userService),
 	}
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, userHandler, rpcHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, rpcHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))

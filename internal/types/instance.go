@@ -79,6 +79,12 @@ func (i *InstanceRequest) Validate() error {
 	if i.Provider == "" {
 		return fmt.Errorf("provider is required")
 	}
+	if !i.Provider.IsValid() {
+		return fmt.Errorf("unsupported provider: %s", i.Provider)
+	}
+	if i.NumberOfInstances < 1 {
+		return fmt.Errorf("number_of_instances must be greater than 0")
+	}
 	if i.Region == "" {
 		return fmt.Errorf("region is required")
 	}
