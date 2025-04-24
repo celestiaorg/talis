@@ -71,7 +71,7 @@ func TestGetTaskCmd(t *testing.T) {
 			args: []string{"tasks", "get", "--name", "test-task"},
 			mockTask: models.Task{
 				Name:      "test-task",
-				Status:    models.TaskStatusRunning,
+				Status:    models.TaskStatusCompleted,
 				Action:    models.TaskActionCreateInstances,
 				Logs:      "Task is running...",
 				OwnerID:   models.AdminID,
@@ -79,7 +79,7 @@ func TestGetTaskCmd(t *testing.T) {
 			},
 			expectedOutput: `{
   "name": "test-task",
-  "status": "running",
+  "status": "completed",
   "action": "create_instances",
   "logs": "Task is running...",
   "created_at": "` + createdAt.Format("2006-01-02 15:04:05") + `"
@@ -320,7 +320,7 @@ func TestTerminateTaskCmd(t *testing.T) {
 			args: []string{"tasks", "terminate", "--name", "test-task"},
 			mockTask: models.Task{
 				Name:    "test-task",
-				Status:  models.TaskStatusRunning,
+				Status:  models.TaskStatusCompleted,
 				Action:  models.TaskActionCreateInstances,
 				OwnerID: models.AdminID,
 			},
