@@ -119,6 +119,12 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			errMsg:  "provider is required",
 		},
 		{
+			name:    "Error: invalid provider",
+			request: func() InstanceRequest { r := baseReq; r.Provider = "invalid"; return r }(),
+			wantErr: true,
+			errMsg:  "unsupported provider",
+		},
+		{
 			name:    "Error: missing region",
 			request: func() InstanceRequest { r := baseReq; r.Region = ""; return r }(),
 			wantErr: true,
