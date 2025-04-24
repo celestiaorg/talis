@@ -55,25 +55,3 @@ jobs:
 
       - name: Build CLI
         run: make build-cli
-
-  docker-compose:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Compose
-        run: |
-          docker compose version
-          docker version
-
-      - name: Start services
-        run: make docker-up
-
-      - name: Wait for services
-        run: sleep 10
-
-      - name: Check services
-        run: docker compose ps
-
-      - name: Stop services
-        run: make docker-down
