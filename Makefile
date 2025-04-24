@@ -156,6 +156,18 @@ db-connect:
 # Docker
 # # # # # # # # # # # #
 
+## docker-up-local: Run the application
+docker-up-local:
+	@echo "Launching Docker Compose..."
+	@docker compose -f docker-compose-local.yml up -d
+.PHONY: docker-up-local
+
+## docker-down-local: Stop the application
+docker-down-local:
+	@echo "Stopping Docker Compose..."
+	@docker compose -f docker-compose-local.yml down
+.PHONY: docker-down-local
+
 ## docker-up: Run the application
 docker-up:
 	@echo "Launching Docker Compose..."
