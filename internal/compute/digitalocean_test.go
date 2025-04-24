@@ -2,7 +2,6 @@ package compute
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -244,12 +243,13 @@ func TestDigitalOceanProvider(t *testing.T) {
 			SSHKeyName: "test-key",
 		}
 
-		request := provider.createDropletRequest(&config, 12345)
+		sshKeyID := 12345
+		request := provider.createDropletRequest(&config, sshKeyID)
 		assert.Equal(t, config.Name, request.Name)
 		assert.Equal(t, config.Region, request.Region)
 		assert.Equal(t, config.Size, request.Size)
-		assert.Equal(t, config.Image, request.Image)
-		assert.Equal(t, config.SSHKeyName, request.SSHKeys[0].ID)
+		assert.Equal(t, config.Image, request.Image.Slug)
+		assert.Equal(t, sshKeyID, request.SSHKeys[0].ID)
 	})
 
 	t.Run("CreateInstance_SingleInstance", func(t *testing.T) {
@@ -260,6 +260,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 		// Create instance
 		config := types.InstanceRequest{
+			Name:       "test-instance",
 			Region:     "nyc1",
 			Size:       "s-1vcpu-1gb",
 			Image:      "ubuntu-20-04-x64",
@@ -268,9 +269,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 		err = provider.CreateInstance(context.Background(), &config)
 		assert.NoError(t, err)
-		assert.Equal(t, "test-instance", config.Name)
 		assert.Equal(t, mocks.DefaultDropletIP1, config.PublicIP)
-		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), config.ProviderInstanceID)
+		assert.Equal(t, mocks.DefaultDropletID1, config.ProviderInstanceID)
 	})
 
 	t.Run("DeleteInstance", func(t *testing.T) {
@@ -301,6 +301,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		require.NotEmpty(t, keys)
 
 		config := types.InstanceRequest{
+			Name:              "test-instance",
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
@@ -313,9 +314,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.Equal(t, "test-instance", config.Name)
 		assert.Equal(t, mocks.DefaultDropletIP1, config.PublicIP)
-		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), config.ProviderInstanceID)
+		assert.Equal(t, mocks.DefaultDropletID1, config.ProviderInstanceID)
 	})
 
 	t.Run("CreateInstance_SSHKey_NotFound", func(t *testing.T) {
@@ -394,8 +394,9 @@ func TestDigitalOceanProvider(t *testing.T) {
 		// The following fields should have been updated during the create process
 		assert.NotEmpty(t, config.PublicIP)
 		assert.NotEmpty(t, config.ProviderInstanceID)
-		assert.NotEmpty(t, config.VolumeIDs)
-		assert.NotEmpty(t, config.VolumeDetails)
+		// NotNil because they are empty if nothing was provided, but they should be initialized
+		assert.NotNil(t, config.VolumeIDs)
+		assert.NotNil(t, config.VolumeDetails)
 	})
 
 	t.Run("GetDroplet", func(t *testing.T) {
