@@ -93,7 +93,7 @@ func TestTaskRPCMethods(t *testing.T) {
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
 		Name:      "test-task",
-		Status:    models.TaskStatusPending,
+		Status:    models.TaskStatusCompleted,
 		Action:    models.TaskActionCreateInstances,
 	}
 	err = suite.TaskRepo.Create(suite.Context(), &task)
@@ -120,7 +120,7 @@ func TestTaskRPCMethods(t *testing.T) {
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
 		Name:      "second-task",
-		Status:    models.TaskStatusPending,
+		Status:    models.TaskStatusCompleted,
 		Action:    models.TaskActionCreateInstances,
 	}
 	err = suite.TaskRepo.Create(suite.Context(), &secondTask)
