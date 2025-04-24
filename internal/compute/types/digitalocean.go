@@ -16,14 +16,13 @@ type DOClient interface {
 	ValidateCredentials() error
 	GetEnvironmentVars() map[string]string
 	ConfigureProvider(stack interface{}) error
-	CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error)
-	DeleteInstance(ctx context.Context, name string, region string) error
+	CreateInstance(ctx context.Context, config *types.InstanceRequest) error
+	DeleteInstance(ctx context.Context, dropletID int) error
 }
 
 // DropletService defines the interface for droplet operations
 type DropletService interface {
 	Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
-	CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
 	Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
 	Delete(ctx context.Context, id int) (*godo.Response, error)
 	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)

@@ -42,13 +42,13 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	}
 }
 
-// CreateInventory creates the inventory file directly from InstanceInfo
-func (a *AnsibleConfigurator) CreateInventory(instances []types.InstanceInfo, sshKeyPath string) error {
+// CreateInventory creates the inventory file directly from InstanceRequest and returns the inventory path file
+func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, talisSSHKeyPath string) (string, error) {
 	fmt.Printf("⚙️ Creating Ansible inventory for job %s...\n", a.jobID)
 
-	if len(instances) == 0 {
-		logger.Warnf("No instances provided to CreateInventory for job %s, skipping inventory creation.", a.jobID)
-		return nil // Nothing to do
+	if instance == nil {
+		logger.Warnf("No instance provided to CreateInventory for job %s, skipping inventory creation.", a.jobID)
+		return "", nil // Nothing to do
 	}
 
 	// Create inventory path with base name
@@ -56,14 +56,14 @@ func (a *AnsibleConfigurator) CreateInventory(instances []types.InstanceInfo, ss
 
 	// Create ansible directory with secure permissions
 	if err := os.MkdirAll("ansible", 0750); err != nil {
-		return fmt.Errorf("failed to create ansible directory: %w", err)
+		return "", fmt.Errorf("failed to create ansible directory: %w", err)
 	}
 
 	// Create inventory file with secure permissions
 	// #nosec G304 -- inventory path is constructed from validated job ID
 	f, err := os.OpenFile(inventoryPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to create inventory file: %w", err)
+		return "", fmt.Errorf("failed to create inventory file: %w", err)
 	}
 	defer func() {
 		if closeErr := f.Close(); closeErr != nil {
@@ -74,44 +74,39 @@ func (a *AnsibleConfigurator) CreateInventory(instances []types.InstanceInfo, ss
 	// Write header with SSH settings and variables first
 	header := "[all:vars]\nansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'\n\n[all]\n"
 	if _, err := f.WriteString(header); err != nil {
-		return fmt.Errorf("failed to write inventory header: %w", err)
+		return "", fmt.Errorf("failed to write inventory header: %w", err)
 	}
 
-	// Write all instances using data from InstanceInfo
-	for _, instance := range instances {
-		// Start base line with name, host, user, and key
-		line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s",
-			instance.Name, instance.PublicIP, sshKeyPath)
+	// Write all instances using data from InstanceRequest
+	// Start base line with name, host, user, and key
+	line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s",
+		instance.Name, instance.PublicIP, talisSSHKeyPath)
 
-		// Add payload variables directly from InstanceInfo
-		payloadPresent := instance.PayloadPath != ""
-		line += fmt.Sprintf(" payload_present=%t", payloadPresent)
-		if payloadPresent {
-			destFilename := filepath.Base(instance.PayloadPath)
-			destPath := filepath.Join("/root", destFilename) // Ensure consistent path joining
-			// Quote string values for safety in inventory
-			line += fmt.Sprintf(" payload_src_path=\"%s\"", instance.PayloadPath)
-			line += fmt.Sprintf(" payload_dest_path=\"%s\"", destPath)
-			line += fmt.Sprintf(" payload_execute=%t", instance.ExecutePayload)
-		}
-
-		line += "\n"
-
-		if _, err := f.WriteString(line); err != nil {
-			return fmt.Errorf("failed to write instance '%s' to inventory: %w", instance.Name, err)
-		}
+	// Add payload variables directly from InstanceRequest
+	payloadPresent := instance.PayloadPath != ""
+	line += fmt.Sprintf(" payload_present=%t", payloadPresent)
+	if payloadPresent {
+		destFilename := filepath.Base(instance.PayloadPath)
+		destPath := filepath.Join("/root", destFilename) // Ensure consistent path joining
+		// Quote string values for safety in inventory
+		line += fmt.Sprintf(" payload_src_path=\"%s\"", instance.PayloadPath)
+		line += fmt.Sprintf(" payload_dest_path=\"%s\"", destPath)
+		line += fmt.Sprintf(" payload_execute=%t", instance.ExecutePayload)
 	}
 
-	fmt.Printf("✅ Created inventory file at %s with %d instances\n", inventoryPath, len(instances))
-	return nil
+	line += "\n"
+
+	if _, err := f.WriteString(line); err != nil {
+		return "", fmt.Errorf("failed to write instance '%s' to inventory: %w", instance.Name, err)
+	}
+
+	fmt.Printf("✅ Created inventory file at %s\n", inventoryPath)
+	return inventoryPath, nil
 }
 
 // RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
-func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryName string) error {
+func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string) error {
 	fmt.Println("🎭 Running Ansible playbook...")
-
-	// Create inventory path with name
-	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", inventoryName)
 
 	// Prepare command arguments
 	args := []string{
