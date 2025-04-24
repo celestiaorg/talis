@@ -67,7 +67,7 @@ jobs:
           docker version
 
       - name: Start services
-        run: make docker-up
+        run: make docker-up-local
 
       - name: Wait for services
         run: sleep 10
@@ -76,4 +76,4 @@ jobs:
         run: docker compose ps
 
       - name: Stop services
-        run: make docker-down
+        run: make docker-down-local
