@@ -14,6 +14,9 @@ import (
 	"github.com/celestiaorg/talis/internal/types"
 )
 
+// DefaultBackoff is the default backoff time for the worker
+const DefaultBackoff = time.Second
+
 // Worker is a struct that contains the worker's dependencies
 type Worker struct {
 	// Services
@@ -27,15 +30,21 @@ type Worker struct {
 	// Create a provisioner for each provider
 	provisioners map[models.ProviderID]compute.Provisioner
 	computeMU    sync.RWMutex
+
+	// Config
+	backoff time.Duration
 }
 
 // NewWorker creates a new Worker
-func NewWorker(instanceService *Instance, projectService *Project, taskService *Task, userService *User) *Worker {
+func NewWorker(instanceService *Instance, projectService *Project, taskService *Task, userService *User, backoff time.Duration) *Worker {
 	return &Worker{
 		instanceService: instanceService,
 		projectService:  projectService,
 		taskService:     taskService,
 		userService:     userService,
+		providers:       make(map[models.ProviderID]compute.Provider),
+		provisioners:    make(map[models.ProviderID]compute.Provisioner),
+		backoff:         backoff,
 	}
 }
 
@@ -43,7 +52,7 @@ func NewWorker(instanceService *Instance, projectService *Project, taskService *
 func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	const taskLimit = 10
-	const backoff = time.Second
+
 	// NOTE: tickers need a non-zero duration, this will just cause a small delay before the worker starts
 	t := time.NewTicker(time.Millisecond)
 
@@ -62,14 +71,14 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 		if err != nil {
 			logger.Errorf("Worker error fetching tasks: %v", err)
 			// Wait before retrying to avoid spamming logs on persistent DB errors
-			t.Reset(backoff)
+			t.Reset(w.backoff)
 			continue
 		}
 
 		if len(tasks) == 0 {
 			logger.Debug("Worker: No tasks to process")
 			// Wait before retrying to give time for tasks to be created
-			t.Reset(backoff)
+			t.Reset(w.backoff)
 			continue
 		}
 
@@ -338,27 +347,29 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 // getProvider returns the compute provider for the given instance
 func (w *Worker) getProvider(providerID models.ProviderID) (compute.Provider, error) {
 	w.computeMU.RLock()
-	defer w.computeMU.RUnlock()
 
 	provider, ok := w.providers[providerID]
 	if !ok {
 		w.computeMU.RUnlock()
 		w.computeMU.Lock()
-		provider, err := compute.NewComputeProvider(providerID)
+		var err error
+		provider, err = compute.NewComputeProvider(providerID)
 		if err != nil {
+			w.computeMU.Unlock()
 			return nil, fmt.Errorf("Worker: Failed to create compute provider for provider %s: %w", providerID, err)
 		}
 		w.providers[providerID] = provider
 		w.computeMU.Unlock()
 		w.computeMU.RLock()
 	}
+	w.computeMU.RUnlock()
+
 	return provider, nil
 }
 
 // getProvisioner returns the provisioner for the given instance
 func (w *Worker) getProvisioner(providerID models.ProviderID) compute.Provisioner {
 	w.computeMU.RLock()
-	defer w.computeMU.RUnlock()
 
 	provisioner, ok := w.provisioners[providerID]
 	if !ok {
@@ -370,5 +381,7 @@ func (w *Worker) getProvisioner(providerID models.ProviderID) compute.Provisione
 		w.computeMU.Unlock()
 		w.computeMU.RLock()
 	}
+	w.computeMU.RUnlock()
+
 	return provisioner
 }

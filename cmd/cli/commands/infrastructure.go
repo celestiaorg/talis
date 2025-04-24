@@ -123,12 +123,12 @@ var deleteInfraCmd = &cobra.Command{
 		}
 
 		// Call the API client
-		resp, err := apiClient.DeleteInstance(context.Background(), req)
+		err = apiClient.DeleteInstance(context.Background(), req)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
 
-		fmt.Printf("Infrastructure deletion task %s started. Use 'talis tasks get -n %s' to check the status\n", resp.TaskName, resp.TaskName)
+		fmt.Println("Infrastructure deletion started.")
 		return nil
 	},
 }

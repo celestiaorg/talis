@@ -98,9 +98,10 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	for _, instanceReq := range instanceReqs {
-		instanceReq.Action = "create"
-		if err := instanceReq.Validate(); err != nil {
+	// NOTE: in order to update the underlying instanceReqs, we need to iterate over the slice with the index. If you use range, you will get a copy of the slice and not the original.
+	for i := range instanceReqs {
+		instanceReqs[i].Action = "create"
+		if err := instanceReqs[i].Validate(); err != nil {
 			return c.Status(fiber.StatusBadRequest).
 				JSON(types.ErrInvalidInput(err.Error()))
 		}

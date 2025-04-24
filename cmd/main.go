@@ -99,7 +99,7 @@ func main() {
 
 	// Launch worker with the cancellable context and WaitGroup
 	wg.Add(1) // Increment counter before launching goroutine
-	worker := services.NewWorker(instanceService, projectService, taskService, userService)
+	worker := services.NewWorker(instanceService, projectService, taskService, userService, services.DefaultBackoff)
 	go worker.LaunchWorker(ctx, &wg)
 
 	// Start server in a goroutine so that it doesn't block.
