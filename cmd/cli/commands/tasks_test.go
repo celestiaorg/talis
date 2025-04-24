@@ -185,7 +185,7 @@ func TestListTasksCmd(t *testing.T) {
 			mockTasks: []models.Task{
 				{
 					Name:      "task1",
-					Status:    models.TaskStatusRunning,
+					Status:    models.TaskStatusCompleted,
 					Action:    models.TaskActionCreateInstances,
 					OwnerID:   models.AdminID,
 					CreatedAt: createdAt,
@@ -202,7 +202,7 @@ func TestListTasksCmd(t *testing.T) {
   "tasks": [
     {
       "name": "task1",
-      "status": "running",
+      "status": "completed",
       "action": "create_instances",
       "created_at": "` + createdAt.Format("2006-01-02 15:04:05") + `"
     },
