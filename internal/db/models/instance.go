@@ -64,7 +64,6 @@ type Instance struct {
 	gorm.Model
 	OwnerID            uint           `json:"owner_id" gorm:"not null;index"`
 	ProjectID          uint           `json:"project_id" gorm:"not null;index"`
-	LastTaskID         uint           `json:"last_task_id" gorm:"not null;index"`
 	ProviderID         ProviderID     `json:"provider_id" gorm:"not null"`
 	ProviderInstanceID int            `json:"provider_instance_id" gorm:"not null"`
 	Name               string         `json:"name" gorm:"not null;index"`

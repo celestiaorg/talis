@@ -102,21 +102,34 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 		}
 	}
 
-	// Create the tasks
-	if err := s.taskService.CreateBatch(ctx, tasksToCreate); err != nil {
-		err = fmt.Errorf("failed to add tasks to database: %w", err)
-		return err
-	}
-
-	// Map the task IDs to the instances
-	for idx, task := range tasksToCreate {
-		instancesToCreate[idx].LastTaskID = task.ID
-	}
-
 	// Create the instances
 	if err := s.repo.CreateBatch(ctx, instancesToCreate); err != nil {
 		err = fmt.Errorf("failed to add instances to database: %w", err)
 		// TODO: https://github.com/celestiaorg/talis/issues/246
+		return err
+	}
+
+	// Update the task payload with the instance ID
+	for idx, instance := range instancesToCreate {
+		// unmarshal the corresponding task payload
+		var taskPayload types.InstanceRequest
+		err := json.Unmarshal(tasksToCreate[idx].Payload, &taskPayload)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal task payload: %w", err)
+		}
+		taskPayload.InstanceID = instance.ID
+
+		// marshal the updated task payload
+		updatedPayload, err := json.Marshal(taskPayload)
+		if err != nil {
+			return fmt.Errorf("failed to marshal task payload: %w", err)
+		}
+		tasksToCreate[idx].Payload = updatedPayload
+	}
+
+	// Create the tasks
+	if err := s.taskService.CreateBatch(ctx, tasksToCreate); err != nil {
+		err = fmt.Errorf("failed to add tasks to database: %w", err)
 		return err
 	}
 
@@ -186,21 +199,6 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName stri
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create task: %w", err)
-		}
-
-		task, err := s.taskService.GetByName(ctx, ownerID, taskName)
-		if err != nil {
-			return fmt.Errorf("failed to get task: %w", err)
-		}
-
-		// Update the instance with the task ID
-		instance.LastTaskID = task.ID
-		err = s.repo.UpdateByName(ctx, ownerID, instance.Name, &instance)
-		if err != nil {
-			// Log the error and continue to try and update the other instances.
-			// It is ok if this happens because the task already contains the information needed to delete the instance, so this would only be a mismatch of the LastTaskID field.
-			logger.Errorf("failed to update instance: %v", err)
-			continue
 		}
 	}
 	return nil

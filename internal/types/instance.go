@@ -25,7 +25,8 @@ type InstanceRequest struct {
 	Tags     []string          `json:"tags"`     // Tags to apply to instances
 
 	// DB Model Data - Internally set during creation
-	PublicIP      string          // Public IP address
+	InstanceID    uint            `json:"instance_id"`              // Instance ID
+	PublicIP      string          `json:"public_ip"`                // Public IP address
 	VolumeIDs     []string        `json:"volume_ids,omitempty"`     // List of attached volume IDs
 	VolumeDetails []VolumeDetails `json:"volume_details,omitempty"` // Detailed information about attached volumes
 

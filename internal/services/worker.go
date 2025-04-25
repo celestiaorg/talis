@@ -148,7 +148,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 	}
 
 	// Check the instance status
-	instance, err := w.instanceService.GetByName(ctx, instanceReq.OwnerID, instanceReq.Name)
+	instance, err := w.instanceService.GetByID(ctx, instanceReq.OwnerID, instanceReq.InstanceID)
 	if err != nil {
 		return fmt.Errorf("Worker: Failed to get instance: %w", err)
 	}
