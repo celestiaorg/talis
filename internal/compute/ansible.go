@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -148,7 +149,7 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string) error {
 // ConfigureHost implements the Provisioner interface
 //
 // NOTE: this isn't a create name since all it is really doing is ensuring SSH readiness
-func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) error {
+func (a *AnsibleConfigurator) ConfigureHost(ctx context.Context, host string, sshKeyPath string) error {
 	// Store instance and SSH key path
 	a.mutex.Lock()
 	instanceName := fmt.Sprintf("%s-%d", a.jobID, len(a.instances))
@@ -161,6 +162,13 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 	// Wait for SSH to be available
 	fmt.Printf("⏳ Waiting for SSH to be available on %s...\n", host)
 	for i := 0; i < 30; i++ {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled while waiting for SSH to be available on %s", host)
+		default:
+			// continue
+		}
+
 		args := []string{
 			"-i", sshKeyPath,
 			"-o", "StrictHostKeyChecking=no",
@@ -193,7 +201,7 @@ func (a *AnsibleConfigurator) ConfigureHost(host string, sshKeyPath string) erro
 // It no longer creates the inventory or runs the playbook.
 //
 // NOTE: this isn't a create name since all it is really doing is ensuring SSH readiness
-func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) error {
+func (a *AnsibleConfigurator) ConfigureHosts(ctx context.Context, hosts []string, sshKeyPath string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(hosts))
 
@@ -203,7 +211,7 @@ func (a *AnsibleConfigurator) ConfigureHosts(hosts []string, sshKeyPath string) 
 		wg.Add(1)
 		go func(h string) {
 			defer wg.Done()
-			if err := a.ConfigureHost(h, sshKeyPath); err != nil {
+			if err := a.ConfigureHost(ctx, h, sshKeyPath); err != nil {
 				errChan <- fmt.Errorf("failed to ensure SSH readiness for host %s: %w", h, err)
 			}
 		}(host)

@@ -43,7 +43,7 @@
         dest: /etc/hostname
         owner: root
         group: root
-        mode: '0644'
+        mode: "0644"
 
     - name: Update /etc/hosts
       lineinfile:
@@ -101,11 +101,11 @@
     src: "{{ hostvars[inventory_hostname].payload_src_path }}"
     # Use the destination path passed from Go
     dest: "{{ hostvars[inventory_hostname].payload_dest_path }}"
-    owner: root  # Set owner to root
-    group: root  # Set group to root
-    mode: '0700' # Set permissions (read/write/execute for owner only)
+    owner: root # Set owner to root
+    group: root # Set group to root
+    mode: "0700" # Set permissions (read/write/execute for owner only)
   # This task only runs if 'payload_present' is true for the specific host
-  when: hostvars[inventory_hostname].payload_present | default(false)
+  when: hostvars[inventory_hostname].payload_present | default(false) | bool
   tags:
     - payload # Tag for potentially running only payload tasks
 

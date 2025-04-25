@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -96,7 +95,6 @@ func (i *InstanceRequest) Validate() error {
 	if i.SSHKeyName == "" {
 		return fmt.Errorf("ssh_key_name is required")
 	}
-	i.SSHKeyName = strings.ToLower(i.SSHKeyName)
 	if i.NumberOfInstances < 1 {
 		return fmt.Errorf("number_of_instances must be greater than 0")
 	}

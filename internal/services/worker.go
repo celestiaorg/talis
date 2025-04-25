@@ -236,7 +236,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		// Get the provisioner, or create a new one if it doesn't exist
 		provisioner := w.getProvisioner(instanceReq.Provider)
 		if provisioner == nil {
-			return fmt.Errorf("Worker: Failed to get provisioner for provider %s: %w", instanceReq.Provider, err)
+			return fmt.Errorf("Worker: Failed to get provisioner for provider %v", instanceReq.Provider)
 		}
 
 		// --- Step 1: Ensure all hosts are ready for SSH connections ---
@@ -244,7 +244,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		sshKeyPath := getAnsibleSSHKeyPath(instanceReq)
 		hosts := make([]string, 1)
 		hosts[0] = instanceReq.PublicIP
-		if err := provisioner.ConfigureHosts(hosts, sshKeyPath); err != nil {
+		if err := provisioner.ConfigureHosts(ctx, hosts, sshKeyPath); err != nil {
 			// ConfigureHosts already logs details
 			return fmt.Errorf("failed to ensure SSH readiness for all hosts: %w", err)
 		}

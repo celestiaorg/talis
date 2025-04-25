@@ -149,12 +149,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			errMsg:  "ssh_key_name is required",
 		},
 		{
-			name:    "Check: ssh_key_name lowercased",
-			request: func() InstanceRequest { r := baseReq; r.SSHKeyName = "Test-KEY"; return r }(),
-			wantErr: false, // This is a check, not an error case
-			// No errMsg check needed, we verify the field value later
-		},
-		{
 			name:    "Error: number_of_instances less than 1",
 			request: func() InstanceRequest { r := baseReq; r.NumberOfInstances = 0; return r }(),
 			wantErr: true,

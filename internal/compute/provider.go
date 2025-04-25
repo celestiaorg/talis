@@ -30,10 +30,10 @@ type Provider interface {
 // Provisioner is the interface for system configuration
 type Provisioner interface {
 	// ConfigureHost configures a single host
-	ConfigureHost(host string, sshKeyPath string) error
+	ConfigureHost(ctx context.Context, host string, sshKeyPath string) error
 
 	// ConfigureHosts configures multiple hosts in parallel, ensuring SSH readiness
-	ConfigureHosts(hosts []string, sshKeyPath string) error
+	ConfigureHosts(ctx context.Context, hosts []string, sshKeyPath string) error
 
 	// CreateInventory creates an Ansible inventory file from instance info
 	CreateInventory(instance *types.InstanceRequest, sshKeyPath string) (string, error)
