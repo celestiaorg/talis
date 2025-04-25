@@ -153,6 +153,9 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 	if err != nil {
 		return fmt.Errorf("Worker: Failed to get instance: %w", err)
 	}
+	if instance == nil {
+		return fmt.Errorf("Worker: Instance %d not found", instanceReq.InstanceID)
+	}
 
 	switch instance.Status {
 	case models.InstanceStatusPending:
@@ -191,7 +194,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		instance.VolumeDetails = dbVolumeDetails
 		instance.Status = models.InstanceStatusCreated
 		instance.ProviderInstanceID = instanceReq.ProviderInstanceID
-		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
+		err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}
@@ -207,7 +210,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 			logger.Debugf("Provisioning is not needed for instance %s, updating status to ready", instanceReq.Name)
 			// Instance is ready, update and return
 			instance.Status = models.InstanceStatusReady
-			err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
+			err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
 			if err != nil {
 				return fmt.Errorf("Worker: Failed to update instance: %w", err)
 			}
@@ -218,7 +221,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		// Instance needs to be provisioned, update the status to provisioning
 		logger.Debugf("Provisioning is needed for instance %s, updating status to provisioning", instanceReq.Name)
 		instance.Status = models.InstanceStatusProvisioning
-		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
+		err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}
@@ -269,7 +272,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 			instance.PayloadStatus = models.PayloadStatusExecuted
 			logger.Debugf("✅ Updated payload status to executed for instance %s", instanceReq.Name)
 		}
-		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
+		err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}

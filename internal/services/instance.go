@@ -246,3 +246,8 @@ func (s *Instance) GetByProjectIDAndInstanceNames(ctx context.Context, ownerID u
 func (s *Instance) UpdateByName(ctx context.Context, ownerID uint, name string, instance *models.Instance) error {
 	return s.repo.UpdateByName(ctx, ownerID, name, instance)
 }
+
+// UpdateByID updates an instance by ID
+func (s *Instance) UpdateByID(ctx context.Context, ownerID uint, instanceID uint, instance *models.Instance) error {
+	return s.repo.UpdateByID(ctx, ownerID, instanceID, instance)
+}
