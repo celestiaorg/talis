@@ -55,6 +55,7 @@ type DeleteInstanceRequest struct {
 
 // DeleteInstancesRequest represents the request body for deleting instances
 type DeleteInstancesRequest struct {
+	OwnerID       uint     `json:"owner_id" validate:"required"`             // Owner ID
 	ProjectName   string   `json:"project_name" validate:"required"`         // Project name
 	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
 }

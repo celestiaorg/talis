@@ -64,17 +64,14 @@ var createInfraCmd = &cobra.Command{
 
 		// Create the delete request
 		deleteReq := types.DeleteInstancesRequest{
+			OwnerID:     req[0].OwnerID,
 			ProjectName: req[0].ProjectName,
 			InstanceNames: func() []string {
 				names := make([]string, 0)
 				for _, instance := range req {
-					if instance.Name != "" {
-						names = append(names, instance.Name)
-					} else {
-						// If no specific name, use the base name pattern
-						for i := 0; i < instance.NumberOfInstances; i++ {
-							names = append(names, fmt.Sprintf("%s-%d", instance.Name, i))
-						}
+					// If no specific name, use the base name pattern
+					for i := 0; i < instance.NumberOfInstances; i++ {
+						names = append(names, fmt.Sprintf("%s-%d", instance.Name, i))
 					}
 				}
 				return names

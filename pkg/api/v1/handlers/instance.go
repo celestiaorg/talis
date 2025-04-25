@@ -258,7 +258,7 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.service.Terminate(c.Context(), models.AdminID, deleteReq.ProjectName, deleteReq.InstanceNames)
+	err := h.service.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceNames)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),
