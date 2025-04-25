@@ -62,6 +62,7 @@ type Task struct {
 	Status      TaskStatus      `json:"status" gorm:"not null; index"`
 	Payload     json.RawMessage `json:"payload,omitempty" gorm:"type:jsonb"` // Data that is required for the task to be executed
 	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`  // Result of the task
+	Attempts    uint            `json:"attempts" gorm:"not null; default:0"`
 	Logs        string          `json:"logs,omitempty" gorm:"type:text"`
 	Error       string          `json:"error,omitempty" gorm:"type:text"`
 	WebhookURL  string          `json:"webhook_url,omitempty" gorm:"type:text"`

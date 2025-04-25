@@ -90,6 +90,7 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 				return
 			default:
 			}
+			tasks[i].Attempts++
 			switch tasks[i].Action {
 			case models.TaskActionCreateInstances:
 				err := w.processCreateInstanceTask(ctx, &tasks[i])
