@@ -14,10 +14,12 @@ var defaultProjectCreateParams = handlers.ProjectCreateParams{
 	Name:        "test-project",
 	Description: "A test project",
 	Config:      `{"resources": {"cpu": 2, "memory": "4GB"}, "settings": {"env": "test"}}`,
+	OwnerID:     models.AdminID,
 }
 
 var defaultTaskGetParams = handlers.TaskGetParams{
 	TaskName: "test-task",
+	OwnerID:  models.AdminID,
 }
 
 func TestProjectRPCMethods(t *testing.T) {
@@ -33,7 +35,8 @@ func TestProjectRPCMethods(t *testing.T) {
 
 	// Get project using RPC
 	getParams := handlers.ProjectGetParams{
-		Name: defaultProjectCreateParams.Name,
+		Name:    defaultProjectCreateParams.Name,
+		OwnerID: defaultProjectCreateParams.OwnerID,
 	}
 	retrievedProject, err := suite.APIClient.GetProject(suite.Context(), getParams)
 	require.NoError(t, err)
@@ -43,7 +46,7 @@ func TestProjectRPCMethods(t *testing.T) {
 	require.Equal(t, project.Config, retrievedProject.Config)
 
 	// List projects using RPC
-	listParams := handlers.ProjectListParams{Page: 1}
+	listParams := handlers.ProjectListParams{Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err := suite.APIClient.ListProjects(suite.Context(), listParams)
 	require.NoError(t, err)
 	require.NotEmpty(t, listResponse, "ListProjects should return projects")
@@ -54,24 +57,25 @@ func TestProjectRPCMethods(t *testing.T) {
 		Name:        "second-project",
 		Description: "Another test project",
 		Config:      defaultProjectCreateParams.Config,
+		OwnerID:     defaultProjectCreateParams.OwnerID,
 	}
 	secondProject, err := suite.APIClient.CreateProject(suite.Context(), secondProjectParams)
 	require.NoError(t, err)
 	require.Equal(t, secondProjectParams.Name, secondProject.Name)
 
 	// List projects again to verify we get both
-	listParams = handlers.ProjectListParams{Page: 1}
+	listParams = handlers.ProjectListParams{Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err = suite.APIClient.ListProjects(suite.Context(), listParams)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(listResponse))
 
 	// Delete a project using RPC
-	deleteParams := handlers.ProjectDeleteParams{Name: secondProject.Name}
+	deleteParams := handlers.ProjectDeleteParams{Name: secondProject.Name, OwnerID: defaultProjectCreateParams.OwnerID}
 	err = suite.APIClient.DeleteProject(suite.Context(), deleteParams)
 	require.NoError(t, err)
 
 	// List projects again to verify the delete worked
-	listParams = handlers.ProjectListParams{Page: 1}
+	listParams = handlers.ProjectListParams{Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err = suite.APIClient.ListProjects(suite.Context(), listParams)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(listResponse))
@@ -109,7 +113,7 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.Equal(t, task.Status, retrievedTask.Status)
 
 	// List tasks using RPC
-	listParams := handlers.TaskListParams{ProjectName: project.Name, Page: 1}
+	listParams := handlers.TaskListParams{ProjectName: project.Name, Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err := suite.APIClient.ListTasks(suite.Context(), listParams)
 	require.NoError(t, err)
 	require.NotEmpty(t, listResponse, "ListTasks should return tasks")
@@ -127,13 +131,13 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// List tasks again to verify we get both
-	listParams = handlers.TaskListParams{ProjectName: project.Name, Page: 1}
+	listParams = handlers.TaskListParams{ProjectName: project.Name, Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err = suite.APIClient.ListTasks(suite.Context(), listParams)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(listResponse))
 
 	// Abort a task using RPC
-	terminateParams := handlers.TaskTerminateParams{TaskName: task.Name}
+	terminateParams := handlers.TaskTerminateParams{TaskName: task.Name, OwnerID: defaultProjectCreateParams.OwnerID}
 	err = suite.APIClient.TerminateTask(suite.Context(), terminateParams)
 	require.NoError(t, err)
 

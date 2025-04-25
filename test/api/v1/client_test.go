@@ -67,6 +67,7 @@ var defaultUser2 = handlers.CreateUserParams{
 var defaultProjectParams = handlers.ProjectCreateParams{
 	Name:        "test-project",
 	Description: "Test project for instances",
+	OwnerID:     models.AdminID,
 }
 
 // This file contains the comprehensive test suite for the API client.

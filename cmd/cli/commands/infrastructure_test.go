@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/test"
@@ -150,6 +151,7 @@ func TestCreateInfraCmd(t *testing.T) {
 				createProjectReq := handlers.ProjectCreateParams{
 					Name:        projectName,
 					Description: "Test project for infra commands",
+					OwnerID:     models.AdminID,
 				}
 				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
 				// Ignore "already exists" errors if the project was created in a previous step/test
@@ -316,6 +318,7 @@ func TestDeleteInfraCmd(t *testing.T) {
 				createProjectReq := handlers.ProjectCreateParams{
 					Name:        projectName,
 					Description: "Test project for infra commands",
+					OwnerID:     models.AdminID,
 				}
 				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
 				// Ignore "already exists" errors if the project was created in a previous step/test
