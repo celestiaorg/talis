@@ -22,7 +22,7 @@ jobs:
           target: ${{ secrets.DEPLOYMENT_DIR }}
 
       - name: Get release tag and update configuration
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USERNAME }}
