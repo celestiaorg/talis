@@ -82,7 +82,7 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 			continue
 		}
 
-		for _, task := range tasks {
+		for i := range tasks {
 			// Check if the context has been cancelled to avoid processing tasks after shutdown
 			select {
 			case <-ctx.Done():
@@ -90,43 +90,43 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 				return
 			default:
 			}
-			switch task.Action {
+			switch tasks[i].Action {
 			case models.TaskActionCreateInstances:
-				err := w.processCreateInstanceTask(ctx, &task)
+				err := w.processCreateInstanceTask(ctx, &tasks[i])
 				if err != nil {
-					logMsg := fmt.Sprintf("❌ Failed to process create instance task %d: %v", task.ID, err)
+					logMsg := fmt.Sprintf("❌ Failed to process create instance task %d: %v", tasks[i].ID, err)
 					logger.Error(logMsg)
-					task.Logs += fmt.Sprintf("\n%s", logMsg)
-					err = w.taskService.UpdateFailed(ctx, &task, err.Error(), logMsg)
+					tasks[i].Logs += fmt.Sprintf("\n%s", logMsg)
+					err = w.taskService.UpdateFailed(ctx, &tasks[i], err.Error(), logMsg)
 					if err != nil {
 						logger.Errorf("Worker: Failed to update task: %v", err)
 					}
 					// No time reset needed here as we are just continuing through the tasks
 					continue
 				}
-				err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusCompleted)
+				err = w.taskService.UpdateStatus(ctx, tasks[i].OwnerID, tasks[i].ID, models.TaskStatusCompleted)
 				if err != nil {
 					logger.Errorf("Worker: Failed to update task status: %v", err)
 				}
 			case models.TaskActionTerminateInstances:
-				err := w.processTerminateInstanceTask(ctx, &task)
+				err := w.processTerminateInstanceTask(ctx, &tasks[i])
 				if err != nil {
-					logMsg := fmt.Sprintf("❌ Failed to process terminate instance task %d: %v", task.ID, err)
+					logMsg := fmt.Sprintf("❌ Failed to process terminate instance task %d: %v", tasks[i].ID, err)
 					logger.Error(logMsg)
-					task.Logs += fmt.Sprintf("\n%s", logMsg)
-					err = w.taskService.UpdateFailed(ctx, &task, err.Error(), logMsg)
+					tasks[i].Logs += fmt.Sprintf("\n%s", logMsg)
+					err = w.taskService.UpdateFailed(ctx, &tasks[i], err.Error(), logMsg)
 					if err != nil {
 						logger.Errorf("Worker: Failed to update task: %v", err)
 					}
 					// No time reset needed here as we are just continuing through the tasks
 					continue
 				}
-				err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusCompleted)
+				err = w.taskService.UpdateStatus(ctx, tasks[i].OwnerID, tasks[i].ID, models.TaskStatusCompleted)
 				if err != nil {
 					logger.Errorf("Worker: Failed to update task status: %v", err)
 				}
 			default:
-				logger.Errorf("Worker: Unknown task action %s for task %d", task.Action, task.ID)
+				logger.Errorf("Worker: Unknown task action %s for task %d", tasks[i].Action, tasks[i].ID)
 			}
 		}
 	}
@@ -167,7 +167,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		}
 
 		// Create the instance
-		// SeveyTODO: instance request payload should be updated in the task
+		// NOTE: since the instance request type is now being updated during the create instance process we might need to update the task payload to include the updates. This is more of a concern if we want to support resuming from a failed task.
 		err = provider.CreateInstance(ctx, &instanceReq)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to create instance: %w", err)
@@ -190,7 +190,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		instance.VolumeDetails = dbVolumeDetails
 		instance.Status = models.InstanceStatusCreated
 		instance.ProviderInstanceID = instanceReq.ProviderInstanceID
-		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, *instance)
+		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}
@@ -206,7 +206,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 			logger.Debugf("Provisioning is not needed for instance %s, updating status to ready", instanceReq.Name)
 			// Instance is ready, update and return
 			instance.Status = models.InstanceStatusReady
-			err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, *instance)
+			err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
 			if err != nil {
 				return fmt.Errorf("Worker: Failed to update instance: %w", err)
 			}
@@ -217,7 +217,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		// Instance needs to be provisioned, update the status to provisioning
 		logger.Debugf("Provisioning is needed for instance %s, updating status to provisioning", instanceReq.Name)
 		instance.Status = models.InstanceStatusProvisioning
-		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, *instance)
+		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}
@@ -247,8 +247,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 
 		// --- Step 2: Create the inventory file using InstanceRequest ---
 		// CreateInventory now handles extracting info and determining the key path internally
-		// SeveyTODO: instance request payload should be updated in the task
-		// SeveyTODO: should inventory path be stored?
+		// TODO: should inventory path be stored?
 		inventoryPath, err := provisioner.CreateInventory(&instanceReq, sshKeyPath)
 		if err != nil {
 			return fmt.Errorf("failed to create Ansible inventory: %w", err)
@@ -269,7 +268,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 			instance.PayloadStatus = models.PayloadStatusExecuted
 			logger.Debugf("✅ Updated payload status to executed for instance %s", instanceReq.Name)
 		}
-		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, *instance)
+		err = w.instanceService.UpdateByName(ctx, instanceReq.OwnerID, instanceReq.Name, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}
@@ -326,7 +325,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 
 	// Delete the instance
 	logger.Infof("🗑️ Deleting %v droplet: %v in region %v", instance.ProviderID, instance.Name, instance.Region)
-	err = provider.DeleteInstance(context.Background(), instance.ProviderInstanceID)
+	err = provider.DeleteInstance(ctx, instance.ProviderInstanceID)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			logger.Warnf("⚠️ Warning: Instance %v was already deleted", instance.ProviderInstanceID)

@@ -102,8 +102,8 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("at least one volume configuration is required")
 	}
 	// Validate volumes if present
-	for j, vol := range i.Volumes {
-		if err := ValidateVolume(&vol, i.Region); err != nil {
+	for j := range i.Volumes {
+		if err := ValidateVolume(&i.Volumes[j], i.Region); err != nil {
 			return fmt.Errorf("invalid volume configuration at index %d: %w", j, err)
 		}
 	}

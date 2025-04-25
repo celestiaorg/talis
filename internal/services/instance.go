@@ -38,7 +38,7 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 // CreateInstance creates a new instance and a new task to track the instance creation in the DB.
 func (s *Instance) CreateInstance(ctx context.Context, instances []types.InstanceRequest) error {
 	instancesToCreate := make([]*models.Instance, 0, len(instances))
-	taskToCreate := make([]*models.Task, 0, len(instances))
+	tasksToCreate := make([]*models.Task, 0, len(instances))
 	for _, i := range instances {
 		// Validate the instance request
 		if err := i.Validate(); err != nil {
@@ -71,7 +71,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 
 			// Generate TaskName internally
 			taskName := uuid.New().String()
-			taskToCreate = append(taskToCreate, &models.Task{
+			tasksToCreate = append(tasksToCreate, &models.Task{
 				Name:      taskName,
 				OwnerID:   i.OwnerID,
 				ProjectID: project.ID,
@@ -103,23 +103,20 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 	}
 
 	// Create the tasks
-	if err := s.taskService.CreateBatch(ctx, taskToCreate); err != nil {
+	if err := s.taskService.CreateBatch(ctx, tasksToCreate); err != nil {
 		err = fmt.Errorf("failed to add tasks to database: %w", err)
 		return err
 	}
 
 	// Map the task IDs to the instances
-	// SeveyTODO: LastTaskID needs to be set for the instance request
-	for idx, task := range taskToCreate {
+	for idx, task := range tasksToCreate {
 		instancesToCreate[idx].LastTaskID = task.ID
 	}
 
 	// Create the instances
 	if err := s.repo.CreateBatch(ctx, instancesToCreate); err != nil {
 		err = fmt.Errorf("failed to add instances to database: %w", err)
-		// SeveyTODO: Decide how to handle this edge case
-		// 1. Delete the tasks that were created
-		// 2. Return nil and have worker create the instances in the DB
+		// TODO: https://github.com/celestiaorg/talis/issues/246
 		return err
 	}
 
@@ -248,6 +245,6 @@ func (s *Instance) GetByProjectIDAndInstanceNames(ctx context.Context, ownerID u
 }
 
 // UpdateByName updates an instance by name
-func (s *Instance) UpdateByName(ctx context.Context, ownerID uint, name string, instance models.Instance) error {
-	return s.repo.UpdateByName(ctx, ownerID, name, &instance)
+func (s *Instance) UpdateByName(ctx context.Context, ownerID uint, name string, instance *models.Instance) error {
+	return s.repo.UpdateByName(ctx, ownerID, name, instance)
 }

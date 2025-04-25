@@ -294,12 +294,7 @@ func (p *DigitalOceanProvider) CreateInstance(
 	}
 
 	// For single instance, use the name as is
-	err = p.createSingleDroplet(ctx, config, sshKeyID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return p.createSingleDroplet(ctx, config, sshKeyID)
 }
 
 // createDropletRequest creates a DropletCreateRequest with common configuration
@@ -354,8 +349,9 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 	// Wait for public IP
 	ip, err := p.waitForPublicIP(ctx, droplet.ID)
 	if err != nil {
-		logger.Errorf("❌ Failed to get public IP for droplet %s: %v", droplet.Name, err)
-		return fmt.Errorf("failed to get public IP for droplet %s: %w", droplet.Name, err)
+		errMsg := fmt.Errorf("❌ Failed to get public IP for droplet %s: %w", droplet.Name, err)
+		logger.Error(errMsg)
+		return errMsg
 	}
 	config.PublicIP = ip
 

@@ -98,6 +98,11 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
+	if len(instanceReqs) == 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(types.ErrInvalidInput("at least one instance request is required"))
+	}
+
 	// NOTE: in order to update the underlying instanceReqs, we need to iterate over the slice with the index. If you use range, you will get a copy of the slice and not the original.
 	for i := range instanceReqs {
 		instanceReqs[i].Action = "create"
