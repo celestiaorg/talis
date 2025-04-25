@@ -21,6 +21,17 @@ jobs:
           source: "docker-compose.yml"
           target: ${{ secrets.DEPLOYMENT_DIR }}
 
+      - name: Get release tag and update configuration
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOYMENT_DIR }}
+            echo "[INFO] Deploying tag: $GITHUB_REF"
+            sed -i "s|ghcr.io/celestiaorg/talis:.*|ghcr.io/celestiaorg/talis:${GITHUB_REF#refs/tags/}|" docker-compose.yml
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
         with:
