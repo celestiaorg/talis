@@ -53,10 +53,10 @@ If this is your first time using talis you will need to initialize a user and a 
 
 ```bash
 # Create a user
-make run-cli ARGS="user create --name my-user"
+make run-cli ARGS="users create --username my-user"
 
 # Create a project
-make run-cli ARGS="project create --name my-project"
+make run-cli ARGS="projects create --name my-project --owner-id <user-id>"
 ```
 
 Now you can create a configuration file and use it to create infrastructure.
