@@ -327,6 +327,6 @@ func (r *InstanceRepository) CreateBatch(ctx context.Context, instances []*model
 		}
 	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return tx.CreateInBatches(instances, 100).Error
+		return tx.CreateInBatches(instances, models.DBBatchSize).Error
 	})
 }

@@ -31,7 +31,7 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 // CreateBatch creates a batch of tasks in the database
 func (r *TaskRepository) CreateBatch(ctx context.Context, tasks []*models.Task) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return tx.CreateInBatches(tasks, 100).Error
+		return tx.CreateInBatches(tasks, models.DBBatchSize).Error
 	})
 }
 

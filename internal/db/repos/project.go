@@ -30,7 +30,7 @@ func (r *ProjectRepository) Create(ctx context.Context, project *models.Project)
 // CreateBatch creates a batch of projects in the database
 func (r *ProjectRepository) CreateBatch(ctx context.Context, projects []*models.Project) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return tx.CreateInBatches(projects, 100).Error
+		return tx.CreateInBatches(projects, models.DBBatchSize).Error
 	})
 }
 

@@ -37,7 +37,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 // CreateBatch creates a batch of users in the database
 func (r *UserRepository) CreateBatch(ctx context.Context, users []*models.User) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		return tx.CreateInBatches(users, 100).Error
+		return tx.CreateInBatches(users, models.DBBatchSize).Error
 	})
 }
 
