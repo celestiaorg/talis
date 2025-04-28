@@ -21,22 +21,22 @@ type Provider interface {
 	ConfigureProvider(stack interface{}) error
 
 	// CreateInstance creates a new instance
-	CreateInstance(ctx context.Context, name string, config types.InstanceConfig) ([]types.InstanceInfo, error)
+	CreateInstance(ctx context.Context, req *types.InstanceRequest) error
 
 	// DeleteInstance deletes an instance
-	DeleteInstance(ctx context.Context, name string, region string) error
+	DeleteInstance(ctx context.Context, providerInstanceID int) error
 }
 
 // Provisioner is the interface for system configuration
 type Provisioner interface {
 	// ConfigureHost configures a single host
-	ConfigureHost(host string, sshKeyPath string) error
+	ConfigureHost(ctx context.Context, host string, sshKeyPath string) error
 
 	// ConfigureHosts configures multiple hosts in parallel, ensuring SSH readiness
-	ConfigureHosts(hosts []string, sshKeyPath string) error
+	ConfigureHosts(ctx context.Context, hosts []string, sshKeyPath string) error
 
 	// CreateInventory creates an Ansible inventory file from instance info
-	CreateInventory(instances []types.InstanceInfo, sshKeyPath string) error
+	CreateInventory(instance *types.InstanceRequest, sshKeyPath string) (string, error)
 
 	// RunAnsiblePlaybook runs the Ansible playbook
 	RunAnsiblePlaybook(inventoryName string) error

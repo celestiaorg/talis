@@ -11,210 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInstancesRequest_Validate tests the Validate method for InstancesRequest. It does not test the Validate method for InstanceRequest.
-// TestInstancesRequest_Validate tests the Validate method for InstancesRequest. It does not test the Validate method for InstanceRequest.
-func TestInstancesRequest_Validate(t *testing.T) {
-	// create a default valid InstanceRequest
-	defaultInstanceRequest := InstanceRequest{
-		Provider:          "do",
-		NumberOfInstances: 1,
-		Region:            "nyc1",
-		Size:              "s-1vcpu-1gb",
-		Image:             "ubuntu-20-04-x64",
-		SSHKeyName:        "test-key",
-		Volumes: []VolumeConfig{
-			{
-				Name:       "test-volume",
-				SizeGB:     10,
-				MountPoint: "/mnt/data",
-			},
-		},
-	}
-	tests := []struct {
-		name    string
-		request *InstancesRequest
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid_request_with_instance_name",
-			request: &InstancesRequest{
-				ProjectName: "test-project",
-				Instances: []InstanceRequest{
-					{
-						Name:              "valid-instance",
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid_request_with_multiple_instances",
-			request: &InstancesRequest{
-				ProjectName: "test-project",
-				Instances: []InstanceRequest{
-					{
-						Name:              "instance-1",
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-					{
-						Name:              "instance-2",
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid_request_using_InstanceName",
-			request: &InstancesRequest{
-				ProjectName:  "test-project",
-				InstanceName: "valid-instance",
-				Instances:    []InstanceRequest{defaultInstanceRequest, defaultInstanceRequest},
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing project name",
-			request: &InstancesRequest{
-				Instances: []InstanceRequest{
-					{
-						Name:              "valid-instance",
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "project_name is required",
-		},
-		{
-			name: "missing instances",
-			request: &InstancesRequest{
-				ProjectName: "test-project",
-			},
-			wantErr: true,
-			errMsg:  "at least one instance configuration is required",
-		},
-		{
-			name: "missing instance name and instance name in request",
-			request: &InstancesRequest{
-				ProjectName: "test-project",
-				Instances: []InstanceRequest{
-					{
-						Provider:          "do",
-						NumberOfInstances: 1,
-						Region:            "nyc1",
-						Size:              "s-1vcpu-1gb",
-						Image:             "ubuntu-20-04-x64",
-						SSHKeyName:        "test-key",
-						Volumes: []VolumeConfig{
-							{
-								Name:       "test-volume",
-								SizeGB:     10,
-								MountPoint: "/mnt/data",
-							},
-						},
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "instance_name or instance.name is required",
-		},
-		{
-			name: "empty instances array",
-			request: &InstancesRequest{
-				ProjectName: "test-project",
-				Instances:   []InstanceRequest{},
-			},
-			wantErr: true,
-			errMsg:  "at least one instance configuration is required",
-		},
-		{
-			name: "invalid hostname",
-			request: &InstancesRequest{
-				TaskName:     "test-job",
-				ProjectName:  "test-project",
-				InstanceName: "invalid_hostname$123",
-				Instances:    []InstanceRequest{defaultInstanceRequest},
-			},
-			wantErr: true,
-			errMsg:  "invalid hostname format",
-		},
-		{
-			name: "missing instance name and instance name in request",
-			request: &InstancesRequest{
-				TaskName:    "test-job",
-				ProjectName: "test-project",
-				Instances:   []InstanceRequest{defaultInstanceRequest},
-			},
-			wantErr: true,
-			errMsg:  "instance_name or instance.name is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.request.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("InstancesRequest.Validate() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && err != nil && tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-				t.Errorf("InstancesRequest.Validate() error message = %v, want to contain %v", err, tt.errMsg)
-			}
-		})
-	}
-}
-
 // Helper function to create a temporary file or directory and make it absolute
 func createTempPath(t *testing.T, name string, isDir bool, size int) string {
 	t.Helper()
@@ -245,270 +41,284 @@ func createTempDir(t *testing.T, name string) string {
 	return createTempPath(t, name, true, 0)
 }
 
+// Helper function to create a base valid InstanceRequest for incremental testing
+func baseValidRequest(t *testing.T, payloadPath string) InstanceRequest {
+	t.Helper()
+	return InstanceRequest{
+		Name:              "valid-instance-name",
+		OwnerID:           1,
+		Provider:          models.ProviderID("mock"),
+		Region:            "nyc1",
+		Size:              "s-1vcpu-1gb",
+		Image:             "ubuntu-20-04-x64",
+		Tags:              []string{"test", "dev"},
+		ProjectName:       "test-project",
+		SSHKeyName:        "test-key",
+		NumberOfInstances: 1,
+		Provision:         true, // Assume provision is true for payload/volume tests initially
+		PayloadPath:       payloadPath,
+		ExecutePayload:    false,
+		Volumes: []VolumeConfig{
+			{
+				Name:       "test-volume",
+				SizeGB:     10,
+				MountPoint: "/mnt/data",
+			},
+		},
+		Action: "create", // Add a default valid action
+	}
+}
+
 func TestInstanceRequest_Validate(t *testing.T) {
 	// Create test artifacts once for all test cases
 	tempDir := createTempDir(t, "payload-dir")
 	validPayloadFile := createTempFile(t, "valid-payload.sh", maxPayloadSize)
 	oversizePayloadFile := createTempFile(t, "oversize-payload.sh", maxPayloadSize+1)
+	nonexistentPayloadFile := filepath.Join(t.TempDir(), "nonexistent.sh") // Does not exist
 
-	defaultVolumeConfig := VolumeConfig{
-		Name:       "test-volume",
-		SizeGB:     10,
-		MountPoint: "/mnt/data",
-	}
+	// Base valid request to modify for failure cases
+	baseReq := baseValidRequest(t, validPayloadFile)
+
 	tests := []struct {
 		name    string
 		request InstanceRequest
 		wantErr bool
 		errMsg  string // Substring to check for in the error message
 	}{
+		// --- Metadata Validations ---
+		{
+			name:    "Error: missing name",
+			request: func() InstanceRequest { r := baseReq; r.Name = ""; return r }(),
+			wantErr: true,
+			errMsg:  "instance name is required",
+		},
+		{
+			name:    "Error: invalid name (hostname)",
+			request: func() InstanceRequest { r := baseReq; r.Name = "invalid_name!"; return r }(),
+			wantErr: true,
+			errMsg:  "invalid instance name",
+		},
+		{
+			name:    "Error: missing project_name",
+			request: func() InstanceRequest { r := baseReq; r.ProjectName = ""; return r }(),
+			wantErr: true,
+			errMsg:  "project_name is required",
+		},
+		{
+			name:    "Error: missing owner_id",
+			request: func() InstanceRequest { r := baseReq; r.OwnerID = 0; return r }(),
+			wantErr: true,
+			errMsg:  "owner_id is required",
+		},
+
+		// --- User Defined Configs Validations ---
 		{
 			name:    "Error: missing provider",
-			request: InstanceRequest{}, // Start with empty
+			request: func() InstanceRequest { r := baseReq; r.Provider = ""; return r }(),
 			wantErr: true,
 			errMsg:  "provider is required",
 		},
 		{
-			name: "Error: invalid number of instances",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"), // Pass previous check
-				NumberOfInstances: 0,                         // Invalid
-			},
+			name:    "Error: invalid provider",
+			request: func() InstanceRequest { r := baseReq; r.Provider = "invalid"; return r }(),
 			wantErr: true,
-			errMsg:  "number_of_instances must be greater than 0",
+			errMsg:  "unsupported provider",
 		},
 		{
-			name: "Error: missing region",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1, // Pass previous check
-				// Region missing
-			},
+			name:    "Error: missing region",
+			request: func() InstanceRequest { r := baseReq; r.Region = ""; return r }(),
 			wantErr: true,
 			errMsg:  "region is required",
 		},
 		{
-			name: "Error: missing size",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1", // Pass previous check
-				// Size missing
-			},
+			name:    "Error: missing size",
+			request: func() InstanceRequest { r := baseReq; r.Size = ""; return r }(),
 			wantErr: true,
 			errMsg:  "size is required",
 		},
 		{
-			name: "Error: missing image",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb", // Pass previous check
-				// Image missing
-			},
+			name:    "Error: missing image",
+			request: func() InstanceRequest { r := baseReq; r.Image = ""; return r }(),
 			wantErr: true,
 			errMsg:  "image is required",
 		},
 		{
-			name: "Error: missing ssh key name",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu", // Pass previous check
-				// SSHKeyName missing
-			},
+			name:    "Error: missing ssh_key_name",
+			request: func() InstanceRequest { r := baseReq; r.SSHKeyName = ""; return r }(),
 			wantErr: true,
 			errMsg:  "ssh_key_name is required",
 		},
-		// --- Payload Validations --- //
+		{
+			name:    "Error: number_of_instances less than 1",
+			request: func() InstanceRequest { r := baseReq; r.NumberOfInstances = 0; return r }(),
+			wantErr: true,
+			errMsg:  "number_of_instances must be greater than 0",
+		},
+
+		// --- Volume Validations ---
+		{
+			name:    "Error: missing volumes",
+			request: func() InstanceRequest { r := baseReq; r.Volumes = nil; return r }(),
+			wantErr: true,
+			errMsg:  "at least one volume configuration is required",
+		},
+		{
+			name: "Error: invalid volume configuration",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Volumes = []VolumeConfig{{Region: "nyc2"}} // Invalid volume
+				return r
+			}(),
+			wantErr: true,
+			errMsg:  "invalid volume configuration",
+		},
+
+		// --- Payload Validations ---
 		{
 			name: "Error: Payload path is relative",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key", // Pass previous check
-				Provision:         true,       // Required for payload tests
-				PayloadPath:       "not/absolute.sh",
-			},
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = "not/absolute.sh"
+				r.Provision = true // Ensure provision is true for payload tests
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "payload_path must be an absolute path",
 		},
 		{
 			name: "Error: Payload path does not exist",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true,
-				PayloadPath:       filepath.Join(t.TempDir(), "nonexistent.sh"), // Absolute, non-existent
-			},
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = nonexistentPayloadFile // Absolute, non-existent
+				r.Provision = true
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "payload_path file does not exist:",
 		},
 		{
 			name: "Error: Payload path is a directory",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true,
-				PayloadPath:       tempDir,
-			},
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = tempDir
+				r.Provision = true
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "payload_path cannot be a directory",
 		},
 		{
 			name: "Error: Payload size exceeds limit",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true,
-				PayloadPath:       oversizePayloadFile,
-			},
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = oversizePayloadFile
+				r.Provision = true
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "payload file size exceeds the limit of 2MB",
 		},
 		{
 			name: "Error: ExecutePayload=true, PayloadPath empty",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true,
-				ExecutePayload:    true, // Requires PayloadPath
-				PayloadPath:       "",   // Is empty
-			},
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = ""
+				r.Provision = true
+				r.ExecutePayload = true // Requires PayloadPath
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "payload_path is required when execute_payload is true",
 		},
 		{
 			name: "Error: PayloadPath present, Provision=false",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         false, // Invalid with payload
-				PayloadPath:       validPayloadFile,
-			},
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = validPayloadFile
+				r.Provision = false // Invalid with payload
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "provision must be true when payload_path is provided",
 		},
+
+		// --- Action Validation ---
 		{
-			name: "missing volumes",
-			request: InstanceRequest{
-				Name:              "valid-instance",
-				Provider:          "do",
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu-20-04-x64",
-				SSHKeyName:        "test-key",
-			},
+			name:    "Error: missing action",
+			request: func() InstanceRequest { r := baseReq; r.Action = ""; return r }(),
 			wantErr: true,
-			errMsg:  "at least one volume configuration is required",
+			errMsg:  "action is required",
 		},
-		{
-			name: "invalid instance name",
-			request: InstanceRequest{
-				Name:              "invalid_hostname$123",
-				Provider:          "do",
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu-20-04-x64",
-				SSHKeyName:        "test-key",
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
-			},
-			wantErr: true,
-			errMsg:  "invalid instance name",
-		},
+
 		// --- Valid Cases --- //
 		{
-			name: "Valid: Minimal request without payload",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
-				// Provision defaults to false, which is valid here
-			},
+			name: "Valid: Minimal request without payload (provision=false)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Provision = false
+				r.PayloadPath = "" // No payload
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: false,
 		},
 		{
-			name: "Valid: Request with payload copy only",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true, // Required for payload
-				ExecutePayload:    false,
-				PayloadPath:       validPayloadFile,
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
-			},
+			name: "Valid: Request with payload copy only (provision=true)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Provision = true
+				r.PayloadPath = validPayloadFile
+				r.ExecutePayload = false
+				return r
+			}(),
 			wantErr: false,
 		},
 		{
-			name: "Valid: Request with payload copy and execute",
-			request: InstanceRequest{
-				Provider:          models.ProviderID("mock"),
-				NumberOfInstances: 1,
-				Region:            "nyc1",
-				Size:              "s-1vcpu-1gb",
-				Image:             "ubuntu",
-				SSHKeyName:        "test-key",
-				Provision:         true, // Required for payload
-				ExecutePayload:    true,
-				PayloadPath:       validPayloadFile,
-				Volumes:           []VolumeConfig{defaultVolumeConfig},
-			},
+			name: "Valid: Request with payload copy and execute (provision=true)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Provision = true
+				r.PayloadPath = validPayloadFile
+				r.ExecutePayload = true
+				return r
+			}(),
+			wantErr: false,
+		},
+		{
+			name:    "Valid: Full base request (already tested implicitly)",
+			request: baseReq,
 			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Clone the request to avoid modifying the original test case struct
-			reqCopy := tt.request
+			// Clone the request to avoid modifying the original test case struct during the run
+			// Needed because some fields are modified in-place (like SSHKeyName)
+			reqCopy := tt.request // Copy the struct for this specific test run
 
 			err := reqCopy.Validate()
 
 			if tt.wantErr {
-				require.Error(t, err)
+				require.Error(t, err, "Expected an error but got none")
 				if tt.errMsg != "" {
-					// Use Contains because some error messages might include dynamic paths
+					// Use Contains because some error messages might include dynamic paths or wrap underlying errors
 					require.True(t, strings.Contains(err.Error(), tt.errMsg),
-						fmt.Sprintf("Expected error message '%s' to contain '%s'", err.Error(), tt.errMsg))
+						fmt.Sprintf("Expected error message to contain '%s', but got: %s", tt.errMsg, err.Error()))
 				}
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, err, fmt.Sprintf("Expected no error, but got: %v", err))
+
+				// Specific post-validation checks for non-error cases
+				if tt.name == "Check: ssh_key_name lowercased" {
+					require.Equal(t, "test-key", reqCopy.SSHKeyName, "SSHKeyName should be lowercased")
+				}
+				// Add more post-validation checks if needed for other valid cases
 			}
 		})
 	}

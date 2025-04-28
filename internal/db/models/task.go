@@ -60,9 +60,9 @@ type Task struct {
 	Name        string          `json:"name" gorm:"not null; index; unique"`
 	Action      TaskAction      `json:"action" gorm:"type:varchar(32)"` // make sure this is long enough to handle all actions
 	Status      TaskStatus      `json:"status" gorm:"not null; index"`
-	InstanceIDs []uint          `json:"instance_ids" gorm:"type:integer[]"`
-	Payload     json.RawMessage `json:"payload,omitempty" gorm:"type:jsonb"`
-	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`
+	Payload     json.RawMessage `json:"payload,omitempty" gorm:"type:jsonb"` // Data that is required for the task to be executed
+	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`  // Result of the task
+	Attempts    uint            `json:"attempts" gorm:"not null; default:0"`
 	Logs        string          `json:"logs,omitempty" gorm:"type:text"`
 	Error       string          `json:"error,omitempty" gorm:"type:text"`
 	WebhookURL  string          `json:"webhook_url,omitempty" gorm:"type:text"`

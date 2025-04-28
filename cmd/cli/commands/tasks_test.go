@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -23,6 +24,9 @@ func setupTasksCommand() *cobra.Command {
 		Use:   "talis",
 		Short: "Talis CLI tool",
 	}
+
+	// Add the owner-id flag
+	cmd.PersistentFlags().StringP(flagOwnerID, "o", "", "Owner ID for resources")
 
 	// Add the tasks command and its subcommands
 	tasksCmd := &cobra.Command{
@@ -56,6 +60,48 @@ func setupTasksCommand() *cobra.Command {
 	return cmd
 }
 
+func TestTasksCommand(t *testing.T) {
+	cmd := tasksCmd
+
+	// Test that the tasks command has the expected subcommands
+	subCmds := cmd.Commands()
+	assert.Equal(t, 3, len(subCmds), "Expected 3 subcommands")
+
+	// Verify the subcommand names
+	var subCmdNames []string
+	for _, c := range subCmds {
+		subCmdNames = append(subCmdNames, c.Name())
+	}
+
+	// Expect list, get, and terminate subcommands
+	assert.Contains(t, subCmdNames, "list")
+	assert.Contains(t, subCmdNames, "get")
+	assert.Contains(t, subCmdNames, "terminate")
+
+	// Verify flags for list command
+	listCmd := findCommand(subCmds, "list")
+	assert.NotNil(t, listCmd)
+	assert.True(t, listCmd.Flags().HasFlags())
+	projectFlag, _ := listCmd.Flags().GetString("project")
+	assert.Equal(t, "", projectFlag)
+	pageFlag, _ := listCmd.Flags().GetInt("page")
+	assert.Equal(t, 1, pageFlag)
+
+	// Verify flags for get command
+	getCmd := findCommand(subCmds, "get")
+	assert.NotNil(t, getCmd)
+	assert.True(t, getCmd.Flags().HasFlags())
+	nameFlag, _ := getCmd.Flags().GetString("name")
+	assert.Equal(t, "", nameFlag)
+
+	// Verify flags for terminate command
+	terminateCmd := findCommand(subCmds, "terminate")
+	assert.NotNil(t, terminateCmd)
+	assert.True(t, terminateCmd.Flags().HasFlags())
+	taskNameFlag, _ := terminateCmd.Flags().GetString("name")
+	assert.Equal(t, "", taskNameFlag)
+}
+
 func TestGetTaskCmd(t *testing.T) {
 	createdAt := time.Now()
 
@@ -68,10 +114,10 @@ func TestGetTaskCmd(t *testing.T) {
 	}{
 		{
 			name: "successful get",
-			args: []string{"tasks", "get", "--name", "test-task"},
+			args: []string{"tasks", "get", "--name", "test-task", "-o", fmt.Sprintf("%v", models.AdminID)},
 			mockTask: models.Task{
 				Name:      "test-task",
-				Status:    models.TaskStatusRunning,
+				Status:    models.TaskStatusCompleted,
 				Action:    models.TaskActionCreateInstances,
 				Logs:      "Task is running...",
 				OwnerID:   models.AdminID,
@@ -79,7 +125,7 @@ func TestGetTaskCmd(t *testing.T) {
 			},
 			expectedOutput: `{
   "name": "test-task",
-  "status": "running",
+  "status": "completed",
   "action": "create_instances",
   "logs": "Task is running...",
   "created_at": "` + createdAt.Format("2006-01-02 15:04:05") + `"
@@ -89,6 +135,11 @@ func TestGetTaskCmd(t *testing.T) {
 			name:          "missing task name",
 			args:          []string{"tasks", "get"},
 			expectedError: "required flag(s) \"name\" not set",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"tasks", "get", "--name", "test-task"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -177,7 +228,7 @@ func TestListTasksCmd(t *testing.T) {
 	}{
 		{
 			name: "successful list",
-			args: []string{"tasks", "list", "--project", "test-project"},
+			args: []string{"tasks", "list", "--project", "test-project", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockProject: models.Project{
 				Name:    "test-project",
 				OwnerID: models.AdminID,
@@ -185,7 +236,7 @@ func TestListTasksCmd(t *testing.T) {
 			mockTasks: []models.Task{
 				{
 					Name:      "task1",
-					Status:    models.TaskStatusRunning,
+					Status:    models.TaskStatusCompleted,
 					Action:    models.TaskActionCreateInstances,
 					OwnerID:   models.AdminID,
 					CreatedAt: createdAt,
@@ -202,7 +253,7 @@ func TestListTasksCmd(t *testing.T) {
   "tasks": [
     {
       "name": "task1",
-      "status": "running",
+      "status": "completed",
       "action": "create_instances",
       "created_at": "` + createdAt.Format("2006-01-02 15:04:05") + `"
     },
@@ -224,6 +275,11 @@ func TestListTasksCmd(t *testing.T) {
 			name:          "invalid page value",
 			args:          []string{"tasks", "list", "--project", "test-project", "--page", "invalid"},
 			expectedError: "invalid argument \"invalid\" for \"-g, --page\" flag: strconv.ParseInt: parsing \"invalid\": invalid syntax",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"tasks", "list", "--project", "test-project"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -317,10 +373,10 @@ func TestTerminateTaskCmd(t *testing.T) {
 	}{
 		{
 			name: "successful terminate",
-			args: []string{"tasks", "terminate", "--name", "test-task"},
+			args: []string{"tasks", "terminate", "--name", "test-task", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockTask: models.Task{
 				Name:    "test-task",
-				Status:  models.TaskStatusRunning,
+				Status:  models.TaskStatusCompleted,
 				Action:  models.TaskActionCreateInstances,
 				OwnerID: models.AdminID,
 			},
@@ -330,6 +386,11 @@ func TestTerminateTaskCmd(t *testing.T) {
 			name:          "missing task name",
 			args:          []string{"tasks", "terminate"},
 			expectedError: "required flag(s) \"name\" not set",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"tasks", "terminate", "--name", "test-task"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -391,46 +452,4 @@ func TestTerminateTaskCmd(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestTasksCommand(t *testing.T) {
-	cmd := tasksCmd
-
-	// Test that the tasks command has the expected subcommands
-	subCmds := cmd.Commands()
-	assert.Equal(t, 3, len(subCmds), "Expected 3 subcommands")
-
-	// Verify the subcommand names
-	var subCmdNames []string
-	for _, c := range subCmds {
-		subCmdNames = append(subCmdNames, c.Name())
-	}
-
-	// Expect list, get, and terminate subcommands
-	assert.Contains(t, subCmdNames, "list")
-	assert.Contains(t, subCmdNames, "get")
-	assert.Contains(t, subCmdNames, "terminate")
-
-	// Verify flags for list command
-	listCmd := findCommand(subCmds, "list")
-	assert.NotNil(t, listCmd)
-	assert.True(t, listCmd.Flags().HasFlags())
-	projectFlag, _ := listCmd.Flags().GetString("project")
-	assert.Equal(t, "", projectFlag)
-	pageFlag, _ := listCmd.Flags().GetInt("page")
-	assert.Equal(t, 1, pageFlag)
-
-	// Verify flags for get command
-	getCmd := findCommand(subCmds, "get")
-	assert.NotNil(t, getCmd)
-	assert.True(t, getCmd.Flags().HasFlags())
-	nameFlag, _ := getCmd.Flags().GetString("name")
-	assert.Equal(t, "", nameFlag)
-
-	// Verify flags for terminate command
-	terminateCmd := findCommand(subCmds, "terminate")
-	assert.NotNil(t, terminateCmd)
-	assert.True(t, terminateCmd.Flags().HasFlags())
-	taskNameFlag, _ := terminateCmd.Flags().GetString("name")
-	assert.Equal(t, "", taskNameFlag)
 }

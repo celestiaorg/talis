@@ -2,7 +2,6 @@ package compute
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -95,42 +94,6 @@ func TestDropletService(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, mockClient.StandardResponses.Droplets.AuthenticationError, err)
 		assert.Nil(t, droplet)
-	})
-
-	t.Run("CreateMultiple_Success", func(t *testing.T) {
-		provider, _ := newTestProvider()
-
-		// Call the method - will use standard success response
-		droplets, _, err := provider.doClient.Droplets().CreateMultiple(context.Background(), &godo.DropletMultiCreateRequest{
-			Names:  []string{"test-1", "test-2"},
-			Region: "nyc1",
-		})
-
-		// Verify results
-		assert.NoError(t, err)
-		assert.Len(t, droplets, 2)
-		assert.Equal(t, "test-1", droplets[0].Name)
-		assert.Equal(t, "test-2", droplets[1].Name)
-		assert.Equal(t, "nyc1", droplets[0].Region.Slug)
-		assert.Equal(t, "nyc1", droplets[1].Region.Slug)
-	})
-
-	t.Run("CreateMultiple_Error_RateLimit", func(t *testing.T) {
-		provider, mockClient := newTestProvider()
-
-		// Simulate rate limit error
-		mockClient.SimulateRateLimit()
-
-		// Call the method
-		droplets, _, err := provider.doClient.Droplets().CreateMultiple(context.Background(), &godo.DropletMultiCreateRequest{
-			Names:  []string{"test-1", "test-2"},
-			Region: "nyc1",
-		})
-
-		// Verify results
-		assert.Error(t, err)
-		assert.Equal(t, mockClient.StandardResponses.Droplets.RateLimitError, err)
-		assert.Nil(t, droplets)
 	})
 
 	t.Run("Delete_Success", func(t *testing.T) {
@@ -273,19 +236,20 @@ func TestDigitalOceanProvider(t *testing.T) {
 
 	t.Run("CreateDropletRequest", func(t *testing.T) {
 		provider, _ := newTestProvider()
-		config := types.InstanceConfig{
-			Region:   "nyc1",
-			Size:     "s-1vcpu-1gb",
-			Image:    "ubuntu-20-04-x64",
-			SSHKeyID: "test-key",
+		config := types.InstanceRequest{
+			Region:     "nyc1",
+			Size:       "s-1vcpu-1gb",
+			Image:      "ubuntu-20-04-x64",
+			SSHKeyName: "test-key",
 		}
 
-		request := provider.createDropletRequest("test-instance", config, 12345)
-		assert.Equal(t, "test-instance", request.Name)
-		assert.Equal(t, "nyc1", request.Region)
-		assert.Equal(t, "s-1vcpu-1gb", request.Size)
-		assert.Equal(t, "ubuntu-20-04-x64", request.Image.Slug)
-		assert.Equal(t, 12345, request.SSHKeys[0].ID)
+		sshKeyID := 12345
+		request := provider.createDropletRequest(&config, sshKeyID)
+		assert.Equal(t, config.Name, request.Name)
+		assert.Equal(t, config.Region, request.Region)
+		assert.Equal(t, config.Size, request.Size)
+		assert.Equal(t, config.Image, request.Image.Slug)
+		assert.Equal(t, sshKeyID, request.SSHKeys[0].ID)
 	})
 
 	t.Run("CreateInstance_SingleInstance", func(t *testing.T) {
@@ -295,42 +259,18 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.NotNil(t, keys)
 
 		// Create instance
-		config := types.InstanceConfig{
-			Region:   "nyc1",
-			Size:     "s-1vcpu-1gb",
-			Image:    "ubuntu-20-04-x64",
-			SSHKeyID: keys[0].Name,
+		config := types.InstanceRequest{
+			Name:       "test-instance",
+			Region:     "nyc1",
+			Size:       "s-1vcpu-1gb",
+			Image:      "ubuntu-20-04-x64",
+			SSHKeyName: keys[0].Name,
 		}
 
-		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
+		err = provider.CreateInstance(context.Background(), &config)
 		assert.NoError(t, err)
-		assert.Len(t, instances, 1)
-		assert.Equal(t, "test-instance", instances[0].Name)
-		assert.Equal(t, mocks.DefaultDropletIP1, instances[0].PublicIP)
-		assert.Equal(t, fmt.Sprintf("%d", mocks.DefaultDropletID1), instances[0].ID)
-	})
-
-	t.Run("CreateInstance_MultipleInstances", func(t *testing.T) {
-		provider, _ := newTestProvider()
-		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
-		assert.NoError(t, err)
-		assert.NotNil(t, keys)
-
-		// Create multiple instances
-		config := types.InstanceConfig{
-			Region:            "nyc1",
-			Size:              "s-1vcpu-1gb",
-			Image:             "ubuntu-20-04-x64",
-			SSHKeyID:          keys[0].Name,
-			NumberOfInstances: 3,
-		}
-
-		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
-		assert.NoError(t, err)
-		assert.Len(t, instances, 3)
-		assert.Equal(t, "test-instance-0", instances[0].Name)
-		assert.Equal(t, "test-instance-1", instances[1].Name)
-		assert.Equal(t, "test-instance-2", instances[2].Name)
+		assert.Equal(t, mocks.DefaultDropletIP1, config.PublicIP)
+		assert.Equal(t, mocks.DefaultDropletID1, config.ProviderInstanceID)
 	})
 
 	t.Run("DeleteInstance", func(t *testing.T) {
@@ -360,35 +300,37 @@ func TestDigitalOceanProvider(t *testing.T) {
 		require.NotNil(t, keys)
 		require.NotEmpty(t, keys)
 
-		config := types.InstanceConfig{
+		config := types.InstanceRequest{
+			Name:              "test-instance",
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
-			SSHKeyID:          keys[0].Name,
+			SSHKeyName:        keys[0].Name,
 			NumberOfInstances: 1,
 		}
 
 		// Call CreateInstance which internally uses getSSHKeyID
-		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
+		err = provider.CreateInstance(context.Background(), &config)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.NotEmpty(t, instances)
+		assert.Equal(t, mocks.DefaultDropletIP1, config.PublicIP)
+		assert.Equal(t, mocks.DefaultDropletID1, config.ProviderInstanceID)
 	})
 
 	t.Run("CreateInstance_SSHKey_NotFound", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
-		config := types.InstanceConfig{
+		config := types.InstanceRequest{
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
-			SSHKeyID:          "not-existing-key",
+			SSHKeyName:        "not-existing-key",
 			NumberOfInstances: 1,
 		}
 
 		// Call CreateInstance which internally uses getSSHKeyID
-		_, err := provider.CreateInstance(context.Background(), "test-instance", config)
+		err := provider.CreateInstance(context.Background(), &config)
 
 		// Verify results
 		assert.Error(t, err)
@@ -427,7 +369,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		provider, _ := newTestProvider()
 
 		// Call DeleteInstance which internally uses waitForDeletion
-		err := provider.DeleteInstance(context.Background(), "test-instance", "nyc1")
+		err := provider.DeleteInstance(context.Background(), 12345)
 
 		// Verify results
 		assert.NoError(t, err)
@@ -436,21 +378,25 @@ func TestDigitalOceanProvider(t *testing.T) {
 	t.Run("CreateInstance_Success_With_IP", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
-		config := types.InstanceConfig{
+		config := types.InstanceRequest{
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
-			SSHKeyID:          "test-key",
+			SSHKeyName:        "test-key",
 			NumberOfInstances: 1,
 		}
 
 		// Call CreateInstance which internally uses waitForIP
-		instances, err := provider.CreateInstance(context.Background(), "test-instance", config)
+		err := provider.CreateInstance(context.Background(), &config)
 
 		// Verify results
 		assert.NoError(t, err)
-		assert.NotEmpty(t, instances)
-		assert.NotEmpty(t, instances[0].PublicIP)
+		// The following fields should have been updated during the create process
+		assert.NotEmpty(t, config.PublicIP)
+		assert.NotEmpty(t, config.ProviderInstanceID)
+		// NotNil because they are empty if nothing was provided, but they should be initialized
+		assert.NotNil(t, config.VolumeIDs)
+		assert.NotNil(t, config.VolumeDetails)
 	})
 
 	t.Run("GetDroplet", func(t *testing.T) {

@@ -13,14 +13,9 @@ import (
 	"github.com/celestiaorg/talis/test"
 )
 
-var defaultInstancesRequest = types.InstancesRequest{
-	ProjectName:  "test-project",
-	TaskName:     "test-project",
-	InstanceName: "test-instance",
-	Instances: []types.InstanceRequest{
-		defaultInstanceRequest1,
-		defaultInstanceRequest2,
-	},
+var defaultInstancesRequest = []types.InstanceRequest{
+	defaultInstanceRequest1,
+	defaultInstanceRequest2,
 }
 
 var defaultInstanceRequest1 = types.InstanceRequest{
@@ -72,6 +67,7 @@ var defaultUser2 = handlers.CreateUserParams{
 var defaultProjectParams = handlers.ProjectCreateParams{
 	Name:        "test-project",
 	Description: "Test project for instances",
+	OwnerID:     models.AdminID,
 }
 
 // This file contains the comprehensive test suite for the API client.
@@ -88,7 +84,10 @@ func TestClientAdminMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an instance
-	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
+	instancesRequest := defaultInstancesRequest
+	instancesRequest[0].ProjectName = defaultProjectParams.Name
+	instancesRequest[1].ProjectName = defaultProjectParams.Name
+	err = suite.APIClient.CreateInstance(suite.Context(), instancesRequest)
 	require.NoError(t, err)
 
 	// List instances and verify there are two (using include_deleted to ensure we see all instances)
@@ -147,7 +146,10 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create 2 instances
-	err = suite.APIClient.CreateInstance(suite.Context(), defaultInstancesRequest)
+	instancesRequest := defaultInstancesRequest
+	instancesRequest[0].ProjectName = defaultProjectParams.Name
+	instancesRequest[1].ProjectName = defaultProjectParams.Name
+	err = suite.APIClient.CreateInstance(suite.Context(), instancesRequest)
 	require.NoError(t, err)
 
 	// Wait for the instances to be available
@@ -161,8 +163,8 @@ func TestClientInstanceMethods(t *testing.T) {
 		}
 		// Verify both instances are in non-terminated state
 		for _, instance := range instanceList {
-			if instance.Status == models.InstanceStatusTerminated {
-				return fmt.Errorf("expected instance %s to be non-terminated, got %s", instance.Name, instance.Status)
+			if instance.Status != models.InstanceStatusReady {
+				return fmt.Errorf("expected instance %s to be ready, got %s", instance.Name, instance.Status)
 			}
 		}
 		return nil
@@ -190,13 +192,12 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Equal(t, 2, len(publicIPs.PublicIPs))
 
 	// Delete both instances
-	deleteRequest := types.DeleteInstanceRequest{
+	deleteRequest := types.DeleteInstancesRequest{
 		ProjectName:   defaultProjectParams.Name,
 		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
-	response, err := suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
-	require.NotEmpty(t, response.TaskName)
 
 	// Verify the instances eventually get terminated
 	err = suite.Retry(func() error {
@@ -224,9 +225,8 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Submit the same deletion request again - should be a no-op
 	// We do this after verifying termination to ensure the first deletion completed
-	response, err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
 	require.NoError(t, err)
-	require.NotEmpty(t, response.TaskName)
 
 	// Add a small delay to avoid database lock issues
 	time.Sleep(500 * time.Millisecond)

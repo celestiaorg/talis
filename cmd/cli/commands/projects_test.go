@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -24,6 +25,9 @@ func setupProjectCommands() *cobra.Command {
 		Use:   "talis",
 		Short: "Talis CLI tool",
 	}
+
+	// Add the owner-id flag
+	cmd.PersistentFlags().StringP(flagOwnerID, "o", "", "Owner ID for resources")
 
 	// Add the projects command and its subcommands
 	projectsCmd := &cobra.Command{
@@ -81,7 +85,7 @@ func TestCreateProjectCmd(t *testing.T) {
 	}{
 		{
 			name: "successful create",
-			args: []string{"projects", "create", "--name", "test-project", "--description", "Test project description"},
+			args: []string{"projects", "create", "--name", "test-project", "--description", "Test project description", "-o", fmt.Sprintf("%d", models.AdminID)},
 			expectedOutput: `{
   "name": ""
 }`,
@@ -90,6 +94,11 @@ func TestCreateProjectCmd(t *testing.T) {
 			name:          "missing project name",
 			args:          []string{"projects", "create"},
 			expectedError: "required flag(s) \"name\" not set",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"projects", "create", "--name", "test-project", "--description", "Test project description"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -173,7 +182,7 @@ func TestGetProjectCmd(t *testing.T) {
 	}{
 		{
 			name: "successful get",
-			args: []string{"projects", "get", "--name", "test-project"},
+			args: []string{"projects", "get", "--name", "test-project", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockProject: models.Project{
 				Name:        "test-project",
 				Description: "Test project description",
@@ -189,6 +198,11 @@ func TestGetProjectCmd(t *testing.T) {
 			name:          "missing project name",
 			args:          []string{"projects", "get"},
 			expectedError: "required flag(s) \"name\" not set",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"projects", "get", "--name", "test-project"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -275,7 +289,7 @@ func TestListProjectsCmd(t *testing.T) {
 	}{
 		{
 			name: "successful list",
-			args: []string{"projects", "list"},
+			args: []string{"projects", "list", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockProjects: []models.Project{
 				{
 					Name:        "project1",
@@ -294,7 +308,7 @@ func TestListProjectsCmd(t *testing.T) {
 		},
 		{
 			name: "successful list with pagination",
-			args: []string{"projects", "list", "--page", "2"},
+			args: []string{"projects", "list", "--page", "2", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockProjects: []models.Project{
 				{
 					Name:        "project3",
@@ -310,6 +324,11 @@ func TestListProjectsCmd(t *testing.T) {
 			name:          "invalid page value",
 			args:          []string{"projects", "list", "--page", "invalid"},
 			expectedError: "invalid argument \"invalid\" for \"-p, --page\" flag: strconv.ParseInt: parsing \"invalid\": invalid syntax",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"projects", "list"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -400,7 +419,7 @@ func TestDeleteProjectCmd(t *testing.T) {
 	}{
 		{
 			name: "successful delete",
-			args: []string{"projects", "delete", "--name", "test-project"},
+			args: []string{"projects", "delete", "--name", "test-project", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockProject: models.Project{
 				Name:        "test-project",
 				Description: "Test project description",
@@ -411,6 +430,11 @@ func TestDeleteProjectCmd(t *testing.T) {
 			name:          "missing project name",
 			args:          []string{"projects", "delete"},
 			expectedError: "required flag(s) \"name\" not set",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"projects", "delete", "--name", "test-project"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 
@@ -490,7 +514,7 @@ func TestListProjectInstancesCmd(t *testing.T) {
 	}{
 		{
 			name: "successful list instances",
-			args: []string{"projects", "instances", "--name", "test-project"},
+			args: []string{"projects", "instances", "--name", "test-project", "-o", fmt.Sprintf("%d", models.AdminID)},
 			mockProject: models.Project{
 				Name:    "test-project",
 				OwnerID: models.AdminID,
@@ -520,6 +544,11 @@ func TestListProjectInstancesCmd(t *testing.T) {
 			name:          "missing project name",
 			args:          []string{"projects", "instances"},
 			expectedError: "required flag(s) \"name\" not set",
+		},
+		{
+			name:          "missing owner-id",
+			args:          []string{"projects", "instances", "--name", "test-project"},
+			expectedError: `required flag(s) "owner-id" not set`,
 		},
 	}
 

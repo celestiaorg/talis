@@ -34,8 +34,8 @@ type Client interface {
 	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
-	CreateInstance(ctx context.Context, req types.InstancesRequest) error
-	DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) (types.TaskResponse, error)
+	CreateInstance(ctx context.Context, req []types.InstanceRequest) error
+	DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error)
@@ -402,19 +402,15 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance
 }
 
 // CreateInstance creates a new instance
-func (c *APIClient) CreateInstance(ctx context.Context, req types.InstancesRequest) error {
+func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) error {
 	endpoint := routes.CreateInstanceURL()
 	return c.executeRequest(ctx, http.MethodPost, endpoint, req, nil)
 }
 
 // DeleteInstance deletes an instance by ID
-func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstanceRequest) (types.TaskResponse, error) {
+func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error {
 	endpoint := routes.TerminateInstancesURL()
-	var response types.TaskResponse
-	if err := c.executeRequest(ctx, http.MethodDelete, endpoint, req, &response); err != nil {
-		return types.TaskResponse{}, err
-	}
-	return response, nil
+	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
 }
 
 // User method implementation

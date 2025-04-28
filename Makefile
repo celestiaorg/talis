@@ -54,7 +54,7 @@ clean:
 #   make test PKG=./internal/auth TEST=TestLogin  # Run TestLogin in auth package
 test:
 	@echo "Running tests..."
-	$(GOTEST) $(TEST_FLAGS) -run="$(TEST)" -count=$(COUNT) $(PKG)
+	$(GOTEST) $(TEST_FLAGS) -race -run="$(TEST)" -count=$(COUNT) $(PKG)
 .PHONY: test
 
 ## fmt: Format code

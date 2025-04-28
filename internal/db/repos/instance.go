@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/logger"
 )
 
 // InstanceRepository provides access to instance-related database operations
@@ -274,7 +275,7 @@ func (r *InstanceRepository) GetByProjectIDAndInstanceNames(
 		return nil, fmt.Errorf("failed to get instances by project and names: %w", err)
 	}
 	if len(instances) != len(names) {
-		return nil, fmt.Errorf("not all instances found")
+		logger.Warnf("number of instances found (%v) does not match number of instance names (%v)", len(instances), len(names))
 	}
 	return instances, nil
 }

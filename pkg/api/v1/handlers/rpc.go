@@ -86,19 +86,17 @@ func (h *RPCHandler) handleProjectMethod(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, "Project handlers not configured", nil, req.ID)
 	}
 
-	ownerID := models.AdminID // TODO: get owner id from the JWT token
-
 	switch req.Method {
 	case ProjectCreate:
-		return h.ProjectHandlers.Create(c, ownerID, req)
+		return h.ProjectHandlers.Create(c, req)
 	case ProjectGet:
-		return h.ProjectHandlers.Get(c, ownerID, req)
+		return h.ProjectHandlers.Get(c, req)
 	case ProjectList:
-		return h.ProjectHandlers.List(c, ownerID, req)
+		return h.ProjectHandlers.List(c, req)
 	case ProjectDelete:
-		return h.ProjectHandlers.Delete(c, ownerID, req)
+		return h.ProjectHandlers.Delete(c, req)
 	case ProjectListInstances:
-		return h.ProjectHandlers.ListInstances(c, ownerID, req)
+		return h.ProjectHandlers.ListInstances(c, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown project method", nil, req.ID)
 	}

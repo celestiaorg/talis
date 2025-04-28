@@ -29,6 +29,11 @@ func (s *Task) Create(ctx context.Context, task *models.Task) error {
 	return s.repo.Create(ctx, task)
 }
 
+// CreateBatch creates a batch of tasks
+func (s *Task) CreateBatch(ctx context.Context, tasks []*models.Task) error {
+	return s.repo.CreateBatch(ctx, tasks)
+}
+
 // GetByName retrieves a task by name
 func (s *Task) GetByName(ctx context.Context, ownerID uint, taskName string) (*models.Task, error) {
 	return s.repo.GetByName(ctx, ownerID, taskName)
@@ -65,6 +70,14 @@ func (s *Task) UpdateStatusByName(ctx context.Context, ownerID uint, taskName st
 // Update updates an existing task.
 func (s *Task) Update(ctx context.Context, ownerID uint, task *models.Task) error {
 	return s.repo.Update(ctx, ownerID, task)
+}
+
+// UpdateFailed updates a task as failed
+func (s *Task) UpdateFailed(ctx context.Context, task *models.Task, errMsg, logMsg string) error {
+	task.Status = models.TaskStatusFailed
+	task.Error += fmt.Sprintf("\n%s", errMsg)
+	task.Logs += fmt.Sprintf("\n%s", logMsg)
+	return s.repo.Update(ctx, task.OwnerID, task)
 }
 
 // AddLogs appends logs to a task

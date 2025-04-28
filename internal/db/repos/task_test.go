@@ -214,6 +214,8 @@ func (s *TaskRepositoryTestSuite) TestGetSchedulableTasks() {
 		// Should be included - With Error, ordered by CreatedAt ASC
 		{Name: "task-failed-old", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Some error", CreatedAt: now.Add(-5 * time.Minute), Action: models.TaskActionCreateInstances},    // Expected 4th
 		{Name: "task-failed-new", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Another error", CreatedAt: now.Add(-4 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 5th (if limit allows)
+		// Should be excluded - Exceeds maxAttempts
+		{Name: "task-max-attempts", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Too many attempts", Attempts: maxAttempts, CreatedAt: now.Add(-3 * time.Minute), Action: models.TaskActionCreateInstances},
 	}
 
 	createdTaskMap := make(map[string]uint) // Store name -> ID mapping
@@ -252,6 +254,12 @@ func (s *TaskRepositoryTestSuite) TestGetSchedulableTasks() {
 	s.Require().NoError(err)
 	expectedOrderNames = []string{"task-pending-old", "task-running", "task-pending-new", "task-failed-old", "task-failed-new"}
 	verify(expectedOrderNames, schedulableTasks)
+
+	// --- Test Case 4: Verify task with maxAttempts is excluded ---
+	// Check that the task with maxAttempts is not included in the results
+	for _, task := range schedulableTasks {
+		s.Require().NotEqual("task-max-attempts", task.Name, "Task with maxAttempts should not be included")
+	}
 }
 
 func TestTaskRepository(t *testing.T) {

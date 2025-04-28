@@ -45,13 +45,13 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req types.InstancesRequest
+		var req []types.InstanceRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
 		// Validate that instances array is not empty
-		if len(req.Instances) == 0 {
+		if len(req) == 0 {
 			return fmt.Errorf("no instances specified in the JSON file")
 		}
 
@@ -63,18 +63,15 @@ var createInfraCmd = &cobra.Command{
 		fmt.Println("Infrastructure creation request submitted successfully")
 
 		// Create the delete request
-		deleteReq := types.DeleteInstanceRequest{
-			ProjectName: req.ProjectName,
+		deleteReq := types.DeleteInstancesRequest{
+			OwnerID:     req[0].OwnerID,
+			ProjectName: req[0].ProjectName,
 			InstanceNames: func() []string {
 				names := make([]string, 0)
-				for _, instance := range req.Instances {
-					if instance.Name != "" {
-						names = append(names, instance.Name)
-					} else {
-						// If no specific name, use the base name pattern
-						for i := 0; i < instance.NumberOfInstances; i++ {
-							names = append(names, fmt.Sprintf("%s-%d", req.InstanceName, i))
-						}
+				for _, instance := range req {
+					// If no specific name, use the base name pattern
+					for i := 0; i < instance.NumberOfInstances; i++ {
+						names = append(names, fmt.Sprintf("%s-%d", instance.Name, i))
 					}
 				}
 				return names
@@ -117,18 +114,18 @@ var deleteInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req types.DeleteInstanceRequest
+		var req types.DeleteInstancesRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
 		// Call the API client
-		resp, err := apiClient.DeleteInstance(context.Background(), req)
+		err = apiClient.DeleteInstance(context.Background(), req)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}
 
-		fmt.Printf("Infrastructure deletion task %s started. Use 'talis tasks get -n %s' to check the status\n", resp.TaskName, resp.TaskName)
+		fmt.Println("Infrastructure deletion started.")
 		return nil
 	},
 }

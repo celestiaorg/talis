@@ -16,7 +16,7 @@ import (
 
 // MockDOClient implements types.DOClient for testing
 type MockDOClient struct {
-	droplets           []talisTypes.InstanceInfo
+	droplets           []talisTypes.InstanceRequest
 	MockDropletService *MockDropletService
 	MockKeyService     *MockKeyService
 	MockStorageService *MockStorageService
@@ -29,21 +29,19 @@ func (c *MockDOClient) ConfigureProvider(_ interface{}) error {
 }
 
 // CreateInstance is a mock implementation of the CreateInstance method
-func (c *MockDOClient) CreateInstance(ctx context.Context, name string, config talisTypes.InstanceConfig) ([]talisTypes.InstanceInfo, error) {
-	dropletName := fmt.Sprintf("%s-0", name)
-	createRequest := createDropletRequest(dropletName, config, DefaultKeyID1)
-	droplet, _, err := c.MockDropletService.Create(ctx, createRequest)
+func (c *MockDOClient) CreateInstance(ctx context.Context, config *talisTypes.InstanceRequest) error {
+	dropletName := fmt.Sprintf("%s-0", config.Name)
+	createRequest := createDropletRequest(dropletName, *config, DefaultKeyID1)
+	_, _, err := c.MockDropletService.Create(ctx, createRequest)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return []talisTypes.InstanceInfo{
-		{ID: fmt.Sprintf("%d", droplet.ID), Name: droplet.Name},
-	}, nil
+	return nil
 }
 
 // DeleteInstance is a mock implementation of the DeleteInstance method
-func (c *MockDOClient) DeleteInstance(ctx context.Context, _ string, _ string) error {
-	_, err := c.MockDropletService.Delete(ctx, DefaultDropletID1)
+func (c *MockDOClient) DeleteInstance(ctx context.Context, dropletID int) error {
+	_, err := c.MockDropletService.Delete(ctx, dropletID)
 	return err
 }
 
@@ -62,7 +60,7 @@ func (c *MockDOClient) ValidateCredentials() error {
 // createDropletRequest is a helper function to create a DropletCreateRequest
 func createDropletRequest(
 	name string,
-	config talisTypes.InstanceConfig,
+	config talisTypes.InstanceRequest,
 	sshKeyID int,
 ) *godo.DropletCreateRequest {
 	return &godo.DropletCreateRequest{
@@ -82,7 +80,7 @@ func createDropletRequest(
 // NewMockDOClient creates a new MockDOClient with standard responses
 func NewMockDOClient() *MockDOClient {
 	client := &MockDOClient{
-		droplets:          make([]talisTypes.InstanceInfo, 0),
+		droplets:          make([]talisTypes.InstanceRequest, 0),
 		StandardResponses: newStandardResponses(),
 	}
 
@@ -138,13 +136,12 @@ func (c *MockDOClient) SimulateRateLimit() {
 
 // MockDropletService implements types.DropletService for testing
 type MockDropletService struct {
-	std                *StandardResponses
-	CreateFunc         func(_ context.Context, _ *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
-	CreateMultipleFunc func(_ context.Context, _ *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
-	GetFunc            func(_ context.Context, _ int) (*godo.Droplet, *godo.Response, error)
-	DeleteFunc         func(_ context.Context, _ int) (*godo.Response, error)
-	ListFunc           func(_ context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
-	attemptCount       int // Track number of attempts for retry simulations
+	std          *StandardResponses
+	CreateFunc   func(_ context.Context, _ *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
+	GetFunc      func(_ context.Context, _ int) (*godo.Droplet, *godo.Response, error)
+	DeleteFunc   func(_ context.Context, _ int) (*godo.Response, error)
+	ListFunc     func(_ context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	attemptCount int // Track number of attempts for retry simulations
 }
 
 // setupStandardDropletResponses configures the standard success responses for droplet service
@@ -157,21 +154,6 @@ func setupStandardDropletResponses(s *MockDropletService) {
 			droplet.Size.Slug = req.Size
 		}
 		return &droplet, nil, nil
-	}
-
-	s.CreateMultipleFunc = func(_ context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
-		droplets := make([]godo.Droplet, len(req.Names))
-		for i, name := range req.Names {
-			droplet := *s.std.Droplets.DefaultDroplet
-			droplet.ID += i // Increment ID for each droplet
-			droplet.Name = name
-			droplet.Region.Slug = req.Region
-			if req.Size != "" {
-				droplet.Size.Slug = req.Size
-			}
-			droplets[i] = droplet
-		}
-		return droplets, nil, nil
 	}
 
 	s.GetFunc = func(_ context.Context, _ int) (*godo.Droplet, *godo.Response, error) {
@@ -204,11 +186,6 @@ func (s *MockDropletService) Create(ctx context.Context, req *godo.DropletCreate
 	return s.CreateFunc(ctx, req)
 }
 
-// CreateMultiple calls the mocked CreateMultiple function
-func (s *MockDropletService) CreateMultiple(ctx context.Context, req *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
-	return s.CreateMultipleFunc(ctx, req)
-}
-
 // Get calls the mocked Get function
 func (s *MockDropletService) Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
 	return s.GetFunc(ctx, id)
@@ -239,9 +216,6 @@ func (s *MockDropletService) SimulateRateLimit() {
 	s.CreateFunc = func(_ context.Context, _ *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.RateLimitError
 	}
-	s.CreateMultipleFunc = func(_ context.Context, _ *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
-		return nil, nil, s.std.Droplets.RateLimitError
-	}
 	s.GetFunc = func(_ context.Context, _ int) (*godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.RateLimitError
 	}
@@ -256,9 +230,6 @@ func (s *MockDropletService) SimulateRateLimit() {
 // SimulateAuthenticationFailure configures the service to return authentication errors
 func (s *MockDropletService) SimulateAuthenticationFailure() {
 	s.CreateFunc = func(_ context.Context, _ *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
-		return nil, nil, s.std.Droplets.AuthenticationError
-	}
-	s.CreateMultipleFunc = func(_ context.Context, _ *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
 		return nil, nil, s.std.Droplets.AuthenticationError
 	}
 	s.GetFunc = func(_ context.Context, _ int) (*godo.Droplet, *godo.Response, error) {

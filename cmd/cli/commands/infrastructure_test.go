@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/test"
@@ -62,32 +63,29 @@ func TestCreateInfraCmd(t *testing.T) {
 	}{
 		{
 			name:      "successful create",
-			args:      []string{"infra", "create", "--file", "test.json"},
-			inputFile: "test.json",
-			inputContent: `{
-  "project_name": "test-project",
-  "task_name": "test-task",
-  "instance_name": "test-instance",
-  "instances": [
-    {
-      "name": "instance-1",
-      "number_of_instances": 1,
-      "region": "nyc1",
-      "provider": "do",
-      "size": "s-1vcpu-1gb",
-      "image": "ubuntu-20-04-x64",
-      "ssh_key_name": "test-key-1",
-      "tags": ["test", "dev"],
-      "volumes": [
-        {
-          "name": "test-volume",
-          "size_gb": 10,
-          "mount_point": "/mnt/data"
-        }
-      ]
-    }
-  ]
-}`,
+			args:      []string{"infra", "create", "--file", "infra.json"},
+			inputFile: "infra.json",
+			inputContent: `[
+  {
+    "project_name": "test-project",
+    "name": "instance-1",
+    "number_of_instances": 1,
+    "provider": "do",
+    "region": "nyc1",
+    "size": "s-1vcpu-1gb",
+    "image": "ubuntu-20-04-x64",
+    "ssh_key_name": "test-key-1",
+    "tags": ["test", "dev"],
+    "volumes": [
+      {
+        "name": "test-volume",
+        "size_gb": 10,
+        "mount_point": "/mnt/data"
+      }
+    ],
+    "owner_id": 1
+  }
+]`,
 			expectedOutput: "", // Don't check for specific output - just check it doesn't error
 		},
 		{
@@ -110,15 +108,10 @@ func TestCreateInfraCmd(t *testing.T) {
 			expectedError: "error parsing JSON file",
 		},
 		{
-			name:      "empty instances array",
-			args:      []string{"infra", "create", "--file", "empty.json"},
-			inputFile: "empty.json",
-			inputContent: `{
-  "job_name": "test-job",
-  "project_name": "test-project",
-  "instance_name": "test-instance",
-  "instances": []
-}`,
+			name:          "empty instances array",
+			args:          []string{"infra", "create", "--file", "empty.json"},
+			inputFile:     "empty.json",
+			inputContent:  `[]`,
 			expectedError: "no instances specified",
 		},
 	}
@@ -158,6 +151,7 @@ func TestCreateInfraCmd(t *testing.T) {
 				createProjectReq := handlers.ProjectCreateParams{
 					Name:        projectName,
 					Description: "Test project for infra commands",
+					OwnerID:     models.AdminID,
 				}
 				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
 				// Ignore "already exists" errors if the project was created in a previous step/test
@@ -236,7 +230,7 @@ func TestCreateInfraCmd(t *testing.T) {
 					// Delete file was created, check its content
 					content, err := os.ReadFile(deleteFilePath) //nolint:gosec
 					if err == nil {
-						var deleteReq types.DeleteInstanceRequest
+						var deleteReq types.DeleteInstancesRequest
 						if err := json.Unmarshal(content, &deleteReq); err == nil {
 							assert.Equal(t, "test-project", deleteReq.ProjectName)
 							assert.Contains(t, deleteReq.InstanceNames, "instance-1")
@@ -324,6 +318,7 @@ func TestDeleteInfraCmd(t *testing.T) {
 				createProjectReq := handlers.ProjectCreateParams{
 					Name:        projectName,
 					Description: "Test project for infra commands",
+					OwnerID:     models.AdminID,
 				}
 				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
 				// Ignore "already exists" errors if the project was created in a previous step/test

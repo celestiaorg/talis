@@ -2,6 +2,7 @@ package test
 
 import (
 	"net/http/httptest"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -53,6 +54,12 @@ func SetupServer(suite *Suite) {
 	})
 	suite.Require().NoError(err, "Failed to create API client")
 	suite.APIClient = client
+
+	// Launch worker
+	var wg sync.WaitGroup
+	wg.Add(1)
+	worker := services.NewWorker(instanceService, projectService, taskService, userService, 100*time.Millisecond)
+	go worker.LaunchWorker(suite.ctx, &wg)
 
 	// Update cleanup to close server
 	originalCleanup := suite.cleanup

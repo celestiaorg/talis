@@ -1,25 +1,22 @@
 {
-    "name": "talis-cli",
-    "project_name": "talis-1",
-    "owner_id": 1,
-    "instances": [
-        {
-            "name": "test-hostname",
-            "provider": "do",
-            "number_of_instances": 1,
-            "provision": true,
-            "region": "nyc1",
-            "size": "s-1vcpu-1gb",
-            "image": "ubuntu-22-04-x64",
-            "tags": ["talis", "dev", "testing"],
-            "ssh_key_name": "<your-ssh-key-name>",
-            "volumes": [
-                {
-                    "name": "talis-volume",
-                    "size_gb": 15,
-                    "mount_point": "/mnt/data"
-                }
-            ]
-        }
-    ]
+    {
+        "name": "test-hostname",
+        "owner_id": 1,
+        "project_name": "my-project",
+        "provider": "do",
+        "number_of_instances": 1,
+        "provision": true,
+        "region": "nyc1",
+        "size": "s-1vcpu-1gb",
+        "image": "ubuntu-22-04-x64",
+        "tags": ["talis", "dev", "testing"],
+        "ssh_key_name": "<your-ssh-key-name>",
+        "volumes": [
+            {
+                "name": "talis-volume",
+                "size_gb": 15,
+                "mount_point": "/mnt/data"
+            }
+        ]
+    }
 }
