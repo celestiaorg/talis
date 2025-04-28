@@ -73,7 +73,7 @@ jobs:
         run: sleep 10
 
       - name: Check services
-        run: docker compose ps -f docker-compose-local.yml
+        run: docker compose -f docker-compose-local.yml ps
 
       - name: Stop services
         run: make docker-down-local
