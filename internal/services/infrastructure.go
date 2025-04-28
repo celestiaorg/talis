@@ -2,115 +2,29 @@
 package services
 
 import (
-	"context"
-	"fmt"
 	"os"
-	"path/filepath"
+	"strings"
 
-	"github.com/celestiaorg/talis/internal/compute"
 	"github.com/celestiaorg/talis/internal/types"
-	"github.com/google/uuid"
 )
 
-// Infrastructure handles the provisioning and management of compute instances
-type Infrastructure struct {
-	provider    types.Provider
-	provisioner *compute.Provisioner
-}
-
-// NewInfrastructure creates a new infrastructure service
-func NewInfrastructure(req *types.InstancesRequest) (*Infrastructure, error) {
-	provider, err := compute.Provider()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create compute provider: %w", err)
-	}
-
-	if err := provider.ValidateCredentials(); err != nil {
-		return nil, fmt.Errorf("failed to validate provider credentials: %w", err)
-	}
-
-	jobID := uuid.New().String()
-	provisioner := compute.NewProvisioner(jobID)
-
-	return &Infrastructure{
-		provider:    provider,
-		provisioner: provisioner,
-	}, nil
-}
-
-// Execute creates and provisions instances based on the provided requests
-func (i *Infrastructure) Execute(ctx context.Context, requests []types.InstanceRequest) (interface{}, error) {
-	var createdInstances []types.InstanceInfo
-
-	for _, req := range requests {
-		sshKeyPath := i.getAnsibleSSHKeyPath(req)
-
-		config := types.InstanceConfig{
-			Region:          req.Region,
-			Size:            req.Size,
-			Image:           req.Image,
-			SSHKeys:         []string{sshKeyPath},
-			HypervisorID:    req.HypervisorID,
-			HypervisorGroup: req.HypervisorGroup,
-		}
-
-		instances, err := i.provider.CreateInstance(ctx, req.Name, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create instance %s: %w", req.Name, err)
-		}
-
-		if len(instances) == 0 {
-			return nil, fmt.Errorf("no instances created for %s", req.Name)
-		}
-
-		createdInstances = append(createdInstances, instances...)
-
-		if err := i.provisioner.Provision(instances[0], sshKeyPath); err != nil {
-			return nil, fmt.Errorf("failed to provision instance %s: %w", req.Name, err)
+// getAnsibleSSHKeyPath determines the appropriate SSH private key path for Ansible
+// based on the instance requests, prioritizing custom paths, then key types,
+// and falling back to the default RSA key path.
+// It assumes the key configuration from the first request applies to the whole job.
+func getAnsibleSSHKeyPath(instanceRequest types.InstanceRequest) string {
+	sshKeyPath := "$HOME/.ssh/id_rsa"     // Default
+	if instanceRequest.SSHKeyPath != "" { // Priority 1: Custom path
+		sshKeyPath = instanceRequest.SSHKeyPath
+	} else if instanceRequest.SSHKeyType != "" { // Priority 2: Key type
+		switch strings.ToLower(instanceRequest.SSHKeyType) {
+		case "ed25519":
+			sshKeyPath = "$HOME/.ssh/id_ed25519"
+		case "ecdsa":
+			sshKeyPath = "$HOME/.ssh/id_ecdsa"
+			// Add other types if needed
 		}
 	}
-
-	return createdInstances, nil
-}
-
-func (i *Infrastructure) getAnsibleSSHKeyPath(req types.InstanceRequest) string {
-	// Check for custom SSH key path in request
-	if req.SSHKeyPath != "" {
-		return req.SSHKeyPath
-	}
-
-	// Check for SSH key path in environment
-	if envPath := os.Getenv("TALIS_SSH_KEY_PATH"); envPath != "" {
-		return envPath
-	}
-
-	// Default to ~/.ssh/id_rsa
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".ssh", "id_rsa")
-}
-
-// RunProvisioning executes the provisioning process for the created instances
-func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
-	if i.provisioner == nil {
-		return fmt.Errorf("provisioner not initialized")
-	}
-
-	if len(instances) == 0 {
-		return fmt.Errorf("no instances provided for provisioning")
-	}
-
-	// Get SSH key path for Ansible
-	sshKeyPath := i.getAnsibleSSHKeyPath(types.InstanceRequest{})
-
-	// Run provisioning for each instance
-	for _, instance := range instances {
-		if err := i.provisioner.Provision(instance, sshKeyPath); err != nil {
-			return fmt.Errorf("failed to provision instance %s: %w", instance.Name, err)
-		}
-	}
-
-	return nil
+	// Expand environment variables like $HOME (Ansible handles this, but doing it here is safe)
+	return os.ExpandEnv(sshKeyPath)
 }

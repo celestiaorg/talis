@@ -28,15 +28,52 @@ func NewVirtFusionProvider() (types.Provider, error) {
 		return nil, fmt.Errorf("failed to create VirtFusion config: %w", err)
 	}
 
-	client, err := NewClient(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create VirtFusion client: %w", err)
-	}
-
 	return &VirtFusionProvider{
-		client: client,
 		config: cfg,
 	}, nil
+}
+
+// // Provider defines the interface for cloud providers
+// type Provider interface {
+// 	// ValidateCredentials validates the provider credentials
+// 	ValidateCredentials() error
+
+// 	// GetEnvironmentVars returns the environment variables needed for the provider
+// 	GetEnvironmentVars() map[string]string
+
+// 	// ConfigureProvider configures the provider with the given stack
+// 	ConfigureProvider(stack interface{}) error
+
+// 	// CreateInstance creates a new instance
+// 	CreateInstance(ctx context.Context, req *types.InstanceRequest) error
+
+// 	// DeleteInstance deletes an instance
+// 	DeleteInstance(ctx context.Context, providerInstanceID int) error
+// }
+
+// // Provisioner is the interface for system configuration
+// type Provisioner interface {
+// 	// ConfigureHost configures a single host
+// 	ConfigureHost(ctx context.Context, host string, sshKeyPath string) error
+
+// 	// ConfigureHosts configures multiple hosts in parallel, ensuring SSH readiness
+// 	ConfigureHosts(ctx context.Context, hosts []string, sshKeyPath string) error
+
+// 	// CreateInventory creates an Ansible inventory file from instance info
+// 	CreateInventory(instance *types.InstanceRequest, sshKeyPath string) (string, error)
+
+// 	// RunAnsiblePlaybook runs the Ansible playbook
+// 	RunAnsiblePlaybook(inventoryName string) error
+// }
+
+// NewComputeProvider creates a new compute provider based on the provider name
+func NewComputeProvider(provider models.ProviderID) (types.Provider, error) {
+	switch provider {
+	case models.ProviderVirtFusion:
+		return NewVirtFusionProvider()
+	default:
+		return nil, fmt.Errorf("unsupported provider: %s", provider)
+	}
 }
 
 // ValidateCredentials validates the VirtFusion credentials

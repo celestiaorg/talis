@@ -54,7 +54,7 @@ clean:
 #   make test PKG=./internal/auth TEST=TestLogin  # Run TestLogin in auth package
 test:
 	@echo "Running tests..."
-	$(GOTEST) $(TEST_FLAGS) -run="$(TEST)" -count=$(COUNT) $(PKG)
+	$(GOTEST) $(TEST_FLAGS) -race -run="$(TEST)" -count=$(COUNT) $(PKG)
 .PHONY: test
 
 ## fmt: Format code
@@ -155,6 +155,18 @@ db-connect:
 # # # # # # # # # # # #
 # Docker
 # # # # # # # # # # # #
+
+## docker-up-local: Run the application
+docker-up-local:
+	@echo "Launching Docker Compose..."
+	@docker compose -f docker-compose-local.yml up -d
+.PHONY: docker-up-local
+
+## docker-down-local: Stop the application
+docker-down-local:
+	@echo "Stopping Docker Compose..."
+	@docker compose -f docker-compose-local.yml down
+.PHONY: docker-down-local
 
 ## docker-up: Run the application
 docker-up:

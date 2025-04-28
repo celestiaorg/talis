@@ -270,7 +270,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
 					return tx.Find(&instances)
 				})
-				s.Contains(sql, "status != 4")
+				s.Contains(sql, "status != 5")
 			},
 		},
 		{
@@ -287,7 +287,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
 					return tx.Find(&instances)
 				})
-				s.Contains(sql, "status = 3")
+				s.Contains(sql, "status = 4")
 			},
 		},
 		{
@@ -304,7 +304,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
 					return tx.Find(&instances)
 				})
-				s.Contains(sql, "status != 4")
+				s.Contains(sql, "status != 5")
 			},
 		},
 		{
@@ -354,7 +354,7 @@ func (s *InstanceRepositoryTestSuite) TestApplyListOptions() {
 				s.True(query.Statement.Unscoped)
 				s.Contains(sql, "LIMIT 10")
 				s.Contains(sql, "OFFSET 20")
-				s.Contains(sql, "status = 3")
+				s.Contains(sql, "status = 4")
 			},
 		},
 	}

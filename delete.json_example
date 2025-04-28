@@ -1,19 +1,8 @@
 {
-    "id": <job-id-ref>,
-    "instance_name": "talis",
-    "project_name": "<project-name-ref>",
-    "instances": [
-        {
-            "provider": "do",
-            "number_of_instances": 1,
-            "region": "nyc3",
-            "size": "s-1vcpu-1gb"
-        },
-        {
-            "provider": "do",
-            "name": "talis-validator",
-            "region": "nyc3",
-            "size": "s-2vcpu-2gb"
-        }
-    ]
+  "owner_id": 1,
+  "project_name": "my-project",
+  "instance_names": [
+    "talis-node-0",
+    "talis-node-1"
+  ]
 }

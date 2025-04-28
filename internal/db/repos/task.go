@@ -9,6 +9,8 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
+const maxAttempts = 10
+
 // TaskRepository handles database operations for tasks
 type TaskRepository struct {
 	db *gorm.DB
@@ -116,7 +118,7 @@ func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]
 	// Build the query
 	query := r.db.WithContext(ctx).Model(&models.Task{}).Where(
 		"status NOT IN ?", excludedStatuses,
-	)
+	).Where("attempts < ?", maxAttempts)
 
 	// Order by error presence (errors last), then by creation date (oldest first)
 	// Use DB-specific syntax for CASE WHEN or similar logic if needed, assuming standard SQL here.

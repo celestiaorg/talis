@@ -90,31 +90,36 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 }
 
 // CreateInstance handles the request to create instances
-// TODO: this should return the Instance ID so that it can be immediately queried.
+// TODO: the RPC response for this should be the instances and tasks created.
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var instancesReq types.InstancesRequest
-	if err := c.BodyParser(&instancesReq); err != nil {
-		return c.Status(fiber.StatusBadRequest).
-			JSON(types.ErrInvalidInput(err.Error()))
-	}
-	instancesReq.Action = "create"
-
-	if err := instancesReq.Validate(); err != nil {
+	var instanceReqs []types.InstanceRequest
+	if err := c.BodyParser(&instanceReqs); err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	taskName, err := h.service.CreateInstance(c.Context(), models.AdminID, instancesReq.ProjectName, instancesReq.Instances)
+	if len(instanceReqs) == 0 {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(types.ErrInvalidInput("at least one instance request is required"))
+	}
+
+	// NOTE: in order to update the underlying instanceReqs, we need to iterate over the slice with the index. If you use range, you will get a copy of the slice and not the original.
+	for i := range instanceReqs {
+		instanceReqs[i].Action = "create"
+		if err := instanceReqs[i].Validate(); err != nil {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(types.ErrInvalidInput(err.Error()))
+		}
+	}
+
+	err := h.service.CreateInstance(c.Context(), instanceReqs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(types.Success(
-			types.TaskResponse{
-				TaskName: taskName,
-			}))
+		JSON(types.Success(nil))
 }
 
 // GetPublicIPs returns a list of public IPs for all instances
@@ -241,7 +246,7 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 
 // TerminateInstances handles the request to terminate instances
 func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
-	var deleteReq types.DeleteInstanceRequest
+	var deleteReq types.DeleteInstancesRequest
 	if err := c.BodyParser(&deleteReq); err != nil {
 		return c.Status(fiber.StatusBadRequest).
 			JSON(types.ErrInvalidInput(err.Error()))
@@ -253,7 +258,7 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	taskName, err := h.service.Terminate(c.Context(), models.AdminID, deleteReq.ProjectName, deleteReq.InstanceNames)
+	err := h.service.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceNames)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),
@@ -261,8 +266,5 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).
-		JSON(types.Success(
-			types.TaskResponse{
-				TaskName: taskName,
-			}))
+		JSON(types.Success(nil))
 }

@@ -28,6 +28,8 @@ const (
 	InstanceStatusUnknown InstanceStatus = iota
 	// InstanceStatusPending indicates the instance is being created
 	InstanceStatusPending
+	// InstanceStatusCreated indicates the instance has been created but not provisioned
+	InstanceStatusCreated
 	// InstanceStatusProvisioning indicates the instance is being provisioned
 	InstanceStatusProvisioning
 	// InstanceStatusReady indicates the instance is operational
@@ -60,27 +62,28 @@ const (
 // Instance represents a compute instance in the system
 type Instance struct {
 	gorm.Model
-	OwnerID       uint           `json:"owner_id" gorm:"not null;index"`
-	ProjectID     uint           `json:"project_id" gorm:"not null;index"`
-	LastTaskID    uint           `json:"last_task_id" gorm:"not null;index"`
-	ProviderID    ProviderID     `json:"provider_id" gorm:"not null"`
-	Name          string         `json:"name" gorm:"not null;index"`
-	PublicIP      string         `json:"public_ip" gorm:"varchar(100)"`
-	Region        string         `json:"region" gorm:"varchar(255)"`
-	Size          string         `json:"size" gorm:"varchar(255)"`
-	Image         string         `json:"image" gorm:"varchar(255)"`
-	Tags          pq.StringArray `json:"tags" gorm:"type:text[]"`
-	Status        InstanceStatus `json:"status" gorm:"index"`
-	Volumes       pq.StringArray `json:"volumes" gorm:"type:text[]"`
-	VolumeDetails VolumeDetails  `json:"volume_details" gorm:"type:jsonb"`
-	CreatedAt     time.Time      `json:"created_at" gorm:"index"`
-	PayloadStatus PayloadStatus  `json:"payload_status" gorm:"default:0;index"` // Default to PayloadStatusNone
+	OwnerID            uint           `json:"owner_id" gorm:"not null;index"`
+	ProjectID          uint           `json:"project_id" gorm:"not null;index"`
+	ProviderID         ProviderID     `json:"provider_id" gorm:"not null"`
+	ProviderInstanceID int            `json:"provider_instance_id" gorm:"not null"`
+	Name               string         `json:"name" gorm:"not null;index"`
+	PublicIP           string         `json:"public_ip" gorm:"varchar(100)"`
+	Region             string         `json:"region" gorm:"varchar(255)"`
+	Size               string         `json:"size" gorm:"varchar(255)"`
+	Image              string         `json:"image" gorm:"varchar(255)"`
+	Tags               pq.StringArray `json:"tags" gorm:"type:text[]"`
+	Status             InstanceStatus `json:"status" gorm:"index"`
+	VolumeIDs          pq.StringArray `json:"volume_ids" gorm:"type:text[]"`
+	VolumeDetails      VolumeDetails  `json:"volume_details" gorm:"type:jsonb"`
+	CreatedAt          time.Time      `json:"created_at" gorm:"index"`
+	PayloadStatus      PayloadStatus  `json:"payload_status" gorm:"default:0;index"` // Default to PayloadStatusNone
 }
 
 func (s InstanceStatus) String() string {
 	return []string{
 		"unknown",
 		"pending",
+		"created",
 		"provisioning",
 		"ready",
 		"terminated",
@@ -105,6 +108,7 @@ func ParseInstanceStatus(str string) (InstanceStatus, error) {
 	for i, status := range []string{
 		"unknown",
 		"pending",
+		"created",
 		"provisioning",
 		"ready",
 		"terminated",

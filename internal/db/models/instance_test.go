@@ -39,13 +39,22 @@ func TestInstanceStatus(t *testing.T) {
 			statusIndex:   1,
 		},
 		{
+			name:          "Created status",
+			status:        InstanceStatusCreated,
+			stringValue:   "created",
+			jsonValue:     `"created"`,
+			validForParse: true,
+			validForJSON:  true,
+			statusIndex:   2,
+		},
+		{
 			name:          "Provisioning status",
 			status:        InstanceStatusProvisioning,
 			stringValue:   "provisioning",
 			jsonValue:     `"provisioning"`,
 			validForParse: true,
 			validForJSON:  true,
-			statusIndex:   2,
+			statusIndex:   3,
 		},
 		{
 			name:          "Ready status",
@@ -54,7 +63,7 @@ func TestInstanceStatus(t *testing.T) {
 			jsonValue:     `"ready"`,
 			validForParse: true,
 			validForJSON:  true,
-			statusIndex:   3,
+			statusIndex:   4,
 		},
 		{
 			name:          "Terminated status",
@@ -63,7 +72,7 @@ func TestInstanceStatus(t *testing.T) {
 			jsonValue:     `"terminated"`,
 			validForParse: true,
 			validForJSON:  true,
-			statusIndex:   4,
+			statusIndex:   5,
 		},
 		{
 			name:          "Invalid status",

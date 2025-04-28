@@ -88,11 +88,16 @@ var createProjectCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error getting config flag: %w", err)
 		}
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
 
 		params := handlers.ProjectCreateParams{
 			Name:        name,
 			Description: description,
 			Config:      config,
+			OwnerID:     ownerID,
 		}
 
 		// Call the API client
@@ -125,9 +130,14 @@ var getProjectCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error getting name flag: %w", err)
 		}
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
 
 		params := handlers.ProjectGetParams{
-			Name: name,
+			Name:    name,
+			OwnerID: ownerID,
 		}
 
 		// Call the API client
@@ -160,9 +170,14 @@ var listProjectsCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error getting page flag: %w", err)
 		}
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
 
 		params := handlers.ProjectListParams{
-			Page: page,
+			Page:    page,
+			OwnerID: ownerID,
 		}
 
 		// Call the API client
@@ -200,9 +215,14 @@ var deleteProjectCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error getting name flag: %w", err)
 		}
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
 
 		params := handlers.ProjectDeleteParams{
-			Name: name,
+			Name:    name,
+			OwnerID: ownerID,
 		}
 
 		// Call the API client
@@ -227,10 +247,15 @@ var listProjectInstancesCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error getting page flag: %w", err)
 		}
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
 
 		params := handlers.ProjectListInstancesParams{
-			Name: name,
-			Page: page,
+			Name:    name,
+			Page:    page,
+			OwnerID: ownerID,
 		}
 
 		// Call the API client

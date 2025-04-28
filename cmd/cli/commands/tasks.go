@@ -71,8 +71,15 @@ var getTaskCmd = &cobra.Command{
 			return fmt.Errorf("error getting name flag: %w", err)
 		}
 
+		// Convert ownerID to uint
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
+
 		params := handlers.TaskGetParams{
 			TaskName: name,
+			OwnerID:  ownerID,
 		}
 
 		// Call the API client
@@ -115,9 +122,15 @@ var listTasksCmd = &cobra.Command{
 			return fmt.Errorf("error getting page flag: %w", err)
 		}
 
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
+
 		params := handlers.TaskListParams{
 			ProjectName: projectName,
 			Page:        page,
+			OwnerID:     ownerID,
 		}
 
 		// Call the API client
@@ -159,8 +172,14 @@ var terminateTaskCmd = &cobra.Command{
 			return fmt.Errorf("error getting name flag: %w", err)
 		}
 
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
+
 		params := handlers.TaskTerminateParams{
 			TaskName: name,
+			OwnerID:  ownerID,
 		}
 
 		// Call the API client

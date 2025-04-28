@@ -2,6 +2,7 @@ package test
 
 import (
 	"net/http/httptest"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -34,14 +35,14 @@ func SetupServer(suite *Suite) {
 
 	// Create handlers
 	instanceHandler := handlers.NewInstanceHandler(instanceService)
-	userHandler := handlers.NewUserHandler(userService)
 	rpcHandler := &handlers.RPCHandler{
 		ProjectHandlers: handlers.NewProjectHandlers(projectService),
 		TaskHandlers:    handlers.NewTaskHandlers(taskService),
+		UserHandlers:    handlers.NewUserHandler(userService),
 	}
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, userHandler, rpcHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, rpcHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))
@@ -53,6 +54,12 @@ func SetupServer(suite *Suite) {
 	})
 	suite.Require().NoError(err, "Failed to create API client")
 	suite.APIClient = client
+
+	// Launch worker
+	var wg sync.WaitGroup
+	wg.Add(1)
+	worker := services.NewWorker(instanceService, projectService, taskService, userService, 100*time.Millisecond)
+	go worker.LaunchWorker(suite.ctx, &wg)
 
 	// Update cleanup to close server
 	originalCleanup := suite.cleanup

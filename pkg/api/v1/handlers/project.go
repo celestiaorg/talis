@@ -25,7 +25,7 @@ func NewProjectHandlers(projectService *services.Project) *ProjectHandlers {
 }
 
 // Create handles creating a project
-func (h *ProjectHandlers) Create(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+func (h *ProjectHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectCreateParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -36,7 +36,7 @@ func (h *ProjectHandlers) Create(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 	}
 
 	project := models.Project{
-		OwnerID:     ownerID,
+		OwnerID:     params.OwnerID,
 		Name:        params.Name,
 		Description: params.Description,
 		Config:      params.Config,
@@ -54,7 +54,7 @@ func (h *ProjectHandlers) Create(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 }
 
 // Get handles retrieving a project by name
-func (h *ProjectHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+func (h *ProjectHandlers) Get(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectGetParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -64,7 +64,7 @@ func (h *ProjectHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error 
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	project, err := h.service.GetByName(c.Context(), ownerID, params.Name)
+	project, err := h.service.GetByName(c.Context(), params.OwnerID, params.Name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgProjNotFound, err.Error(), req.ID)
@@ -80,27 +80,25 @@ func (h *ProjectHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error 
 }
 
 // List handles listing all projects with pagination
-func (h *ProjectHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+func (h *ProjectHandlers) List(c *fiber.Ctx, req RPCRequest) error {
 	page := 1
 
-	if req.Params != nil {
-		params, err := parseParams[ProjectListParams](req)
-		if err != nil {
-			return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
-		}
+	params, err := parseParams[ProjectListParams](req)
+	if err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
+	}
 
-		if err := params.Validate(); err != nil {
-			return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
-		}
+	if err := params.Validate(); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
+	}
 
-		if params.Page > 0 {
-			page = params.Page
-		}
+	if params.Page > 0 {
+		page = params.Page
 	}
 
 	listOpts := getPaginationOptions(page)
 
-	projects, err := h.service.List(c.Context(), ownerID, listOpts)
+	projects, err := h.service.List(c.Context(), params.OwnerID, listOpts)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjListFailed, err.Error(), req.ID)
 	}
@@ -121,7 +119,7 @@ func (h *ProjectHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error
 }
 
 // Delete handles deleting a project by name
-func (h *ProjectHandlers) Delete(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+func (h *ProjectHandlers) Delete(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectDeleteParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -131,7 +129,7 @@ func (h *ProjectHandlers) Delete(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	if err := h.service.Delete(c.Context(), ownerID, params.Name); err != nil {
+	if err := h.service.Delete(c.Context(), params.OwnerID, params.Name); err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjDeleteFailed, err.Error(), req.ID)
 	}
 
@@ -142,7 +140,7 @@ func (h *ProjectHandlers) Delete(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 }
 
 // ListInstances handles listing all instances for a project
-func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
+func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectListInstancesParams](req)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgInvalidParams, err.Error(), req.ID)
@@ -153,7 +151,7 @@ func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, ownerID uint, req RPCReque
 	}
 
 	listOpts := getPaginationOptions(params.Page)
-	instances, err := h.service.ListInstances(c.Context(), ownerID, params.Name, listOpts)
+	instances, err := h.service.ListInstances(c.Context(), params.OwnerID, params.Name, listOpts)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to list project instances", err.Error(), req.ID)
 	}
