@@ -34,6 +34,7 @@ jobs:
           envs: TAG=${{ steps.get_tag.outputs.TAG }}
           script: |
             cd ${{ secrets.DEPLOYMENT_DIR }}
+            export TAG="$TAG"
             echo "[INFO] Deploying tag: $TAG"
             sed -i "s|ghcr.io/celestiaorg/talis:.*|ghcr.io/celestiaorg/talis:$TAG|" docker-compose.yml
             docker compose config
