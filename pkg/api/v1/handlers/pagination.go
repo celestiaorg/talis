@@ -1,6 +1,6 @@
 package handlers
 
-import "github.com/celestiaorg/talis/internal/db/models"
+import "github.com/celestiaorg/talis/pkg/models"
 
 const (
 	// DefaultPageSize is the default number of items per page

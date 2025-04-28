@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 func TestNewSuite(t *testing.T) {

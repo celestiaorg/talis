@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 	"github.com/celestiaorg/talis/test"
 )
 
@@ -232,8 +232,8 @@ func TestCreateInfraCmd(t *testing.T) {
 					if err == nil {
 						var deleteReq types.DeleteInstancesRequest
 						if err := json.Unmarshal(content, &deleteReq); err == nil {
-							assert.Equal(t, "test-project", deleteReq.ProjectName)
-							assert.Contains(t, deleteReq.InstanceNames, "instance-1")
+							assert.Equal(t, 1, deleteReq.ProjectID)
+							assert.Contains(t, deleteReq.InstanceIDs, uint(1))
 						}
 					}
 				}
@@ -257,6 +257,7 @@ func TestDeleteInfraCmd(t *testing.T) {
 			inputFile: "delete.json",
 			inputContent: `{
   "job_name": "test-job",
+  "project_id": 1,
   "project_name": "test-project",
   "instance_names": ["instance-1"]
 }`,

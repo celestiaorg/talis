@@ -6,8 +6,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 // UserHandler handles HTTP requests for user operations

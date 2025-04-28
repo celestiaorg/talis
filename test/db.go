@@ -7,8 +7,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // NewInMemoryDB creates a new in-memory SQLite database for testing.

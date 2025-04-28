@@ -9,7 +9,7 @@ import (
 	"github.com/digitalocean/godo"
 
 	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
-	talisTypes "github.com/celestiaorg/talis/internal/types"
+	talisTypes "github.com/celestiaorg/talis/pkg/types"
 )
 
 // This file contains all the mock implementations for the DigitalOcean API and helper methods

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // TaskGetParams defines the parameters for retrieving a task

@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/logger"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // InstanceRepository provides access to instance-related database operations

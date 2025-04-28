@@ -13,6 +13,7 @@ import (
 // Flag names
 const (
 	flagName        = "name"
+	flagProjectID   = "project_id"
 	flagDescription = "description"
 	flagConfig      = "config"
 	flagPage        = "page"
@@ -252,10 +253,18 @@ var listProjectInstancesCmd = &cobra.Command{
 			return fmt.Errorf("error getting owner_id: %w", err)
 		}
 
-		params := handlers.ProjectListInstancesParams{
+		// Lookup project ID by name and ownerID
+		project, err := apiClient.GetProject(context.Background(), handlers.ProjectGetParams{
 			Name:    name,
-			Page:    page,
 			OwnerID: ownerID,
+		})
+		if err != nil {
+			return fmt.Errorf("error getting project: %w", err)
+		}
+		params := handlers.ProjectListInstancesParams{
+			ProjectID: project.ID,
+			Page:      page,
+			OwnerID:   ownerID,
 		}
 
 		// Call the API client

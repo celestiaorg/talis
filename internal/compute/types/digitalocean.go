@@ -4,7 +4,7 @@ package types
 import (
 	"context"
 
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/types"
 	"github.com/digitalocean/godo"
 )
 

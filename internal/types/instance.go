@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // maxUploadSize is the maximum size of a payload file in bytes. It applies to both the payload and tar archive.

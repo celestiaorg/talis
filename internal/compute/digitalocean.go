@@ -17,7 +17,7 @@ import (
 
 	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
 	"github.com/celestiaorg/talis/internal/logger"
-	talisTypes "github.com/celestiaorg/talis/internal/types"
+	talisTypes "github.com/celestiaorg/talis/pkg/types"
 )
 
 // DefaultDOClient is the default implementation of DOClient

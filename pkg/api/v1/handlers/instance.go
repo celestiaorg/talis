@@ -13,8 +13,8 @@ import (
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 var (
@@ -140,32 +140,36 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 
 	log.Printf("Creating unique request directory: %s", uniqueRequestDir)
 
-	// Create a directory clean up task first and this protects against any failures during upload. Even if there are no uploads this is a low cost operation and is a no-op if the directory is not created.
-	deletionTimestamp := time.Now().Add(defaultDirCleanupWindow) // Configurable?
-	payload := types.UploadDeletionPayload{
-		UploadPath:        uniqueRequestDir,
-		DeletionTimestamp: deletionTimestamp,
-	}
-	payloadJSON, marshalErr := json.Marshal(payload)
-	if marshalErr != nil {
-		err = fmt.Errorf("failed to marshal cleanup task payload for request %s: %w", requestID, marshalErr)
-		log.Print(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
-	}
-	// Use the AdminIDs as the ownerID for the cleanup task to ensure it is always run
-	cleanupTask := &models.Task{
-		OwnerID:   models.AdminID,
-		ProjectID: models.AdminProjectID,
-		Name:      fmt.Sprintf("delete-upload-%s", requestID),
-		Action:    models.TaskActionDeleteUpload,
-		Status:    models.TaskStatusPending,
-		Payload:   payloadJSON,
-	}
-	err = h.task.Create(c.Context(), cleanupTask)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
-	}
-	log.Printf("Prepared cleanup task for request %s, path: %s", requestID, uniqueRequestDir)
+	// --- Temporarily Commented Out During Rebase ---
+	/*
+		// Create a directory clean up task first and this protects against any failures during upload. Even if there are no uploads this is a low cost operation and is a no-op if the directory is not created.
+		deletionTimestamp := time.Now().Add(defaultDirCleanupWindow) // Configurable?
+		payload := types.UploadDeletionPayload{
+			UploadPath:        uniqueRequestDir,
+			DeletionTimestamp: deletionTimestamp,
+		}
+		payloadJSON, marshalErr := json.Marshal(payload)
+		if marshalErr != nil {
+			err = fmt.Errorf("failed to marshal cleanup task payload for request %s: %w", requestID, marshalErr)
+			log.Print(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+		}
+		// Use the AdminIDs as the ownerID for the cleanup task to ensure it is always run
+		cleanupTask := &models.Task{
+			OwnerID:   models.AdminID,
+			ProjectID: models.AdminProjectID,
+			Name:      fmt.Sprintf("delete-upload-%s", requestID),
+			Action:    models.TaskActionDeleteUpload,
+			Status:    models.TaskStatusPending,
+			Payload:   payloadJSON,
+		}
+		err = h.task.Create(c.Context(), cleanupTask)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+		}
+		log.Printf("Prepared cleanup task for request %s, path: %s", requestID, uniqueRequestDir)
+	*/
+	// --- End Commented Out ---
 
 	// --- 4. Process Instance Requests and Files ---
 	for i := range instanceReqs {
@@ -187,18 +191,22 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 			req.PayloadPath = serverPath
 		}
 
-		// Process Tar Archive File
-		userTarPath := req.TarArchivePath
-		if userTarPath != "" {
-			serverPath, err := h.uploadFile(c, filepath.Join(uniqueRequestDir, ownerIDStr), userTarPath)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).
-					JSON(types.ErrInvalidInput(fmt.Sprintf("failed to upload tar archive file '%s': %v", userTarPath, err)))
+		// --- Temporarily Commented Out During Rebase ---
+		/*
+			// Process Tar Archive File
+			userTarPath := req.TarArchivePath
+			if userTarPath != "" {
+				serverPath, err := h.uploadFile(c, filepath.Join(uniqueRequestDir, ownerIDStr), userTarPath)
+				if err != nil {
+					return c.Status(fiber.StatusBadRequest).
+						JSON(types.ErrInvalidInput(fmt.Sprintf("failed to upload tar archive file '%s': %v", userTarPath, err)))
+				}
+				log.Printf("Saved tar archive '%s' to '%s' for request %s", userTarPath, serverPath, requestID)
+				// Update request with server-side path
+				req.TarArchivePath = serverPath
 			}
-			log.Printf("Saved tar archive '%s' to '%s' for request %s", userTarPath, serverPath, requestID)
-			// Update request with server-side path
-			req.TarArchivePath = serverPath
-		}
+		*/
+		// --- End Commented Out ---
 
 		// --- 6. Validate *after* paths are updated ---
 		if err := req.Validate(); err != nil {
@@ -381,13 +389,13 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	if deleteReq.ProjectName == "" || len(deleteReq.InstanceNames) == 0 {
+	if deleteReq.ProjectID == 0 || len(deleteReq.InstanceIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "project name and instance names are required",
+			"error": "project id and instance ids are required",
 		})
 	}
 
-	err := h.instance.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceNames)
+	err := h.instance.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectID, deleteReq.InstanceIDs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),

@@ -53,6 +53,7 @@ const (
 	GetInstance        = "GetInstance"
 	CreateInstance     = "CreateInstance"
 	TerminateInstances = "TerminateInstances"
+	TerminateInstance  = "TerminateInstance"
 
 	// RPC routes
 	RPC = "RPC"
@@ -215,6 +216,11 @@ func CreateInstanceURL() string {
 // TerminateInstancesURL returns the URL for terminating instances
 func TerminateInstancesURL() string {
 	return BuildURL(TerminateInstances, nil, nil)
+}
+
+// TerminateInstanceURL returns the URL for terminating an instance by ID
+func TerminateInstanceURL() string {
+	return BuildURL(TerminateInstance, nil, nil)
 }
 
 // RPC route helper

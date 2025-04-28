@@ -6,7 +6,7 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // UserGetParams defines the parameters for retrieving a user by id

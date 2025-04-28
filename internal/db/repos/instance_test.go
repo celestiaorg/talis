@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 type InstanceRepositoryTestSuite struct {

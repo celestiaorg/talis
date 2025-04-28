@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/compute"
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/logger"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 // DefaultBackoff is the default backoff time for the worker

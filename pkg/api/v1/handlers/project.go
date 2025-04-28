@@ -4,8 +4,8 @@ package handlers
 import (
 	"errors"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 	"gorm.io/gorm"
 
 	fiber "github.com/gofiber/fiber/v2"
@@ -150,7 +150,7 @@ func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, req RPCRequest) error {
 	}
 
 	listOpts := getPaginationOptions(params.Page)
-	instances, err := h.project.ListInstances(c.Context(), params.OwnerID, params.Name, listOpts)
+	instances, err := h.project.ListInstances(c.Context(), params.OwnerID, params.ProjectID, listOpts)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to list project instances", err.Error(), req.ID)
 	}

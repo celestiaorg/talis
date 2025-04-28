@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 // getAnsibleSSHKeyPath determines the appropriate SSH private key path for Ansible

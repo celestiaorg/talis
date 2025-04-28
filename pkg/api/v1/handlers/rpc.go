@@ -4,7 +4,7 @@ package handlers
 import (
 	"encoding/json"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 
 	fiber "github.com/gofiber/fiber/v2"
 )

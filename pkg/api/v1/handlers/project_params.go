@@ -85,14 +85,14 @@ func (p ProjectDeleteParams) Validate() error {
 
 // ProjectListInstancesParams defines the parameters for listing project instances
 type ProjectListInstancesParams struct {
-	Name    string `json:"name"`
-	Page    int    `json:"page,omitempty"`
-	OwnerID uint   `json:"owner_id"`
+	ProjectID uint `json:"project_id"`
+	Page      int  `json:"page,omitempty"`
+	OwnerID   uint `json:"owner_id"`
 }
 
 // Validate validates the parameters for listing project instances
 func (p ProjectListInstancesParams) Validate() error {
-	if p.Name == "" {
+	if p.ProjectID == 0 {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgProjNameRequired))
 	}
 	if p.OwnerID == 0 {

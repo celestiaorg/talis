@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/pkg/models"
 	"github.com/stretchr/testify/require"
 )
 

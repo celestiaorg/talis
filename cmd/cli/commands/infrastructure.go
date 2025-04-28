@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -64,17 +64,17 @@ var createInfraCmd = &cobra.Command{
 
 		// Create the delete request
 		deleteReq := types.DeleteInstancesRequest{
-			OwnerID:     req[0].OwnerID,
-			ProjectName: req[0].ProjectName,
-			InstanceNames: func() []string {
-				names := make([]string, 0)
+			OwnerID:   req[0].OwnerID,
+			ProjectID: req[0].ProjectID,
+			InstanceIDs: func() []uint {
+				ids := make([]uint, 0)
 				for _, instance := range req {
 					// If no specific name, use the base name pattern
 					for i := 0; i < instance.NumberOfInstances; i++ {
-						names = append(names, fmt.Sprintf("%s-%d", instance.Name, i))
+						ids = append(ids, instance.InstanceID)
 					}
 				}
-				return names
+				return ids
 			}(),
 		}
 
@@ -94,7 +94,7 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error writing delete file: %w", err)
 		}
 
-		fmt.Printf("Delete file generated: %s (with project name: %s)\n", deleteFilePath, deleteReq.ProjectName)
+		fmt.Printf("Delete file generated: %s\n", deleteFilePath)
 		return nil
 	},
 }
@@ -120,7 +120,7 @@ var deleteInfraCmd = &cobra.Command{
 		}
 
 		// Call the API client
-		err = apiClient.DeleteInstance(context.Background(), req)
+		err = apiClient.DeleteInstances(context.Background(), req)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}

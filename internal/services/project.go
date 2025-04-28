@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // Project handles project-related operations
@@ -40,10 +40,6 @@ func (s *Project) Delete(ctx context.Context, ownerID uint, name string) error {
 }
 
 // ListInstances retrieves all instances for a specific project
-func (s *Project) ListInstances(ctx context.Context, ownerID uint, projectName string, opts *models.ListOptions) ([]models.Instance, error) {
-	project, err := s.repo.GetByName(ctx, ownerID, projectName)
-	if err != nil {
-		return nil, err
-	}
-	return s.repo.ListInstances(ctx, project.ID, opts)
+func (s *Project) ListInstances(ctx context.Context, ownerID uint, projectID uint, opts *models.ListOptions) ([]models.Instance, error) {
+	return s.repo.ListInstances(ctx, projectID, opts)
 }

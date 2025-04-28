@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 	"github.com/celestiaorg/talis/test"
 )
 
@@ -80,13 +80,14 @@ func TestClientAdminMethods(t *testing.T) {
 	defer suite.Cleanup()
 
 	// Create a project
-	_, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectParams)
+	err := error(nil)
+	project, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectParams)
 	require.NoError(t, err)
 
 	// Create an instance
 	instancesRequest := defaultInstancesRequest
-	instancesRequest[0].ProjectName = defaultProjectParams.Name
-	instancesRequest[1].ProjectName = defaultProjectParams.Name
+	instancesRequest[0].ProjectID = project.ID
+	instancesRequest[1].ProjectID = project.ID
 	err = suite.APIClient.CreateInstance(suite.Context(), instancesRequest)
 	require.NoError(t, err)
 
@@ -142,13 +143,13 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Empty(t, instanceList)
 
 	// Create a project for the instances
-	_, err = suite.APIClient.CreateProject(suite.Context(), defaultProjectParams)
+	project, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectParams)
 	require.NoError(t, err)
 
 	// Create 2 instances
 	instancesRequest := defaultInstancesRequest
-	instancesRequest[0].ProjectName = defaultProjectParams.Name
-	instancesRequest[1].ProjectName = defaultProjectParams.Name
+	instancesRequest[0].ProjectID = project.ID
+	instancesRequest[1].ProjectID = project.ID
 	err = suite.APIClient.CreateInstance(suite.Context(), instancesRequest)
 	require.NoError(t, err)
 
@@ -193,10 +194,10 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Delete both instances
 	deleteRequest := types.DeleteInstancesRequest{
-		ProjectName:   defaultProjectParams.Name,
-		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
+		ProjectID:   project.ID,
+		InstanceIDs: []uint{actualInstances[0].ID, actualInstances[1].ID},
 	}
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	err = suite.APIClient.DeleteInstances(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Verify the instances eventually get terminated
@@ -225,7 +226,7 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Submit the same deletion request again - should be a no-op
 	// We do this after verifying termination to ensure the first deletion completed
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	err = suite.APIClient.DeleteInstances(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Add a small delay to avoid database lock issues

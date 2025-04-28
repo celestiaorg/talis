@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/internal/logger"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 const (

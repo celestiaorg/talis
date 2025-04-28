@@ -8,10 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/celestiaorg/talis/internal/db/models"
+	// "github.com/celestiaorg/talis/internal/db/models" // <<< Reverting: Use pkg/models instead
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/models" // <<< Use public models/aliases
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 // Instance provides business logic for instance operations
@@ -48,18 +49,6 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			return nil, fmt.Errorf("invalid instance request: %w", err)
 		}
 
-		// Get the project
-		project, err := s.projectService.GetByName(ctx, i.OwnerID, i.ProjectName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get project: %w", err)
-		}
-
-		// Sanity check that a user is not trying to create an instance for another user
-		// TODO: in the future we should have authorized users for a project
-		if i.OwnerID != project.OwnerID {
-			return nil, fmt.Errorf("instance owner_id does not match project owner_id")
-		}
-
 		for idx := 0; idx < i.NumberOfInstances; idx++ {
 			// Create new instance request for task payload
 			req := i
@@ -78,7 +67,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			tasksToCreate = append(tasksToCreate, &models.Task{
 				Name:      taskName,
 				OwnerID:   i.OwnerID,
-				ProjectID: project.ID,
+				ProjectID: i.ProjectID,
 				Status:    models.TaskStatusPending,
 				Action:    models.TaskActionCreateInstances,
 				Payload:   payload,
@@ -93,14 +82,14 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			instancesToCreate = append(instancesToCreate, &models.Instance{
 				Name:          req.Name,
 				OwnerID:       req.OwnerID,
-				ProjectID:     project.ID,
+				ProjectID:     req.ProjectID,
 				ProviderID:    req.Provider,
 				Status:        models.InstanceStatusPending,
 				Region:        req.Region,
 				Size:          req.Size,
 				Tags:          req.Tags,
 				VolumeIDs:     []string{},
-				VolumeDetails: models.VolumeDetails{},
+				VolumeDetails: models.VolumeDetails{}, // <<< Using pkg/models alias again
 				PayloadStatus: initialPayloadStatus,
 			})
 		}
@@ -151,44 +140,18 @@ func (s *Instance) MarkAsTerminated(ctx context.Context, ownerID, instanceID uin
 }
 
 // Terminate handles the termination of instances for a given project name and instance names.
-func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName string, instanceNames []string) error {
-	// First verify the project exists and belongs to the owner
-	project, err := s.projectService.GetByName(ctx, ownerID, projectName)
-	if err != nil {
-		return fmt.Errorf("failed to get project: %w", err)
-	}
-
-	// Get instances that belong to this project and match the provided names
-	instances, err := s.repo.GetByProjectIDAndInstanceNames(ctx, ownerID, project.ID, instanceNames)
-	if err != nil {
-		return fmt.Errorf("failed to get instances: %w", err)
-	}
+func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectID uint, instanceIDs []uint) error {
 	// Verify we found all requested instances
-	if len(instances) == 0 {
-		logger.Infof("No active instances found with the specified names for project '%s', request is a no-op", projectName)
+	if len(instanceIDs) == 0 {
+		logger.Infof("No active instances found with the specified ids for project '%d', request is a no-op", projectID)
 		return nil
 	}
-	if len(instances) != len(instanceNames) {
-		// Some instances were not found, log which ones
-		foundNames := make(map[string]bool)
-		for _, instance := range instances {
-			foundNames[instance.Name] = true
-		}
-		var missingNames []string
-		for _, name := range instanceNames {
-			if !foundNames[name] {
-				missingNames = append(missingNames, name)
-			}
-		}
-		logMsg := fmt.Sprintf("Some instances were not found or are already deleted for project '%s': %v", projectName, missingNames)
-		logger.Infof("%s", logMsg)
-	}
 
-	for _, instance := range instances {
+	for _, instanceID := range instanceIDs {
 		// Create a termination task for the instance
 		taskName := uuid.New().String()
 		taskPayload, err := json.Marshal(types.DeleteInstanceRequest{
-			InstanceID: instance.ID,
+			InstanceID: instanceID,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to marshal task payload: %w", err)
@@ -196,7 +159,7 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName stri
 		err = s.taskService.Create(ctx, &models.Task{
 			Name:      taskName,
 			OwnerID:   ownerID,
-			ProjectID: project.ID,
+			ProjectID: projectID,
 			Status:    models.TaskStatusPending,
 			Action:    models.TaskActionTerminateInstances,
 			Payload:   taskPayload,
@@ -204,6 +167,30 @@ func (s *Instance) Terminate(ctx context.Context, ownerID uint, projectName stri
 		if err != nil {
 			return fmt.Errorf("failed to create task: %w", err)
 		}
+	}
+	return nil
+}
+
+// TerminateInstance handles the termination of a single instance
+func (s *Instance) TerminateInstance(ctx context.Context, ownerID uint, projectID uint, instanceID uint) error {
+	// Create a termination task for the instance
+	taskName := uuid.New().String()
+	taskPayload, err := json.Marshal(types.DeleteInstanceRequest{
+		InstanceID: instanceID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal task payload: %w", err)
+	}
+	err = s.taskService.Create(ctx, &models.Task{
+		Name:      taskName,
+		OwnerID:   ownerID,
+		ProjectID: projectID,
+		Status:    models.TaskStatusPending,
+		Action:    models.TaskActionTerminateInstances,
+		Payload:   taskPayload,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create task: %w", err)
 	}
 	return nil
 }

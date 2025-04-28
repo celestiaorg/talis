@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
 

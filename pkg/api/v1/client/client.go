@@ -16,10 +16,10 @@ import (
 
 	fiber "github.com/gofiber/fiber/v2"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
+	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/pkg/types"
 )
 
 // DefaultTimeout is the default timeout for API requests
@@ -40,7 +40,7 @@ type Client interface {
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req []types.InstanceRequest) error
-	DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error
+	DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error)
@@ -503,8 +503,8 @@ func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequ
 	return c.executeMultipartRequest(ctx, endpoint, writer, body, nil)
 }
 
-// DeleteInstance deletes an instance by ID
-func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error {
+// DeleteInstances deletes instances by name
+func (c *APIClient) DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error {
 	endpoint := routes.TerminateInstancesURL()
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
 }
