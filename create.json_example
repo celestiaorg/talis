@@ -1,22 +1,27 @@
 {
-    "name": "talis-cli",
     "project_name": "talis-1",
     "owner_id": 1,
     "instances": [
         {
             "name": "test-hostname",
-            "provider": "do",
+            "provider": "virtfusion",
             "number_of_instances": 1,
-            "provision": true,
-            "region": "nyc1",
+            "region": "hypervisor",
             "size": "s-1vcpu-1gb",
-            "image": "ubuntu-22-04-x64",
-            "tags": ["talis", "dev", "testing"],
-            "ssh_key_name": "<your-ssh-key-name>",
+            "memory": 1024,
+            "disk": 45,
+            "cpu": 1,
+            "image": "ubuntu-22.04-x64",
+            "template": "ubuntu-22.04-x64",
+            "hypervisor_id": 4,
+            "hypervisor_group": "Prague"
+            "sshKeys": ["test"],
+            "ssh_key_name": "test",
+            "userData": "#!/bin/bash\n# Mount volume",
             "volumes": [
                 {
                     "name": "talis-volume",
-                    "size_gb": 15,
+                    "size_gb": 20,
                     "mount_point": "/mnt/data"
                 }
             ]

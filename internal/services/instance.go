@@ -44,6 +44,9 @@ func (s *Instance) CreateInstance(ctx context.Context, ownerID uint, projectName
 		return "", fmt.Errorf("failed to get project: %w", err)
 	}
 
+	logger.Debugf("🔄 Creating instances for project %s", projectName)
+	logger.Debugf("🔄 Instances: %+v", instances)
+
 	// validate the instances array is not empty
 	if len(instances) == 0 {
 		return "", fmt.Errorf("at least one instance is required")
@@ -159,7 +162,6 @@ func (s *Instance) updateInstanceVolumes(
 	ownerID uint,
 	instanceID uint,
 	volumes []string,
-	volumeDetails []types.VolumeDetails,
 ) error {
 	instance, err := s.repo.Get(ctx, ownerID, instanceID)
 	if err != nil {
@@ -170,32 +172,17 @@ func (s *Instance) updateInstanceVolumes(
 	logger.Debugf("🔄 Converting volume details for instance %s (ID: %d)", instanceName, instanceID)
 	logger.Debugf("📥 Input data:")
 	logger.Debugf("  - Volumes: %v", volumes)
-	logger.Debugf("  - Volume Details: %+v", volumeDetails)
-
-	// Convert volume details to database model
-	dbVolumeDetails := make(models.VolumeDetails, 0, len(volumeDetails))
-	for _, vd := range volumeDetails {
-		dbVolumeDetails = append(dbVolumeDetails, models.VolumeDetail{
-			ID:         vd.ID,
-			Name:       vd.Name,
-			Region:     vd.Region,
-			SizeGB:     vd.SizeGB,
-			MountPoint: vd.MountPoint,
-		})
-	}
 
 	logger.Debugf("📦 Preparing to update instance %s", instanceName)
 	logger.Debugf("📝 Data to update:")
 	logger.Debugf("  - Volumes: %#v", volumes)
-	logger.Debugf("  - Volume Details: %#v", dbVolumeDetails)
 
 	// Create update instance with only the fields we want to update
 	updateData := &models.Instance{
-		Volumes:       volumes,
-		VolumeDetails: dbVolumeDetails,
+		Volumes: volumes,
 	}
 
-	logger.Debugf("📦 Preparing to update volumes for instance %s (ID: %d): Volumes=%#v, Details=%#v", instanceName, instanceID, volumes, dbVolumeDetails)
+	logger.Debugf("📦 Preparing to update volumes for instance %s (ID: %d): Volumes=%#v", instanceName, instanceID, volumes)
 	err = s.repo.UpdateByID(ctx, ownerID, instanceID, updateData)
 	if err != nil {
 		err = fmt.Errorf("failed to update instance %s (ID: %d) volumes: %w", instanceName, instanceID, err)
@@ -292,10 +279,12 @@ func (s *Instance) provisionInstances(
 		return
 	}
 	infraReq := &types.InstancesRequest{
-		TaskName:  task.Name,
-		Instances: instancesReq,
-		Action:    "create",
-		Provider:  instancesReq[0].Provider,
+		TaskName:        task.Name,
+		Instances:       instancesReq,
+		Action:          "create",
+		Provider:        instancesReq[0].Provider,
+		HypervisorID:    instancesReq[0].HypervisorID,
+		HypervisorGroup: instancesReq[0].HypervisorGroup,
 	}
 	infra, err := NewInfrastructure(infraReq)
 	if err != nil {
@@ -305,7 +294,7 @@ func (s *Instance) provisionInstances(
 	}
 
 	// Execute infrastructure creation
-	result, err := infra.Execute()
+	result, err := infra.Execute(ctx, instancesReq)
 	if err != nil {
 		err = fmt.Errorf("failed to create infrastructure: %w", err)
 		s.updateTaskError(ctx, callerOwnerID, task, err)
@@ -343,8 +332,8 @@ func (s *Instance) provisionInstances(
 		logger.Debugf("  - Matched DB Instance ID: %d for %s", dbInstance.ID, pInstance.Name)
 
 		// Update Volumes if provided by infrastructure result
-		if len(pInstance.Volumes) > 0 || len(pInstance.VolumeDetails) > 0 {
-			if err := s.updateInstanceVolumes(ctx, dbOwnerID, dbInstance.ID, pInstance.Volumes, pInstance.VolumeDetails); err != nil {
+		if len(pInstance.Volumes) > 0 {
+			if err := s.updateInstanceVolumes(ctx, dbOwnerID, dbInstance.ID, pInstance.Volumes); err != nil {
 				errMsg := fmt.Sprintf("❌ Failed to update volumes for instance %s (ID: %d): %v", pInstance.Name, dbInstance.ID, err)
 				logger.Errorf("❌ Failed to update volumes for instance %s (ID: %d): %v", pInstance.Name, dbInstance.ID, err)
 				s.addTaskLogs(ctx, callerOwnerID, task, errMsg)
@@ -705,13 +694,18 @@ func (s *Instance) terminate(ctx context.Context, callerOwnerID, taskID uint, in
 		infraReq := &types.InstancesRequest{
 			TaskName: task.Name,
 			Instances: []types.InstanceRequest{{
-				Name: instance.Name, Provider: instance.ProviderID,
-				Region: instance.Region, Size: instance.Size,
+				Name:     instance.Name,
+				Provider: instance.ProviderID,
+				Region:   instance.Region,
+				Size:     instance.Size,
 			}},
-			Action: "delete", Provider: instance.ProviderID,
+			Action:   "delete",
+			Provider: instance.ProviderID,
 		}
 		queue = append(queue, &deleteRequest{
-			instance: instance, infraRequest: infraReq, maxAttempts: 10,
+			instance:     instance,
+			infraRequest: infraReq,
+			maxAttempts:  10,
 		})
 	}
 
@@ -752,7 +746,7 @@ REQUESTLOOP:
 			time.Sleep(defaultErrorSleep)
 			continue
 		}
-		_, err = infra.Execute()
+		_, err = infra.Execute(ctx, request.infraRequest.Instances)
 		if err != nil && (!strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found")) {
 			request.lastError = fmt.Errorf("failed to delete infrastructure: %w", err)
 			queue = append(queue, request)

@@ -5,294 +5,112 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
-	"sync"
-	"time"
+	"path/filepath"
 
 	"github.com/celestiaorg/talis/internal/compute"
-	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
+	"github.com/google/uuid"
 )
 
-// Infrastructure represents the infrastructure management system.
-// It coordinates the creation and deletion of cloud resources across different providers
-// and handles the provisioning of those resources using configuration management tools.
+// Infrastructure handles the provisioning and management of compute instances
 type Infrastructure struct {
-	name        string                  // Name of the infrastructure
-	projectName string                  // Name of the project
-	instances   []types.InstanceRequest // Instance configuration
-	provider    compute.Provider        // Compute provider implementation
-	provisioner compute.Provisioner
-	jobID       string
-	action      string // Action to perform (create/delete)
+	provider    types.Provider
+	provisioner *compute.Provisioner
 }
 
-// NewInfrastructure creates a new infrastructure instance with the specified configuration.
-// It initializes the appropriate cloud provider and provisioner based on the request.
-//
-// Parameters:
-//   - req: The job request containing the infrastructure configuration
-//
-// Returns:
-//   - *Infrastructure: A configured infrastructure manager
-//   - error: Any error that occurred during initialization
+// NewInfrastructure creates a new infrastructure service
 func NewInfrastructure(req *types.InstancesRequest) (*Infrastructure, error) {
-	provider, err := compute.NewComputeProvider(req.Provider)
+	provider, err := compute.Provider()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute provider: %w", err)
 	}
 
-	// Generate job ID using timestamp for unique identification
-	timestamp := time.Now().Format("20060102-150405")
-	jobID := fmt.Sprintf("job-%s", timestamp)
+	if err := provider.ValidateCredentials(); err != nil {
+		return nil, fmt.Errorf("failed to validate provider credentials: %w", err)
+	}
+
+	jobID := uuid.New().String()
+	provisioner := compute.NewProvisioner(jobID)
 
 	return &Infrastructure{
-		name:        req.InstanceName,
-		projectName: req.ProjectName,
-		instances:   req.Instances,
 		provider:    provider,
-		provisioner: compute.NewProvisioner(jobID),
-		jobID:       jobID,
-		action:      req.Action,
+		provisioner: provisioner,
 	}, nil
 }
 
-// Execute performs the requested infrastructure operation (create or delete).
-// For creation, it spawns the requested number of instances with the specified configuration.
-// For deletion, it removes the specified instances from the cloud provider.
-//
-// Returns:
-//   - interface{}: The result of the operation
-//   - For creation: []InstanceInfo containing details of created instances
-//   - For deletion: map[string]interface{} with operation status and deleted instances
-//   - error: Any error that occurred during execution
-func (i *Infrastructure) Execute() (interface{}, error) {
-	var result interface{}
-	var err error
+// Execute creates and provisions instances based on the provided requests
+func (i *Infrastructure) Execute(ctx context.Context, requests []types.InstanceRequest) (interface{}, error) {
+	var createdInstances []types.InstanceInfo
 
-	switch i.action {
-	case "create":
-		logger.Info("🚀 Creating infrastructure...")
-		instances := make([]types.InstanceInfo, 0, len(i.instances))
-		for _, instance := range i.instances {
-			// Use instance name if provided, otherwise use base name
-			instanceName := instance.Name
-			if instanceName == "" {
-				instanceName = i.name
-			}
+	for _, req := range requests {
+		sshKeyPath := i.getAnsibleSSHKeyPath(req)
 
-			info, err := i.provider.CreateInstance(context.Background(), instanceName, types.InstanceConfig{
-				Region:            instance.Region,
-				OwnerID:           instance.OwnerID,
-				Size:              instance.Size,
-				Image:             instance.Image,
-				SSHKeyID:          instance.SSHKeyName,
-				Tags:              instance.Tags,
-				NumberOfInstances: instance.NumberOfInstances,
-				CustomName:        instance.Name,
-				Volumes:           instance.Volumes,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create instances in region %s: %w", instance.Region, err)
-			}
-			// Convert types.InstanceInfo to our InstanceInfo and add to result
-			for _, instanceInfo := range info {
-				instances = append(instances, types.InstanceInfo{
-					Name:          instanceInfo.Name,
-					PublicIP:      instanceInfo.PublicIP,
-					Provider:      instanceInfo.Provider,
-					Tags:          instanceInfo.Tags,
-					Region:        instanceInfo.Region,
-					Size:          instanceInfo.Size,
-					Volumes:       instanceInfo.Volumes,
-					VolumeDetails: instanceInfo.VolumeDetails,
-					// NOTE: the provider CreateInstance doesn't do anything with the payload, so we need to pass it through here
-					PayloadPath:    instance.PayloadPath,
-					ExecutePayload: instance.ExecutePayload,
-				})
-			}
-		}
-		result = instances
-
-	case "delete":
-		logger.Info("🗑️ Deleting infrastructure...")
-		var wg sync.WaitGroup
-		deletedInstancesChan := make(chan string, 100)
-		errorsChan := make(chan error, 100)
-
-		for _, instance := range i.instances {
-			// If instance has a custom name, use that directly
-			if instance.Name != "" {
-				wg.Add(1)
-				go func(name string, region string) {
-					defer wg.Done()
-					logger.Infof("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
-
-					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
-						if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-							logger.Warnf("⚠️ Warning: Instance %s in region %s was already deleted", name, region)
-							return
-						}
-						errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
-						return
-					}
-					deletedInstancesChan <- name
-					logger.Debugf("✅ Successfully deleted instance: %s", name)
-				}(instance.Name, instance.Region)
-				continue
-			}
-
-			// If no custom name, try base name and indexed names
-			if i.name != "" {
-				// Try base name first
-				wg.Add(1)
-				go func(name string, region string) {
-					defer wg.Done()
-					if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
-						if !strings.Contains(err.Error(), "404") && !strings.Contains(err.Error(), "not found") {
-							errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
-							return
-						}
-					} else {
-						deletedInstancesChan <- name
-						logger.Debugf("✅ Successfully deleted instance: %s", name)
-						return
-					}
-				}(i.name, instance.Region)
-
-				// Try indexed names
-				for j := 0; j < instance.NumberOfInstances; j++ {
-					instanceName := fmt.Sprintf("%s-%d", i.name, j)
-					wg.Add(1)
-					go func(name string, region string) {
-						defer wg.Done()
-						logger.Infof("🗑️ Deleting %s droplet: %s in region %s", instance.Provider, name, region)
-
-						if err := i.provider.DeleteInstance(context.Background(), name, region); err != nil {
-							if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
-								logger.Warnf("⚠️ Warning: Instance %s in region %s was already deleted", name, region)
-								return
-							}
-							errorsChan <- fmt.Errorf("failed to delete instance %s in region %s: %w", name, region, err)
-							return
-						}
-						deletedInstancesChan <- name
-						logger.Debugf("✅ Successfully deleted instance: %s", name)
-					}(instanceName, instance.Region)
-				}
-			}
+		config := types.InstanceConfig{
+			Region:          req.Region,
+			Size:            req.Size,
+			Image:           req.Image,
+			SSHKeys:         []string{sshKeyPath},
+			HypervisorID:    req.HypervisorID,
+			HypervisorGroup: req.HypervisorGroup,
 		}
 
-		// Create a goroutine to close channels after WaitGroup is done
-		go func() {
-			wg.Wait()
-			close(deletedInstancesChan)
-			close(errorsChan)
-		}()
-
-		// Collect results
-		var deletedInstances []string
-		for name := range deletedInstancesChan {
-			deletedInstances = append(deletedInstances, name)
+		instances, err := i.provider.CreateInstance(ctx, req.Name, config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create instance %s: %w", req.Name, err)
 		}
 
-		// Check for errors
-		var errors []error
-		for err := range errorsChan {
-			errors = append(errors, err)
+		if len(instances) == 0 {
+			return nil, fmt.Errorf("no instances created for %s", req.Name)
 		}
 
-		if len(errors) > 0 {
-			logger.Errorf("errors during deletion: %v", errors)
-			return nil, fmt.Errorf("errors during deletion: %v", errors)
-		}
+		createdInstances = append(createdInstances, instances...)
 
-		logger.Infof("✅ Successfully deleted %d instances", len(deletedInstances))
-		result = map[string]interface{}{
-			"status":  "deleted",
-			"deleted": deletedInstances,
-			"count":   len(deletedInstances),
-		}
-
-	default:
-		logger.Errorf("unsupported action: %s", i.action)
-		return nil, fmt.Errorf("unsupported action: %s", i.action)
-	}
-
-	return result, err
-}
-
-// getAnsibleSSHKeyPath determines the appropriate SSH private key path for Ansible
-// based on the instance requests, prioritizing custom paths, then key types,
-// and falling back to the default RSA key path.
-// It assumes the key configuration from the first request applies to the whole job.
-func getAnsibleSSHKeyPath(instanceRequests []types.InstanceRequest) string {
-	sshKeyPath := "$HOME/.ssh/id_rsa" // Default
-	if len(instanceRequests) > 0 {
-		firstReq := instanceRequests[0]
-		if firstReq.SSHKeyPath != "" { // Priority 1: Custom path
-			sshKeyPath = firstReq.SSHKeyPath
-		} else if firstReq.SSHKeyType != "" { // Priority 2: Key type
-			switch strings.ToLower(firstReq.SSHKeyType) {
-			case "ed25519":
-				sshKeyPath = "$HOME/.ssh/id_ed25519"
-			case "ecdsa":
-				sshKeyPath = "$HOME/.ssh/id_ecdsa"
-				// Add other types if needed
-			}
+		if err := i.provisioner.Provision(instances[0], sshKeyPath); err != nil {
+			return nil, fmt.Errorf("failed to provision instance %s: %w", req.Name, err)
 		}
 	}
-	// Expand environment variables like $HOME (Ansible handles this, but doing it here is safe)
-	return os.ExpandEnv(sshKeyPath)
+
+	return createdInstances, nil
 }
 
-// RunProvisioning applies Ansible configuration to all instances
+func (i *Infrastructure) getAnsibleSSHKeyPath(req types.InstanceRequest) string {
+	// Check for custom SSH key path in request
+	if req.SSHKeyPath != "" {
+		return req.SSHKeyPath
+	}
+
+	// Check for SSH key path in environment
+	if envPath := os.Getenv("TALIS_SSH_KEY_PATH"); envPath != "" {
+		return envPath
+	}
+
+	// Default to ~/.ssh/id_rsa
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".ssh", "id_rsa")
+}
+
+// RunProvisioning executes the provisioning process for the created instances
 func (i *Infrastructure) RunProvisioning(instances []types.InstanceInfo) error {
-	// Check if any instance requires provisioning based on the original request config
-	needsProvisioning := false
-	for _, reqInst := range i.instances { // i.instances holds InstanceRequest
-		if reqInst.Provision {
-			needsProvisioning = true
-			break
-		}
-	}
-
-	if !needsProvisioning {
-		fmt.Println("⏭️ Skipping provisioning as requested")
-		return nil
+	if i.provisioner == nil {
+		return fmt.Errorf("provisioner not initialized")
 	}
 
 	if len(instances) == 0 {
-		logger.Warnf("No instances returned from provider for job %s, cannot provision.", i.jobID)
-		return nil
+		return fmt.Errorf("no instances provided for provisioning")
 	}
 
-	fmt.Println("⚙️ Starting Ansible provisioning...")
+	// Get SSH key path for Ansible
+	sshKeyPath := i.getAnsibleSSHKeyPath(types.InstanceRequest{})
 
-	// --- Step 1: Ensure all hosts are ready for SSH connections ---
-	// TODO: This currently uses a default/shared key path assumption. Improve if needed.
-	sshKeyPath := getAnsibleSSHKeyPath(i.instances)
-	hosts := make([]string, len(instances))
-	for idx, inst := range instances {
-		hosts[idx] = inst.PublicIP
-	}
-	if err := i.provisioner.ConfigureHosts(hosts, sshKeyPath); err != nil {
-		// ConfigureHosts already logs details
-		return fmt.Errorf("failed to ensure SSH readiness for all hosts: %w", err)
+	// Run provisioning for each instance
+	for _, instance := range instances {
+		if err := i.provisioner.Provision(instance, sshKeyPath); err != nil {
+			return fmt.Errorf("failed to provision instance %s: %w", instance.Name, err)
+		}
 	}
 
-	// --- Step 2: Create the inventory file using InstanceInfo ---
-	// CreateInventory now handles extracting info and determining the key path internally
-	if err := i.provisioner.CreateInventory(instances, sshKeyPath); err != nil {
-		return fmt.Errorf("failed to create Ansible inventory: %w", err)
-	}
-
-	// --- Step 3: Run the Ansible playbook ---
-	fmt.Println("📝 Running Ansible playbook...")
-	if err := i.provisioner.RunAnsiblePlaybook(i.jobID); err != nil {
-		return fmt.Errorf("failed to run Ansible playbook: %w", err)
-	}
-
-	fmt.Println("✅ Ansible playbook completed successfully")
 	return nil
 }
