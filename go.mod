@@ -3,7 +3,7 @@ module github.com/celestiaorg/talis
 go 1.24
 
 require (
-	github.com/digitalocean/godo v1.142.0
+	github.com/digitalocean/godo v1.144.0
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
@@ -13,7 +13,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/driver/sqlite v1.5.7
-	gorm.io/gorm v1.25.12
+	gorm.io/gorm v1.26.0
 )
 
 require (
