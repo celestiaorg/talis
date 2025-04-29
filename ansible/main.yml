@@ -12,6 +12,14 @@
       when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
       tags:
         - setup
+    
+    - name: Payloads
+      import_tasks: "./stages/payloads.yml"
+      when: >
+        (ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu') and
+        (hostvars[inventory_hostname].payload_present | default(false) | bool or hostvars[inventory_hostname].tar_archive_present | default(false) | bool)
+      tags:
+        - payloads
 
     - name: Volumes
       import_tasks: "./stages/volumes.yml"
