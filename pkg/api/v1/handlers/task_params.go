@@ -83,3 +83,9 @@ func (p TaskUpdateStatusParams) Validate() error {
 	}
 	return nil
 }
+
+// ResponseWithTaskNames defines the structure for a successful response with task names
+// It's used as the data payload within a successful RPCResponse.
+type ResponseWithTaskNames struct {
+	TaskNames []string `json:"task_names"`
+}

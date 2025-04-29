@@ -120,7 +120,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).
 		JSON(types.Success(
-			types.ResponseWithTaskNames{
+			ResponseWithTaskNames{
 				TaskNames: taskNames,
 			}))
 }
