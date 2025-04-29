@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -66,8 +67,8 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 		case <-t.C:
 		}
 
-		// Fetch schedulable tasks
-		tasks, err := w.taskService.GetSchedulableTasks(ctx, taskLimit)
+		// Fetch schedulable tasks. Initially we exclude the delete upload tasks as we want to prioritize the instance related tasks
+		tasks, err := w.taskService.GetSchedulableTasks(ctx, taskLimit, models.TaskActionDeleteUpload)
 		if err != nil {
 			logger.Errorf("Worker error fetching tasks: %v", err)
 			// Wait before retrying to avoid spamming logs on persistent DB errors
@@ -75,13 +76,24 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 			continue
 		}
 
+		// If no tasks are found, we need to look for deleted uploads tasks
 		if len(tasks) == 0 {
-			logger.Debug("Worker: No tasks to process")
-			// Wait before retrying to give time for tasks to be created
-			t.Reset(w.backoff)
-			continue
+			logger.Debug("Worker: No tasks found on first fetch, looking for deleted uploads tasks")
+			tasks, err = w.taskService.GetSchedulableTasks(ctx, taskLimit)
+			if err != nil {
+				logger.Errorf("Worker error fetching tasks: %v", err)
+				// Wait before retrying to avoid spamming logs on persistent DB errors
+				t.Reset(w.backoff)
+				continue
+			}
+			if len(tasks) == 0 {
+				logger.Debug("Worker: No tasks found on second fetch, waiting for next tick")
+				t.Reset(w.backoff)
+				continue
+			}
 		}
 
+		// Process tasks
 		for i := range tasks {
 			// Check if the context has been cancelled to avoid processing tasks after shutdown
 			select {
@@ -95,13 +107,7 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 			case models.TaskActionCreateInstances:
 				err := w.processCreateInstanceTask(ctx, &tasks[i])
 				if err != nil {
-					logMsg := fmt.Sprintf("❌ Failed to process create instance task %d: %v", tasks[i].ID, err)
-					logger.Error(logMsg)
-					tasks[i].Logs += fmt.Sprintf("\n%s", logMsg)
-					err = w.taskService.UpdateFailed(ctx, &tasks[i], err.Error(), logMsg)
-					if err != nil {
-						logger.Errorf("Worker: Failed to update task: %v", err)
-					}
+					w.handleFailure(ctx, &tasks[i], fmt.Sprintf("❌ Failed to process create instance task %d: %v", tasks[i].ID, err), err)
 					// No time reset needed here as we are just continuing through the tasks
 					continue
 				}
@@ -112,14 +118,26 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 			case models.TaskActionTerminateInstances:
 				err := w.processTerminateInstanceTask(ctx, &tasks[i])
 				if err != nil {
-					logMsg := fmt.Sprintf("❌ Failed to process terminate instance task %d: %v", tasks[i].ID, err)
-					logger.Error(logMsg)
-					tasks[i].Logs += fmt.Sprintf("\n%s", logMsg)
-					err = w.taskService.UpdateFailed(ctx, &tasks[i], err.Error(), logMsg)
-					if err != nil {
-						logger.Errorf("Worker: Failed to update task: %v", err)
-					}
+					w.handleFailure(ctx, &tasks[i], fmt.Sprintf("❌ Failed to process terminate instance task %d: %v", tasks[i].ID, err), err)
 					// No time reset needed here as we are just continuing through the tasks
+					continue
+				}
+				err = w.taskService.UpdateStatus(ctx, tasks[i].OwnerID, tasks[i].ID, models.TaskStatusCompleted)
+				if err != nil {
+					logger.Errorf("Worker: Failed to update task status: %v", err)
+				}
+			case models.TaskActionDeleteUpload:
+				attempted, err := w.processDeleteUploadTask(ctx, &tasks[i])
+				if err != nil {
+					w.handleFailure(ctx, &tasks[i], fmt.Sprintf("❌ Failed to process delete upload task %d: %v", tasks[i].ID, err), err)
+					// No time reset needed here as we are just continuing through the tasks
+					continue
+				}
+				if !attempted {
+					// Reset the ticker to prevent rapid cycling through deletion tasks that are not yet ready to be deleted
+					// NOTE: this reset only impacts the next attempt to pull new tasks, it will not impact iteration through the current tasks
+					// NOTE: the task attempts are incremented at the beginning of the for loop but since we haven't updated the task in the DB, besides the status, the attempt won't be persisted
+					t.Reset(w.backoff)
 					continue
 				}
 				err = w.taskService.UpdateStatus(ctx, tasks[i].OwnerID, tasks[i].ID, models.TaskStatusCompleted)
@@ -130,6 +148,16 @@ func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
 				logger.Errorf("Worker: Unknown task action %s for task %d", tasks[i].Action, tasks[i].ID)
 			}
 		}
+	}
+}
+
+// handleFailure handles a failure for a task. It will log the error and update the task status to failed.
+func (w *Worker) handleFailure(ctx context.Context, task *models.Task, logMsg string, err error) {
+	logger.Error(logMsg)
+	task.Logs += fmt.Sprintf("\n%s", logMsg)
+	err = w.taskService.UpdateFailed(ctx, task, err.Error(), logMsg)
+	if err != nil {
+		logger.Errorf("Worker: Failed to update task: %v", err)
 	}
 }
 
@@ -345,6 +373,41 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 		return fmt.Errorf("failed to terminate instance %s in database: %w", instance.Name, err)
 	}
 	return nil
+}
+
+// processDeleteUploadTask processes a delete upload task.
+func (w *Worker) processDeleteUploadTask(ctx context.Context, task *models.Task) (bool, error) {
+	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
+	if err != nil {
+		return false, fmt.Errorf("failed to update task status: %w", err)
+	}
+	logger.Debugf("Deleting upload for task %d", task.ID)
+
+	// Unmarshal the task payload
+	var payload types.UploadDeletionPayload
+	err = json.Unmarshal(task.Payload, &payload)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal task payload for task %d: %w", task.ID, err)
+	}
+
+	// Check if the deletion timestamp has passed
+	if !time.Now().After(payload.DeletionTimestamp) {
+		logger.Debugf("Deletion timestamp has not passed for upload %s, skipping", payload.UploadPath)
+		return false, nil
+	}
+
+	// Delete the upload
+	logger.Debugf("Deleting upload %s", payload.UploadPath)
+	err = os.Remove(payload.UploadPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logger.Warnf("⚠️ Warning: Upload file %s was already deleted", payload.UploadPath)
+			return true, nil
+		}
+		return false, fmt.Errorf("failed to delete upload file %s: %w", payload.UploadPath, err)
+	}
+	logger.Debugf("✅ Successfully deleted upload file: %s", payload.UploadPath)
+	return true, nil
 }
 
 // getProvider returns the compute provider for the given instance

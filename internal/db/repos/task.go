@@ -106,7 +106,8 @@ func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.
 // GetSchedulableTasks retrieves tasks that are ready for processing,
 // ordered by error status (no error first) and then by creation date (oldest first).
 // It fetches tasks with statuses other than Completed or Terminated.
-func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
+// The excludedActions parameter allows filtering out specific task action types.
+func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int, excludedActions ...models.TaskAction) ([]models.Task, error) {
 	var tasks []models.Task
 
 	// Define statuses to exclude
@@ -119,6 +120,11 @@ func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]
 	query := r.db.WithContext(ctx).Model(&models.Task{}).Where(
 		"status NOT IN ?", excludedStatuses,
 	).Where("attempts < ?", maxAttempts)
+
+	// Exclude specific task action types if provided
+	if len(excludedActions) > 0 {
+		query = query.Where("action NOT IN ?", excludedActions)
+	}
 
 	// Order by error presence (errors last), then by creation date (oldest first)
 	// Use DB-specific syntax for CASE WHEN or similar logic if needed, assuming standard SQL here.
