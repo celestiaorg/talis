@@ -35,3 +35,8 @@ type ListResponse[T any] struct {
 	Rows       []T                `json:"rows"`
 	Pagination PaginationResponse `json:"pagination"`
 }
+
+// ResponseWithTaskNames defines the structure for a successful response with task names
+type ResponseWithTaskNames struct {
+	TaskNames []string `json:"task_names"`
+}
