@@ -1,6 +1,3 @@
----
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -9,7 +6,7 @@ services:
       POSTGRES_PASSWORD: talis
       POSTGRES_DB: talis
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432" # bind to localhost
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,11 +23,6 @@ services:
       - "8080:8080"
     environment:
       - SERVER_PORT=8080
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=talis
-      - DB_PASSWORD=talis
-      - DB_NAME=talis
     depends_on:
       - db
 
