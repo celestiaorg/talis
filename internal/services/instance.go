@@ -38,7 +38,7 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 // CreateInstance creates a new instance and a new task to track the instance creation in the DB.
 func (s *Instance) CreateInstance(ctx context.Context, instances []types.InstanceRequest) error {
 	instancesToCreate := make([]*models.Instance, 0, len(instances))
-	tasksToCreate := make([]*models.Task, 0, len(instances))
+	instanceTasksToCreate := make([]*models.Task, 0, len(instances))
 	for _, i := range instances {
 		// Validate the instance request
 		if err := i.Validate(); err != nil {
@@ -71,7 +71,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 
 			// Generate TaskName internally
 			taskName := uuid.New().String()
-			tasksToCreate = append(tasksToCreate, &models.Task{
+			instanceTasksToCreate = append(instanceTasksToCreate, &models.Task{
 				Name:      taskName,
 				OwnerID:   i.OwnerID,
 				ProjectID: project.ID,
@@ -113,7 +113,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 	for idx, instance := range instancesToCreate {
 		// unmarshal the corresponding task payload
 		var taskPayload types.InstanceRequest
-		err := json.Unmarshal(tasksToCreate[idx].Payload, &taskPayload)
+		err := json.Unmarshal(instanceTasksToCreate[idx].Payload, &taskPayload)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal task payload: %w", err)
 		}
@@ -124,11 +124,11 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 		if err != nil {
 			return fmt.Errorf("failed to marshal task payload: %w", err)
 		}
-		tasksToCreate[idx].Payload = updatedPayload
+		instanceTasksToCreate[idx].Payload = updatedPayload
 	}
 
 	// Create the tasks
-	if err := s.taskService.CreateBatch(ctx, tasksToCreate); err != nil {
+	if err := s.taskService.CreateBatch(ctx, instanceTasksToCreate); err != nil {
 		err = fmt.Errorf("failed to add tasks to database: %w", err)
 		return err
 	}

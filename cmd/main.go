@@ -70,7 +70,7 @@ func main() {
 	userService := services.NewUserService(userRepo)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService, taskService)
 
 	// Create RPC handler and assign handlers directly
 	rpcHandler := &handlers.RPCHandler{

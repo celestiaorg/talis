@@ -86,10 +86,11 @@ func (r *TaskRepository) UpdateStatus(ctx context.Context, ownerID uint, id uint
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
-	return r.db.WithContext(ctx).Model(&models.Task{}).Where(models.Task{
-		Model:   gorm.Model{ID: id},
-		OwnerID: ownerID,
-	}).Update(models.TaskStatusField, status).Error
+	query := r.db.WithContext(ctx).Model(&models.Task{}).Where("id = ?", id)
+	if ownerID != models.AdminID {
+		query = query.Where("owner_id = ?", ownerID)
+	}
+	return query.Update(models.TaskStatusField, status).Error
 }
 
 // Update updates an existing task in the database.
@@ -97,10 +98,11 @@ func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
-	return r.db.WithContext(ctx).Model(&models.Task{}).Where(models.Task{
-		Model:   gorm.Model{ID: task.ID},
-		OwnerID: ownerID,
-	}).Updates(task).Error
+	query := r.db.WithContext(ctx).Model(&models.Task{}).Where("id = ?", task.ID)
+	if ownerID != models.AdminID {
+		query = query.Where("owner_id = ?", ownerID)
+	}
+	return query.Updates(task).Error
 }
 
 // GetSchedulableTasks retrieves tasks that are ready for processing,

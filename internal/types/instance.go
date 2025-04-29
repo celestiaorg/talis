@@ -12,6 +12,9 @@ import (
 // maxUploadSize is the maximum size of a payload file in bytes. It applies to both the payload and tar archive.
 const maxUploadSize = 2 * 1024 * 1024 // 2MB
 
+// DefaultTalisUploadDir is the default base directory for storing uploaded files.
+const DefaultTalisUploadDir = "/var/lib/talis/uploads"
+
 // InstanceRequest represents an RPC request for a single instance
 // NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstanceRequest struct {

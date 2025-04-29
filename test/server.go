@@ -34,7 +34,7 @@ func SetupServer(suite *Suite) {
 	instanceService := services.NewInstanceService(suite.InstanceRepo, taskService, projectService)
 
 	// Create handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	instanceHandler := handlers.NewInstanceHandler(instanceService, taskService)
 	rpcHandler := &handlers.RPCHandler{
 		ProjectHandlers: handlers.NewProjectHandlers(projectService),
 		TaskHandlers:    handlers.NewTaskHandlers(taskService),

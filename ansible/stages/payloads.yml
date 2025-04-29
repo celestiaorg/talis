@@ -28,14 +28,13 @@
   ansible.builtin.unarchive:
     src: "{{ hostvars[inventory_hostname].tar_archive_dest_path }}"
     dest: "{{ hostvars[inventory_hostname].untar_dest_path }}"
-    remote_src: yes  # Indicates the source is on the remote host, not the controller
-    owner: root  # Set owner to root
-    group: root  # Set group to root
-    mode: "0755"  # Set permissions for extracted files
+    remote_src: yes # Indicates the source is on the remote host, not the controller
+    owner: root # Set owner to root
+    group: root # Set group to root
+    mode: "0755" # Set permissions for extracted files
   when: hostvars[inventory_hostname].tar_archive_present | default(false) | bool
   tags:
     - tar_archive
-    
 
 - name: Check if payload variables are defined for host
   ansible.builtin.debug:
