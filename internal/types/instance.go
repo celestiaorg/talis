@@ -9,7 +9,8 @@ import (
 	"github.com/celestiaorg/talis/internal/db/models"
 )
 
-const maxPayloadSize = 2 * 1024 * 1024 // 2MB
+// maxUploadSize is the maximum size of a payload file in bytes. It applies to both the payload and tar archive.
+const maxUploadSize = 2 * 1024 * 1024 // 2MB
 
 // InstanceRequest represents an RPC request for a single instance
 // NOTE: These should be cleaned up and replaced with specific RPC request types
@@ -31,12 +32,13 @@ type InstanceRequest struct {
 
 	// User Defined Configs
 	ProjectName       string         `json:"project_name"`
-	SSHKeyName        string         `json:"ssh_key_name"`              // Name of the SSH key to use
-	NumberOfInstances int            `json:"number_of_instances"`       // Number of instances to create
-	Provision         bool           `json:"provision"`                 // Whether to run Ansible provisioning
-	PayloadPath       string         `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
-	ExecutePayload    bool           `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
-	Volumes           []VolumeConfig `json:"volumes"`                   // Optional volumes to attach
+	SSHKeyName        string         `json:"ssh_key_name"`               // Name of the SSH key to use
+	NumberOfInstances int            `json:"number_of_instances"`        // Number of instances to create
+	Provision         bool           `json:"provision"`                  // Whether to run Ansible provisioning
+	PayloadPath       string         `json:"payload_path,omitempty"`     // Local path to the payload script on the API server
+	ExecutePayload    bool           `json:"execute_payload,omitempty"`  // Whether to execute the payload after copying
+	TarArchivePath    string         `json:"tar_archive_path,omitempty"` // Local path to the tar archive on the API server
+	Volumes           []VolumeConfig `json:"volumes"`                    // Optional volumes to attach
 
 	// Talis Server Configs - Optional
 	SSHKeyType string `json:"ssh_key_type,omitempty"` // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".
@@ -109,29 +111,12 @@ func (i *InstanceRequest) Validate() error {
 	}
 	// Validate payload path if provided
 	if i.PayloadPath != "" {
-		// Check if path is absolute
-		if !filepath.IsAbs(i.PayloadPath) {
-			return fmt.Errorf("payload_path must be an absolute path")
+		if err := validateUpload(i.PayloadPath); err != nil {
+			return fmt.Errorf("invalid payload_path: %w", err)
 		}
-
-		// Clean the path
-		i.PayloadPath = filepath.Clean(i.PayloadPath)
-
-		// Check file existence and size
-		fileInfo, err := os.Stat(i.PayloadPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("payload_path file does not exist: %s", i.PayloadPath)
-			}
-			return fmt.Errorf("error accessing payload_path file: %w", err)
-		}
-
-		if fileInfo.IsDir() {
-			return fmt.Errorf("payload_path cannot be a directory")
-		}
-
-		if fileInfo.Size() > maxPayloadSize {
-			return fmt.Errorf("payload file size exceeds the limit of 2MB")
+		// If payload_path is provided, provision must be true
+		if !i.Provision {
+			return fmt.Errorf("provision must be true when payload_path is provided")
 		}
 	}
 
@@ -140,9 +125,15 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("payload_path is required when execute_payload is true")
 	}
 
-	// If payload_path is provided, provision must be true
-	if i.PayloadPath != "" && !i.Provision {
-		return fmt.Errorf("provision must be true when payload_path is provided")
+	// Validate tar archive path if provided
+	if i.TarArchivePath != "" {
+		if err := validateUpload(i.TarArchivePath); err != nil {
+			return fmt.Errorf("invalid tar_archive_path: %w", err)
+		}
+		// If tar_archive_path is provided, provision must be true
+		if !i.Provision {
+			return fmt.Errorf("provision must be true when tar_archive_path is provided")
+		}
 	}
 
 	// Confirm an action is provided
@@ -150,5 +141,37 @@ func (i *InstanceRequest) Validate() error {
 		return fmt.Errorf("action is required")
 	}
 
+	return nil
+}
+
+func validateUpload(path string) error {
+	if path == "" {
+		return fmt.Errorf("path is required")
+	}
+
+	// Check if path is absolute
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("must be an absolute path")
+	}
+
+	// Clean the path
+	path = filepath.Clean(path)
+
+	// Check file existence and size
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("file does not exist: %s", path)
+		}
+		return fmt.Errorf("error accessing file: %w", err)
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("cannot be a directory")
+	}
+
+	if fileInfo.Size() > maxUploadSize {
+		return fmt.Errorf("file size exceeds the limit of 2MB")
+	}
 	return nil
 }
