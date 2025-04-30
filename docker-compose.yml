@@ -6,7 +6,8 @@ services:
       POSTGRES_PASSWORD: talis
       POSTGRES_DB: talis
     ports:
-      - "127.0.0.1:5432:5432" # bind to localhost
+      - "5432:5432" # bind to localhost
+      # - "127.0.0.1:5432:5432" # bind to localhost
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,14 +20,58 @@ services:
     image: ghcr.io/celestiaorg/talis:latest
     env_file:
       - .env
-    ports:
-      - "8080:8080"
     environment:
       - SERVER_PORT=8080
       - DB_HOST=${DB_HOST:-db}
       - DB_PORT=${DB_PORT:-5432}
     depends_on:
       - db
+    # Mount the SSH key from the server to the container
+    volumes:
+      - /root/.ssh:/root/.ssh:ro
+  kong-database:
+    image: postgres:9.6
+    container_name: kong-database
+    ports:
+      - 5433:5432
+    env_file:
+      - .env
+    volumes:
+      - "db-data-kong-postgres:/var/lib/postgresql/data"
+
+  kong-migrations:
+    image: kong
+    env_file:
+      - .env
+    command: kong migrations bootstrap
+    restart: on-failure
+    depends_on:
+      - kong-database
+
+  kong:
+    image: kong
+    container_name: kong
+    env_file:
+      - .env
+    restart: on-failure
+    ports:
+      - 8000:8000
+      - 8001:8001
+    links:
+      - kong-database:kong-database
+    depends_on:
+      - kong-migrations
+
+  konga:
+    image: pantsel/konga
+    ports:
+      - 1337:1337
+    links:
+      - kong:kong
+    container_name: konga
+    environment:
+      - NODE_ENV=production
 
 volumes:
   postgres_data:
+  db-data-kong-postgres:
