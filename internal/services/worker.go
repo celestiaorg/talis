@@ -377,15 +377,9 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 
 // processDeleteUploadTask processes a delete upload task.
 func (w *Worker) processDeleteUploadTask(ctx context.Context, task *models.Task) (bool, error) {
-	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
-	if err != nil {
-		return false, fmt.Errorf("failed to update task status: %w", err)
-	}
-	logger.Debugf("Deleting upload for task %d", task.ID)
-
 	// Unmarshal the task payload
 	var payload types.UploadDeletionPayload
-	err = json.Unmarshal(task.Payload, &payload)
+	err := json.Unmarshal(task.Payload, &payload)
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal task payload for task %d: %w", task.ID, err)
 	}
@@ -395,6 +389,12 @@ func (w *Worker) processDeleteUploadTask(ctx context.Context, task *models.Task)
 		logger.Debugf("Deletion timestamp has not passed for upload %s, skipping", payload.UploadPath)
 		return false, nil
 	}
+
+	err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
+	if err != nil {
+		return false, fmt.Errorf("failed to update task status: %w", err)
+	}
+	logger.Debugf("Deleting upload for task %d", task.ID)
 
 	// Delete the upload
 	logger.Debugf("Deleting upload %s", payload.UploadPath)
