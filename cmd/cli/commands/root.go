@@ -11,15 +11,14 @@ import (
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
-// flag names
+// flag names and environment variable names
 const (
+	// Flags
 	flagOwnerID       = "owner-id"
-	flagServerAddress = "server-address"
-)
+	flagServerAddress = "server-address" // Renamed from flagAPIURL
 
-// environment variable names
-const (
-	envServerAddress = "TALIS_SERVER_ADDRESS"
+	// Environment Variables
+	envServerAddress = "TALIS_API_URL" // Use the merged env var name
 )
 
 var (
@@ -29,22 +28,24 @@ var (
 	serverAddress string
 )
 
-// initClient initializes the API client
+// initClient initializes the API client with the appropriate base URL
 func initClient() error {
-	var err error
-	// Use the serverAddress determined by PersistentPreRunE
-	opts := client.DefaultOptions() // Start with defaults
-	opts.BaseURL = serverAddress    // Override BaseURL
+	opts := client.DefaultOptions()
+	opts.BaseURL = serverAddress // Use the finalized serverAddress
 
+	var err error
 	apiClient, err = client.NewClient(opts)
 	return err
 }
 
 func init() {
 	// Set a basic default for the flag. PersistentPreRunE will handle env var override.
-	RootCmd.PersistentFlags().StringVarP(&serverAddress, flagServerAddress, "s", routes.DefaultBaseURL, "Address of the Talis API server (env: TALIS_SERVER_ADDRESS)")
+	// Use flagServerAddress and the TALIS_API_URL env var name in the description.
+	RootCmd.PersistentFlags().StringVarP(&serverAddress, flagServerAddress, "s", routes.DefaultBaseURL, "Address of the Talis API server (env: TALIS_API_URL)")
 
 	RootCmd.PersistentFlags().StringP(flagOwnerID, "o", "", "Owner ID for resources")
+
+	// Removed duplicate flag registration for apiURLFlag
 
 	RootCmd.AddCommand(GetInfraCmd())
 	RootCmd.AddCommand(GetUsersCmd())
@@ -62,6 +63,7 @@ var RootCmd = &cobra.Command{
 		// Check if the server address flag was explicitly set by the user.
 		if !cmd.Flags().Changed(flagServerAddress) {
 			// If not set via flag, check the environment variable *after* godotenv.Load() has run.
+			// Use the correct env var name: envServerAddress (which is TALIS_API_URL)
 			envAddr := os.Getenv(envServerAddress)
 			if envAddr != "" {
 				serverAddress = envAddr // Override the default value with the env var

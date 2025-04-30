@@ -1,12 +1,17 @@
 name: Deploy to Production
 
 on:
+  workflow_run:
+    workflows: ["Docker Build & Publish"]
+    types:
+      - completed
   workflow_dispatch:
   release:
     types: [published]
 
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -24,36 +29,6 @@ jobs:
       - name: Get release tag
         id: get_tag
         run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Ensure jq is installed
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Wait for image tag in GHCR
-        env:
-          GHCR_REPO: celestiaorg/talis
-          GHCR_IMAGE: talis
-          TAG: ${{ steps.get_tag.outputs.TAG }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          MAX_ATTEMPTS=10
-          SLEEP_SECONDS=30
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "[INFO] Checking if image tag $TAG exists in GHCR (attempt $i/$MAX_ATTEMPTS)..."
-            TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              "https://ghcr.io/v2/${GHCR_REPO}/tags/list" | jq -r '.tags[]')
-            if echo "$TAGS" | grep -q "^$TAG$"; then
-              echo "[INFO] Tag $TAG found in registry."
-              exit 0
-            fi
-            if [ $i -lt $MAX_ATTEMPTS ]; then
-              echo "[INFO] Tag $TAG not found, waiting $SLEEP_SECONDS seconds before retrying..."
-              sleep $SLEEP_SECONDS
-            else
-              echo "[ERROR] Tag $TAG not found after $MAX_ATTEMPTS attempts. Exiting."
-              exit 1
-            fi
-          done
-
       - name: Update image tag and deploy
         uses: appleboy/ssh-action@v1.2.2
         with:
