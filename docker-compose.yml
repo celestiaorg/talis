@@ -27,8 +27,8 @@ services:
     depends_on:
       - db
     # Mount the SSH key from the server to the container
-    volumes:
-      - /root/.ssh:/root/.ssh:ro
+    # volumes:
+    #   - /root/.ssh:/root/.ssh:ro
   kong-database:
     image: postgres:9.6
     container_name: kong-database
@@ -69,6 +69,7 @@ services:
     links:
       - kong:kong
     container_name: konga
+    restart: on-failure
     environment:
       - NODE_ENV=production
 
