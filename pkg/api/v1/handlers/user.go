@@ -7,19 +7,18 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
 // UserHandler handles HTTP requests for user operations
 type UserHandler struct {
-	service *services.User
+	*APIHandler
 }
 
 // NewUserHandler creates a new UserHandler instance
-func NewUserHandler(service *services.User) *UserHandler {
+func NewUserHandler(api *APIHandler) *UserHandler {
 	return &UserHandler{
-		service: service,
+		APIHandler: api,
 	}
 }
 
@@ -41,7 +40,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx, req RPCRequest) error {
 		PublicSSHKey: params.PublicSSHKey,
 	}
 
-	id, err := h.service.CreateUser(c.Context(), user)
+	id, err := h.user.CreateUser(c.Context(), user)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgCreateUserFailed, err.Error(), req.ID)
 	}
@@ -66,7 +65,7 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	user, err := h.service.GetUserByID(c.Context(), params.ID)
+	user, err := h.user.GetUserByID(c.Context(), params.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByID, nil, req.ID)
 	} else if err != nil {
@@ -102,7 +101,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx, req RPCRequest) error {
 	}
 	paginationOpts := getPaginationOptions(page)
 
-	users, err := h.service.GetAllUsers(c.Context(), paginationOpts)
+	users, err := h.user.GetAllUsers(c.Context(), paginationOpts)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgGetUsersFailed, err.Error(), req.ID)
 	}
@@ -122,7 +121,7 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx, req RPCRequest) error {
 
 // getUserByUsername handles fetching a single user by username
 func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string, req RPCRequest) error {
-	user, err := h.service.GetUserByUsername(c.Context(), username)
+	user, err := h.user.GetUserByUsername(c.Context(), username)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByUsername, nil, req.ID)
@@ -155,7 +154,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	err = h.service.DeleteUser(c.Context(), params.ID)
+	err = h.user.DeleteUser(c.Context(), params.ID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgUserNotFoundByID, nil, req.ID)
 	}
