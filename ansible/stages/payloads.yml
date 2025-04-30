@@ -1,0 +1,72 @@
+---
+# For the payload and tar archive, we want to upload the tar archive first so that the payload can access it if required.
+
+- name: Check if tar archive variables are defined for host
+  ansible.builtin.debug:
+    msg: "Tar archive present: {{ hostvars[inventory_hostname].tar_archive_present | default('Not Set') }}, Src: {{ hostvars[inventory_hostname].tar_archive_src_path | default('Not Set') }}, Dest: {{ hostvars[inventory_hostname].tar_archive_dest_path | default('Not Set') }}"
+  tags:
+    - tar_archive
+  # Only run if tar_archive_present is true
+  when: hostvars[inventory_hostname].tar_archive_present | default(false) | bool
+
+- name: Copy tar archive to instance if present
+  ansible.builtin.copy:
+    # Use the source path on the controller passed from Go
+    src: "{{ hostvars[inventory_hostname].tar_archive_src_path }}"
+    # Use the destination path passed from Go
+    dest: "{{ hostvars[inventory_hostname].tar_archive_dest_path }}"
+    owner: root # Set owner to root
+    group: root # Set group to root
+    mode: "0700" # Set permissions (read/write/execute for owner only)
+  # This task only runs if 'tar_archive_present' is true for the specific host
+  when: hostvars[inventory_hostname].tar_archive_present | default(false) | bool
+  tags:
+    - tar_archive # Tag for potentially running only tar archive tasks
+
+# Un tar the payload archive
+- name: Un tar the payload archive
+  ansible.builtin.unarchive:
+    src: "{{ hostvars[inventory_hostname].tar_archive_dest_path }}"
+    dest: "{{ hostvars[inventory_hostname].untar_dest_path }}"
+    remote_src: yes # Indicates the source is on the remote host, not the controller
+    owner: root # Set owner to root
+    group: root # Set group to root
+    mode: "0755" # Set permissions for extracted files
+  when: hostvars[inventory_hostname].tar_archive_present | default(false) | bool
+  tags:
+    - tar_archive
+
+- name: Check if payload variables are defined for host
+  ansible.builtin.debug:
+    msg: "Payload present: {{ hostvars[inventory_hostname].payload_present | default('Not Set') }}, Src: {{ hostvars[inventory_hostname].payload_src_path | default('Not Set') }}, Dest: {{ hostvars[inventory_hostname].payload_dest_path | default('Not Set') }}"
+  tags:
+    - payload
+  # Only run if payload_present is true
+  when: hostvars[inventory_hostname].payload_present | default(false) | bool
+
+- name: Copy payload script to instance if present
+  ansible.builtin.copy:
+    # Use the source path on the controller passed from Go
+    src: "{{ hostvars[inventory_hostname].payload_src_path }}"
+    # Use the destination path passed from Go
+    dest: "{{ hostvars[inventory_hostname].payload_dest_path }}"
+    owner: root # Set owner to root
+    group: root # Set group to root
+    mode: "0700" # Set permissions (read/write/execute for owner only)
+  # This task only runs if 'payload_present' is true for the specific host
+  when: hostvars[inventory_hostname].payload_present | default(false) | bool
+  tags:
+    - payload # Tag for potentially running only payload tasks
+
+- name: Execute payload script if requested
+  ansible.builtin.shell:
+    # Execute the script using bash
+    cmd: "bash {{ hostvars[inventory_hostname].payload_dest_path }}"
+    # Optionally change to the directory where the script is, although /root is often fine
+    # chdir: /root
+  # This task only runs if payload is present AND execution is requested
+  when:
+    - hostvars[inventory_hostname].payload_present | default(false) | bool
+    - hostvars[inventory_hostname].payload_execute | default(false) | bool
+  tags:
+    - payload # Keep the same tag for consistency
