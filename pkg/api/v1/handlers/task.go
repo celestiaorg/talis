@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
 	"gorm.io/gorm"
 
@@ -14,13 +13,13 @@ import (
 
 // TaskHandlers contains all task related handlers
 type TaskHandlers struct {
-	service *services.Task
+	*APIHandler
 }
 
 // NewTaskHandlers creates a new task handlers instance
-func NewTaskHandlers(taskService *services.Task) *TaskHandlers {
+func NewTaskHandlers(api *APIHandler) *TaskHandlers {
 	return &TaskHandlers{
-		service: taskService,
+		APIHandler: api,
 	}
 }
 
@@ -35,7 +34,7 @@ func (h *TaskHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	task, err := h.service.GetByName(c.Context(), ownerID, params.TaskName)
+	task, err := h.task.GetByName(c.Context(), ownerID, params.TaskName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgTaskNotFound, err.Error(), req.ID)
@@ -68,7 +67,7 @@ func (h *TaskHandlers) List(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 
 	listOpts := getPaginationOptions(page)
 
-	tasks, err := h.service.ListByProject(c.Context(), ownerID, params.ProjectName, listOpts)
+	tasks, err := h.task.ListByProject(c.Context(), ownerID, params.ProjectName, listOpts)
 	if err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskListFailed, err.Error(), req.ID)
 	}
@@ -100,7 +99,7 @@ func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 	}
 
 	// First update the task status to "terminated"
-	if err := h.service.UpdateStatusByName(c.Context(), ownerID, params.TaskName, models.TaskStatusTerminated); err != nil {
+	if err := h.task.UpdateStatusByName(c.Context(), ownerID, params.TaskName, models.TaskStatusTerminated); err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskTerminateFailed, err.Error(), req.ID)
 	}
 
