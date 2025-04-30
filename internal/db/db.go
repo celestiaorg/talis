@@ -73,6 +73,14 @@ func New(opts Options) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// --- Add Admin Entities Setup ---
+	if err := setupAdminEntities(db); err != nil {
+		// Log the error but don't necessarily block startup unless critical
+		log.Printf("Warning: Failed to setup admin entities: %v", err)
+		// Depending on requirements, you might want to return nil, err here
+	}
+	// --- End Admin Entities Setup ---
+
 	return db, nil
 }
 
@@ -114,4 +122,35 @@ func migrate(db *gorm.DB) error {
 		&models.Task{},
 		&models.User{},
 	)
+}
+
+// setupAdminEntities ensures the admin user and project exist in the database.
+func setupAdminEntities(db *gorm.DB) error {
+	log.Println("Ensuring admin user and project exist...")
+
+	adminUser := models.User{
+		Model:    gorm.Model{ID: models.AdminID},
+		Username: "talis-admin", // Or just "admin"
+	}
+	// Use Where condition based on ID for FirstOrCreate check
+	result := db.Where("id = ?", models.AdminID).FirstOrCreate(&models.User{}, adminUser)
+	if result.Error != nil {
+		return fmt.Errorf("failed to ensure admin user exists (ID: %d): %w", models.AdminID, result.Error)
+	}
+
+	// --- Ensure Admin Project Exists ---
+	adminProject := models.Project{
+		Model:   gorm.Model{ID: models.AdminProjectID},
+		Name:    "talis-admin-project", // Or just "admin-project"
+		OwnerID: models.AdminID,        // Link it to the admin user
+		// Add other non-nullable fields with default values if necessary
+		// Example: Description: "Default admin project", if Description is non-nullable
+	}
+	result = db.Where("id = ?", models.AdminProjectID).FirstOrCreate(&models.Project{}, adminProject)
+	if result.Error != nil {
+		return fmt.Errorf("failed to ensure admin project exists (ID: %d): %w", models.AdminProjectID, result.Error)
+	}
+
+	log.Println("Admin entities check complete.")
+	return nil
 }

@@ -2,12 +2,24 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
+)
+
+var (
+	defaultUploadDir        = os.ExpandEnv("$HOME/talis/uploads")
+	defaultDirCleanupWindow = 24 * time.Hour
 )
 
 // InstanceHandler handles HTTP requests for instance operations
@@ -88,24 +100,110 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	return c.JSON(instance)
 }
 
-// CreateInstance handles the request to create instances
-// TODO: the RPC response for this should be the instances and tasks created.
+// CreateInstance handles the request to create instances, potentially including file uploads.
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
-	var instanceReqs []types.InstanceRequest
-	if err := c.BodyParser(&instanceReqs); err != nil {
+	// --- 1. Parse Multipart Form which is now required for the upload ---
+	_, err := c.MultipartForm()
+	if err != nil {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(types.ErrInvalidInput(err.Error()))
+			JSON(types.ErrInvalidInput(fmt.Sprintf("failed to parse multipart form: %v", err)))
+	}
+
+	// --- 2. Unmarshal JSON data from form field ---
+	requestDataJSON := c.FormValue("request_data")
+	if requestDataJSON == "" {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(types.ErrInvalidInput("missing 'request_data' field in form"))
+	}
+
+	var instanceReqs []types.InstanceRequest
+	if err := json.Unmarshal([]byte(requestDataJSON), &instanceReqs); err != nil {
+		return c.Status(fiber.StatusBadRequest).
+			JSON(types.ErrInvalidInput(fmt.Sprintf("failed to unmarshal 'request_data': %v", err)))
 	}
 
 	if len(instanceReqs) == 0 {
 		return c.Status(fiber.StatusBadRequest).
-			JSON(types.ErrInvalidInput("at least one instance request is required"))
+			JSON(types.ErrInvalidInput("at least one instance request is required in 'request_data'"))
 	}
 
-	// NOTE: in order to update the underlying instanceReqs, we need to iterate over the slice with the index. If you use range, you will get a copy of the slice and not the original.
+	// --- 3. Prepare for File Uploads ---
+	// Files will be uploaded to a unique directory based on this request ID
+	// Individual instance requests will have their own subdirectories within this request ID directory based on the OwnerID to allow for multiple users to upload files to the same request ID and avoid conflicts.
+	// This allows for the cleanup of all files for a given request ID and all of the individual instance request files.
+	requestID := uuid.NewString()
+	uploadBaseDir := os.Getenv("TALIS_UPLOAD_DIR")
+	if uploadBaseDir == "" {
+		uploadBaseDir = defaultUploadDir
+	}
+	uniqueRequestDir := filepath.Join(uploadBaseDir, requestID)
+
+	log.Printf("Creating unique request directory: %s", uniqueRequestDir)
+
+	// Create a directory clean up task first and this protects against any failures during upload. Even if there are no uploads this is a low cost operation and is a no-op if the directory is not created.
+	deletionTimestamp := time.Now().Add(defaultDirCleanupWindow) // Configurable?
+	payload := types.UploadDeletionPayload{
+		UploadPath:        uniqueRequestDir,
+		DeletionTimestamp: deletionTimestamp,
+	}
+	payloadJSON, marshalErr := json.Marshal(payload)
+	if marshalErr != nil {
+		err = fmt.Errorf("failed to marshal cleanup task payload for request %s: %w", requestID, marshalErr)
+		log.Print(err)
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+	}
+	// Use the AdminIDs as the ownerID for the cleanup task to ensure it is always run
+	cleanupTask := &models.Task{
+		OwnerID:   models.AdminID,
+		ProjectID: models.AdminProjectID,
+		Name:      fmt.Sprintf("delete-upload-%s", requestID),
+		Action:    models.TaskActionDeleteUpload,
+		Status:    models.TaskStatusPending,
+		Payload:   payloadJSON,
+	}
+	err = h.task.Create(c.Context(), cleanupTask)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
+	}
+	log.Printf("Prepared cleanup task for request %s, path: %s", requestID, uniqueRequestDir)
+
+	// --- 4. Process Instance Requests and Files ---
 	for i := range instanceReqs {
-		instanceReqs[i].Action = "create"
-		if err := instanceReqs[i].Validate(); err != nil {
+		req := &instanceReqs[i] // Use pointer to modify original slice element
+		req.Action = "create"   // Set default action
+		ownerIDStr := strconv.FormatUint(uint64(req.OwnerID), 10)
+
+		// Process Payload File
+		userPayloadPath := req.PayloadPath
+		if userPayloadPath != "" {
+			// File not yet saved in this batch, attempt to save it
+			serverPath, err := h.uploadFile(c, filepath.Join(uniqueRequestDir, ownerIDStr), userPayloadPath)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).
+					JSON(types.ErrInvalidInput(fmt.Sprintf("failed to upload payload file '%s': %v", userPayloadPath, err)))
+			}
+			log.Printf("Saved payload file '%s' to '%s' for request %s", userPayloadPath, serverPath, requestID)
+			// Update request with server-side path
+			req.PayloadPath = serverPath
+		}
+
+		// Process Tar Archive File
+		userTarPath := req.TarArchivePath
+		if userTarPath != "" {
+			serverPath, err := h.uploadFile(c, filepath.Join(uniqueRequestDir, ownerIDStr), userTarPath)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).
+					JSON(types.ErrInvalidInput(fmt.Sprintf("failed to upload tar archive file '%s': %v", userTarPath, err)))
+			}
+			log.Printf("Saved tar archive '%s' to '%s' for request %s", userTarPath, serverPath, requestID)
+			// Update request with server-side path
+			req.TarArchivePath = serverPath
+		}
+
+		// --- 6. Validate *after* paths are updated ---
+		if err := req.Validate(); err != nil {
+			// Assign the error to the named return variable for the deferred cleanup
+			err = fmt.Errorf("validation failed for request %d: %w", i, err)
 			return c.Status(fiber.StatusBadRequest).
 				JSON(types.ErrInvalidInput(err.Error()))
 		}
@@ -116,12 +214,41 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
-
+	log.Printf("Successfully processed instance creation request %s", requestID)
 	return c.Status(fiber.StatusCreated).
 		JSON(types.Success(
 			ResponseWithTaskNames{
 				TaskNames: taskNames,
 			}))
+}
+
+// uploadFile uploads a file to the given directory and returns the server path. If a file already exists at the location it is a no-op and assumes this is expected due to multiple instances using the same uploaded file.
+func (h *InstanceHandler) uploadFile(c *fiber.Ctx, dirPath, uploadFilePath string) (string, error) {
+	// Get the file from the form data
+	fileHeader, err := c.FormFile(uploadFilePath)
+	if err != nil {
+		return "", c.Status(fiber.StatusBadRequest).
+			JSON(types.ErrInvalidInput(fmt.Sprintf("upload file '%s' not found in form data: %v", uploadFilePath, err)))
+	}
+
+	// Create directory if it doesn't exist yet
+	if err := os.MkdirAll(dirPath, 0750); err != nil {
+		return "", c.Status(fiber.StatusInternalServerError).
+			JSON(types.ErrServer(fmt.Sprintf("failed to create upload directory '%s': %v", dirPath, err)))
+	}
+
+	// Save the file to the directory
+	targetServerPath := filepath.Join(dirPath, filepath.Base(fileHeader.Filename))
+	// Check if file already exists
+	if _, err := os.Stat(targetServerPath); err == nil {
+		return targetServerPath, nil
+	}
+	if err := c.SaveFile(fileHeader, targetServerPath); err != nil {
+		return "", c.Status(fiber.StatusInternalServerError).
+			JSON(types.ErrServer(fmt.Sprintf("failed to save upload file '%s' to '%s': %v", uploadFilePath, targetServerPath, err)))
+	}
+
+	return targetServerPath, nil
 }
 
 // GetPublicIPs returns a list of public IPs for all instances

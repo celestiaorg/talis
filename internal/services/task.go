@@ -167,8 +167,8 @@ func (s *Task) CompleteTask(ctx context.Context, ownerID uint, taskID uint, resu
 }
 
 // GetSchedulableTasks retrieves tasks ready for the worker to process.
-func (s *Task) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
+func (s *Task) GetSchedulableTasks(ctx context.Context, limit int, excludedActions ...models.TaskAction) ([]models.Task, error) {
 	// Note: Currently, this doesn't filter by ownerID as the worker is system-wide.
 	// If worker logic becomes owner-specific, ownerID filtering might be needed here or in the repo method.
-	return s.repo.GetSchedulableTasks(ctx, limit)
+	return s.repo.GetSchedulableTasks(ctx, limit, excludedActions...)
 }
