@@ -34,11 +34,15 @@ func SetupServer(suite *Suite) {
 	instanceService := services.NewInstanceService(suite.InstanceRepo, taskService, projectService)
 
 	// Create handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService)
+	apiHandler := handlers.NewAPIHandler(instanceService, projectService, taskService, userService)
+	instanceHandler := handlers.NewInstanceHandler(apiHandler)
+	projectHandler := handlers.NewProjectHandlers(apiHandler)
+	taskHandler := handlers.NewTaskHandlers(apiHandler)
+	userHandler := handlers.NewUserHandler(apiHandler)
 	rpcHandler := &handlers.RPCHandler{
-		ProjectHandlers: handlers.NewProjectHandlers(projectService),
-		TaskHandlers:    handlers.NewTaskHandlers(taskService),
-		UserHandlers:    handlers.NewUserHandler(userService),
+		ProjectHandlers: projectHandler,
+		TaskHandlers:    taskHandler,
+		UserHandlers:    userHandler,
 	}
 
 	// Register routes
