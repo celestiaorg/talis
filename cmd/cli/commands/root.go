@@ -2,30 +2,50 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/celestiaorg/talis/pkg/api/v1/client"
+	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
-// flagOwnerID is the flag for the owner ID
-const flagOwnerID = "owner-id"
+// flag names
+const (
+	flagOwnerID       = "owner-id"
+	flagServerAddress = "server-address"
+)
+
+// environment variable names
+const (
+	envServerAddress = "TALIS_SERVER_ADDRESS"
+)
 
 var (
 	// apiClient is the shared API client instance
 	apiClient client.Client
+	// serverAddress holds the target API server address. Flag parsing sets this.
+	serverAddress string
 )
 
-// initClient initializes the API client with default options
+// initClient initializes the API client
 func initClient() error {
 	var err error
-	apiClient, err = client.NewClient(client.DefaultOptions())
+	// Use the serverAddress determined by PersistentPreRunE
+	opts := client.DefaultOptions() // Start with defaults
+	opts.BaseURL = serverAddress    // Override BaseURL
+
+	apiClient, err = client.NewClient(opts)
 	return err
 }
 
 func init() {
+	// Set a basic default for the flag. PersistentPreRunE will handle env var override.
+	RootCmd.PersistentFlags().StringVarP(&serverAddress, flagServerAddress, "s", routes.DefaultBaseURL, "Address of the Talis API server (env: TALIS_SERVER_ADDRESS)")
+
 	RootCmd.PersistentFlags().StringP(flagOwnerID, "o", "", "Owner ID for resources")
+
 	RootCmd.AddCommand(GetInfraCmd())
 	RootCmd.AddCommand(GetUsersCmd())
 	RootCmd.AddCommand(GetTasksCmd())
@@ -38,7 +58,24 @@ var RootCmd = &cobra.Command{
 	Short: "Talis CLI - A command line interface for Talis API",
 	Long: `Talis CLI is a command line tool for managing infrastructure and jobs through the Talis API.
 	Complete documentation is available at https://github.com/celestiaorg/talis`,
-	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		// Check if the server address flag was explicitly set by the user.
+		if !cmd.Flags().Changed(flagServerAddress) {
+			// If not set via flag, check the environment variable *after* godotenv.Load() has run.
+			envAddr := os.Getenv(envServerAddress)
+			if envAddr != "" {
+				serverAddress = envAddr // Override the default value with the env var
+			}
+		}
+
+		// Now serverAddress has the correct precedence: Flag > Env Var > Default
+		fmt.Println("Talis Server address:", serverAddress) // Debug print
+
+		// Validate the final server address
+		if serverAddress == "" {
+			return fmt.Errorf("server address cannot be empty")
+		}
+		// Initialization now happens here, using the correct serverAddress
 		return initClient()
 	},
 }

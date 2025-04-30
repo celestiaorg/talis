@@ -138,6 +138,8 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	}
 	uniqueRequestDir := filepath.Join(uploadBaseDir, requestID)
 
+	log.Printf("Creating unique request directory: %s", uniqueRequestDir)
+
 	// Create a directory clean up task first and this protects against any failures during upload. Even if there are no uploads this is a low cost operation and is a no-op if the directory is not created.
 	deletionTimestamp := time.Now().Add(defaultDirCleanupWindow) // Configurable?
 	payload := types.UploadDeletionPayload{
@@ -150,13 +152,14 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		log.Print(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
-	// Use the AdminID as the ownerID for the cleanup task to ensure it is always run
+	// Use the AdminIDs as the ownerID for the cleanup task to ensure it is always run
 	cleanupTask := &models.Task{
-		OwnerID: models.AdminID,
-		Name:    fmt.Sprintf("delete-upload-%s", requestID),
-		Action:  models.TaskActionDeleteUpload,
-		Status:  models.TaskStatusPending,
-		Payload: payloadJSON,
+		OwnerID:   models.AdminID,
+		ProjectID: models.AdminProjectID,
+		Name:      fmt.Sprintf("delete-upload-%s", requestID),
+		Action:    models.TaskActionDeleteUpload,
+		Status:    models.TaskStatusPending,
+		Payload:   payloadJSON,
 	}
 	err = h.task.Create(c.Context(), cleanupTask)
 	if err != nil {

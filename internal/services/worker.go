@@ -398,7 +398,7 @@ func (w *Worker) processDeleteUploadTask(ctx context.Context, task *models.Task)
 
 	// Delete the upload
 	logger.Debugf("Deleting upload %s", payload.UploadPath)
-	err = os.Remove(payload.UploadPath)
+	err = os.RemoveAll(payload.UploadPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			logger.Warnf("⚠️ Warning: Upload file %s was already deleted", payload.UploadPath)
