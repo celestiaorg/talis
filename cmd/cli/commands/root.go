@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -10,22 +11,44 @@ import (
 )
 
 // flagOwnerID is the flag for the owner ID
-const flagOwnerID = "owner-id"
+const (
+	// flagOwnerID is the flag for the owner ID
+	flagOwnerID = "owner-id"
+	// flagAPIURL is the flag for the API URL
+	flagAPIURL = "api-url"
+)
 
 var (
 	// apiClient is the shared API client instance
 	apiClient client.Client
+	// apiURLFlag holds the value for the API URL flag
+	apiURLFlag string
 )
 
-// initClient initializes the API client with default options
+// getAPIBaseURL determines the API base URL from flag, environment variable, or default value
+func getAPIBaseURL() string {
+	if apiURLFlag != "" {
+		return apiURLFlag
+	}
+	if env := os.Getenv("TALIS_API_URL"); env != "" {
+		return env
+	}
+	return client.DefaultOptions().BaseURL
+}
+
+// initClient initializes the API client with the appropriate base URL
 func initClient() error {
+	opts := client.DefaultOptions()
+	opts.BaseURL = getAPIBaseURL()
+
 	var err error
-	apiClient, err = client.NewClient(client.DefaultOptions())
+	apiClient, err = client.NewClient(opts)
 	return err
 }
 
 func init() {
 	RootCmd.PersistentFlags().StringP(flagOwnerID, "o", "", "Owner ID for resources")
+	RootCmd.PersistentFlags().StringVar(&apiURLFlag, flagAPIURL, "", "Base URL for the Talis API (overrides TALIS_API_URL)")
 	RootCmd.AddCommand(GetInfraCmd())
 	RootCmd.AddCommand(GetUsersCmd())
 	RootCmd.AddCommand(GetTasksCmd())
