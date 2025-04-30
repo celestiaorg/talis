@@ -70,13 +70,17 @@ func main() {
 	userService := services.NewUserService(userRepo)
 
 	// Initialize handlers
-	instanceHandler := handlers.NewInstanceHandler(instanceService, taskService)
+	apiHandler := handlers.NewAPIHandler(instanceService, projectService, taskService, userService)
+	instanceHandler := handlers.NewInstanceHandler(apiHandler)
+	projectHandler := handlers.NewProjectHandlers(apiHandler)
+	taskHandler := handlers.NewTaskHandlers(apiHandler)
+	userHandler := handlers.NewUserHandler(apiHandler)
 
 	// Create RPC handler and assign handlers directly
 	rpcHandler := &handlers.RPCHandler{
-		ProjectHandlers: handlers.NewProjectHandlers(projectService),
-		TaskHandlers:    handlers.NewTaskHandlers(taskService),
-		UserHandlers:    handlers.NewUserHandler(userService),
+		ProjectHandlers: projectHandler,
+		TaskHandlers:    taskHandler,
+		UserHandlers:    userHandler,
 	}
 
 	// Setup Fiber app

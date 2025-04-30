@@ -36,25 +36,28 @@ func (s *Instance) ListInstances(ctx context.Context, ownerID uint, opts *models
 }
 
 // CreateInstance creates a new instance and a new task to track the instance creation in the DB.
-func (s *Instance) CreateInstance(ctx context.Context, instances []types.InstanceRequest) error {
+// It returns a list of task names created (or attempted) and an error if one occurred.
+func (s *Instance) CreateInstance(ctx context.Context, instances []types.InstanceRequest) ([]string, error) {
 	instancesToCreate := make([]*models.Instance, 0, len(instances))
-	instanceTasksToCreate := make([]*models.Task, 0, len(instances))
+	tasksToCreate := make([]*models.Task, 0, len(instances))
+	taskNames := make([]string, 0, len(instances)) // Pre-allocate slice for task names
+
 	for _, i := range instances {
 		// Validate the instance request
 		if err := i.Validate(); err != nil {
-			return fmt.Errorf("invalid instance request: %w", err)
+			return nil, fmt.Errorf("invalid instance request: %w", err)
 		}
 
 		// Get the project
 		project, err := s.projectService.GetByName(ctx, i.OwnerID, i.ProjectName)
 		if err != nil {
-			return fmt.Errorf("failed to get project: %w", err)
+			return nil, fmt.Errorf("failed to get project: %w", err)
 		}
 
 		// Sanity check that a user is not trying to create an instance for another user
 		// TODO: in the future we should have authorized users for a project
 		if i.OwnerID != project.OwnerID {
-			return fmt.Errorf("instance owner_id does not match project owner_id")
+			return nil, fmt.Errorf("instance owner_id does not match project owner_id")
 		}
 
 		for idx := 0; idx < i.NumberOfInstances; idx++ {
@@ -66,12 +69,13 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			// Marshal the request to JSON
 			payload, err := json.Marshal(req)
 			if err != nil {
-				return fmt.Errorf("failed to marshal instance request: %w", err)
+				return nil, fmt.Errorf("failed to marshal instance request: %w", err)
 			}
 
 			// Generate TaskName internally
 			taskName := uuid.New().String()
-			instanceTasksToCreate = append(instanceTasksToCreate, &models.Task{
+			taskNames = append(taskNames, taskName) // Collect task name
+			tasksToCreate = append(tasksToCreate, &models.Task{
 				Name:      taskName,
 				OwnerID:   i.OwnerID,
 				ProjectID: project.ID,
@@ -106,34 +110,34 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 	if err := s.repo.CreateBatch(ctx, instancesToCreate); err != nil {
 		err = fmt.Errorf("failed to add instances to database: %w", err)
 		// TODO: https://github.com/celestiaorg/talis/issues/246
-		return err
+		return nil, err
 	}
 
 	// Update the task payload with the instance ID
 	for idx, instance := range instancesToCreate {
 		// unmarshal the corresponding task payload
 		var taskPayload types.InstanceRequest
-		err := json.Unmarshal(instanceTasksToCreate[idx].Payload, &taskPayload)
+		err := json.Unmarshal(tasksToCreate[idx].Payload, &taskPayload)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal task payload: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal task payload: %w", err)
 		}
 		taskPayload.InstanceID = instance.ID
 
 		// marshal the updated task payload
 		updatedPayload, err := json.Marshal(taskPayload)
 		if err != nil {
-			return fmt.Errorf("failed to marshal task payload: %w", err)
+			return nil, fmt.Errorf("failed to marshal task payload: %w", err)
 		}
-		instanceTasksToCreate[idx].Payload = updatedPayload
+		tasksToCreate[idx].Payload = updatedPayload
 	}
 
 	// Create the tasks
-	if err := s.taskService.CreateBatch(ctx, instanceTasksToCreate); err != nil {
+	if err := s.taskService.CreateBatch(ctx, tasksToCreate); err != nil {
 		err = fmt.Errorf("failed to add tasks to database: %w", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	return taskNames, nil
 }
 
 // GetInstance retrieves an instance by ID

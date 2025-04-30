@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
@@ -25,15 +24,13 @@ var (
 
 // InstanceHandler handles HTTP requests for instance operations
 type InstanceHandler struct {
-	service     *services.Instance
-	taskService *services.Task
+	*APIHandler
 }
 
 // NewInstanceHandler creates a new instance handler instance
-func NewInstanceHandler(service *services.Instance, taskService *services.Task) *InstanceHandler {
+func NewInstanceHandler(api *APIHandler) *InstanceHandler {
 	return &InstanceHandler{
-		service:     service,
-		taskService: taskService,
+		APIHandler: api,
 	}
 }
 
@@ -61,7 +58,7 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 
 	// TODO: should check for OwnerID and filter by it
 
-	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
+	instances, err := h.instance.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list instances: %v", err),
@@ -93,7 +90,7 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	}
 
 	// Get instance using the service
-	instance, err := h.service.GetInstance(c.Context(), models.AdminID, uint(instanceID))
+	instance, err := h.instance.GetInstance(c.Context(), models.AdminID, uint(instanceID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to get instance: %v", err),
@@ -161,7 +158,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		Status:  models.TaskStatusPending,
 		Payload: payloadJSON,
 	}
-	err = h.taskService.Create(c.Context(), cleanupTask)
+	err = h.task.Create(c.Context(), cleanupTask)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer(err.Error()))
 	}
@@ -209,15 +206,17 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		}
 	}
 
-	// --- 5. Call Service ---
-	err = h.service.CreateInstance(c.Context(), instanceReqs)
+	taskNames, err := h.instance.CreateInstance(c.Context(), instanceReqs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
 	log.Printf("Successfully processed instance creation request %s", requestID)
 	return c.Status(fiber.StatusCreated).
-		JSON(types.Success(nil))
+		JSON(types.Success(
+			ResponseWithTaskNames{
+				TaskNames: taskNames,
+			}))
 }
 
 // uploadFile uploads a file to the given directory and returns the server path. If a file already exists at the location it is a no-op and assumes this is expected due to multiple instances using the same uploaded file.
@@ -266,7 +265,7 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	}
 
 	// Get instances with their details using the service
-	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
+	instances, err := h.instance.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		fmt.Printf("❌ Error getting public IPs: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -313,7 +312,7 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	}
 
 	// Get instances with their details using the service
-	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
+	instances, err := h.instance.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		fmt.Printf("❌ Error getting instance: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -353,7 +352,7 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 		opts.InstanceStatus = &status
 	}
 
-	instances, err := h.service.ListInstances(c.Context(), models.AdminID, &opts)
+	instances, err := h.instance.ListInstances(c.Context(), models.AdminID, &opts)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to list instances: %v", err),
@@ -385,7 +384,7 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.service.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceNames)
+	err := h.instance.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceNames)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),
