@@ -111,14 +111,17 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		}
 	}
 
-	err := h.instance.CreateInstance(c.Context(), instanceReqs)
+	taskNames, err := h.instance.CreateInstance(c.Context(), instanceReqs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(types.Success(nil))
+		JSON(types.Success(
+			ResponseWithTaskNames{
+				TaskNames: taskNames,
+			}))
 }
 
 // GetPublicIPs returns a list of public IPs for all instances
