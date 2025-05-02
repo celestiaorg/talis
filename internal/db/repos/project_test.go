@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 type ProjectRepositoryTestSuite struct {

@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 const maxAttempts = 10

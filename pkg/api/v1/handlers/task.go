@@ -4,7 +4,7 @@ package handlers
 import (
 	"errors"
 
-	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/pkg/types"
 	"gorm.io/gorm"
 

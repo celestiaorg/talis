@@ -1,80 +1,39 @@
+// Package models contains database models and related utility functions.
+// NOTE: This package currently uses type aliases to internal definitions
+// as a temporary measure to support external tools. This should be revisited
+// during a proper refactoring to define stable public types.
 package models
 
-import "encoding/json"
-
-// ProviderID represents a unique identifier for a cloud provider
-type ProviderID string
-
-// Provider constants define the supported cloud providers
-const (
-	// ProviderAWS represents Amazon Web Services provider
-	ProviderAWS ProviderID = "aws"
-	// ProviderGCP represents Google Cloud Platform provider
-	ProviderGCP ProviderID = "gcp"
-	// ProviderAzure represents Microsoft Azure provider
-	ProviderAzure ProviderID = "azure"
-	// ProviderDO represents DigitalOcean provider
-	ProviderDO ProviderID = "do"
-	// ProviderScaleway represents Scaleway provider
-	ProviderScaleway ProviderID = "scw"
-	// ProviderVultr represents Vultr provider
-	ProviderVultr ProviderID = "vultr"
-	// ProviderLinode represents Linode provider
-	ProviderLinode ProviderID = "linode"
-	// ProviderHetzner represents Hetzner provider
-	ProviderHetzner ProviderID = "hetzner"
-	// ProviderOVH represents OVH provider
-	ProviderOVH ProviderID = "ovh"
-
-	// Mock Providers
-	// ProviderDOMock1 represents DigitalOcean provider mock 1
-	ProviderDOMock1 ProviderID = "do-mock"
-	// ProviderDOMock2 represents DigitalOcean provider mock 2
-	ProviderDOMock2 ProviderID = "digitalocean-mock"
-	// ProviderDOMock3 represents a mock provider
-	ProviderMock3 ProviderID = "mock"
+import (
+	internalmodels "github.com/celestiaorg/talis/internal/db/models"
+	// Remove unused json import "encoding/json"
 )
 
-// String implements the fmt.Stringer interface
-func (p ProviderID) String() string {
-	return string(p)
-}
+// ProviderID represents a unique identifier for a cloud provider.
+// This aliases the internal definition.
+type ProviderID = internalmodels.ProviderID
 
-// MarshalJSON implements the json.Marshaler interface
-func (p ProviderID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(p.String())
-}
+// Publicly exposed provider constants (aliased from internal)
+const (
+	ProviderAWS      = internalmodels.ProviderAWS
+	ProviderGCP      = internalmodels.ProviderGCP
+	ProviderAzure    = internalmodels.ProviderAzure
+	ProviderDO       = internalmodels.ProviderDO
+	ProviderScaleway = internalmodels.ProviderScaleway
+	ProviderVultr    = internalmodels.ProviderVultr
+	ProviderLinode   = internalmodels.ProviderLinode
+	ProviderHetzner  = internalmodels.ProviderHetzner
+	ProviderOVH      = internalmodels.ProviderOVH
 
-// UnmarshalJSON implements the json.Unmarshaler interface
-func (p *ProviderID) UnmarshalJSON(data []byte) error {
-	var str string
-	if err := json.Unmarshal(data, &str); err != nil {
-		return err
-	}
+	// Mock Providers (aliased from internal)
+	ProviderDOMock1 = internalmodels.ProviderDOMock1
+	ProviderDOMock2 = internalmodels.ProviderDOMock2
+	ProviderMock3   = internalmodels.ProviderMock3
+)
 
-	*p = ProviderID(str)
-	return nil
-}
+// NOTE: Methods like IsValid, MarshalJSON, UnmarshalJSON are defined on the
+// original internal type (internal/db/models.ProviderID) and are used via the alias.
+// DO NOT DEFINE METHODS ON ALIAS TYPES HERE.
 
-// FromString creates a ProviderID from a string
-func FromString(s string) ProviderID {
-	return ProviderID(s)
-}
-
-// ToProviderID converts a string to a ProviderID
-func ToProviderID(s string) ProviderID {
-	return ProviderID(s)
-}
-
-// IsValid checks if the provider ID is a valid supported provider
-func (p ProviderID) IsValid() bool {
-	switch p {
-	case ProviderAWS, ProviderGCP, ProviderAzure, ProviderDO,
-		ProviderScaleway, ProviderVultr, ProviderLinode, ProviderHetzner, ProviderOVH:
-		return true
-	case ProviderDOMock1, ProviderDOMock2, ProviderMock3: // mocked providers
-		return true
-	default:
-		return false
-	}
-}
+// The IsValid, MarshalJSON, and UnmarshalJSON functions previously defined here
+// are removed as they should be called on the internal type.

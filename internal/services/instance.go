@@ -8,10 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	// "github.com/celestiaorg/talis/internal/db/models" // <<< Reverting: Use pkg/models instead
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
-	"github.com/celestiaorg/talis/pkg/models" // <<< Use public models/aliases
 	"github.com/celestiaorg/talis/pkg/types"
 )
 

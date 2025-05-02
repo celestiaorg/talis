@@ -454,53 +454,12 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance
 	return response, nil
 }
 
-// CreateInstance creates a new instance
+// CreateInstance creates new instances via the API
+// Reverted: Now only returns an error, assuming basic success/failure from HTTP status.
 func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) error {
 	endpoint := routes.CreateInstanceURL()
-
-	// Create multipart body
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// 1. Marshal the instance request slice to JSON
-	reqDataJSON, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal instance request data: %w", err)
-	}
-
-	// 2. Add the JSON data as a form field "request_data"
-	if err := writer.WriteField("request_data", string(reqDataJSON)); err != nil {
-		return fmt.Errorf("failed to write request_data field: %w", err)
-	}
-
-	// 3. Add files specified in the requests
-	uploadedFiles := make(map[string]bool) // Track files already added
-	for _, r := range req {
-		// Add PayloadPath file if specified and not already added
-		if r.PayloadPath != "" && !uploadedFiles[r.PayloadPath] {
-			if err := addFileToMultipart(writer, r.PayloadPath); err != nil {
-				return fmt.Errorf("failed to add payload file %s: %w", r.PayloadPath, err)
-			}
-			uploadedFiles[r.PayloadPath] = true
-		}
-
-		// Add TarArchivePath file if specified and not already added
-		if r.TarArchivePath != "" && !uploadedFiles[r.TarArchivePath] {
-			if err := addFileToMultipart(writer, r.TarArchivePath); err != nil {
-				return fmt.Errorf("failed to add tar archive file %s: %w", r.TarArchivePath, err)
-			}
-			uploadedFiles[r.TarArchivePath] = true
-		}
-	}
-
-	// Close the multipart writer (important! This finalizes the body)
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	// Use the dedicated multipart helper
-	// Pass nil for response as CreateInstance doesn't expect a specific body back
-	return c.executeMultipartRequest(ctx, endpoint, writer, body, nil)
+	// Simple call, pass nil for response body as we don't need to parse specific data like task names anymore.
+	return c.executeRequest(ctx, http.MethodPost, endpoint, req, nil)
 }
 
 // DeleteInstances deletes instances by name

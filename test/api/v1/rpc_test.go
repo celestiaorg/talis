@@ -107,9 +107,7 @@ func TestTaskRPCMethods(t *testing.T) {
 	getParams := defaultTaskGetParams
 	retrievedTask, err := suite.APIClient.GetTask(suite.Context(), getParams)
 	require.NoError(t, err)
-	// Don't check ID since it's auto-incremented by the DB
 	require.Equal(t, task.Name, retrievedTask.Name)
-	// ProjectID is also database-dependent, so skip the comparison
 	require.Equal(t, task.Status, retrievedTask.Status)
 
 	// List tasks using RPC

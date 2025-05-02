@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
-	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // User provides business logic for user operations

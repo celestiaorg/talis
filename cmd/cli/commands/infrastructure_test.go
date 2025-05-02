@@ -67,9 +67,10 @@ func TestCreateInfraCmd(t *testing.T) {
 			inputFile: "infra.json",
 			inputContent: `[
   {
-    "project_name": "test-project",
+    "project_id": 1,
     "name": "instance-1",
     "number_of_instances": 1,
+    "instance_ids": [1],
     "provider": "do",
     "region": "nyc1",
     "size": "s-1vcpu-1gb",
@@ -232,7 +233,7 @@ func TestCreateInfraCmd(t *testing.T) {
 					if err == nil {
 						var deleteReq types.DeleteInstancesRequest
 						if err := json.Unmarshal(content, &deleteReq); err == nil {
-							assert.Equal(t, 1, deleteReq.ProjectID)
+							assert.EqualValues(t, 1, deleteReq.ProjectID)
 							assert.Contains(t, deleteReq.InstanceIDs, uint(1))
 						}
 					}
@@ -256,10 +257,8 @@ func TestDeleteInfraCmd(t *testing.T) {
 			args:      []string{"infra", "delete", "--file", "delete.json"},
 			inputFile: "delete.json",
 			inputContent: `{
-  "job_name": "test-job",
   "project_id": 1,
-  "project_name": "test-project",
-  "instance_names": ["instance-1"]
+  "instance_ids": [1]
 }`,
 			expectedOutput: "", // Don't check for specific output - just check it doesn't error
 		},

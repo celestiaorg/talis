@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
-	"github.com/celestiaorg/talis/pkg/models"
 )
 
 // Task handles task-related operations

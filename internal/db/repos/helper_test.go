@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/celestiaorg/talis/pkg/models"
+	"github.com/celestiaorg/talis/internal/db/models"
 )
 
 // DBRepositoryTestSuite provides a base test suite for repository tests

@@ -60,41 +60,7 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error creating infrastructure: %w", err)
 		}
 
-		fmt.Println("Infrastructure creation request submitted successfully")
-
-		// Create the delete request
-		deleteReq := types.DeleteInstancesRequest{
-			OwnerID:   req[0].OwnerID,
-			ProjectID: req[0].ProjectID,
-			InstanceIDs: func() []uint {
-				ids := make([]uint, 0)
-				for _, instance := range req {
-					// If no specific name, use the base name pattern
-					for i := 0; i < instance.NumberOfInstances; i++ {
-						ids = append(ids, instance.InstanceID)
-					}
-				}
-				return ids
-			}(),
-		}
-
-		// Generate the delete file name based on the create file name
-		baseFileName := filepath.Base(jsonFile)
-		deleteFileName := fmt.Sprintf("delete_%s", baseFileName)
-		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), deleteFileName)
-
-		// Marshal the delete request to JSON
-		deleteJSON, err := json.MarshalIndent(deleteReq, "", "  ")
-		if err != nil {
-			return fmt.Errorf("error generating delete file: %w", err)
-		}
-
-		// Write the delete file
-		if err := os.WriteFile(deleteFilePath, deleteJSON, 0600); err != nil {
-			return fmt.Errorf("error writing delete file: %w", err)
-		}
-
-		fmt.Printf("Delete file generated: %s\n", deleteFilePath)
+		fmt.Println("Infrastructure creation request submitted successfully.")
 		return nil
 	},
 }
