@@ -196,7 +196,7 @@ func TestClientInstanceMethods(t *testing.T) {
 		ProjectName:   defaultProjectParams.Name,
 		InstanceNames: []string{actualInstances[0].Name, actualInstances[1].Name},
 	}
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	err = suite.APIClient.DeleteInstances(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Verify the instances eventually get terminated
@@ -225,7 +225,7 @@ func TestClientInstanceMethods(t *testing.T) {
 
 	// Submit the same deletion request again - should be a no-op
 	// We do this after verifying termination to ensure the first deletion completed
-	err = suite.APIClient.DeleteInstance(suite.Context(), deleteRequest)
+	err = suite.APIClient.DeleteInstances(suite.Context(), deleteRequest)
 	require.NoError(t, err)
 
 	// Add a small delay to avoid database lock issues

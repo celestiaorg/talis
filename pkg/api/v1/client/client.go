@@ -12,14 +12,16 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	// internalmodels "github.com/celestiaorg/talis/internal/db/models" // Use public alias
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
+	"github.com/celestiaorg/talis/pkg/db/models" // Import public models alias
+	"github.com/celestiaorg/talis/pkg/types"     // Import public types alias
 )
 
 // DefaultTimeout is the default timeout for API requests
@@ -40,7 +42,7 @@ type Client interface {
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req []types.InstanceRequest) error
-	DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error
+	DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error // Renamed method from DeleteInstance
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error)
@@ -109,11 +111,11 @@ func NewClient(opts *Options) (Client, error) {
 // addFileToMultipart adds a file to the multipart writer.
 // The form field name will be the same as the clientFilePath.
 func addFileToMultipart(writer *multipart.Writer, clientFilePath string) error {
-	file, err := os.Open(clientFilePath) //nolint:gosec
+	file, err := os.Open(filepath.Clean(clientFilePath)) // Use filepath.Clean
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", clientFilePath, err)
 	}
-	defer file.Close() //nolint:errcheck
+	defer func() { _ = file.Close() }() // Ignore close error
 
 	part, err := writer.CreateFormFile(clientFilePath, filepath.Base(clientFilePath))
 	if err != nil {
@@ -320,7 +322,7 @@ func (c *APIClient) executeMultipartRequest(ctx context.Context, endpoint string
 // AdminGetInstances retrieves all instances
 func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, error) {
 	endpoint := routes.AdminInstancesURL()
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -330,7 +332,7 @@ func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, e
 // AdminGetInstancesMetadata retrieves metadata for all instances
 func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error) {
 	endpoint := routes.AdminInstancesMetadataURL()
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -360,10 +362,10 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 
 	// Pagination params
 	if opts.Limit > 0 {
-		q.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		q.Set("limit", strconv.Itoa(opts.Limit))
 	}
 	if opts.Offset > 0 {
-		q.Set("offset", fmt.Sprintf("%d", opts.Offset))
+		q.Set("offset", strconv.Itoa(opts.Offset))
 	}
 
 	// Filtering params
@@ -371,13 +373,14 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 		q.Set("include_deleted", "true")
 	}
 
+	// StatusFilter is string-based (public alias)
 	if opts.StatusFilter != "" {
 		q.Set("status_filter", string(opts.StatusFilter))
 	}
 
-	// Instance status params
-	if opts.InstanceStatus != nil {
-		status := *opts.InstanceStatus
+	// InstanceStatus is pointer-based in the underlying internal struct
+	if opts.InstanceStatus != nil { // Check if the pointer is non-nil
+		status := *opts.InstanceStatus // Dereference to get the value
 		var statusStr string
 		switch status {
 		case models.InstanceStatusUnknown:
@@ -386,12 +389,15 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 			statusStr = "pending"
 		case models.InstanceStatusProvisioning:
 			statusStr = "provisioning"
+		case models.InstanceStatusCreated:
+			statusStr = "created"
 		case models.InstanceStatusReady:
 			statusStr = "ready"
 		case models.InstanceStatusTerminated:
 			statusStr = "terminated"
 		default:
-			return nil, fmt.Errorf("invalid instance status: %d", status)
+			// Use %v for the underlying int type
+			return nil, fmt.Errorf("invalid instance status: %v", status)
 		}
 		q.Set("instance_status", statusStr)
 	}
@@ -407,7 +413,7 @@ func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) 
 	}
 
 	endpoint := routes.GetInstancesURL(q)
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -422,7 +428,7 @@ func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListO
 	}
 
 	endpoint := routes.GetInstanceMetadataURL(q)
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -447,7 +453,7 @@ func (c *APIClient) GetInstancesPublicIPs(ctx context.Context, opts *models.List
 // GetInstance retrieves an instance by ID
 func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance, error) {
 	endpoint := routes.GetInstanceURL(id)
-	var response models.Instance
+	var response models.Instance // Use pkg/models.Instance
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return models.Instance{}, err
 	}
@@ -503,8 +509,8 @@ func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequ
 	return c.executeMultipartRequest(ctx, endpoint, writer, body, nil)
 }
 
-// DeleteInstance deletes an instance by ID
-func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error {
+// DeleteInstances deletes instances by ID (renamed from DeleteInstance)
+func (c *APIClient) DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error {
 	endpoint := routes.TerminateInstancesURL()
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
 }
@@ -513,7 +519,7 @@ func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstance
 
 // GetUserByID retrieves a user by id
 func (c *APIClient) GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error) {
-	var response models.User
+	var response models.User // Use pkg/models.User
 	if err := c.executeRPC(ctx, handlers.UserGetByID, params, &response); err != nil {
 		return models.User{}, err
 	}
@@ -545,7 +551,7 @@ func (c *APIClient) DeleteUser(ctx context.Context, params handlers.DeleteUserPa
 
 // CreateProject creates a new project
 func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error) {
-	var project models.Project
+	var project models.Project // Use pkg/models.Project
 	if err := c.executeRPC(ctx, handlers.ProjectCreate, params, &project); err != nil {
 		return project, err
 	}
@@ -554,7 +560,7 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 
 // GetProject retrieves a project by name
 func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error) {
-	var project models.Project
+	var project models.Project // Use pkg/models.Project
 	if err := c.executeRPC(ctx, handlers.ProjectGet, params, &project); err != nil {
 		return models.Project{}, err
 	}
@@ -563,7 +569,7 @@ func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetPa
 
 // ListProjects lists all projects
 func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
-	var listResponse types.ListResponse[models.Project]
+	var listResponse types.ListResponse[models.Project] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectList, params, &listResponse); err != nil {
 		return nil, err
 	}
@@ -577,7 +583,7 @@ func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDe
 
 // ListProjectInstances lists all instances for a project
 func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
-	var listResponse types.ListResponse[models.Instance]
+	var listResponse types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
 		return nil, err
 	}
@@ -588,7 +594,7 @@ func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.Pr
 
 // GetTask retrieves a task by name
 func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error) {
-	var task models.Task
+	var task models.Task // Use pkg/models.Task
 	if err := c.executeRPC(ctx, handlers.TaskGet, params, &task); err != nil {
 		return models.Task{}, err
 	}
@@ -597,7 +603,7 @@ func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) 
 
 // ListTasks lists all tasks
 func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
-	var listResponse types.ListResponse[models.Task]
+	var listResponse types.ListResponse[models.Task] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.TaskList, params, &listResponse); err != nil {
 		return nil, err
 	}
