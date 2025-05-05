@@ -73,6 +73,9 @@ type Options struct {
 
 	// Timeout is the request timeout
 	Timeout time.Duration
+
+	// APIKey is the API key for the API
+	APIKey string
 }
 
 // DefaultOptions returns the default client options
