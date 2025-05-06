@@ -109,6 +109,7 @@ func NewClient(opts *Options) (Client, error) {
 	}, nil
 }
 
+// SetAPIKey sets the API key for the client.
 func (c *APIClient) SetAPIKey(apiKey string) {
 	c.APIKey = apiKey
 }
