@@ -30,7 +30,6 @@ const (
 	// TaskActionUnknown              TaskAction = internalmodels.TaskActionUnknown // REMOVED - Not defined internally
 	TaskActionCreateInstances    TaskAction = internalmodels.TaskActionCreateInstances
 	TaskActionTerminateInstances TaskAction = internalmodels.TaskActionTerminateInstances
-	TaskActionDeleteUpload       TaskAction = internalmodels.TaskActionDeleteUpload
 )
 
 // Task represents a background task in the system (public alias).

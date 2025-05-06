@@ -42,7 +42,7 @@ func createTempDir(t *testing.T, name string) string {
 }
 
 // Helper function to create a base valid InstanceRequest for incremental testing
-func baseValidRequest(t *testing.T, payloadPath string, tarArchivePath string) InstanceRequest {
+func baseValidRequest(t *testing.T, payloadPath string) InstanceRequest {
 	t.Helper()
 	return InstanceRequest{
 		Name:              "valid-instance-name",
@@ -55,10 +55,9 @@ func baseValidRequest(t *testing.T, payloadPath string, tarArchivePath string) I
 		ProjectName:       "test-project",
 		SSHKeyName:        "test-key",
 		NumberOfInstances: 1,
-		Provision:         true, // Assume provision is true for payload/volume/tar tests initially
+		Provision:         true, // Assume provision is true for payload/volume tests initially
 		PayloadPath:       payloadPath,
 		ExecutePayload:    false,
-		TarArchivePath:    tarArchivePath,
 		Volumes: []VolumeConfig{
 			{
 				Name:       "test-volume",
@@ -70,78 +69,15 @@ func baseValidRequest(t *testing.T, payloadPath string, tarArchivePath string) I
 	}
 }
 
-func TestValidateUpload(t *testing.T) {
-	tempDir := createTempDir(t, "upload-dir")
-	validFile := createTempFile(t, "valid-upload.dat", maxUploadSize)
-	oversizeFile := createTempFile(t, "oversize-upload.dat", maxUploadSize+1)
-	nonexistentFile := filepath.Join(t.TempDir(), "nonexistent.dat") // Does not exist
-
-	tests := []struct {
-		name    string
-		path    string
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name:    "Valid file",
-			path:    validFile,
-			wantErr: false,
-		},
-		{
-			name:    "Error: Relative path",
-			path:    "not/absolute.dat",
-			wantErr: true,
-			errMsg:  "must be an absolute path",
-		},
-		{
-			name:    "Error: Path does not exist",
-			path:    nonexistentFile, // Absolute, non-existent
-			wantErr: true,
-			errMsg:  "file does not exist:",
-		},
-		{
-			name:    "Error: Path is a directory",
-			path:    tempDir,
-			wantErr: true,
-			errMsg:  "cannot be a directory",
-		},
-		{
-			name:    "Error: File size exceeds limit",
-			path:    oversizeFile,
-			wantErr: true,
-			errMsg:  "file size exceeds the limit of 2MB",
-		},
-		{
-			name:    "Error: Empty path",
-			path:    "",
-			wantErr: true,
-			errMsg:  "path is required",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateUpload(tt.path)
-			if tt.wantErr {
-				require.Error(t, err)
-				if tt.errMsg != "" {
-					require.True(t, strings.Contains(err.Error(), tt.errMsg),
-						fmt.Sprintf("Expected error message to contain '%s', but got: %s", tt.errMsg, err.Error()))
-				}
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
-
 func TestInstanceRequest_Validate(t *testing.T) {
 	// Create test artifacts once for all test cases
-	validPayloadFile := createTempFile(t, "valid-payload.sh", 100) // Use different sizes to differentiate
-	validTarFile := createTempFile(t, "valid-archive.tar.gz", 100)
+	tempDir := createTempDir(t, "payload-dir")
+	validPayloadFile := createTempFile(t, "valid-payload.sh", maxPayloadSize)
+	oversizePayloadFile := createTempFile(t, "oversize-payload.sh", maxPayloadSize+1)
+	nonexistentPayloadFile := filepath.Join(t.TempDir(), "nonexistent.sh") // Does not exist
 
-	// Base valid request to modify for failure cases - now takes two paths
-	baseReq := baseValidRequest(t, validPayloadFile, validTarFile)
+	// Base valid request to modify for failure cases
+	baseReq := baseValidRequest(t, validPayloadFile)
 
 	tests := []struct {
 		name    string
@@ -237,26 +173,60 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			errMsg:  "invalid volume configuration",
 		},
 
-		// --- Payload/Tar Archive and Provisioning Validations ---
+		// --- Payload Validations ---
 		{
-			name: "Error: PayloadPath present, Provision=false",
+			name: "Error: Payload path is relative",
 			request: func() InstanceRequest {
 				r := baseReq
-				r.PayloadPath = validPayloadFile
-				r.TarArchivePath = "" // Clear tar path for this test
-				r.Provision = false   // Invalid with payload
+				r.PayloadPath = "not/absolute.sh"
+				r.Provision = true // Ensure provision is true for payload tests
 				r.ExecutePayload = false
 				return r
 			}(),
 			wantErr: true,
-			errMsg:  "provision must be true when payload_path is provided",
+			errMsg:  "payload_path must be an absolute path",
+		},
+		{
+			name: "Error: Payload path does not exist",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = nonexistentPayloadFile // Absolute, non-existent
+				r.Provision = true
+				r.ExecutePayload = false
+				return r
+			}(),
+			wantErr: true,
+			errMsg:  "payload_path file does not exist:",
+		},
+		{
+			name: "Error: Payload path is a directory",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = tempDir
+				r.Provision = true
+				r.ExecutePayload = false
+				return r
+			}(),
+			wantErr: true,
+			errMsg:  "payload_path cannot be a directory",
+		},
+		{
+			name: "Error: Payload size exceeds limit",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.PayloadPath = oversizePayloadFile
+				r.Provision = true
+				r.ExecutePayload = false
+				return r
+			}(),
+			wantErr: true,
+			errMsg:  "payload file size exceeds the limit of 2MB",
 		},
 		{
 			name: "Error: ExecutePayload=true, PayloadPath empty",
 			request: func() InstanceRequest {
 				r := baseReq
 				r.PayloadPath = ""
-				r.TarArchivePath = "" // Clear tar path
 				r.Provision = true
 				r.ExecutePayload = true // Requires PayloadPath
 				return r
@@ -265,44 +235,16 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			errMsg:  "payload_path is required when execute_payload is true",
 		},
 		{
-			name: "Error: TarArchivePath present, Provision=false",
+			name: "Error: PayloadPath present, Provision=false",
 			request: func() InstanceRequest {
 				r := baseReq
-				r.PayloadPath = "" // Clear payload path
-				r.TarArchivePath = validTarFile
-				r.Provision = false // Invalid with tar archive
+				r.PayloadPath = validPayloadFile
+				r.Provision = false // Invalid with payload
 				r.ExecutePayload = false
 				return r
 			}(),
 			wantErr: true,
-			errMsg:  "provision must be true when tar_archive_path is provided",
-		},
-		// Specific path validity (existence, size, type) is tested in Test_validateUpload
-		// InstanceRequest.Validate calls validateUpload, so we trust that function works based on its tests.
-		// We just need to test the *logic* within InstanceRequest.Validate itself.
-		{
-			name: "Error: Invalid Payload Path (delegated check)",
-			request: func() InstanceRequest {
-				r := baseReq
-				r.PayloadPath = "relative/path.sh" // Let validateUpload handle the specific error
-				r.TarArchivePath = ""
-				r.Provision = true
-				return r
-			}(),
-			wantErr: true,
-			errMsg:  "invalid payload_path:", // Check that it reports the error comes from payload_path
-		},
-		{
-			name: "Error: Invalid Tar Archive Path (delegated check)",
-			request: func() InstanceRequest {
-				r := baseReq
-				r.PayloadPath = ""
-				r.TarArchivePath = "relative/archive.tar.gz" // Let validateUpload handle the specific error
-				r.Provision = true
-				return r
-			}(),
-			wantErr: true,
-			errMsg:  "invalid tar_archive_path:", // Check that it reports the error comes from tar_archive_path
+			errMsg:  "provision must be true when payload_path is provided",
 		},
 
 		// --- Action Validation ---
@@ -319,8 +261,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			request: func() InstanceRequest {
 				r := baseReq
 				r.Provision = false
-				r.PayloadPath = ""    // No payload
-				r.TarArchivePath = "" // No tar archive
+				r.PayloadPath = "" // No payload
 				r.ExecutePayload = false
 				return r
 			}(),
@@ -332,7 +273,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				r := baseReq
 				r.Provision = true
 				r.PayloadPath = validPayloadFile
-				r.TarArchivePath = "" // No tar archive
 				r.ExecutePayload = false
 				return r
 			}(),
@@ -344,45 +284,16 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				r := baseReq
 				r.Provision = true
 				r.PayloadPath = validPayloadFile
-				r.TarArchivePath = "" // No tar archive
 				r.ExecutePayload = true
 				return r
 			}(),
 			wantErr: false,
 		},
 		{
-			name: "Valid: Request with tar archive only (provision=true)",
-			request: func() InstanceRequest {
-				r := baseReq
-				r.Provision = true
-				r.PayloadPath = "" // No payload
-				r.TarArchivePath = validTarFile
-				r.ExecutePayload = false
-				return r
-			}(),
+			name:    "Valid: Full base request (already tested implicitly)",
+			request: baseReq,
 			wantErr: false,
 		},
-		{
-			name: "Valid: Request with both payload and tar archive (provision=true)",
-			request: func() InstanceRequest {
-				r := baseReq // Already has both paths
-				r.Provision = true
-				r.ExecutePayload = false // Can't execute tar
-				return r
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "Valid: Full base request (with payload and tar, execute=false)",
-			request: func() InstanceRequest {
-				r := baseReq             // baseReq now includes both valid paths
-				r.ExecutePayload = false // Explicitly set for clarity
-				return r
-			}(),
-			wantErr: false,
-		},
-		// Note: The baseReq function initializes with valid payload and tar paths.
-		// Individual test cases modify it as needed.
 	}
 
 	for _, tt := range tests {
@@ -398,10 +309,10 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				if tt.errMsg != "" {
 					// Use Contains because some error messages might include dynamic paths or wrap underlying errors
 					require.True(t, strings.Contains(err.Error(), tt.errMsg),
-						fmt.Sprintf("Test '%s': Expected error message to contain '%s', but got: %s", tt.name, tt.errMsg, err.Error()))
+						fmt.Sprintf("Expected error message to contain '%s', but got: %s", tt.errMsg, err.Error()))
 				}
 			} else {
-				require.NoError(t, err, fmt.Sprintf("Test '%s': Expected no error, but got: %v", tt.name, err))
+				require.NoError(t, err, fmt.Sprintf("Expected no error, but got: %v", err))
 
 				// Specific post-validation checks for non-error cases
 				if tt.name == "Check: ssh_key_name lowercased" {

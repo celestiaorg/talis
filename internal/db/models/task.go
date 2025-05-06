@@ -50,8 +50,6 @@ const (
 	TaskActionCreateInstances TaskAction = "create_instances"
 	// TaskActionTerminateInstances represents the action to terminate instances.
 	TaskActionTerminateInstances TaskAction = "terminate_instances"
-	// TaskActionDeleteUpload represents the action to delete uploaded files.
-	TaskActionDeleteUpload TaskAction = "delete_upload"
 )
 
 // Task represents an asynchronous operation that can be tracked
@@ -132,7 +130,7 @@ func (t *Task) Validate() error {
 
 	// Validate Action field
 	switch t.Action {
-	case TaskActionCreateInstances, TaskActionTerminateInstances, TaskActionDeleteUpload:
+	case TaskActionCreateInstances, TaskActionTerminateInstances:
 		// Valid actions
 	default:
 		return fmt.Errorf("invalid task action: %s", t.Action)

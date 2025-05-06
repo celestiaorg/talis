@@ -2,16 +2,11 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -114,30 +109,9 @@ func NewClient(opts *Options) (Client, error) {
 	}, nil
 }
 
-// SetAPIKey sets the API key to be used in request headers
+// SetAPIKey sets the API key for the client.
 func (c *APIClient) SetAPIKey(apiKey string) {
 	c.APIKey = apiKey
-}
-
-// addFileToMultipart adds a file to the multipart writer.
-// The form field name will be the same as the clientFilePath.
-func addFileToMultipart(writer *multipart.Writer, clientFilePath string) error {
-	file, err := os.Open(filepath.Clean(clientFilePath)) // Use filepath.Clean
-	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", clientFilePath, err)
-	}
-	defer func() { _ = file.Close() }() // Ignore close error
-
-	part, err := writer.CreateFormFile(clientFilePath, filepath.Base(clientFilePath))
-	if err != nil {
-		return fmt.Errorf("failed to create form file for %s: %w", clientFilePath, err)
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("failed to copy file content for %s: %w", clientFilePath, err)
-	}
-
-	return nil
 }
 
 // createAgent creates a new Fiber Agent for the given method and endpoint
@@ -306,38 +280,6 @@ func (c *APIClient) executeRPC(ctx context.Context, method string, params interf
 	return nil
 }
 
-// executeMultipartRequest handles sending a multipart/form-data request.
-// It takes the prepared multipart writer and body buffer.
-func (c *APIClient) executeMultipartRequest(ctx context.Context, endpoint string, writer *multipart.Writer, body *bytes.Buffer, response interface{}) error {
-	// Resolve the full URL
-	fullURL := c.baseURL + endpoint
-
-	// Create Fiber agent for the POST request using the full URL
-	agent := fiber.Post(fullURL)
-
-	// Set timeout
-	if deadline, ok := ctx.Deadline(); ok {
-		agent.Timeout(time.Until(deadline))
-	} else {
-		agent.Timeout(c.timeout)
-	}
-
-	// Set headers for multipart/form-data
-	agent.Set("Content-Type", writer.FormDataContentType())
-	agent.Set("Accept", "application/json")
-
-	// Add API key header if set
-	if c.APIKey != "" {
-		agent.Set("apikey", c.APIKey)
-	}
-
-	// Set the request body
-	agent.Body(body.Bytes())
-
-	// Execute the request using doRequest
-	return c.doRequest(agent, response)
-}
-
 // Admin methods implementation
 
 // AdminGetInstances retrieves all instances
@@ -484,50 +426,7 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance
 // CreateInstance creates a new instance
 func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) error {
 	endpoint := routes.CreateInstanceURL()
-
-	// Create multipart body
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// 1. Marshal the instance request slice to JSON
-	reqDataJSON, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal instance request data: %w", err)
-	}
-
-	// 2. Add the JSON data as a form field "request_data"
-	if err := writer.WriteField("request_data", string(reqDataJSON)); err != nil {
-		return fmt.Errorf("failed to write request_data field: %w", err)
-	}
-
-	// 3. Add files specified in the requests
-	uploadedFiles := make(map[string]bool) // Track files already added
-	for _, r := range req {
-		// Add PayloadPath file if specified and not already added
-		if r.PayloadPath != "" && !uploadedFiles[r.PayloadPath] {
-			if err := addFileToMultipart(writer, r.PayloadPath); err != nil {
-				return fmt.Errorf("failed to add payload file %s: %w", r.PayloadPath, err)
-			}
-			uploadedFiles[r.PayloadPath] = true
-		}
-
-		// Add TarArchivePath file if specified and not already added
-		if r.TarArchivePath != "" && !uploadedFiles[r.TarArchivePath] {
-			if err := addFileToMultipart(writer, r.TarArchivePath); err != nil {
-				return fmt.Errorf("failed to add tar archive file %s: %w", r.TarArchivePath, err)
-			}
-			uploadedFiles[r.TarArchivePath] = true
-		}
-	}
-
-	// Close the multipart writer (important! This finalizes the body)
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	// Use the dedicated multipart helper
-	// Pass nil for response as CreateInstance doesn't expect a specific body back
-	return c.executeMultipartRequest(ctx, endpoint, writer, body, nil)
+	return c.executeRequest(ctx, http.MethodPost, endpoint, req, nil)
 }
 
 // DeleteInstances deletes instances by ID (renamed from DeleteInstance)
