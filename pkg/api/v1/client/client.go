@@ -71,17 +71,18 @@ type Options struct {
 	// BaseURL is the base URL of the API
 	BaseURL string
 
+	// APIKey is the API key for authentication
+	APIKey string
+
 	// Timeout is the request timeout
 	Timeout time.Duration
-
-	// APIKey is the API key for the API
-	APIKey string
 }
 
 // DefaultOptions returns the default client options
 func DefaultOptions() *Options {
 	return &Options{
 		BaseURL: routes.DefaultBaseURL,
+		APIKey:  "",
 		Timeout: DefaultTimeout,
 	}
 }
@@ -91,6 +92,7 @@ type APIClient struct {
 	baseURL   string
 	timeout   time.Duration
 	AuthToken string
+	APIKey    string
 }
 
 // NewClient creates a new API client with the given options
@@ -107,8 +109,14 @@ func NewClient(opts *Options) (Client, error) {
 
 	return &APIClient{
 		baseURL: opts.BaseURL,
+		APIKey:  opts.APIKey,
 		timeout: opts.Timeout,
 	}, nil
+}
+
+// SetAPIKey sets the API key to be used in request headers
+func (c *APIClient) SetAPIKey(apiKey string) {
+	c.APIKey = apiKey
 }
 
 // addFileToMultipart adds a file to the multipart writer.
@@ -164,6 +172,11 @@ func (c *APIClient) createAgent(ctx context.Context, method, endpoint string, bo
 	// Set common headers
 	agent.Set("Content-Type", "application/json")
 	agent.Set("Accept", "application/json")
+
+	// Add API key header if set
+	if c.APIKey != "" {
+		agent.Set("apikey", c.APIKey)
+	}
 
 	// Add body if provided
 	if body != nil {
@@ -312,6 +325,11 @@ func (c *APIClient) executeMultipartRequest(ctx context.Context, endpoint string
 	// Set headers for multipart/form-data
 	agent.Set("Content-Type", writer.FormDataContentType())
 	agent.Set("Accept", "application/json")
+
+	// Add API key header if set
+	if c.APIKey != "" {
+		agent.Set("apikey", c.APIKey)
+	}
 
 	// Set the request body
 	agent.Body(body.Bytes())
