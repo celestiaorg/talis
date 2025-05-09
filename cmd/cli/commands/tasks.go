@@ -8,18 +8,23 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
+	"github.com/celestiaorg/talis/pkg/db/models"
 )
 
 // Task flag names
 const (
-	flagTaskName    = "name" // Reusing "name" constant from projects if applicable, or define separately
+	flagTaskID      = "id"
 	flagProjectName = "project"
 	flagTaskPage    = "page"
+	flagInstanceID  = "instance-id"
+	flagTaskAction  = "action"
+	flagTaskLimit   = "limit"
+	flagTaskOffset  = "offset"
 )
 
 // taskOutput represents the filtered output for a task
 type taskOutput struct {
-	Name    string `json:"name"`
+	ID      uint   `json:"id"`
 	Status  string `json:"status"`
 	Action  string `json:"action"`
 	Logs    string `json:"logs,omitempty"`
@@ -36,25 +41,27 @@ func init() {
 	tasksCmd.AddCommand(getTaskCmd)
 	tasksCmd.AddCommand(listTasksCmd)
 	tasksCmd.AddCommand(terminateTaskCmd)
+	tasksCmd.AddCommand(listInstanceTasksCmd)
 
 	// Add flags for get
-	getTaskCmd.Flags().StringP(flagTaskName, "n", "", "Task name")
-	if err := getTaskCmd.MarkFlagRequired(flagTaskName); err != nil {
-		panic(fmt.Errorf("failed to mark name flag as required for get task command: %w", err))
-	}
+	getTaskCmd.Flags().UintP(flagTaskID, "i", 0, "Task ID")
+	_ = getTaskCmd.MarkFlagRequired(flagTaskID)
 
 	// Add flags for list
 	listTasksCmd.Flags().StringP(flagProjectName, "p", "", "Project name")
 	listTasksCmd.Flags().IntP(flagTaskPage, "g", 1, "Page number for pagination") // Default is 1
-	if err := listTasksCmd.MarkFlagRequired(flagProjectName); err != nil {
-		panic(fmt.Errorf("failed to mark project flag as required for list tasks command: %w", err))
-	}
+	_ = listTasksCmd.MarkFlagRequired(flagProjectName)
 
 	// Add flags for terminate
-	terminateTaskCmd.Flags().StringP(flagTaskName, "n", "", "Task name")
-	if err := terminateTaskCmd.MarkFlagRequired(flagTaskName); err != nil {
-		panic(fmt.Errorf("failed to mark name flag as required for terminate task command: %w", err))
-	}
+	terminateTaskCmd.Flags().UintP(flagTaskID, "i", 0, "Task ID")
+	_ = terminateTaskCmd.MarkFlagRequired(flagTaskID)
+
+	// Add flags for list-instance-tasks
+	listInstanceTasksCmd.Flags().UintP(flagInstanceID, "I", 0, "Instance ID to list tasks for")
+	listInstanceTasksCmd.Flags().StringP(flagTaskAction, "a", "", "Filter tasks by action (e.g., create_instances, terminate_instances)")
+	listInstanceTasksCmd.Flags().Int(flagTaskLimit, 0, "Limit the number of tasks returned")
+	listInstanceTasksCmd.Flags().Int(flagTaskOffset, 0, "Offset for paginating tasks")
+	_ = listInstanceTasksCmd.MarkFlagRequired(flagInstanceID)
 }
 
 var tasksCmd = &cobra.Command{
@@ -64,33 +71,33 @@ var tasksCmd = &cobra.Command{
 
 var getTaskCmd = &cobra.Command{
 	Use:   "get",
-	Short: "Get a specific task",
+	Short: "Get a specific task by its ID",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		name, err := cmd.Flags().GetString(flagTaskName)
+		taskID, err := cmd.Flags().GetUint(flagTaskID)
 		if err != nil {
-			return fmt.Errorf("error getting name flag: %w", err)
+			return fmt.Errorf("error getting task ID flag: %w", err)
+		}
+		if taskID == 0 {
+			return fmt.Errorf("task ID must be a positive number")
 		}
 
-		// Convert ownerID to uint
 		ownerID, err := getOwnerID(cmd)
 		if err != nil {
 			return fmt.Errorf("error getting owner_id: %w", err)
 		}
 
 		params := handlers.TaskGetParams{
-			TaskName: name,
-			OwnerID:  ownerID,
+			TaskID:  taskID,
+			OwnerID: ownerID,
 		}
 
-		// Call the API client
 		task, err := apiClient.GetTask(context.Background(), params)
 		if err != nil {
 			return fmt.Errorf("error getting task: %w", err)
 		}
 
-		// Filter the response to only include relevant fields
 		output := taskOutput{
-			Name:    task.Name,
+			ID:      task.ID,
 			Status:  string(task.Status),
 			Action:  string(task.Action),
 			Logs:    task.Logs,
@@ -98,7 +105,6 @@ var getTaskCmd = &cobra.Command{
 			Created: task.CreatedAt.Format("2006-01-02 15:04:05"),
 		}
 
-		// Pretty print the response
 		prettyJSON, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error formatting response: %w", err)
@@ -133,27 +139,25 @@ var listTasksCmd = &cobra.Command{
 			OwnerID:     ownerID,
 		}
 
-		// Call the API client
 		tasks, err := apiClient.ListTasks(context.Background(), params)
 		if err != nil {
 			return fmt.Errorf("error listing tasks: %w", err)
 		}
 
-		// Filter the response to only include relevant fields
 		output := taskListOutput{
 			Tasks: make([]taskOutput, len(tasks)),
 		}
 		for i, task := range tasks {
 			output.Tasks[i] = taskOutput{
-				Name:    task.Name,
+				ID:      task.ID,
 				Status:  string(task.Status),
 				Action:  string(task.Action),
+				Logs:    task.Logs,
 				Error:   task.Error,
 				Created: task.CreatedAt.Format("2006-01-02 15:04:05"),
 			}
 		}
 
-		// Pretty print the response
 		prettyJSON, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return fmt.Errorf("error formatting response: %w", err)
@@ -165,11 +169,14 @@ var listTasksCmd = &cobra.Command{
 
 var terminateTaskCmd = &cobra.Command{
 	Use:   "terminate",
-	Short: "Terminate a running task",
+	Short: "Terminate a running task by its ID",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		name, err := cmd.Flags().GetString(flagTaskName)
+		taskID, err := cmd.Flags().GetUint(flagTaskID)
 		if err != nil {
-			return fmt.Errorf("error getting name flag: %w", err)
+			return fmt.Errorf("error getting task ID flag: %w", err)
+		}
+		if taskID == 0 {
+			return fmt.Errorf("task ID must be a positive number")
 		}
 
 		ownerID, err := getOwnerID(cmd)
@@ -178,16 +185,78 @@ var terminateTaskCmd = &cobra.Command{
 		}
 
 		params := handlers.TaskTerminateParams{
-			TaskName: name,
-			OwnerID:  ownerID,
+			TaskID:  taskID,
+			OwnerID: ownerID,
 		}
 
-		// Call the API client
 		if err := apiClient.TerminateTask(context.Background(), params); err != nil {
 			return fmt.Errorf("error terminating task: %w", err)
 		}
 
-		fmt.Printf("Task '%s' termination request submitted successfully\n", name)
+		fmt.Printf("Task ID %d termination request submitted successfully\n", taskID)
+		return nil
+	},
+}
+
+var listInstanceTasksCmd = &cobra.Command{
+	Use:   "list-by-instance",
+	Short: "List tasks for a specific instance ID, with optional action filter and pagination",
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		instanceID, err := cmd.Flags().GetUint(flagInstanceID)
+		if err != nil {
+			return fmt.Errorf("error getting instance ID flag: %w", err)
+		}
+		if instanceID == 0 {
+			return fmt.Errorf("instance ID must be a positive number")
+		}
+
+		actionFilter, _ := cmd.Flags().GetString(flagTaskAction)
+		limit, _ := cmd.Flags().GetInt(flagTaskLimit)
+		offset, _ := cmd.Flags().GetInt(flagTaskOffset)
+
+		listOpts := &models.ListOptions{
+			Limit:  limit,
+			Offset: offset,
+		}
+
+		ownerID, err := getOwnerID(cmd)
+		if err != nil {
+			return fmt.Errorf("error getting owner_id: %w", err)
+		}
+
+		tasks, err := apiClient.ListTasksByInstanceID(context.Background(), ownerID, instanceID, actionFilter, listOpts)
+		if err != nil {
+			return fmt.Errorf("error listing tasks by instance ID: %w", err)
+		}
+
+		if len(tasks) == 0 {
+			fmt.Printf("No tasks found for instance ID %d", instanceID)
+			if actionFilter != "" {
+				fmt.Printf(" with action '%s'", actionFilter)
+			}
+			fmt.Println(".")
+			return nil
+		}
+
+		output := taskListOutput{
+			Tasks: make([]taskOutput, len(tasks)),
+		}
+		for i, task := range tasks {
+			output.Tasks[i] = taskOutput{
+				ID:      task.ID,
+				Status:  string(task.Status),
+				Action:  string(task.Action),
+				Logs:    task.Logs,
+				Error:   task.Error,
+				Created: task.CreatedAt.Format("2006-01-02 15:04:05"),
+			}
+		}
+
+		prettyJSON, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return fmt.Errorf("error formatting response: %w", err)
+		}
+		fmt.Println(string(prettyJSON))
 		return nil
 	},
 }

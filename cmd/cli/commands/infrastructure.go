@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/spf13/cobra"
@@ -45,56 +46,69 @@ var createInfraCmd = &cobra.Command{
 			return fmt.Errorf("error reading JSON file: %w", err)
 		}
 
-		var req []types.InstanceRequest
-		if err := json.Unmarshal(data, &req); err != nil {
+		var instanceReqs []types.InstanceRequest
+		if err := json.Unmarshal(data, &instanceReqs); err != nil {
 			return fmt.Errorf("error parsing JSON file: %w", err)
 		}
 
 		// Validate that instances array is not empty
-		if len(req) == 0 {
-			return fmt.Errorf("no instances specified in the JSON file")
+		if len(instanceReqs) == 0 {
+			return fmt.Errorf("no instances specified in the JSON file, the file should contain an array of instance requests")
 		}
 
 		// Call the API client to create the infrastructure
-		if err := apiClient.CreateInstance(context.Background(), req); err != nil {
+		createdInstances, err := apiClient.CreateInstance(context.Background(), instanceReqs)
+		if err != nil {
 			return fmt.Errorf("error creating infrastructure: %w", err)
 		}
 
-		fmt.Println("Infrastructure creation request submitted successfully")
+		if len(createdInstances) == 0 {
+			// If TaskIDs were present, include them in the message.
+			fmt.Println("Infrastructure creation request submitted, but no instance details were immediately returned. Task information is no longer part of this direct response.")
+			return nil
+		}
 
-		// Create the delete request
-		deleteReq := types.DeleteInstancesRequest{
-			OwnerID:     req[0].OwnerID,
-			ProjectName: req[0].ProjectName,
-			InstanceNames: func() []string {
-				names := make([]string, 0)
-				for _, instance := range req {
-					// If no specific name, use the base name pattern
-					for i := 0; i < instance.NumberOfInstances; i++ {
-						names = append(names, fmt.Sprintf("%s-%d", instance.Name, i))
-					}
+		fmt.Println("Infrastructure creation request submitted successfully.")
+
+		// Generate delete file
+		instanceIDs := make([]uint, 0, len(createdInstances))
+		for _, inst := range createdInstances {
+			if inst.ID != 0 { // Make sure we have an ID
+				instanceIDs = append(instanceIDs, inst.ID)
+			}
+		}
+
+		if len(instanceIDs) > 0 {
+			// Assume all instance requests in the input file share the same ProjectName and OwnerID
+			// This was an implicit assumption in the previous name-based delete file generation as well.
+			projectName := instanceReqs[0].ProjectName
+			ownerID := instanceReqs[0].OwnerID
+
+			deleteReq := types.DeleteInstancesRequest{
+				OwnerID:     ownerID,
+				ProjectName: projectName,
+				InstanceIDs: instanceIDs,
+			}
+
+			deleteFileName := fmt.Sprintf("delete-%s-%d.json", projectName, time.Now().Unix())
+			deleteFilePath := filepath.Join(filepath.Dir(jsonFile), deleteFileName) // Create in the same dir as input a.json
+
+			deleteFileContent, err := json.MarshalIndent(deleteReq, "", "  ")
+			if err != nil {
+				// Log an error but don't fail the command execution as instance creation was successful
+				fmt.Fprintf(os.Stderr, "Warning: successfully created instances but failed to generate delete file: %v\n", err)
+			} else {
+				if err := os.WriteFile(deleteFilePath, deleteFileContent, 0644); err != nil { //nolint:gosec
+					fmt.Fprintf(os.Stderr, "Warning: successfully created instances but failed to write delete file '%s': %v\n", deleteFilePath, err)
+				} else {
+					fmt.Printf("Successfully created instances. A delete file has been generated: %s\n", deleteFilePath)
+					fmt.Println("You can use this file with 'talis infra delete -f <filename>' to terminate these instances.")
 				}
-				return names
-			}(),
+			}
+		} else {
+			fmt.Println("No instance IDs returned, delete file not generated. This might happen if instance creation is still pending.")
 		}
 
-		// Generate the delete file name based on the create file name
-		baseFileName := filepath.Base(jsonFile)
-		deleteFileName := fmt.Sprintf("delete_%s", baseFileName)
-		deleteFilePath := filepath.Join(filepath.Dir(jsonFile), deleteFileName)
-
-		// Marshal the delete request to JSON
-		deleteJSON, err := json.MarshalIndent(deleteReq, "", "  ")
-		if err != nil {
-			return fmt.Errorf("error generating delete file: %w", err)
-		}
-
-		// Write the delete file
-		if err := os.WriteFile(deleteFilePath, deleteJSON, 0600); err != nil {
-			return fmt.Errorf("error writing delete file: %w", err)
-		}
-
-		fmt.Printf("Delete file generated: %s (with project name: %s)\n", deleteFilePath, deleteReq.ProjectName)
 		return nil
 	},
 }

@@ -111,17 +111,19 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		}
 	}
 
-	taskNames, err := h.instance.CreateInstance(c.Context(), instanceReqs)
+	// createdInstances, taskIDs, err := h.instance.CreateInstance(c.Context(), instanceReqs) // Old call
+	createdInstances, err := h.instance.CreateInstance(c.Context(), instanceReqs) // New call
 	if err != nil {
+		// Even if there's an error (e.g., task creation failed after instances were made),
+		// the service layer might return createdInstances if some were made before the error.
+		// However, for simplicity from the handler's perspective, if an error is returned by the service,
+		// we treat it as an overall failure for this request.
 		return c.Status(fiber.StatusInternalServerError).
 			JSON(types.ErrServer(err.Error()))
 	}
 
 	return c.Status(fiber.StatusCreated).
-		JSON(types.Success(
-			ResponseWithTaskNames{
-				TaskNames: taskNames,
-			}))
+		JSON(types.Success(createdInstances))
 }
 
 // GetPublicIPs returns a list of public IPs for all instances
@@ -254,13 +256,13 @@ func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 			JSON(types.ErrInvalidInput(err.Error()))
 	}
 
-	if deleteReq.ProjectName == "" || len(deleteReq.InstanceNames) == 0 {
+	if deleteReq.ProjectName == "" || len(deleteReq.InstanceIDs) == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "project name and instance names are required",
+			"error": "project name and instance IDs are required",
 		})
 	}
 
-	err := h.instance.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceNames)
+	err := h.instance.Terminate(c.Context(), deleteReq.OwnerID, deleteReq.ProjectName, deleteReq.InstanceIDs)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to terminate instances: %v", err),

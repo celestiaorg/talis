@@ -4,16 +4,16 @@ import (
 	"context"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/db/repos"
+	// "github.com/celestiaorg/talis/internal/db/repos" // No longer directly needed
 )
 
 // Project handles project-related operations
 type Project struct {
-	repo *repos.ProjectRepository
+	repo ProjectRepositoryInterface // Changed to interface
 }
 
 // NewProjectService creates a new instance of ProjectService
-func NewProjectService(repo *repos.ProjectRepository) *Project {
+func NewProjectService(repo ProjectRepositoryInterface) *Project { // Changed to interface
 	return &Project{
 		repo: repo,
 	}

@@ -280,7 +280,8 @@ func (p *DigitalOceanProvider) CreateInstance(
 		return fmt.Errorf("client not initialized")
 	}
 
-	logger.Debugf("🚀 Creating DigitalOcean droplet(s): %s", config.Name)
+	// Log based on ProjectName as instance Name is removed
+	logger.Debugf("🚀 Creating DigitalOcean droplet(s) for project: %s", config.ProjectName)
 	logger.Debugf("  Region: %s", config.Region)
 	logger.Debugf("  Size: %s", config.Size)
 	logger.Debugf("  Image: %s", config.Image)
@@ -302,8 +303,10 @@ func (p *DigitalOceanProvider) createDropletRequest(
 	config *talisTypes.InstanceRequest,
 	sshKeyID int,
 ) *godo.DropletCreateRequest {
+	// Generate a name for the DO droplet using ProjectName instead of the removed Name
+	dropletName := fmt.Sprintf("%s-%s", config.ProjectName, generateRandomSuffix())
 	return &godo.DropletCreateRequest{
-		Name:   config.Name,
+		Name:   dropletName,
 		Region: config.Region,
 		Size:   config.Size,
 		Image: godo.DropletCreateImage{
@@ -312,7 +315,7 @@ func (p *DigitalOceanProvider) createDropletRequest(
 		SSHKeys: []godo.DropletCreateSSHKey{
 			{ID: sshKeyID},
 		},
-		Tags: append([]string{config.Name}, config.Tags...),
+		Tags: append([]string{dropletName}, config.Tags...),
 		UserData: fmt.Sprintf(`#!/bin/bash
 apt-get update
 apt-get install -y python3
@@ -335,6 +338,9 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 
 	// Create droplet
 	createRequest := p.createDropletRequest(config, sshKeyID)
+	logger.Debugf("  Sending droplet creation request: %+v", createRequest)
+	logger.Debugf("📝 Initiated instance creation for project: %s", config.ProjectName)
+
 	droplet, _, err := p.doClient.Droplets().Create(ctx, createRequest)
 	if err != nil {
 		logger.Errorf("❌ Failed to create droplet: %v", err)
@@ -367,7 +373,7 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 		config.VolumeDetails = volumeDetails
 	}
 
-	logger.Debugf("📝 Created instance from config: %+v", config)
+	logger.Infof("✅ Droplet '%s' (ID: %d) created successfully. Waiting for IP...", createRequest.Name, droplet.ID)
 	return nil
 }
 
@@ -460,20 +466,17 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 
 	logger.Debugf("📦 Creating and attaching volumes for droplet %d", dropletID)
 
-	for _, vol := range config.Volumes {
-		// Generate unique volume name with random suffix
-		suffix := generateRandomSuffix()
-		volumeName := fmt.Sprintf("%s-%s", vol.Name, suffix)
-
-		// Create volume in the same region as the instance
-		logger.Debugf("📦 Creating volume %s with size %dGiB in region %s", volumeName, vol.SizeGB, config.Region)
+	for _, volConfig := range config.Volumes {
+		// Generate a name for the DO volume using ProjectName and VolumeConfig Name
+		volName := fmt.Sprintf("%s-%s-%s", config.ProjectName, volConfig.Name, generateRandomSuffix())
 		createRequest := &godo.VolumeCreateRequest{
-			Name:          volumeName,
+			Name:          volName,
 			Region:        config.Region,
-			SizeGigaBytes: int64(vol.SizeGB),
-			Description:   fmt.Sprintf("Volume for instance %s", config.Name),
+			SizeGigaBytes: int64(volConfig.SizeGB),
+			Description:   fmt.Sprintf("Volume for project %s", config.ProjectName),
 		}
 
+		logger.Debugf("  Sending volume creation request: %+v", createRequest)
 		volume, resp, err := p.doClient.Storage().CreateVolume(ctx, createRequest)
 		if err != nil {
 			// Check if error is due to volume already existing
@@ -482,17 +485,17 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 				continue
 			}
 			logger.Errorf("❌ Failed to create volume: %v (Response: %+v)", err, resp)
-			return nil, nil, fmt.Errorf("failed to create volume %s: %w", volumeName, err)
+			return nil, nil, fmt.Errorf("failed to create volume %s: %w", volName, err)
 		}
-		logger.Debugf("✅ Volume created successfully: %s (ID: %s)", volumeName, volume.ID)
+		logger.Debugf("✅ Volume created successfully: %s (ID: %s)", volName, volume.ID)
 
 		// Store volume details
 		volumeDetail := talisTypes.VolumeDetails{
 			ID:         volume.ID,
 			Name:       volume.Name,
 			Region:     volume.Region.Slug,
-			SizeGB:     vol.SizeGB,
-			MountPoint: vol.MountPoint,
+			SizeGB:     volConfig.SizeGB,
+			MountPoint: volConfig.MountPoint,
 		}
 		volumeDetails = append(volumeDetails, volumeDetail)
 		volumeIDs = append(volumeIDs, volume.ID)
@@ -521,7 +524,7 @@ func (p *DigitalOceanProvider) createAndAttachVolumes(
 			} else {
 				logger.Debugf("✅ Successfully deleted volume %s after attachment failure", volume.ID)
 			}
-			return nil, nil, fmt.Errorf("failed to attach volume %s: %w", volumeName, err)
+			return nil, nil, fmt.Errorf("failed to attach volume %s: %w", volName, err)
 		}
 
 		// Wait for volume to be attached

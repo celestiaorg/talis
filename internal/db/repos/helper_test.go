@@ -86,7 +86,6 @@ func (s *DBRepositoryTestSuite) randomInstanceForOwner(ownerID uint) *models.Ins
 	return &models.Instance{
 		OwnerID:    ownerID,
 		ProviderID: models.ProviderDO,
-		Name:       "test-instance",
 		PublicIP:   "192.0.2.1",
 		Region:     "nyc1",
 		Size:       "s-1vcpu-1gb",
@@ -103,7 +102,8 @@ func (s *DBRepositoryTestSuite) createTestInstance() *models.Instance {
 
 func (s *DBRepositoryTestSuite) createTestInstanceForOwner(ownerID uint) *models.Instance {
 	instance := s.randomInstanceForOwner(ownerID)
-	err := s.instanceRepo.Create(s.ctx, instance)
+	var err error
+	_, err = s.instanceRepo.Create(s.ctx, instance)
 	s.Require().NoError(err)
 	return instance
 }
@@ -148,18 +148,21 @@ func (s *DBRepositoryTestSuite) createTestTask() *models.Task {
 	return s.createTestTaskForProject(project.OwnerID, project.ID)
 }
 
-func (s *DBRepositoryTestSuite) randomTask(ownerID, projectID uint) *models.Task {
-	return &models.Task{
-		Name:      fmt.Sprintf("test-task-%v", s.randomOwnerID()),
+func (s *DBRepositoryTestSuite) randomTask(ownerID, projectID uint, instanceID ...uint) *models.Task {
+	task := &models.Task{
 		ProjectID: projectID,
 		OwnerID:   ownerID,
 		Status:    models.TaskStatusPending,
 		Action:    models.TaskActionCreateInstances,
 	}
+	if len(instanceID) > 0 && instanceID[0] > 0 {
+		task.InstanceID = instanceID[0]
+	}
+	return task
 }
 
-func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint) *models.Task {
-	task := s.randomTask(ownerID, projectID)
+func (s *DBRepositoryTestSuite) createTestTaskForProject(ownerID, projectID uint, instanceID ...uint) *models.Task {
+	task := s.randomTask(ownerID, projectID, instanceID...)
 	err := s.taskRepo.Create(s.ctx, task)
 	s.Require().NoError(err)
 	return task

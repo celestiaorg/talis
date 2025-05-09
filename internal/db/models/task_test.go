@@ -121,7 +121,6 @@ func TestTask_Validation(t *testing.T) {
 			UpdatedAt: now,
 		},
 		ProjectID:   1,
-		Name:        "test-task",
 		Status:      TaskStatusPending,
 		Result:      result,
 		Error:       "",
@@ -141,7 +140,6 @@ func TestTask_Validation(t *testing.T) {
 		// Verify fields were correctly marshaled/unmarshaled
 		// Don't compare ID or ProjectID as they're not included in marshaled output
 		// ProjectID has json:"-" tag
-		assert.Equal(t, validTask.Name, unmarshaledTask.Name)
 		assert.Equal(t, validTask.Status, unmarshaledTask.Status)
 
 		// Compare Result by unmarshaling to map to ignore formatting differences
