@@ -19,5 +19,17 @@ type ListResponse[T any] struct {
 // NOTE: We alias the internal type directly here as it's generic enough.
 type SlugResponse = internaltypes.SlugResponse
 
+// Slug is a type alias for internaltypes.Slug.
+type Slug = internaltypes.Slug
+
+// Slug constants (public aliases)
+const (
+	SuccessSlug      Slug = internaltypes.SuccessSlug
+	ErrorSlug        Slug = internaltypes.ErrorSlug
+	InvalidInputSlug Slug = internaltypes.InvalidInputSlug
+	ServerErrorSlug  Slug = internaltypes.ServerErrorSlug
+	NotFoundSlug     Slug = internaltypes.NotFoundSlug
+)
+
 // TaskResponse represents the detailed response for a task operation (public alias).
 type TaskResponse = internaltypes.TaskResponse

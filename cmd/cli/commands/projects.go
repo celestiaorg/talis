@@ -266,7 +266,7 @@ var listProjectInstancesCmd = &cobra.Command{
 
 		// Create a simplified output structure
 		type instanceOutput struct {
-			Name     string `json:"name"`
+			ID       uint   `json:"id"`
 			Status   string `json:"status"`
 			PublicIP string `json:"public_ip,omitempty"`
 			Region   string `json:"region"`
@@ -281,7 +281,7 @@ var listProjectInstancesCmd = &cobra.Command{
 
 		for i, instance := range instances {
 			output.Instances[i] = instanceOutput{
-				Name:     instance.Name,
+				ID:       instance.ID,
 				Status:   instance.Status.String(),
 				PublicIP: instance.PublicIP,
 				Region:   instance.Region,

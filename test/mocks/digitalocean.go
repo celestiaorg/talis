@@ -30,7 +30,9 @@ func (c *MockDOClient) ConfigureProvider(_ interface{}) error {
 
 // CreateInstance is a mock implementation of the CreateInstance method
 func (c *MockDOClient) CreateInstance(ctx context.Context, config *talisTypes.InstanceRequest) error {
-	dropletName := fmt.Sprintf("%s-0", config.Name)
+	// config.Name is no longer available. Generate a mock droplet name using ProjectName.
+	// For actual DO, uniqueness per account/region is needed. For mock, this might be sufficient.
+	dropletName := fmt.Sprintf("%s-mock-droplet-test-0", config.ProjectName)
 	createRequest := createDropletRequest(dropletName, *config, DefaultKeyID1)
 	_, _, err := c.MockDropletService.Create(ctx, createRequest)
 	if err != nil {

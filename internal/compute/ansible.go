@@ -80,8 +80,9 @@ func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, t
 
 	// Write all instances using data from InstanceRequest
 	// Start base line with name, host, user, and key
+	// Using PublicIP as the host identifier since Name is removed.
 	line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s",
-		instance.Name, instance.PublicIP, talisSSHKeyPath)
+		instance.PublicIP, instance.PublicIP, talisSSHKeyPath)
 
 	// Add payload variables directly from InstanceRequest
 	payloadPresent := instance.PayloadPath != ""
@@ -98,7 +99,8 @@ func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, t
 	line += "\n"
 
 	if _, err := f.WriteString(line); err != nil {
-		return "", fmt.Errorf("failed to write instance '%s' to inventory: %w", instance.Name, err)
+		// Use PublicIP in error message as well
+		return "", fmt.Errorf("failed to write instance with IP '%s' to inventory: %w", instance.PublicIP, err)
 	}
 
 	fmt.Printf("✅ Created inventory file at %s\n", inventoryPath)
