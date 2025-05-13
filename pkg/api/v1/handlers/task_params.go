@@ -10,14 +10,14 @@ import (
 
 // TaskGetParams defines the parameters for retrieving a task
 type TaskGetParams struct {
-	TaskName string `json:"taskName"`
-	OwnerID  uint   `json:"owner_id"`
+	TaskID  uint `json:"task_id"`
+	OwnerID uint `json:"owner_id"`
 }
 
 // Validate validates the parameters for retrieving a task
 func (p TaskGetParams) Validate() error {
-	if p.TaskName == "" {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskNameRequired))
+	if p.TaskID == 0 {
+		return fmt.Errorf("task_id is required and must be a positive number")
 	}
 	if p.OwnerID == 0 {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskOwnerIDRequired))
@@ -48,14 +48,14 @@ func (p TaskListParams) Validate() error {
 
 // TaskTerminateParams defines the parameters for terminating a task
 type TaskTerminateParams struct {
-	TaskName string `json:"taskName"`
-	OwnerID  uint   `json:"owner_id"`
+	TaskID  uint `json:"task_id"`
+	OwnerID uint `json:"owner_id"`
 }
 
 // Validate validates the parameters for terminating a task
 func (p TaskTerminateParams) Validate() error {
-	if p.TaskName == "" {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskNameRequired))
+	if p.TaskID == 0 {
+		return fmt.Errorf("task_id is required and must be a positive number")
 	}
 	if p.OwnerID == 0 {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskOwnerIDRequired))
@@ -65,15 +65,15 @@ func (p TaskTerminateParams) Validate() error {
 
 // TaskUpdateStatusParams defines the parameters for updating a task's status
 type TaskUpdateStatusParams struct {
-	TaskName string            `json:"taskName"`
-	Status   models.TaskStatus `json:"status"`
-	OwnerID  uint              `json:"owner_id"`
+	TaskID  uint              `json:"task_id"`
+	Status  models.TaskStatus `json:"status"`
+	OwnerID uint              `json:"owner_id"`
 }
 
 // Validate validates the parameters for updating a task's status
 func (p TaskUpdateStatusParams) Validate() error {
-	if p.TaskName == "" {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskNameRequired))
+	if p.TaskID == 0 {
+		return fmt.Errorf("task_id is required and must be a positive number")
 	}
 	if p.OwnerID == 0 {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskOwnerIDRequired))
@@ -84,8 +84,28 @@ func (p TaskUpdateStatusParams) Validate() error {
 	return nil
 }
 
-// ResponseWithTaskNames defines the structure for a successful response with task names
-// It's used as the data payload within a successful RPCResponse.
-type ResponseWithTaskNames struct {
-	TaskNames []string `json:"task_names"`
+// TaskListByInstanceParams defines the parameters for listing tasks by instance ID.
+type TaskListByInstanceParams struct {
+	InstanceID uint   `json:"instance_id"`
+	OwnerID    uint   `json:"owner_id"` // From context/auth, to be populated by handler/middleware
+	Action     string `json:"action"`   // Optional query parameter for filtering by models.TaskAction
+	Limit      int    `json:"limit"`    // Optional query parameter for pagination
+	Offset     int    `json:"offset"`   // Optional query parameter for pagination
+}
+
+// Validate validates the parameters for listing tasks by instance ID.
+func (p TaskListByInstanceParams) Validate() error {
+	if p.InstanceID == 0 {
+		return fmt.Errorf("instance_id is required and must be a positive number")
+	}
+	if p.OwnerID == 0 {
+		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskOwnerIDRequired)) // Assuming a similar error message constant exists or should be created
+	}
+	if p.Limit < 0 {
+		return fmt.Errorf("limit must be a non-negative number")
+	}
+	if p.Offset < 0 {
+		return fmt.Errorf("offset must be a non-negative number")
+	}
+	return nil
 }

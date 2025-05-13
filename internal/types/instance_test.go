@@ -45,7 +45,6 @@ func createTempDir(t *testing.T, name string) string {
 func baseValidRequest(t *testing.T, payloadPath string) InstanceRequest {
 	t.Helper()
 	return InstanceRequest{
-		Name:              "valid-instance-name",
 		OwnerID:           1,
 		Provider:          models.ProviderID("mock"),
 		Region:            "nyc1",
@@ -86,18 +85,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 		errMsg  string // Substring to check for in the error message
 	}{
 		// --- Metadata Validations ---
-		{
-			name:    "Error: missing name",
-			request: func() InstanceRequest { r := baseReq; r.Name = ""; return r }(),
-			wantErr: true,
-			errMsg:  "instance name is required",
-		},
-		{
-			name:    "Error: invalid name (hostname)",
-			request: func() InstanceRequest { r := baseReq; r.Name = "invalid_name!"; return r }(),
-			wantErr: true,
-			errMsg:  "invalid instance name",
-		},
 		{
 			name:    "Error: missing project_name",
 			request: func() InstanceRequest { r := baseReq; r.ProjectName = ""; return r }(),

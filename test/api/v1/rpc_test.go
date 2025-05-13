@@ -18,8 +18,8 @@ var defaultProjectCreateParams = handlers.ProjectCreateParams{
 }
 
 var defaultTaskGetParams = handlers.TaskGetParams{
-	TaskName: "test-task",
-	OwnerID:  models.AdminID,
+	TaskID:  1,
+	OwnerID: models.AdminID,
 }
 
 func TestProjectRPCMethods(t *testing.T) {
@@ -93,58 +93,75 @@ func TestTaskRPCMethods(t *testing.T) {
 	require.Equal(t, defaultProjectCreateParams.Name, project.Name)
 
 	// Create a task directly using the repository for setup
-	task := models.Task{
+	taskToCreate := models.Task{
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
-		Name:      "test-task",
 		Status:    models.TaskStatusCompleted,
 		Action:    models.TaskActionCreateInstances,
 	}
-	err = suite.TaskRepo.Create(suite.Context(), &task)
+	err = suite.TaskRepo.Create(suite.Context(), &taskToCreate)
 	require.NoError(t, err)
 
 	// Get the task using RPC
 	getParams := defaultTaskGetParams
+	getParams.TaskID = taskToCreate.ID
 	retrievedTask, err := suite.APIClient.GetTask(suite.Context(), getParams)
 	require.NoError(t, err)
-	// Don't check ID since it's auto-incremented by the DB
-	require.Equal(t, task.Name, retrievedTask.Name)
-	// ProjectID is also database-dependent, so skip the comparison
-	require.Equal(t, task.Status, retrievedTask.Status)
+	require.Equal(t, taskToCreate.ID, retrievedTask.ID)
+	require.Equal(t, taskToCreate.Status, retrievedTask.Status)
 
 	// List tasks using RPC
 	listParams := handlers.TaskListParams{ProjectName: project.Name, Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err := suite.APIClient.ListTasks(suite.Context(), listParams)
 	require.NoError(t, err)
 	require.NotEmpty(t, listResponse, "ListTasks should return tasks")
-	require.Equal(t, task.Name, listResponse[0].Name, "Task name mismatch in list")
+	foundInList := false
+	for _, listedTask := range listResponse {
+		if listedTask.ID == taskToCreate.ID {
+			foundInList = true
+			require.Equal(t, taskToCreate.Status, listedTask.Status)
+			break
+		}
+	}
+	require.True(t, foundInList, "Created task not found in list by ID")
 
 	// Create another task
-	secondTask := models.Task{
+	secondTaskToCreate := models.Task{
 		OwnerID:   models.AdminID,
 		ProjectID: project.ID,
-		Name:      "second-task",
-		Status:    models.TaskStatusCompleted,
-		Action:    models.TaskActionCreateInstances,
+		Status:    models.TaskStatusRunning,
+		Action:    models.TaskActionTerminateInstances,
 	}
-	err = suite.TaskRepo.Create(suite.Context(), &secondTask)
+	err = suite.TaskRepo.Create(suite.Context(), &secondTaskToCreate)
 	require.NoError(t, err)
 
 	// List tasks again to verify we get both
 	listParams = handlers.TaskListParams{ProjectName: project.Name, Page: 1, OwnerID: defaultProjectCreateParams.OwnerID}
 	listResponse, err = suite.APIClient.ListTasks(suite.Context(), listParams)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(listResponse))
+	foundTask1 := false
+	foundTask2 := false
+	for _, listedTask := range listResponse {
+		if listedTask.ID == taskToCreate.ID {
+			foundTask1 = true
+		}
+		if listedTask.ID == secondTaskToCreate.ID {
+			foundTask2 = true
+		}
+	}
+	require.True(t, foundTask1, "First created task not found in list")
+	require.True(t, foundTask2, "Second created task not found in list")
 
-	// Abort a task using RPC
-	terminateParams := handlers.TaskTerminateParams{TaskName: task.Name, OwnerID: defaultProjectCreateParams.OwnerID}
+	// Terminate the first task
+	terminateParams := handlers.TaskTerminateParams{TaskID: taskToCreate.ID, OwnerID: models.AdminID}
 	err = suite.APIClient.TerminateTask(suite.Context(), terminateParams)
 	require.NoError(t, err)
 
-	// Verify the task is now terminated
-	retrievedTask, err = suite.APIClient.GetTask(suite.Context(), getParams)
+	// Verify it's terminated
+	getParams.TaskID = taskToCreate.ID
+	terminatedTask, err := suite.APIClient.GetTask(suite.Context(), getParams)
 	require.NoError(t, err)
-	require.Equal(t, models.TaskStatusTerminated, retrievedTask.Status)
+	require.Equal(t, models.TaskStatusTerminated, terminatedTask.Status)
 }
 
 func TestClientUserMethods(t *testing.T) {

@@ -160,7 +160,6 @@ func (s *ProjectRepositoryTestSuite) TestListProjectInstances() {
 			OwnerID:    project.OwnerID,
 			ProjectID:  project.ID,
 			ProviderID: models.ProviderDO,
-			Name:       "test-instance-list-" + time.Now().Format(time.RFC3339Nano),
 			PublicIP:   fmt.Sprintf("192.0.2.%d", 1+i),
 			Region:     "nyc1",
 			Size:       "s-1vcpu-1gb",
@@ -169,7 +168,7 @@ func (s *ProjectRepositoryTestSuite) TestListProjectInstances() {
 			Status:     models.InstanceStatusPending,
 			CreatedAt:  time.Now(),
 		}
-		err := s.instanceRepo.Create(s.ctx, instance)
+		_, err := s.instanceRepo.Create(s.ctx, instance)
 		s.Require().NoError(err)
 	}
 

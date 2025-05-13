@@ -149,7 +149,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 	}
 
 	// Check the instance status
-	instance, err := w.instanceService.GetByID(ctx, instanceReq.OwnerID, instanceReq.InstanceID)
+	instance, err := w.instanceService.Get(ctx, instanceReq.OwnerID, instanceReq.InstanceID)
 	if err != nil {
 		return fmt.Errorf("Worker: Failed to get instance: %w", err)
 	}
@@ -159,8 +159,8 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 
 	switch instance.Status {
 	case models.InstanceStatusPending:
-		logger.Debugf("Instance %s is in status %s, creating", instanceReq.Name, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, "Creating instance")
+		logger.Debugf("Instance ID %d is in status %s, creating", instance.ID, instance.Status)
+		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Creating instance ID %d", instance.ID))
 		// Create the instance
 		// NOTE: need to understand if server creation via the hypervisor is atomic or if we need to understand how to pick up where we left off
 
@@ -194,7 +194,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		instance.VolumeDetails = dbVolumeDetails
 		instance.Status = models.InstanceStatusCreated
 		instance.ProviderInstanceID = instanceReq.ProviderInstanceID
-		err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
+		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
 			return fmt.Errorf("Worker: Failed to update instance: %w", err)
 		}
@@ -202,34 +202,35 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		// Fall through to the next case and step in the process
 		fallthrough
 	case models.InstanceStatusCreated:
-		logger.Debugf("Instance %s is in status %s, determine if provisioning is needed", instanceReq.Name, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, "Determining if provisioning is needed")
+		logger.Debugf("Instance ID %d is in status %s, determine if provisioning is needed", instance.ID, instance.Status)
+		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d created, determining if provisioning is needed", instance.ID))
 
 		// Check if the instance needs to be provisioned
 		if !instanceReq.Provision {
-			logger.Debugf("Provisioning is not needed for instance %s, updating status to ready", instanceReq.Name)
+			logger.Debugf("Provisioning is not needed for instance ID %d, updating status to ready", instance.ID)
 			// Instance is ready, update and return
 			instance.Status = models.InstanceStatusReady
-			err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
+			err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 			if err != nil {
-				return fmt.Errorf("Worker: Failed to update instance: %w", err)
+				return fmt.Errorf("Worker: Failed to update instance ID %d: %w", instance.ID, err)
 			}
-			logger.Debugf("✅ Instance %s is ready", instanceReq.Name)
+			logger.Debugf("✅ Instance ID %d is ready", instance.ID)
+			w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d is ready", instance.ID))
 			return nil
 		}
 
 		// Instance needs to be provisioned, update the status to provisioning
-		logger.Debugf("Provisioning is needed for instance %s, updating status to provisioning", instanceReq.Name)
+		logger.Debugf("Provisioning is needed for instance ID %d, updating status to provisioning", instance.ID)
 		instance.Status = models.InstanceStatusProvisioning
-		err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
+		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to update instance: %w", err)
+			return fmt.Errorf("Worker: Failed to update instance ID %d: %w", instance.ID, err)
 		}
 
 		fallthrough
 	case models.InstanceStatusProvisioning:
-		logger.Debugf("Instance %s is in status %s, provisioning", instanceReq.Name, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, "Running Ansible provisioning")
+		logger.Debugf("Instance ID %d is in status %s, provisioning", instance.ID, instance.Status)
+		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Running Ansible provisioning for instance ID %d", instance.ID))
 		// Run the Ansible playbook
 		// Ansible playbooks can be rerun so we shouldn't need to worry about where we left off
 
@@ -254,41 +255,39 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		// TODO: should inventory path be stored?
 		inventoryPath, err := provisioner.CreateInventory(&instanceReq, sshKeyPath)
 		if err != nil {
-			return fmt.Errorf("failed to create Ansible inventory: %w", err)
+			return fmt.Errorf("Worker: Failed to create inventory for instance ID %d: %w", instance.ID, err)
+		}
+		if inventoryPath == "" {
+			// Should not happen if hosts were provided and valid, but handle defensively
+			logger.Warnf("Worker: Inventory path empty for instance ID %d, skipping playbook run", instance.ID)
+		} else {
+			if err := provisioner.RunAnsiblePlaybook(inventoryPath); err != nil {
+				return fmt.Errorf("Worker: Failed to run ansible playbook for instance ID %d: %w", instance.ID, err)
+			}
+			// Optionally remove inventory file after successful run
+			// if err := os.Remove(inventoryPath); err != nil {
+			// 	 logger.Warnf("Worker: Failed to remove inventory file %s: %v", inventoryPath, err)
+			// }
 		}
 
-		// --- Step 3: Run the Ansible playbook ---
-		fmt.Println("📝 Running Ansible playbook...")
-		if err := provisioner.RunAnsiblePlaybook(inventoryPath); err != nil {
-			return fmt.Errorf("failed to run Ansible playbook: %w", err)
-		}
-
-		fmt.Println("✅ Ansible playbook completed successfully")
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, "Ansible provisioning completed")
-
-		// Update the instance status to ready and continue
+		// Update status to Ready
 		instance.Status = models.InstanceStatusReady
-		if instanceReq.PayloadPath != "" {
-			instance.PayloadStatus = models.PayloadStatusExecuted
-			logger.Debugf("✅ Updated payload status to executed for instance %s", instanceReq.Name)
-		}
-		err = w.instanceService.UpdateByID(ctx, instanceReq.OwnerID, instance.ID, instance)
+		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to update instance: %w", err)
+			return fmt.Errorf("Worker: Failed to update instance ID %d to ready: %w", instance.ID, err)
 		}
+		logger.Debugf("✅ Instance ID %d successfully provisioned, marking as ready", instance.ID)
+		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d successfully provisioned and is ready", instance.ID))
 
-		logger.Debugf("✅ Instance %s is ready", instanceReq.Name)
-
+	case models.InstanceStatusReady, models.InstanceStatusTerminated:
+		// Instance is already in a final state for this task
+		logger.Debugf("Instance ID %d is already ready or terminated, nothing to do for create task.", instance.ID)
+		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d already in final state (%s)", instance.ID, instance.Status))
 		return nil
-	case models.InstanceStatusReady:
-		// Assume the task was not updated properly, just log a warning and return nil so that the task is updated as successful
-		logger.Warnf("Worker: Instance %s is in status %s, assuming task was not updated properly", instance.Name, instance.Status)
-		return nil
-	case models.InstanceStatusTerminated:
-		return fmt.Errorf("Worker: Instance %s is in status %s, cannot create", instance.Name, instance.Status)
 	default:
-		return fmt.Errorf("Worker: Unknown instance status %s for instance %s", instance.Status, instance.Name)
+		return fmt.Errorf("Worker: instance ID %d is in an unknown state %s", instance.ID, instance.Status)
 	}
+	return nil
 }
 
 // processTerminateInstanceTask processes a terminate instance task. It will handle the infrastructure deletion and status updates for the instance.
@@ -307,7 +306,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 	}
 
 	// Get the instance
-	instance, err := w.instanceService.GetByID(ctx, task.OwnerID, deleteReq.InstanceID)
+	instance, err := w.instanceService.Get(ctx, task.OwnerID, deleteReq.InstanceID)
 	if err != nil {
 		return fmt.Errorf("Worker: Failed to get instance: %w", err)
 	}
@@ -317,7 +316,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 
 	// Confirm the instance is not already terminated
 	if instance.Status == models.InstanceStatusTerminated {
-		logger.Debugf("Instance %s is already terminated, skipping", instance.Name)
+		logger.Debugf("Instance ID %d is already terminated, skipping", instance.ID)
 		return nil
 	}
 
@@ -328,7 +327,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 	}
 
 	// Delete the instance
-	logger.Infof("🗑️ Deleting %v droplet: %v in region %v", instance.ProviderID, instance.Name, instance.Region)
+	logger.Infof("🗑️ Deleting %v droplet ID: %d in region %v", instance.ProviderID, instance.ID, instance.Region)
 	err = provider.DeleteInstance(ctx, instance.ProviderInstanceID)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
@@ -342,7 +341,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 
 	// Update database
 	if err := w.instanceService.MarkAsTerminated(ctx, instance.OwnerID, instance.ID); err != nil {
-		return fmt.Errorf("failed to terminate instance %s in database: %w", instance.Name, err)
+		return fmt.Errorf("failed to terminate instance ID %d in database: %w", instance.ID, err)
 	}
 	return nil
 }

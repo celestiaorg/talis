@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/logger"
 )
 
 // InstanceRepository provides access to instance-related database operations
@@ -22,68 +21,25 @@ func NewInstanceRepository(db *gorm.DB) *InstanceRepository {
 	return &InstanceRepository{db: db}
 }
 
-// Create creates a new job in the database
-func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instance) error {
+// Create creates a new instance in the database
+func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instance) (*models.Instance, error) {
 	if err := models.ValidateOwnerID(instance.OwnerID); err != nil {
-		return fmt.Errorf("invalid owner_id: %w", err)
-	}
-	return r.db.WithContext(ctx).Create(instance).Error
-}
-
-// GetByID retrieves an instance by its ID
-// if the ownerID is models.AdminID, it will return the instance regardless of ownership
-func (r *InstanceRepository) GetByID(ctx context.Context, ownerID, ID uint) (*models.Instance, error) {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
-
-	var instance models.Instance
-	qry := &models.Instance{
-		Model: gorm.Model{ID: ID},
+	if err := r.db.WithContext(ctx).Create(instance).Error; err != nil {
+		return nil, err
 	}
-	if ownerID != models.AdminID {
-		qry.OwnerID = ownerID
-	}
-
-	err := r.db.WithContext(ctx).
-		Unscoped().
-		Where(qry).
-		First(&instance).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get instance: %w", err)
-	}
-	return &instance, nil
+	return instance, nil
 }
 
-// GetByNames retrieves instances by their names
-func (r *InstanceRepository) GetByNames(ctx context.Context, ownerID uint, names []string) ([]models.Instance, error) {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return nil, fmt.Errorf("invalid owner_id: %w", err)
-	}
-
-	var instances []models.Instance
-	query := r.db.WithContext(ctx).
-		Unscoped().
-		Where("name IN (?)", names)
-	if ownerID != models.AdminID {
-		query = query.Where(&models.Instance{OwnerID: ownerID})
-	}
-
-	err := query.Find(&instances).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get instances: %w", err)
-	}
-	return instances, nil
-}
-
-// UpdateByID updates an instance by its ID. Only non-zero fields in the instance parameter will be updated.
+// Update updates an instance by its ID. Only non-zero fields in the instance parameter will be updated.
 // GORM's Updates method will:
 // - Only update fields with non-zero values in the instance parameter
 // - Ignore zero-value fields (null, 0, "", false)
 // - Not update fields marked with gorm:"-" tag
 // - Not update CreatedAt field
 // - Automatically update UpdatedAt if it exists
-func (r *InstanceRepository) UpdateByID(ctx context.Context, ownerID, id uint, instance *models.Instance) error {
+func (r *InstanceRepository) Update(ctx context.Context, ownerID, id uint, instance *models.Instance) error {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return fmt.Errorf("invalid owner_id: %w", err)
 	}
@@ -97,30 +53,6 @@ func (r *InstanceRepository) UpdateByID(ctx context.Context, ownerID, id uint, i
 		result := query.Updates(instance)
 		if err := result.Error; err != nil {
 			return fmt.Errorf("failed to update instance by ID: %w", err)
-		}
-		if result.RowsAffected == 0 {
-			return fmt.Errorf("instance not found or not owned by user")
-		}
-		return nil
-	})
-}
-
-// UpdateByName updates an instance by its name. Only non-zero fields in the instance parameter will be updated.
-// See UpdateByID method for details on how GORM handles field updates.
-func (r *InstanceRepository) UpdateByName(ctx context.Context, ownerID uint, name string, instance *models.Instance) error {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return fmt.Errorf("invalid owner_id: %w", err)
-	}
-
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		query := tx.Model(&models.Instance{}).Where(&models.Instance{Name: name})
-		if ownerID != models.AdminID {
-			query = query.Where(&models.Instance{OwnerID: ownerID})
-		}
-
-		result := query.Updates(instance)
-		if err := result.Error; err != nil {
-			return fmt.Errorf("failed to update instance by name: %w", err)
 		}
 		if result.RowsAffected == 0 {
 			return fmt.Errorf("instance not found or not owned by user")
@@ -240,61 +172,41 @@ func (r *InstanceRepository) Get(ctx context.Context, ownerID, id uint) (*models
 	return &instance, nil
 }
 
-// GetByProjectIDAndInstanceNames retrieves instances that belong to a specific project and match the given names
-func (r *InstanceRepository) GetByProjectIDAndInstanceNames(
+// GetByProjectIDAndInstanceIDs retrieves instances that belong to a specific project and match the given instance IDs.
+func (r *InstanceRepository) GetByProjectIDAndInstanceIDs(
 	ctx context.Context,
 	ownerID uint,
 	projectID uint,
-	names []string,
+	instanceIDs []uint,
 ) ([]models.Instance, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
 
-	if len(names) == 0 {
-		return nil, fmt.Errorf("instance names cannot be empty")
+	if len(instanceIDs) == 0 {
+		return []models.Instance{}, nil
 	}
 
-	// Convert []string to []interface{} for clause.IN
-	nameInterfaces := make([]interface{}, len(names))
-	for i, name := range names {
-		nameInterfaces[i] = name
+	// Convert []uint to []interface{} for clause.IN
+	idsAsInterfaces := make([]interface{}, len(instanceIDs))
+	for i, id := range instanceIDs {
+		idsAsInterfaces[i] = id
 	}
 
 	var instances []models.Instance
 	query := r.db.WithContext(ctx).
-		Unscoped().
 		Where(&models.Instance{ProjectID: projectID}).
-		Where(clause.IN{Column: models.InstanceNameField, Values: nameInterfaces})
+		Where(clause.IN{Column: models.InstanceIDField, Values: idsAsInterfaces})
+
 	if ownerID != models.AdminID {
 		query = query.Where(&models.Instance{OwnerID: ownerID})
 	}
 
 	err := query.Find(&instances).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instances by project and names: %w", err)
-	}
-	if len(instances) != len(names) {
-		logger.Warnf("number of instances found (%v) does not match number of instance names (%v)", len(instances), len(names))
+		return nil, fmt.Errorf("failed to get instances by project and IDs: %w", err)
 	}
 	return instances, nil
-}
-
-// GetByName retrieves an instance by its name
-func (r *InstanceRepository) GetByName(ctx context.Context, ownerID uint, name string) (*models.Instance, error) {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return nil, fmt.Errorf("invalid owner_id: %w", err)
-	}
-
-	var instance models.Instance
-	err := r.db.WithContext(ctx).
-		Unscoped().
-		Where(&models.Instance{Name: name, OwnerID: ownerID}).
-		First(&instance).Error
-	if err != nil {
-		return nil, fmt.Errorf("failed to get instance by name: %w", err)
-	}
-	return &instance, nil
 }
 
 // Terminate updates the status of an instance to terminated and performs a soft delete
@@ -320,13 +232,16 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 }
 
 // CreateBatch creates a batch of instances
-func (r *InstanceRepository) CreateBatch(ctx context.Context, instances []*models.Instance) error {
+func (r *InstanceRepository) CreateBatch(ctx context.Context, instances []*models.Instance) ([]*models.Instance, error) {
 	for _, instance := range instances {
 		if err := models.ValidateOwnerID(instance.OwnerID); err != nil {
-			return fmt.Errorf("invalid owner_id: %w", err)
+			return nil, fmt.Errorf("invalid owner_id for one or more instances: %w", err)
 		}
 	}
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return tx.CreateInBatches(instances, models.DBBatchSize).Error
-	})
+	}); err != nil {
+		return nil, err
+	}
+	return instances, nil
 }

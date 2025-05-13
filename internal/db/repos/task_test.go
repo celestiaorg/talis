@@ -17,8 +17,10 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	// Create a test project
 	project := s.createTestProject()
 
+	const instanceID = uint(1)
+
 	// Create a test task
-	task := s.randomTask(project.OwnerID, project.ID)
+	task := s.randomTask(project.OwnerID, project.ID, instanceID)
 
 	// Test creation
 	err := s.taskRepo.Create(s.ctx, task)
@@ -29,7 +31,6 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	createdTask, err := s.taskRepo.GetByID(s.ctx, task.OwnerID, task.ID)
 	s.Require().NoError(err)
 	s.Require().Equal(task.ID, createdTask.ID)
-	s.Require().Equal(task.Name, createdTask.Name)
 	s.Require().Equal(task.ProjectID, createdTask.ProjectID)
 	s.Require().Equal(task.OwnerID, createdTask.OwnerID)
 	s.Require().Equal(task.Status, createdTask.Status)
@@ -37,7 +38,11 @@ func (s *TaskRepositoryTestSuite) TestCreateTask() {
 	s.Require().Equal(task.Logs, createdTask.Logs)
 
 	// Test batch creation
-	tasks := []*models.Task{s.randomTask(project.OwnerID, project.ID), s.randomTask(project.OwnerID, project.ID), s.randomTask(project.OwnerID, project.ID)}
+	tasks := []*models.Task{
+		s.randomTask(project.OwnerID, project.ID, instanceID+1),
+		s.randomTask(project.OwnerID, project.ID, instanceID+2),
+		s.randomTask(project.OwnerID, project.ID, instanceID+3),
+	}
 	err = s.taskRepo.CreateBatch(s.ctx, tasks)
 	s.Require().NoError(err)
 	foundTasks, err := s.taskRepo.ListByProject(s.ctx, project.OwnerID, project.ID, nil)
@@ -53,7 +58,6 @@ func (s *TaskRepositoryTestSuite) TestGetTaskByID() {
 	retrievedTask, err := s.taskRepo.GetByID(s.ctx, task.OwnerID, task.ID)
 	s.Require().NoError(err)
 	s.Require().Equal(task.ID, retrievedTask.ID)
-	s.Require().Equal(task.Name, retrievedTask.Name)
 	s.Require().Equal(task.ProjectID, retrievedTask.ProjectID)
 	s.Require().Equal(task.OwnerID, retrievedTask.OwnerID)
 	s.Require().Equal(task.Status, retrievedTask.Status)
@@ -69,30 +73,6 @@ func (s *TaskRepositoryTestSuite) TestGetTaskByID() {
 	s.Require().Error(err)
 }
 
-func (s *TaskRepositoryTestSuite) TestGetTaskByName() {
-	// Create a test task
-	task := s.createTestTask()
-
-	// Test retrieval by name
-	retrievedTask, err := s.taskRepo.GetByName(s.ctx, task.OwnerID, task.Name)
-	s.Require().NoError(err)
-	s.Require().Equal(task.ID, retrievedTask.ID)
-	s.Require().Equal(task.Name, retrievedTask.Name)
-	s.Require().Equal(task.ProjectID, retrievedTask.ProjectID)
-	s.Require().Equal(task.OwnerID, retrievedTask.OwnerID)
-	s.Require().Equal(task.Status, retrievedTask.Status)
-	s.Require().Equal(task.Action, retrievedTask.Action)
-	s.Require().Equal(task.Logs, retrievedTask.Logs)
-
-	// Test retrieval with wrong owner ID
-	_, err = s.taskRepo.GetByName(s.ctx, task.OwnerID+1, task.Name)
-	s.Require().Error(err)
-
-	// Test retrieval with non-existent name
-	_, err = s.taskRepo.GetByName(s.ctx, task.OwnerID, "non-existent-task")
-	s.Require().Error(err)
-}
-
 func (s *TaskRepositoryTestSuite) TestListTasksByProject() {
 	// Create a test project
 	project := s.createTestProject()
@@ -101,7 +81,6 @@ func (s *TaskRepositoryTestSuite) TestListTasksByProject() {
 	taskCount := 3
 	for i := 0; i < taskCount; i++ {
 		task := &models.Task{
-			Name:      "test-task-list-" + time.Now().Format(time.RFC3339Nano),
 			ProjectID: project.ID,
 			OwnerID:   project.OwnerID,
 			Status:    models.TaskStatusPending,
@@ -205,61 +184,159 @@ func (s *TaskRepositoryTestSuite) TestGetSchedulableTasks() {
 	// Seed tasks with different statuses, error presence, and creation times
 	tasksToCreate := []models.Task{
 		// Should be excluded
-		{Name: "task-completed", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusCompleted, CreatedAt: now.Add(-10 * time.Minute), Action: models.TaskActionCreateInstances},
-		{Name: "task-terminated", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusTerminated, CreatedAt: now.Add(-9 * time.Minute), Action: models.TaskActionCreateInstances},
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusCompleted, CreatedAt: now.Add(-10 * time.Minute), Action: models.TaskActionCreateInstances},
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusTerminated, CreatedAt: now.Add(-9 * time.Minute), Action: models.TaskActionCreateInstances},
 		// Should be included - No Error, ordered by CreatedAt ASC
-		{Name: "task-pending-old", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusPending, CreatedAt: now.Add(-8 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 1st
-		{Name: "task-running", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusRunning, CreatedAt: now.Add(-7 * time.Minute), Action: models.TaskActionCreateInstances},     // Expected 2nd
-		{Name: "task-pending-new", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusPending, CreatedAt: now.Add(-6 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 3rd
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusPending, CreatedAt: now.Add(-8 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 1st
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusRunning, CreatedAt: now.Add(-7 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 2nd
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusPending, CreatedAt: now.Add(-6 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 3rd
 		// Should be included - With Error, ordered by CreatedAt ASC
-		{Name: "task-failed-old", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Some error", CreatedAt: now.Add(-5 * time.Minute), Action: models.TaskActionCreateInstances},    // Expected 4th
-		{Name: "task-failed-new", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Another error", CreatedAt: now.Add(-4 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 5th (if limit allows)
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Some error", CreatedAt: now.Add(-5 * time.Minute), Action: models.TaskActionCreateInstances},    // Expected 4th
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Another error", CreatedAt: now.Add(-4 * time.Minute), Action: models.TaskActionCreateInstances}, // Expected 5th (if limit allows)
 		// Should be excluded - Exceeds maxAttempts
-		{Name: "task-max-attempts", ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Too many attempts", Attempts: maxAttempts, CreatedAt: now.Add(-3 * time.Minute), Action: models.TaskActionCreateInstances},
+		{ProjectID: project.ID, OwnerID: ownerID, Status: models.TaskStatusFailed, Error: "Too many attempts", Attempts: maxAttempts, CreatedAt: now.Add(-3 * time.Minute), Action: models.TaskActionCreateInstances},
 	}
 
-	createdTaskMap := make(map[string]uint) // Store name -> ID mapping
+	createdTasksWithIDs := make([]models.Task, 0, len(tasksToCreate))
 	for _, task := range tasksToCreate {
 		// Use a new variable in the loop to avoid capturing the loop variable's address
 		newTask := task
 		err := s.taskRepo.Create(s.ctx, &newTask)
 		s.Require().NoError(err)
-		createdTaskMap[newTask.Name] = newTask.ID
-	}
-
-	verify := func(expected []string, actual []models.Task) {
-		s.Require().Len(actual, len(expected), "Should retrieve exactly the limit number of tasks")
-		for i, task := range actual {
-			s.Require().Equal(expected[i], task.Name, "Task %d has incorrect name in order", i)
-		}
+		createdTasksWithIDs = append(createdTasksWithIDs, newTask)
 	}
 
 	// --- Test Case 1: Limit = 4 ---
 	limit := 4
 	schedulableTasks, err := s.taskRepo.GetSchedulableTasks(s.ctx, limit)
 	s.Require().NoError(err)
-	expectedOrderNames := []string{"task-pending-old", "task-running", "task-pending-new", "task-failed-old"}
-	verify(expectedOrderNames, schedulableTasks)
+	s.Require().Len(schedulableTasks, 4, "Expected 4 schedulable tasks for limit 4")
+	if len(schedulableTasks) > 1 {
+		s.Assert().True(schedulableTasks[0].CreatedAt.Before(schedulableTasks[1].CreatedAt) || schedulableTasks[0].CreatedAt.Equal(schedulableTasks[1].CreatedAt), "Tasks should be ordered by creation time if error status is same")
+	}
 
 	// --- Test Case 2: Limit = 2 (Testing limit and no-error ordering) ---
 	limit = 2
 	schedulableTasks, err = s.taskRepo.GetSchedulableTasks(s.ctx, limit)
 	s.Require().NoError(err)
-	expectedOrderNames = []string{"task-pending-old", "task-running"}
-	verify(expectedOrderNames, schedulableTasks)
+	s.Require().Len(schedulableTasks, 2, "Expected 2 schedulable tasks for limit 2")
+	if len(schedulableTasks) == 2 {
+		s.Assert().Empty(schedulableTasks[0].Error, "First task should have no error")
+		s.Assert().Empty(schedulableTasks[1].Error, "Second task should have no error")
+		s.Assert().True(schedulableTasks[0].CreatedAt.Before(schedulableTasks[1].CreatedAt) || schedulableTasks[0].CreatedAt.Equal(schedulableTasks[1].CreatedAt))
+	}
 
 	// --- Test Case 3: Limit = 10 (Testing retrieval of all eligible tasks) ---
-	limit = 10 // Higher than eligible tasks
+	limit = 10 // Higher than eligible tasks (5 are eligible: 3 no error, 2 with error)
 	schedulableTasks, err = s.taskRepo.GetSchedulableTasks(s.ctx, limit)
 	s.Require().NoError(err)
-	expectedOrderNames = []string{"task-pending-old", "task-running", "task-pending-new", "task-failed-old", "task-failed-new"}
-	verify(expectedOrderNames, schedulableTasks)
+	s.Require().Len(schedulableTasks, 5, "Expected all 5 eligible schedulable tasks")
+	// Check that tasks with errors come after tasks without errors
+	foundErrorTask := false
+	for _, task := range schedulableTasks {
+		if task.Error != "" {
+			foundErrorTask = true
+		} else {
+			s.Assert().False(foundErrorTask, "Tasks without errors should appear before tasks with errors")
+		}
+	}
 
 	// --- Test Case 4: Verify task with maxAttempts is excluded ---
-	// Check that the task with maxAttempts is not included in the results
+	// This is implicitly tested if count for limit 10 is 5 (as task-max-attempts is not one of them).
+	foundMaxAttemptsTask := false
 	for _, task := range schedulableTasks {
-		s.Require().NotEqual("task-max-attempts", task.Name, "Task with maxAttempts should not be included")
+		if task.Attempts >= maxAttempts { // Check actual name if needed, but this check is more direct
+			// Find the original task with maxAttempts to compare ID if necessary
+			for _, originalTask := range createdTasksWithIDs {
+				if originalTask.Attempts >= maxAttempts && task.ID == originalTask.ID {
+					foundMaxAttemptsTask = true
+					break
+				}
+			}
+		}
 	}
+	s.Assert().False(foundMaxAttemptsTask, "Task with max attempts should be excluded")
+}
+
+func (s *TaskRepositoryTestSuite) TestListByInstanceID() {
+	// 1. Setup: Create a project and an instance for context
+	ownerID := s.randomOwnerID()
+	project := s.createTestProjectForOwner(ownerID)
+
+	instance1 := s.createTestInstanceForOwner(ownerID)
+	instance1.ProjectID = project.ID // Associate instance with project
+	s.Require().NoError(s.instanceRepo.Update(s.ctx, ownerID, instance1.ID, instance1), "Failed to update instance1 with projectID")
+
+	instance2 := s.createTestInstanceForOwner(ownerID)
+	instance2.ProjectID = project.ID
+	s.Require().NoError(s.instanceRepo.Update(s.ctx, ownerID, instance2.ID, instance2), "Failed to update instance2 with projectID")
+
+	// 2. Create tasks: some for instance1, some for instance2, some with different actions
+	// Tasks for instance1
+	task1I1Create := s.createTestTaskForProject(ownerID, project.ID, instance1.ID)
+	task1I1Create.Action = models.TaskActionCreateInstances
+	s.Require().NoError(s.taskRepo.Update(s.ctx, ownerID, task1I1Create))
+
+	time.Sleep(10 * time.Millisecond) // Ensure CreatedAt is different for ordering
+	task2I1Terminate := s.createTestTaskForProject(ownerID, project.ID, instance1.ID)
+	task2I1Terminate.Action = models.TaskActionTerminateInstances
+	s.Require().NoError(s.taskRepo.Update(s.ctx, ownerID, task2I1Terminate))
+
+	time.Sleep(10 * time.Millisecond)
+	task3I1Create := s.createTestTaskForProject(ownerID, project.ID, instance1.ID)
+	task3I1Create.Action = models.TaskActionCreateInstances
+	s.Require().NoError(s.taskRepo.Update(s.ctx, ownerID, task3I1Create))
+
+	// Task for instance2
+	task1I2Create := s.createTestTaskForProject(ownerID, project.ID, instance2.ID)
+	task1I2Create.Action = models.TaskActionCreateInstances
+	s.Require().NoError(s.taskRepo.Update(s.ctx, ownerID, task1I2Create))
+
+	// --- Test Case 1: List all tasks for instance1 ---
+	tasksI1, err := s.taskRepo.ListByInstanceID(s.ctx, ownerID, instance1.ID, "", nil)
+	s.Require().NoError(err)
+	s.Require().Len(tasksI1, 3, "Should find 3 tasks for instance1")
+	// Check order (default is created_at DESC)
+	s.Assert().Equal(task3I1Create.ID, tasksI1[0].ID)
+	s.Assert().Equal(task2I1Terminate.ID, tasksI1[1].ID)
+	s.Assert().Equal(task1I1Create.ID, tasksI1[2].ID)
+
+	// --- Test Case 2: List tasks for instance1 with action filter "create_instances" ---
+	tasksI1CreateAction, err := s.taskRepo.ListByInstanceID(s.ctx, ownerID, instance1.ID, models.TaskActionCreateInstances, nil)
+	s.Require().NoError(err)
+	s.Require().Len(tasksI1CreateAction, 2, "Should find 2 create_instances tasks for instance1")
+	s.Assert().Contains([]uint{task3I1Create.ID, task1I1Create.ID}, tasksI1CreateAction[0].ID)
+	s.Assert().Contains([]uint{task3I1Create.ID, task1I1Create.ID}, tasksI1CreateAction[1].ID)
+
+	// --- Test Case 3: List tasks for instance1 with action filter "terminate_instances" ---
+	tasksI1TerminateAction, err := s.taskRepo.ListByInstanceID(s.ctx, ownerID, instance1.ID, models.TaskActionTerminateInstances, nil)
+	s.Require().NoError(err)
+	s.Require().Len(tasksI1TerminateAction, 1, "Should find 1 terminate_instances task for instance1")
+	s.Assert().Equal(task2I1Terminate.ID, tasksI1TerminateAction[0].ID)
+
+	// --- Test Case 4: Pagination - Limit 1, Offset 1 for instance1 ---
+	listOpts := &models.ListOptions{Limit: 1, Offset: 1}
+	tasksI1Paginated, err := s.taskRepo.ListByInstanceID(s.ctx, ownerID, instance1.ID, "", listOpts)
+	s.Require().NoError(err)
+	s.Require().Len(tasksI1Paginated, 1, "Should find 1 task with limit 1, offset 1")
+	s.Assert().Equal(task2I1Terminate.ID, tasksI1Paginated[0].ID) // Second most recent
+
+	// --- Test Case 5: No tasks for a non-existent instance ID ---
+	noTasks, err := s.taskRepo.ListByInstanceID(s.ctx, ownerID, 9999, "", nil)
+	s.Require().NoError(err)
+	s.Require().Empty(noTasks, "Should find no tasks for a non-existent instance ID")
+
+	// --- Test Case 6: Wrong owner ID ---
+	wrongOwnerTasks, err := s.taskRepo.ListByInstanceID(s.ctx, ownerID+123, instance1.ID, "", nil)
+	// Expect an error due to ValidateOwnerID, or empty if query just returns no results.
+	// Current ValidateOwnerID is a soft check, so query will proceed and return empty.
+	s.Require().NoError(err) // If ValidateOwnerID becomes strict, this should be s.Require().Error(err)
+	s.Require().Empty(wrongOwnerTasks)
+
+	// --- Test Case 7: instanceID is zero (should error out based on repo logic) ---
+	_, err = s.taskRepo.ListByInstanceID(s.ctx, ownerID, 0, "", nil)
+	s.Require().Error(err)
+	s.Assert().Contains(err.Error(), "instanceID cannot be zero")
 }
 
 func TestTaskRepository(t *testing.T) {

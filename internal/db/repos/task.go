@@ -51,19 +51,6 @@ func (r *TaskRepository) GetByID(ctx context.Context, ownerID uint, id uint) (*m
 	return &task, nil
 }
 
-// GetByName retrieves a task by name within a project from the database
-func (r *TaskRepository) GetByName(ctx context.Context, ownerID uint, name string) (*models.Task, error) {
-	if err := models.ValidateOwnerID(ownerID); err != nil {
-		return nil, fmt.Errorf("invalid owner_id: %w", err)
-	}
-	var task models.Task
-	err := r.db.WithContext(ctx).Where(models.Task{
-		OwnerID: ownerID,
-		Name:    name,
-	}).First(&task).Error
-	return &task, err
-}
-
 // ListByProject retrieves all tasks for a specific project from the database with pagination
 func (r *TaskRepository) ListByProject(ctx context.Context, ownerID uint, projectID uint, opts *models.ListOptions) ([]models.Task, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
@@ -139,5 +126,40 @@ func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]
 		return nil, fmt.Errorf("failed to query schedulable tasks: %w", err)
 	}
 
+	return tasks, nil
+}
+
+// ListByInstanceID retrieves all tasks for a specific instance from the database with pagination and optional action filter.
+func (r *TaskRepository) ListByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter models.TaskAction, opts *models.ListOptions) ([]models.Task, error) {
+	if err := models.ValidateOwnerID(ownerID); err != nil {
+		return nil, fmt.Errorf("invalid owner_id: %w", err)
+	}
+	if instanceID == 0 {
+		return nil, fmt.Errorf("instanceID cannot be zero")
+	}
+
+	var tasks []models.Task
+	query := r.db.WithContext(ctx).Where(models.Task{
+		OwnerID:    ownerID,
+		InstanceID: instanceID,
+	})
+
+	if actionFilter != "" {
+		query = query.Where(&models.Task{Action: actionFilter})
+	}
+
+	if opts != nil {
+		if opts.Limit > 0 {
+			query = query.Limit(opts.Limit)
+		}
+		if opts.Offset > 0 {
+			query = query.Offset(opts.Offset)
+		}
+	}
+
+	err := query.Order(models.TaskCreatedAtField + " DESC").Find(&tasks).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query tasks: %w", err)
+	}
 	return tasks, nil
 }
