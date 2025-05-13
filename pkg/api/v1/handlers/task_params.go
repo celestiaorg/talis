@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -99,7 +100,7 @@ func (p TaskListByInstanceParams) Validate() error {
 		return fmt.Errorf("instance_id is required and must be a positive number")
 	}
 	if p.OwnerID == 0 {
-		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskOwnerIDRequired)) // Assuming a similar error message constant exists or should be created
+		return fmt.Errorf("%s", strings.ToLower(ErrMsgTaskOwnerIDRequired))
 	}
 	if p.Limit < 0 {
 		return fmt.Errorf("limit must be a non-negative number")
@@ -107,5 +108,21 @@ func (p TaskListByInstanceParams) Validate() error {
 	if p.Offset < 0 {
 		return fmt.Errorf("offset must be a non-negative number")
 	}
+
+	// Validate that Limit is set when Offset is used
+	if p.Offset > 0 && p.Limit == 0 {
+		return errors.New("limit must be set when offset is used")
+	}
+
+	// Validate Action field if provided
+	if p.Action != "" {
+		switch models.TaskAction(p.Action) {
+		case models.TaskActionCreateInstances, models.TaskActionTerminateInstances:
+			// Valid actions
+		default:
+			return fmt.Errorf("invalid task action: %s", p.Action)
+		}
+	}
+
 	return nil
 }

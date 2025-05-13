@@ -23,6 +23,9 @@ func NewInstanceRepository(db *gorm.DB) *InstanceRepository {
 
 // Create creates a new instance in the database
 func (r *InstanceRepository) Create(ctx context.Context, instance *models.Instance) (*models.Instance, error) {
+	if instance == nil {
+		return nil, fmt.Errorf("instance cannot be nil")
+	}
 	if err := models.ValidateOwnerID(instance.OwnerID); err != nil {
 		return nil, fmt.Errorf("invalid owner_id: %w", err)
 	}
@@ -233,11 +236,19 @@ func (r *InstanceRepository) Terminate(ctx context.Context, ownerID, id uint) er
 
 // CreateBatch creates a batch of instances
 func (r *InstanceRepository) CreateBatch(ctx context.Context, instances []*models.Instance) ([]*models.Instance, error) {
-	for _, instance := range instances {
+	if instances == nil {
+		return nil, fmt.Errorf("instances cannot be nil")
+	}
+
+	for i, instance := range instances {
+		if instance == nil {
+			return nil, fmt.Errorf("instance at index %d cannot be nil", i)
+		}
 		if err := models.ValidateOwnerID(instance.OwnerID); err != nil {
-			return nil, fmt.Errorf("invalid owner_id for one or more instances: %w", err)
+			return nil, fmt.Errorf("invalid owner_id for instance at index %d: %w", i, err)
 		}
 	}
+
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return tx.CreateInBatches(instances, models.DBBatchSize).Error
 	}); err != nil {
