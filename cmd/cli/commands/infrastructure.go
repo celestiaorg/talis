@@ -73,7 +73,10 @@ var createInfraCmd = &cobra.Command{
 		// Generate delete file
 		instanceIDs := make([]uint, 0, len(createdInstances))
 		for _, inst := range createdInstances {
-			if inst.ID != 0 { // Make sure we have an ID
+			if inst == nil {
+				continue // skip invalid entries instead of panicking
+			}
+			if inst.ID != 0 {
 				instanceIDs = append(instanceIDs, inst.ID)
 			}
 		}
