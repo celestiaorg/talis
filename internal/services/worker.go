@@ -327,7 +327,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 	}
 
 	// Delete the instance
-	logger.Infof("🗑️ Deleting %v droplet ID: %d in region %v", instance.ProviderID, instance.ID, instance.Region)
+	logger.Infof("🗑️ Deleting %v droplet ID: %d in region %v", instance.ProviderID, instance.ProviderInstanceID, instance.Region)
 	err = provider.DeleteInstance(ctx, instance.ProviderInstanceID)
 	if err != nil {
 		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
