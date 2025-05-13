@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -12,13 +13,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	// internaltypes "github.com/celestiaorg/talis/internal/types" // Use public alias
+	"github.com/celestiaorg/talis/pkg/db/models"
+	// Import public types alias
 )
 
 // Define status variables used in tests
-var pendingStatus = models.InstanceStatusPending
+// var pendingStatus = models.InstanceStatusPending // REMOVED - Unused
 var invalidInstanceStatus = models.InstanceStatus(999)
+
+// Helper to get pointer to InstanceStatus (needed for tests)
+func instanceStatusPtr(status models.InstanceStatus) *models.InstanceStatus {
+	return &status
+}
 
 func TestNewClient(t *testing.T) {
 	tests := []struct {
@@ -118,11 +125,17 @@ func TestAPIClient_doRequest(t *testing.T) {
 	require.NoError(t, err)
 	apiClient := client.(*APIClient)
 
+	// Define a local struct for testing doRequest decoding
+	type testResponse struct {
+		ID     uint   `json:"id"`
+		Status string `json:"status"`
+	}
+
 	t.Run("success", func(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/success", nil)
 		require.NoError(t, err)
 
-		var response types.Response
+		var response testResponse // Use the struct defined above
 		err = apiClient.doRequest(agent, &response)
 		assert.NoError(t, err)
 		assert.Equal(t, uint(1), response.ID)
@@ -133,7 +146,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/error", nil)
 		require.NoError(t, err)
 
-		var response types.Response
+		var response testResponse // Use the struct defined above
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -147,7 +160,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/invalid-json", nil)
 		require.NoError(t, err)
 
-		var response types.Response
+		var response testResponse // Use the struct defined above
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -160,7 +173,7 @@ func TestAPIClient_doRequest(t *testing.T) {
 		agent, err := apiClient.createAgent(context.Background(), http.MethodGet, "/not-found", nil)
 		require.NoError(t, err)
 
-		var response types.Response
+		var response testResponse // Use the struct defined above
 		err = apiClient.doRequest(agent, &response)
 		assert.Error(t, err)
 
@@ -214,18 +227,18 @@ func TestGetQueryParams(t *testing.T) {
 	tests := []struct {
 		name    string
 		opts    *models.ListOptions
-		want    map[string][]string
+		want    url.Values
 		wantErr bool
 	}{
 		{
 			name: "nil options",
 			opts: nil,
-			want: map[string][]string{},
+			want: url.Values{},
 		},
 		{
 			name: "empty options",
 			opts: &models.ListOptions{},
-			want: map[string][]string{},
+			want: url.Values{},
 		},
 		{
 			name: "pagination only",
@@ -233,7 +246,7 @@ func TestGetQueryParams(t *testing.T) {
 				Limit:  10,
 				Offset: 20,
 			},
-			want: map[string][]string{
+			want: url.Values{
 				"limit":  {"10"},
 				"offset": {"20"},
 			},
@@ -243,7 +256,7 @@ func TestGetQueryParams(t *testing.T) {
 			opts: &models.ListOptions{
 				IncludeDeleted: true,
 			},
-			want: map[string][]string{
+			want: url.Values{
 				"include_deleted": {"true"},
 			},
 		},
@@ -252,14 +265,14 @@ func TestGetQueryParams(t *testing.T) {
 			opts: &models.ListOptions{
 				IncludeDeleted: false,
 			},
-			want: map[string][]string{},
+			want: url.Values{},
 		},
 		{
 			name: "status filter equal",
 			opts: &models.ListOptions{
 				StatusFilter: models.StatusFilterEqual,
 			},
-			want: map[string][]string{
+			want: url.Values{
 				"status_filter": {"equal"},
 			},
 		},
@@ -268,20 +281,20 @@ func TestGetQueryParams(t *testing.T) {
 			opts: &models.ListOptions{
 				StatusFilter: models.StatusFilterNotEqual,
 			},
-			want: map[string][]string{
+			want: url.Values{
 				"status_filter": {"not_equal"},
 			},
 		},
 		{
 			name: "instance status test",
-			opts: &models.ListOptions{InstanceStatus: &pendingStatus},
-			want: map[string][]string{
+			opts: &models.ListOptions{InstanceStatus: instanceStatusPtr(models.InstanceStatusPending)},
+			want: url.Values{
 				"instance_status": {"pending"},
 			},
 		},
 		{
 			name:    "invalid instance status",
-			opts:    &models.ListOptions{InstanceStatus: &invalidInstanceStatus},
+			opts:    &models.ListOptions{InstanceStatus: instanceStatusPtr(invalidInstanceStatus)},
 			wantErr: true,
 		},
 	}
@@ -294,7 +307,7 @@ func TestGetQueryParams(t *testing.T) {
 				return
 			}
 			require.NoError(t, err, tt.name)
-			assert.Equal(t, tt.want, map[string][]string(got), tt.name)
+			assert.Equal(t, tt.want, got, tt.name)
 		})
 	}
 }

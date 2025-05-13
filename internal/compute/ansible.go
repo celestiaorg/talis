@@ -95,18 +95,6 @@ func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, t
 		line += fmt.Sprintf(" payload_execute=%t", instance.ExecutePayload)
 	}
 
-	// Add tar archive variables directly from InstanceRequest
-	tarArchivePresent := instance.TarArchivePath != ""
-	line += fmt.Sprintf(" tar_archive_present=%t", tarArchivePresent)
-	if tarArchivePresent {
-		destFilename := filepath.Base(instance.TarArchivePath)
-		destPath := filepath.Join("/root", destFilename) // Ensure consistent path joining
-		// Quote string values for safety in inventory
-		line += fmt.Sprintf(" tar_archive_src_path=\"%s\"", instance.TarArchivePath)
-		line += fmt.Sprintf(" tar_archive_dest_path=\"%s\"", destPath)
-		line += fmt.Sprintf(" untar_dest_path=\"%s\"", "/root") // Default extraction path
-	}
-
 	line += "\n"
 
 	if _, err := f.WriteString(line); err != nil {

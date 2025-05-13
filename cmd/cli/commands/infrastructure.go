@@ -120,7 +120,7 @@ var deleteInfraCmd = &cobra.Command{
 		}
 
 		// Call the API client
-		err = apiClient.DeleteInstance(context.Background(), req)
+		err = apiClient.DeleteInstances(context.Background(), req)
 		if err != nil {
 			return fmt.Errorf("error deleting infrastructure: %w", err)
 		}

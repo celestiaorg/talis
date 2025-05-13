@@ -2,14 +2,10 @@ package models
 
 import (
 	"encoding/json"
-	"math"
 	"time"
 
 	"gorm.io/gorm"
 )
-
-// AdminProjectID represents the special ID for when we need to provide a project ID for a task that is not associated with a specific project
-const AdminProjectID uint = math.MaxUint32
 
 // Project represents a collection of related tasks and instances
 type Project struct {

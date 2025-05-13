@@ -33,11 +33,11 @@ See [architecture doc](./docs/architecture.md)
 cp .env.example .env
 ```
 
-2. Configure environment variables:
+2. Add your DigitalOcean Personal Access Token to the `.env` file:
 ```bash
-# DigitalOcean
-DIGITALOCEAN_TOKEN=your_digitalocean_token_here
+echo "DIGITALOCEAN_TOKEN=your_digitalocean_token_here" >> .env
 ```
+   Alternatively, you can set it as an environment variable directly.
 
 3. Ensure your SSH key is available:
 ```bash
@@ -67,7 +67,7 @@ cp create.json_example create.json
 
 # Create infrastructure using your configuration
 make run-cli ARGS="infra create --file create.json"
-# A delete.json file will be automatically generated after successful creation
+# A delete file (e.g., delete_create.json if your input file was create.json) will be automatically generated after successful creation
 
 # Delete infrastructure using the auto-generated file
 make run-cli ARGS="infra delete --file delete.json"
@@ -75,6 +75,10 @@ make run-cli ARGS="infra delete --file delete.json"
 
 ### Example Configuration Files
 See the [create.json_example](./create.json_example) and [delete.json_example](./delete.json_example) files for more information.
+
+### Using the Go API Client
+
+For programmatic access to the Talis API using Go, refer to the [Go API Client Usage](./client_usage.md) documentation.
 
 ## Extensibility
 
@@ -107,9 +111,6 @@ Modify files in `ansible/`:
 ```bash
 # Run all tests
 make test
-
-# Run tests with coverage
-make test-coverage
 ```
 
 ### Code Quality

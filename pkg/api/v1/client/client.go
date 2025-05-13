@@ -2,24 +2,21 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
+	"strconv"
 	"time"
 
 	fiber "github.com/gofiber/fiber/v2"
 
-	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
+	// internalmodels "github.com/celestiaorg/talis/internal/db/models" // Use public alias
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
+	"github.com/celestiaorg/talis/pkg/db/models" // Import public models alias
+	"github.com/celestiaorg/talis/pkg/types"     // Import public types alias
 )
 
 // DefaultTimeout is the default timeout for API requests
@@ -40,7 +37,7 @@ type Client interface {
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
 	CreateInstance(ctx context.Context, req []types.InstanceRequest) error
-	DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error
+	DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error // Renamed method from DeleteInstance
 
 	//User Endpoints
 	GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error)
@@ -69,6 +66,9 @@ type Options struct {
 	// BaseURL is the base URL of the API
 	BaseURL string
 
+	// APIKey is the API key for authentication
+	APIKey string
+
 	// Timeout is the request timeout
 	Timeout time.Duration
 }
@@ -77,6 +77,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		BaseURL: routes.DefaultBaseURL,
+		APIKey:  "",
 		Timeout: DefaultTimeout,
 	}
 }
@@ -86,6 +87,7 @@ type APIClient struct {
 	baseURL   string
 	timeout   time.Duration
 	AuthToken string
+	APIKey    string
 }
 
 // NewClient creates a new API client with the given options
@@ -102,29 +104,14 @@ func NewClient(opts *Options) (Client, error) {
 
 	return &APIClient{
 		baseURL: opts.BaseURL,
+		APIKey:  opts.APIKey,
 		timeout: opts.Timeout,
 	}, nil
 }
 
-// addFileToMultipart adds a file to the multipart writer.
-// The form field name will be the same as the clientFilePath.
-func addFileToMultipart(writer *multipart.Writer, clientFilePath string) error {
-	file, err := os.Open(clientFilePath) //nolint:gosec
-	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", clientFilePath, err)
-	}
-	defer file.Close() //nolint:errcheck
-
-	part, err := writer.CreateFormFile(clientFilePath, filepath.Base(clientFilePath))
-	if err != nil {
-		return fmt.Errorf("failed to create form file for %s: %w", clientFilePath, err)
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("failed to copy file content for %s: %w", clientFilePath, err)
-	}
-
-	return nil
+// SetAPIKey sets the API key for the client.
+func (c *APIClient) SetAPIKey(apiKey string) {
+	c.APIKey = apiKey
 }
 
 // createAgent creates a new Fiber Agent for the given method and endpoint
@@ -159,6 +146,11 @@ func (c *APIClient) createAgent(ctx context.Context, method, endpoint string, bo
 	// Set common headers
 	agent.Set("Content-Type", "application/json")
 	agent.Set("Accept", "application/json")
+
+	// Add API key header if set
+	if c.APIKey != "" {
+		agent.Set("apikey", c.APIKey)
+	}
 
 	// Add body if provided
 	if body != nil {
@@ -288,39 +280,12 @@ func (c *APIClient) executeRPC(ctx context.Context, method string, params interf
 	return nil
 }
 
-// executeMultipartRequest handles sending a multipart/form-data request.
-// It takes the prepared multipart writer and body buffer.
-func (c *APIClient) executeMultipartRequest(ctx context.Context, endpoint string, writer *multipart.Writer, body *bytes.Buffer, response interface{}) error {
-	// Resolve the full URL
-	fullURL := c.baseURL + endpoint
-
-	// Create Fiber agent for the POST request using the full URL
-	agent := fiber.Post(fullURL)
-
-	// Set timeout
-	if deadline, ok := ctx.Deadline(); ok {
-		agent.Timeout(time.Until(deadline))
-	} else {
-		agent.Timeout(c.timeout)
-	}
-
-	// Set headers for multipart/form-data
-	agent.Set("Content-Type", writer.FormDataContentType())
-	agent.Set("Accept", "application/json")
-
-	// Set the request body
-	agent.Body(body.Bytes())
-
-	// Execute the request using doRequest
-	return c.doRequest(agent, response)
-}
-
 // Admin methods implementation
 
 // AdminGetInstances retrieves all instances
 func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, error) {
 	endpoint := routes.AdminInstancesURL()
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -330,7 +295,7 @@ func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, e
 // AdminGetInstancesMetadata retrieves metadata for all instances
 func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error) {
 	endpoint := routes.AdminInstancesMetadataURL()
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -360,10 +325,10 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 
 	// Pagination params
 	if opts.Limit > 0 {
-		q.Set("limit", fmt.Sprintf("%d", opts.Limit))
+		q.Set("limit", strconv.Itoa(opts.Limit))
 	}
 	if opts.Offset > 0 {
-		q.Set("offset", fmt.Sprintf("%d", opts.Offset))
+		q.Set("offset", strconv.Itoa(opts.Offset))
 	}
 
 	// Filtering params
@@ -371,13 +336,14 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 		q.Set("include_deleted", "true")
 	}
 
+	// StatusFilter is string-based (public alias)
 	if opts.StatusFilter != "" {
 		q.Set("status_filter", string(opts.StatusFilter))
 	}
 
-	// Instance status params
-	if opts.InstanceStatus != nil {
-		status := *opts.InstanceStatus
+	// InstanceStatus is pointer-based in the underlying internal struct
+	if opts.InstanceStatus != nil { // Check if the pointer is non-nil
+		status := *opts.InstanceStatus // Dereference to get the value
 		var statusStr string
 		switch status {
 		case models.InstanceStatusUnknown:
@@ -386,12 +352,15 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 			statusStr = "pending"
 		case models.InstanceStatusProvisioning:
 			statusStr = "provisioning"
+		case models.InstanceStatusCreated:
+			statusStr = "created"
 		case models.InstanceStatusReady:
 			statusStr = "ready"
 		case models.InstanceStatusTerminated:
 			statusStr = "terminated"
 		default:
-			return nil, fmt.Errorf("invalid instance status: %d", status)
+			// Use %v for the underlying int type
+			return nil, fmt.Errorf("invalid instance status: %v", status)
 		}
 		q.Set("instance_status", statusStr)
 	}
@@ -407,7 +376,7 @@ func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) 
 	}
 
 	endpoint := routes.GetInstancesURL(q)
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -422,7 +391,7 @@ func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListO
 	}
 
 	endpoint := routes.GetInstanceMetadataURL(q)
-	var response types.ListResponse[models.Instance]
+	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return []models.Instance{}, err
 	}
@@ -447,7 +416,7 @@ func (c *APIClient) GetInstancesPublicIPs(ctx context.Context, opts *models.List
 // GetInstance retrieves an instance by ID
 func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance, error) {
 	endpoint := routes.GetInstanceURL(id)
-	var response models.Instance
+	var response models.Instance // Use pkg/models.Instance
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
 		return models.Instance{}, err
 	}
@@ -457,54 +426,11 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance
 // CreateInstance creates a new instance
 func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) error {
 	endpoint := routes.CreateInstanceURL()
-
-	// Create multipart body
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// 1. Marshal the instance request slice to JSON
-	reqDataJSON, err := json.Marshal(req)
-	if err != nil {
-		return fmt.Errorf("failed to marshal instance request data: %w", err)
-	}
-
-	// 2. Add the JSON data as a form field "request_data"
-	if err := writer.WriteField("request_data", string(reqDataJSON)); err != nil {
-		return fmt.Errorf("failed to write request_data field: %w", err)
-	}
-
-	// 3. Add files specified in the requests
-	uploadedFiles := make(map[string]bool) // Track files already added
-	for _, r := range req {
-		// Add PayloadPath file if specified and not already added
-		if r.PayloadPath != "" && !uploadedFiles[r.PayloadPath] {
-			if err := addFileToMultipart(writer, r.PayloadPath); err != nil {
-				return fmt.Errorf("failed to add payload file %s: %w", r.PayloadPath, err)
-			}
-			uploadedFiles[r.PayloadPath] = true
-		}
-
-		// Add TarArchivePath file if specified and not already added
-		if r.TarArchivePath != "" && !uploadedFiles[r.TarArchivePath] {
-			if err := addFileToMultipart(writer, r.TarArchivePath); err != nil {
-				return fmt.Errorf("failed to add tar archive file %s: %w", r.TarArchivePath, err)
-			}
-			uploadedFiles[r.TarArchivePath] = true
-		}
-	}
-
-	// Close the multipart writer (important! This finalizes the body)
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	// Use the dedicated multipart helper
-	// Pass nil for response as CreateInstance doesn't expect a specific body back
-	return c.executeMultipartRequest(ctx, endpoint, writer, body, nil)
+	return c.executeRequest(ctx, http.MethodPost, endpoint, req, nil)
 }
 
-// DeleteInstance deletes an instance by ID
-func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstancesRequest) error {
+// DeleteInstances deletes instances by ID (renamed from DeleteInstance)
+func (c *APIClient) DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error {
 	endpoint := routes.TerminateInstancesURL()
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
 }
@@ -513,7 +439,7 @@ func (c *APIClient) DeleteInstance(ctx context.Context, req types.DeleteInstance
 
 // GetUserByID retrieves a user by id
 func (c *APIClient) GetUserByID(ctx context.Context, params handlers.UserGetByIDParams) (models.User, error) {
-	var response models.User
+	var response models.User // Use pkg/models.User
 	if err := c.executeRPC(ctx, handlers.UserGetByID, params, &response); err != nil {
 		return models.User{}, err
 	}
@@ -545,7 +471,7 @@ func (c *APIClient) DeleteUser(ctx context.Context, params handlers.DeleteUserPa
 
 // CreateProject creates a new project
 func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error) {
-	var project models.Project
+	var project models.Project // Use pkg/models.Project
 	if err := c.executeRPC(ctx, handlers.ProjectCreate, params, &project); err != nil {
 		return project, err
 	}
@@ -554,7 +480,7 @@ func (c *APIClient) CreateProject(ctx context.Context, params handlers.ProjectCr
 
 // GetProject retrieves a project by name
 func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error) {
-	var project models.Project
+	var project models.Project // Use pkg/models.Project
 	if err := c.executeRPC(ctx, handlers.ProjectGet, params, &project); err != nil {
 		return models.Project{}, err
 	}
@@ -563,7 +489,7 @@ func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetPa
 
 // ListProjects lists all projects
 func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
-	var listResponse types.ListResponse[models.Project]
+	var listResponse types.ListResponse[models.Project] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectList, params, &listResponse); err != nil {
 		return nil, err
 	}
@@ -577,7 +503,7 @@ func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDe
 
 // ListProjectInstances lists all instances for a project
 func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
-	var listResponse types.ListResponse[models.Instance]
+	var listResponse types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
 		return nil, err
 	}
@@ -588,7 +514,7 @@ func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.Pr
 
 // GetTask retrieves a task by name
 func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error) {
-	var task models.Task
+	var task models.Task // Use pkg/models.Task
 	if err := c.executeRPC(ctx, handlers.TaskGet, params, &task); err != nil {
 		return models.Task{}, err
 	}
@@ -597,7 +523,7 @@ func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) 
 
 // ListTasks lists all tasks
 func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
-	var listResponse types.ListResponse[models.Task]
+	var listResponse types.ListResponse[models.Task] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.TaskList, params, &listResponse); err != nil {
 		return nil, err
 	}
