@@ -46,11 +46,12 @@ This document provides details on the available API endpoints, including RESTful
 
 *   **Endpoint:** `GET /health`
 *   **Description:** Checks the health status of the API.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:** None
 *   **Example Request:**
     ```bash
-    curl http://localhost:8080/health
+    curl -H "apikey: YOUR_API_KEY" http://localhost:8080/health
     ```
 *   **Example Response (200 OK):**
     ```json
@@ -71,15 +72,16 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `AdminGetInstances`
 *   **Handler:** `instanceHandler.ListInstances`
 *   **Description:** Retrieves a list of all instances across all users/projects.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:**
     *   `limit` (int, optional, default: `DefaultPageSize` from `handlers`): Number of instances to return.
     *   `offset` (int, optional, default: 0): Offset for pagination.
     *   `include_deleted` (bool, optional, default: `false`): Whether to include deleted instances.
-    *   `status` (string, optional): Filter instances by status (e.g., "running", "terminated"). See `models.InstanceStatus` for possible values.
+    *   `status` (string, optional): Filter instances by status. Valid values: `unknown`, `pending`, `created`, `provisioning`, `ready`, `terminated`.
 *   **Example Request:**
     ```bash
-    curl "http://localhost:8080/api/v1/admin/instances?limit=10&status=running"
+    curl -H "apikey: YOUR_API_KEY" "http://localhost:8080/api/v1/admin/instances?limit=10&status=ready"
     ```
 *   **Example Response (200 OK):**
     ```json
@@ -116,11 +118,12 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `AdminGetInstancesMetadata`
 *   **Handler:** `instanceHandler.GetAllMetadata`
 *   **Description:** Retrieves metadata for all instances. Functionally similar to List All Instances (Admin) but might have a different internal purpose or representation in the future.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:** Same as [List All Instances (Admin)](#list-all-instances-admin).
 *   **Example Request:**
     ```bash
-    curl "http://localhost:8080/api/v1/admin/instances/all-metadata?include_deleted=true"
+    curl -H "apikey: YOUR_API_KEY" "http://localhost:8080/api/v1/admin/instances/all-metadata?include_deleted=true&status=pending"
     ```
 *   **Example Response (200 OK):** Same as [List All Instances (Admin)](#list-all-instances-admin).
 
@@ -134,11 +137,12 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `GetInstances`
 *   **Handler:** `instanceHandler.ListInstances` (Note: The handler implies AdminID is used; this might be subject to OwnerID filtering in a real scenario based on TODOs in code).
 *   **Description:** Retrieves a list of instances. (Assumed to be filterable by OwnerID in the future).
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:** Same as [List All Instances (Admin)](#list-all-instances-admin).
 *   **Example Request:**
     ```bash
-    curl "http://localhost:8080/api/v1/instances?limit=5"
+    curl -H "apikey: YOUR_API_KEY" "http://localhost:8080/api/v1/instances?limit=5&status=created"
     ```
 *   **Example Response (200 OK):** Similar structure to [List All Instances (Admin)](#list-all-instances-admin).
 
@@ -148,11 +152,12 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `GetMetadata`
 *   **Handler:** `instanceHandler.GetAllMetadata`
 *   **Description:** Retrieves metadata for instances. (Assumed to be filterable by OwnerID in the future).
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:** Same as [List All Instances (Admin)](#list-all-instances-admin).
 *   **Example Request:**
     ```bash
-    curl "http://localhost:8080/api/v1/instances/all-metadata"
+    curl -H "apikey: YOUR_API_KEY" "http://localhost:8080/api/v1/instances/all-metadata?status=terminated"
     ```
 *   **Example Response (200 OK):** Similar structure to [List All Instances (Admin)](#list-all-instances-admin).
 
@@ -162,6 +167,7 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `GetPublicIPs`
 *   **Handler:** `instanceHandler.GetPublicIPs`
 *   **Description:** Retrieves a list of public IP addresses for instances.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:**
     *   `limit` (int, optional, default: `DefaultPageSize`): Number of items to return.
@@ -169,7 +175,7 @@ These endpoints are typically for administrative purposes and might require spec
     *   `include_deleted` (bool, optional, default: `false`): Whether to include IPs from deleted instances.
 *   **Example Request:**
     ```bash
-    curl "http://localhost:8080/api/v1/instances/public-ips"
+    curl -H "apikey: YOUR_API_KEY" "http://localhost:8080/api/v1/instances/public-ips"
     ```
 *   **Example Response (200 OK):**
     ```json
@@ -193,10 +199,12 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `CreateInstance`
 *   **Handler:** `instanceHandler.CreateInstance`
 *   **Description:** Creates one or more new instances based on the provided configurations.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** An array of `types.InstanceRequest` objects.
     ```json
     // types.InstanceRequest structure
     {
+      "name": "my-instance-01", // Required: Name for the instance itself
       "owner_id": 1, // Required: Owner ID of the instance
       "provider": "do", // Required: Cloud provider (e.g., "do", "aws", "gcp")
       "region": "nyc3", // Required: Region for instance creation
@@ -224,9 +232,10 @@ These endpoints are typically for administrative purposes and might require spec
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '[
               {
+                "name": "batch-worker-01",
                 "owner_id": 1,
                 "provider": "do",
                 "region": "sfo3",
@@ -244,25 +253,38 @@ These endpoints are typically for administrative purposes and might require spec
     ```
 *   **Example Response (201 Created):**
     ```json
-    // types.Success(createdInstances)
+    // types.Success(createdInstances) or actual success response
     {
       "slug": "success",
-      "data": [
-        {
-          "id": 10,
-          "owner_id": 1,
-          "project_name": "batch-processing",
-          // ... other fields from models.Instance
-          "status": "provisioning" // Or initial status
-        },
-        {
-          "id": 11,
-          "owner_id": 1,
-          "project_name": "batch-processing",
-          // ... other fields from models.Instance
-          "status": "provisioning"
-        }
-      ]
+      "error": "", // Empty on success
+      "data": {
+        // The actual structure of 'data' might vary.
+        // Based on recent test, it could be like:
+        // "task_names": ["some-task-uuid"]
+        // Or it could be the list of created instance objects:
+        /*
+        [
+          {
+            "id": 10,
+            "owner_id": 1,
+            "project_name": "batch-processing",
+            "name": "batch-worker-01", // Assuming name is part of the response model
+            // ... other fields from models.Instance
+            "status": "provisioning" // Or initial status
+          },
+          {
+            "id": 11,
+            "owner_id": 1,
+            "project_name": "batch-processing",
+            "name": "batch-worker-02",
+            // ... other fields from models.Instance
+            "status": "provisioning"
+          }
+        ]
+        */
+        // For the last successful test, the response was:
+        "task_names": ["4fccd03b-61f4-4ff6-b1f6-5649f93ff960"]
+      }
     }
     ```
 
@@ -272,12 +294,13 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Route Name:** `GetInstance`
 *   **Handler:** `instanceHandler.GetInstance`
 *   **Description:** Retrieves details for a specific instance by its ID.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Path Parameters:**
     *   `id` (int, required): The ID of the instance.
 *   **Example Request:**
     ```bash
-    curl http://localhost:8080/api/v1/instances/10
+    curl -H "apikey: YOUR_API_KEY" http://localhost:8080/api/v1/instances/10
     ```
 *   **Example Response (200 OK):**
     ```json
@@ -285,10 +308,10 @@ These endpoints are typically for administrative purposes and might require spec
     {
       "id": 10,
       "owner_id": 1,
-      "project_name": "batch-processing",
+      "project_name": "batch-processing", // Note: In current DB model this is project_id (int)
       "provider_instance_id": "prov-inst-id-10",
       "provider": "do",
-      "name": "instance-batch-01",
+      "name": "instance-batch-01-0", // Name may include a numeric suffix (e.g., -0, -1)
       "public_ip": "192.0.2.10",
       "region": "sfo3",
       "size": "s-2vcpu-4gb",
@@ -305,31 +328,35 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Endpoint:** `DELETE /api/v1/instances`
 *   **Route Name:** `TerminateInstances`
 *   **Handler:** `instanceHandler.TerminateInstances`
-*   **Description:** Terminates one or more specified instances.
-*   **Request Body:** `types.DeleteInstancesRequest`
+*   **Description:** Initiates termination tasks for one or more instances within a specific project.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
+*   **Request Body:** JSON object with project and instance identifiers.
     ```json
+    // Expected request structure based on successful test
     {
-      "owner_id": 1, // Required
-      "project_name": "batch-processing", // Required
-      "instance_ids": [10, 11] // Required, array of instance IDs
+      "owner_id": 1, // Required: Owner ID of the project/instances
+      "project_name": "your-project-name", // Required: Name of the project
+      "instance_names": ["instance-name-1", "instance-name-2"] // Required: Array of instance names to terminate
     }
     ```
+    *   **Note:** The codebase (`internal/types/instance.go`) defines `DeleteInstancesRequest` with `InstanceIDs []uint`. However, testing shows the endpoint requires `instance_names []string` for successful operation. This documentation reflects the empirically validated behavior.
+*   **Query Parameters:** None
 *   **Example Request:**
     ```bash
-    curl -X DELETE -H "Content-Type: application/json" \
+    curl -X DELETE -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "owner_id": 1,
-              "project_name": "batch-processing",
-              "instance_ids": [10, 11]
+              "project_name": "cli-test-project",
+              "instance_names": ["my-instance-to-delete-0"]
             }' \
          http://localhost:8080/api/v1/instances
     ```
 *   **Example Response (200 OK):**
     ```json
-    // types.Success(nil)
     {
       "slug": "success",
-      "data": null
+      "error": "",
+      "data": null // Or details about termination tasks initiated
     }
     ```
 
@@ -337,45 +364,53 @@ These endpoints are typically for administrative purposes and might require spec
 
 *   **Endpoint:** `GET /api/v1/instances/:instance_id/tasks`
 *   **Route Name:** `ListInstanceTasks`
-*   **Handler:** `taskHandler.ListByInstanceID`
+*   **Handler:** `taskHandler.ListByInstanceID` (from `routes.go`)
 *   **Description:** Retrieves a list of tasks associated with a specific instance.
+*   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Path Parameters:**
     *   `instance_id` (int, required): The ID of the instance.
-*   **Query Parameters:**
-    *   `action` (string, optional): Filter tasks by action (e.g., "create_instances", "terminate_instances"). See `models.TaskAction`.
-    *   `limit` (int, optional, default: `DefaultPageSize`): Number of tasks to return.
-    *   `offset` (int, optional, default: 0): Offset for pagination.
+*   **Query Parameters:** (Assumed standard pagination might apply, e.g., `limit`, `offset` - needs verification)
+    *   `limit` (int, optional): Number of tasks to return.
+    *   `offset` (int, optional): Offset for pagination.
 *   **Example Request:**
     ```bash
-    curl "http://localhost:8080/api/v1/instances/10/tasks?action=create_instances&limit=5"
+    curl -H "apikey: YOUR_API_KEY" http://localhost:8080/api/v1/instances/10/tasks?limit=5
     ```
-*   **Example Response (200 OK):**
+*   **Example Response (200 OK):** (Hypothetical - endpoint returned 404 in tests)
     ```json
-    // types.Success(types.ListResponse[models.Task])
     {
-      "slug": "success",
-      "data": {
-        "rows": [
-          {
-            "id": 1,
-            "instance_id": 10,
-            "project_name": "batch-processing",
-            "action": "create_instances",
-            "status": "completed",
-            "payload": "{"instance_config": ...}",
-            // ... other fields from models.Task
-          }
-        ],
-        "pagination": {
-          "total": 1,
-          "page": 1,
-          "limit": 5,
-          "offset": 0
+      "rows": [
+        {
+          "id": 101,
+          "owner_id": 1,
+          "project_id": 5,
+          "instance_id": 10,
+          "status": "completed",
+          "action": "create_instance",
+          // ... other task fields ...
+          "created_at": "2023-10-26T10:00:00Z"
+        },
+        {
+          "id": 105,
+          "owner_id": 1,
+          "project_id": 5,
+          "instance_id": 10,
+          "status": "pending",
+          "action": "terminate_instance",
+          // ... other task fields ...
+          "created_at": "2023-10-27T11:00:00Z"
         }
+      ],
+      "pagination": {
+        "total": 2,
+        "page": 1,
+        "limit": 5,
+        "offset": 0
       }
     }
     ```
+*   **Current Status (Testing Note):** As of the last test against `http://163.172.162.109:8000/talis/`, this endpoint returned a `404 Not Found` with `{"error":"Cannot GET /api/v1/instances/:instance_id/tasks"}`. This suggests a routing or deployment issue on the server. It's also possible this is related to the "record not found" error observed with the RPC `task.list` method if the underlying task retrieval logic has issues distinguishing "no tasks found" from "parent record (instance/project) not found".
 
 ---
 
@@ -387,6 +422,7 @@ The API provides a single RPC endpoint for various operations related to project
 *   **Route Name:** `RPC`
 *   **Handler:** `rpcHandler.HandleRPC`
 *   **Description:** A general-purpose RPC endpoint. The specific operation is determined by the `method` field in the request body.
+*   **Authentication:** Required. Pass the API key in the `apikey` header for all RPC calls.
 
 ### RPC Request Structure
 
@@ -429,6 +465,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
 
 *   **Description:** Creates a new project.
 *   **Handler:** `ProjectHandlers.Create`
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
 *   **Params (`handlers.ProjectCreateParams`):**
     ```json
     {
@@ -440,7 +477,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "project.create",
               "params": {
@@ -472,6 +509,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
 
 *   **Description:** Retrieves details of a specific project by name and owner.
 *   **Handler:** `ProjectHandlers.Get`
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
 *   **Params (`handlers.ProjectGetParams`):**
     ```json
     {
@@ -481,7 +519,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "project.get",
               "params": {
@@ -492,17 +530,16 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
             }' \
          http://localhost:8080/api/v1/
     ```
-*   **Example Response (Success):**
+*   **Example Response (Not Found - 404):**
     ```json
     {
-      "data": { // models.Project structure
-        "id": 5,
-        "owner_id": 1,
-        "name": "my-new-project",
-        // ...
+      "error": {
+        "code": 404,
+        "message": "Project not found",
+        "data": "record not found"
       },
-      "success": true,
-      "id": "proj-get-002"
+      "id": "proj-get-002",
+      "success": false
     }
     ```
 
@@ -510,60 +547,55 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
 
 *   **Description:** Lists projects for a given owner, with pagination.
 *   **Handler:** `ProjectHandlers.List`
-*   **Params (`handlers.ProjectListParams`):**
-    ```json
-    {
-      "owner_id": 1, // Required
-      "page": 1 // Optional, default: 1 (for pagination options)
-    }
-    ```
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
+*   **Params (`handlers.ProjectListParams`):
+    *   `owner_id` (uint, required)
+    *   `limit` (int, optional, default: 50 in `handlers.getPaginationOptions`)
+    *   `offset` (int, optional, default: 0)
+    *   `page` (int, optional, default: 1) - Note: `limit` & `offset` are preferred for direct service layer calls.
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "project.list",
               "params": {
                 "owner_id": 1,
                 "page": 1
               },
-              "id": "proj-list-003"
+              "id": "proj-list-001"
             }' \
          http://localhost:8080/api/v1/
     ```
 *   **Example Response (Success):**
     ```json
     {
-      "data": { // types.ListResponse[models.Project]
+      "data": {
         "rows": [
           {
-            "id": 5,
-            "owner_id": 1,
-            "name": "my-new-project",
-            // ...
-          },
-          {
-            "id": 6,
-            "owner_id": 1,
-            "name": "another-project",
-            // ...
+            "ID": 1,
+            "name": "cli-test-project",
+            // ... other project fields
           }
+          // ... other projects
         ],
         "pagination": {
-          "total": 2,
+          "total": 1, // Actual total number of projects for the owner
           "page": 1,
-          "limit": 10, // DefaultPageSize
+          "limit": 50, // Note: Server might return its default limit (e.g., 50) despite request
           "offset": 0
         }
       },
       "success": true,
-      "id": "proj-list-003"
+      "id": "proj-list-001"
     }
     ```
+*   **Testing Note:** This RPC method was tested successfully. The server returned a default pagination limit different from the one requested, which is noted.
 
 #### `project.delete`
 
 *   **Description:** Deletes a project by name and owner.
 *   **Handler:** `ProjectHandlers.Delete`
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
 *   **Params (`handlers.ProjectDeleteParams`):**
     ```json
     {
@@ -573,7 +605,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "project.delete",
               "params": {
@@ -596,6 +628,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
 
 *   **Description:** Lists all instances associated with a specific project.
 *   **Handler:** `ProjectHandlers.ListInstances`
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
 *   **Params (`handlers.ProjectListInstancesParams`):**
     ```json
     {
@@ -606,7 +639,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "project.listInstances",
               "params": {
@@ -651,16 +684,13 @@ Note: `ownerID` for task methods is currently hardcoded to `models.AdminID` in `
 
 *   **Description:** Retrieves details of a specific task by its ID.
 *   **Handler:** `TaskHandlers.Get`
-*   **Params (`handlers.TaskGetParams`):**
-    ```json
-    {
-      "task_id": 15, // Required
-      "owner_id": 1 // Required by params struct, but RPC handler uses AdminID for now.
-    }
-    ```
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
+*   **Params (`handlers.TaskGetParams`):
+    *   `task_id` (uint, required) - Referred to as `id` in some older doc examples, but struct likely uses `task_id` or similar.
+    *   `owner_id` (uint, required)
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "task.get",
               "params": {
@@ -671,84 +701,46 @@ Note: `ownerID` for task methods is currently hardcoded to `models.AdminID` in `
             }' \
          http://localhost:8080/api/v1/
     ```
-*   **Example Response (Success):**
-    ```json
-    {
-      "data": { // models.Task structure
-        "id": 15,
-        "project_name": "some-project",
-        "action": "create_instances",
-        "status": "completed",
-        // ...
-      },
-      "success": true,
-      "id": "task-get-001"
-    }
-    ```
+*   **Testing Note:** The `POST /api/v1/instances` endpoint returns a UUID for `task_names`. This `task.get` RPC expects a numeric task ID. To test this, one would first need to list tasks (e.g., via a working `task.list`) to find the numeric ID corresponding to a task UUID. As `task.list` is currently failing (see below), this method could not be directly tested for a known task.
 
 #### `task.list`
 
 *   **Description:** Lists tasks for a given project and owner, with pagination.
 *   **Handler:** `TaskHandlers.List`
-*   **Params (`handlers.TaskListParams`):**
-    ```json
-    {
-      "projectName": "another-project", // Required
-      "owner_id": 1, // Required by params struct
-      "page": 1 // Optional, default: 1
-    }
-    ```
-*   **Example Request:**
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
+*   **Params (`handlers.TaskListParams` - requires `project_name` based on handler code):
+    *   `owner_id` (uint, required)
+    *   `project_name` (string, required) - Handler `TaskHandlers.List` uses `params.ProjectName`.
+    *   `project_id` (uint, optional) - Documentation example used this, but handler seems to prefer `project_name`.
+    *   `limit` (int, optional, default: 50)
+    *   `offset` (int, optional, default: 0)
+    *   `page` (int, optional, default: 1)
+*   **Example Request (using `project_name`):
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "task.list",
               "params": {
-                "projectName": "another-project",
+                "project_name": "another-project",
                 "owner_id": 1
               },
-              "id": "task-list-002"
+              "id": "task-list-001"
             }' \
          http://localhost:8080/api/v1/
     ```
-*   **Example Response (Success):**
-    ```json
-    {
-      "data": { // types.ListResponse[models.Task]
-        "rows": [
-          {
-            "id": 22,
-            "project_name": "another-project",
-            "action": "terminate_instances",
-            // ...
-          }
-        ],
-        "pagination": {
-          "total": 1,
-          "page": 1,
-          "limit": 10, // DefaultPageSize
-          "offset": 0
-        }
-      },
-      "success": true,
-      "id": "task-list-002"
-    }
-    ```
+*   **Testing Note:** This RPC method consistently failed during testing. After correcting the `projectName` JSON key (from `project_name` to `projectName`), the error changed to a `500 Internal Server Error: {"error":{"code":500,"message":"Failed to list tasks","data":"record not found"}}`. This occurred even for a project known to exist. This suggests an issue within the service or repository layer, where an absence of tasks for a project might be incorrectly reported as a "record not found" error, rather than an empty list. The REST endpoint for listing tasks (`/api/v1/instances/:instance_id/tasks`) also failed (404 routing error), potentially due to similar underlying error handling.
 
 #### `task.terminate`
 
 *   **Description:** Terminates a running task. (Internally, this updates the task status to `models.TaskStatusTerminated`).
 *   **Handler:** `TaskHandlers.Terminate`
-*   **Params (`handlers.TaskTerminateParams`):**
-    ```json
-    {
-      "task_id": 25, // Required
-      "owner_id": 1 // Required by params struct
-    }
-    ```
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
+*   **Params (`handlers.TaskTerminateParams`):
+    *   `task_id` (uint, required)
+    *   `owner_id` (uint, required by params struct)
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "task.terminate",
               "params": {
@@ -766,6 +758,7 @@ Note: `ownerID` for task methods is currently hardcoded to `models.AdminID` in `
       "id": "task-terminate-003"
     }
     ```
+*   **Testing Note:** This method requires a numeric `task_id` of an active task. Due to the failures with `task.list` (needed to identify suitable task IDs), this endpoint was not directly tested.
 
 ### User Methods
 
@@ -775,24 +768,25 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
 
 *   **Description:** Creates a new user.
 *   **Handler:** `UserHandlers.CreateUser`
+*   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
 *   **Params (`handlers.CreateUserParams`):**
     ```json
     {
       "username": "newuser", // Required
       "email": "newuser@example.com", // Optional, validated if provided
-      "role": "user", // Optional, see models.UserRole for values (e.g., "user", "admin")
+      "role": 0, // Required: Integer representing user role (0 for User, 1 for Admin)
       "public_ssh_key": "ssh-rsa AAAA..." // Optional
     }
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "user.create",
               "params": {
                 "username": "johndoe",
                 "email": "johndoe@example.com",
-                "role": "user"
+                "role": 0
               },
               "id": "user-create-001"
             }' \
@@ -802,7 +796,7 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     ```json
     {
       "data": { // types.CreateUserResponse
-        "user_id": 12
+        "user_id": 12 // The actual ID of the created user
       },
       "success": true,
       "id": "user-create-001"
@@ -822,7 +816,7 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     ```
 *   **Example Request (Get Specific User):**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "user.get",
               "params": {
@@ -850,7 +844,7 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     ```
 *   **Example Request (List All Users):**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "user.get",
               "params": {
@@ -864,14 +858,15 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     ```json
     {
       "data": { // types.UserResponse with Users array and Pagination
+        "user": { "ID": 0 /* ... other zeroed fields ... */ }, // Note: A zeroed user object might be present
         "users": [
-          { "id": 1, "username": "admin", /* ... */ },
-          { "id": 12, "username": "johndoe", /* ... */ }
+          { "id": 1, "username": "admin", "role": 1 /* ... */ },
+          { "id": 3, "username": "apitestuser01", "role": 0 /* ... */ }
         ],
         "pagination": {
-          "total": 2,
+          "total": 2, // Actual total number of users
           "page": 1,
-          "limit": 10, // DefaultPageSize
+          "limit": 50, // Actual limit returned by server (e.g., 0 or DefaultPageSize)
           "offset": 0
         }
       },
@@ -892,7 +887,7 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "user.get.id",
               "params": {
@@ -905,12 +900,12 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
 *   **Example Response (Success):**
     ```json
     {
-      "data": { // types.UserResponse with single User
-        "user": {
-          "id": 12,
-          "username": "johndoe",
-          // ...
-        }
+      "data": { // models.User structure directly
+        "ID": 12,
+        "username": "johndoe",
+        "email": "johndoe@example.com",
+        "role": 0, // 0 for User, 1 for Admin
+        // ... other user fields
       },
       "success": true,
       "id": "user-get-id-004"
@@ -929,7 +924,7 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     ```
 *   **Example Request:**
     ```bash
-    curl -X POST -H "Content-Type: application/json" \
+    curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
          -d '{
               "method": "user.delete",
               "params": {
@@ -947,4 +942,4 @@ Dispatched by `rpcHandler.handleUserMethod` to `UserHandlers`.
     }
     ```
 
-</rewritten_file> 
+</rewritten_file>
