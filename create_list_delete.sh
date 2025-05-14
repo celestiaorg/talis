@@ -144,6 +144,7 @@ create_instances() {
         "image": "ubuntu-22-04-x64",
         "tags": ["talis", "dev", "testing"],
         "ssh_key_name": "talis-dev-server",
+        "ssh_key_type": "ed25519",
         "project_name": "%s",
         "volumes": [
             {
@@ -207,14 +208,9 @@ create_instances() {
 delete_instances() {
     echo "Attempting to delete instances..."
     
-    if [ ${#INSTANCE_IDS[@]} -eq 0 ]; then
-        echo "No instance IDs available for deletion"
-        return
-    fi
-    
     # Convert array to JSON array string
-    # INSTANCE_IDS_JSON=4
-    INSTANCE_IDS_JSON=$(printf '%s,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
+    INSTANCE_IDS_JSON=6
+    # INSTANCE_IDS_JSON=$(printf '%s,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
     
     DELETE_PAYLOAD="{
         \"project_name\": \"$PROJECT_NAME\",
