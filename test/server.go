@@ -46,7 +46,7 @@ func SetupServer(suite *Suite) {
 	}
 
 	// Register routes
-	routes.RegisterRoutes(suite.App, instanceHandler, rpcHandler)
+	routes.RegisterRoutes(suite.App, instanceHandler, rpcHandler, taskHandler)
 
 	// Create test server using adaptor to convert Fiber app to http.Handler
 	suite.Server = httptest.NewServer(adaptor.FiberApp(suite.App))
@@ -62,6 +62,7 @@ func SetupServer(suite *Suite) {
 	// Launch worker
 	var wg sync.WaitGroup
 	wg.Add(1)
+	suite.workerWG = &wg
 	worker := services.NewWorker(instanceService, projectService, taskService, userService, 100*time.Millisecond)
 	go worker.LaunchWorker(suite.ctx, &wg)
 

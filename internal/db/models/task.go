@@ -14,8 +14,11 @@ import (
 const (
 	// TaskStatusField is the field name for task status
 	TaskStatusField = "status"
-	// TaskNameField is the field name for task name
-	TaskNameField = "name"
+	// TaskIDField is the field name for task ID
+	TaskIDField = "id"
+
+	// TaskCreatedAtField is the field name for task created at
+	TaskCreatedAtField = "created_at"
 
 	// WebhookTimeoutSeconds is the timeout for webhook requests in seconds
 	WebhookTimeout = 10 * time.Second
@@ -55,10 +58,10 @@ const (
 // Task represents an asynchronous operation that can be tracked
 type Task struct {
 	gorm.Model
-	ProjectID   uint            `json:"-" gorm:"not null; index"`
+	ProjectID   uint            `json:"project_id" gorm:"not null; index"`
 	OwnerID     uint            `json:"-" gorm:"not null; index"`
-	Name        string          `json:"name" gorm:"not null; index; unique"`
-	Action      TaskAction      `json:"action" gorm:"type:varchar(32)"` // make sure this is long enough to handle all actions
+	InstanceID  uint            `json:"instance_id,omitempty" gorm:"index"` // Link to the specific instance, if applicable
+	Action      TaskAction      `json:"action" gorm:"type:varchar(32)"`     // make sure this is long enough to handle all actions
 	Status      TaskStatus      `json:"status" gorm:"not null; index"`
 	Payload     json.RawMessage `json:"payload,omitempty" gorm:"type:jsonb"` // Data that is required for the task to be executed
 	Result      json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`  // Result of the task
@@ -124,10 +127,6 @@ func (s *TaskStatus) MarshalJSON() ([]byte, error) {
 
 // Validate ensures that the task data is valid
 func (t *Task) Validate() error {
-	if t.Name == "" {
-		return fmt.Errorf("task name cannot be empty")
-	}
-
 	// Validate Action field
 	switch t.Action {
 	case TaskActionCreateInstances, TaskActionTerminateInstances:
@@ -156,7 +155,6 @@ func (t *Task) SendWebhook() error {
 	// Create payload
 	payload := map[string]interface{}{
 		"task_id": t.ID,
-		"name":    t.Name,
 		"status":  t.Status,
 		"action":  t.Action,
 	}

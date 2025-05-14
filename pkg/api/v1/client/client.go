@@ -25,18 +25,18 @@ const DefaultTimeout = 30 * time.Second
 // Client is the interface for API client
 type Client interface {
 	// Admin Endpoints
-	AdminGetInstances(ctx context.Context) ([]models.Instance, error)
-	AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error)
+	AdminGetInstances(ctx context.Context) ([]*models.Instance, error)
+	AdminGetInstancesMetadata(ctx context.Context) ([]*models.Instance, error)
 
 	// Health Check
 	HealthCheck(ctx context.Context) (map[string]string, error)
 
 	// Instance Endpoints
-	GetInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
-	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
+	GetInstances(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error)
+	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error)
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
-	CreateInstance(ctx context.Context, req []types.InstanceRequest) error
+	CreateInstance(ctx context.Context, req []types.InstanceRequest) ([]*models.Instance, error)
 	DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error // Renamed method from DeleteInstance
 
 	//User Endpoints
@@ -48,13 +48,14 @@ type Client interface {
 	// Project methods
 	CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error)
 	GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error)
-	ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error)
+	ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]*models.Project, error)
 	DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error
-	ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error)
+	ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]*models.Instance, error)
 
 	// Task methods
 	GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error)
-	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error)
+	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]*models.Task, error)
+	ListTasksByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter string, opts *models.ListOptions) ([]*models.Task, error)
 	TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error
 	UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error
 }
@@ -283,21 +284,21 @@ func (c *APIClient) executeRPC(ctx context.Context, method string, params interf
 // Admin methods implementation
 
 // AdminGetInstances retrieves all instances
-func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, error) {
+func (c *APIClient) AdminGetInstances(ctx context.Context) ([]*models.Instance, error) {
 	endpoint := routes.AdminInstancesURL()
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
 
 // AdminGetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error) {
+func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]*models.Instance, error) {
 	endpoint := routes.AdminInstancesMetadataURL()
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
@@ -369,31 +370,31 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 }
 
 // GetInstances lists instances with optional filtering
-func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 
 	endpoint := routes.GetInstancesURL(q)
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
 
 // GetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 
 	endpoint := routes.GetInstanceMetadataURL(q)
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
@@ -423,13 +424,34 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance
 	return response, nil
 }
 
-// CreateInstance creates a new instance
-func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) error {
+// CreateInstance creates new instances
+func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) ([]*models.Instance, error) {
 	endpoint := routes.CreateInstanceURL()
-	return c.executeRequest(ctx, http.MethodPost, endpoint, req, nil)
+	var slugResp types.SlugResponse
+
+	if err := c.executeRequest(ctx, fiber.MethodPost, endpoint, req, &slugResp); err != nil {
+		return nil, err
+	}
+
+	if slugResp.Slug != types.SuccessSlug {
+		return nil, fmt.Errorf("API error (%s): %s", slugResp.Slug, slugResp.Error)
+	}
+
+	// Data should be a slice of instances
+	var createdInstances []*models.Instance
+	jsonData, err := json.Marshal(slugResp.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal slugResp.Data for CreateInstance: %w", err)
+	}
+
+	if err := json.Unmarshal(jsonData, &createdInstances); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal created instances from slugResp.Data: %w", err)
+	}
+
+	return createdInstances, nil
 }
 
-// DeleteInstances deletes instances by ID (renamed from DeleteInstance)
+// DeleteInstances deletes specified instances for a project
 func (c *APIClient) DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error {
 	endpoint := routes.TerminateInstancesURL()
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
@@ -488,7 +510,7 @@ func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetPa
 }
 
 // ListProjects lists all projects
-func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
+func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]*models.Project, error) {
 	var listResponse types.ListResponse[models.Project] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectList, params, &listResponse); err != nil {
 		return nil, err
@@ -502,7 +524,7 @@ func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDe
 }
 
 // ListProjectInstances lists all instances for a project
-func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
+func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]*models.Instance, error) {
 	var listResponse types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
 		return nil, err
@@ -522,11 +544,61 @@ func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) 
 }
 
 // ListTasks lists all tasks
-func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
+func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]*models.Task, error) {
 	var listResponse types.ListResponse[models.Task] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.TaskList, params, &listResponse); err != nil {
 		return nil, err
 	}
+	return listResponse.Rows, nil
+}
+
+// ListTasksByInstanceID retrieves tasks for a specific instance ID, with optional action and pagination.
+func (c *APIClient) ListTasksByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter string, opts *models.ListOptions) ([]*models.Task, error) {
+	queryParams := url.Values{}
+	// Add owner_id to query parameters
+	queryParams.Set("owner_id", strconv.FormatUint(uint64(ownerID), 10))
+
+	if actionFilter != "" {
+		queryParams.Set("action", actionFilter)
+	}
+	if opts != nil {
+		if opts.Limit > 0 {
+			queryParams.Set("limit", strconv.Itoa(opts.Limit))
+		}
+		if opts.Offset > 0 {
+			queryParams.Set("offset", strconv.Itoa(opts.Offset))
+		}
+	}
+
+	endpoint := routes.ListInstanceTasksURL(strconv.FormatUint(uint64(instanceID), 10), queryParams)
+
+	// The response from the server is expected to be types.SlugResponse
+	// where Data contains types.ListResponse[models.Task]
+	var slugResp types.SlugResponse
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &slugResp); err != nil {
+		return nil, fmt.Errorf("failed to execute request for ListTasksByInstanceID: %w", err)
+	}
+
+	if slugResp.Slug != types.SuccessSlug {
+		return nil, fmt.Errorf("API error on ListTasksByInstanceID (%s): %s", slugResp.Slug, slugResp.Error)
+	}
+
+	// Ensure Data is not nil
+	if slugResp.Data == nil {
+		return nil, fmt.Errorf("API response for ListTasksByInstanceID missing data")
+	}
+
+	// Manually unmarshal slugResp.Data into types.ListResponse[models.Task]
+	var listResponse types.ListResponse[models.Task]
+	jsonData, err := json.Marshal(slugResp.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal slugResp.Data for ListTasksByInstanceID: %w", err)
+	}
+
+	if err := json.Unmarshal(jsonData, &listResponse); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ListResponse from slugResp.Data for ListTasksByInstanceID: %w", err)
+	}
+
 	return listResponse.Rows, nil
 }
 

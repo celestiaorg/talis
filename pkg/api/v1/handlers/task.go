@@ -23,7 +23,7 @@ func NewTaskHandlers(api *APIHandler) *TaskHandlers {
 	}
 }
 
-// Get handles retrieving a task by name
+// Get handles retrieving a task by id
 func (h *TaskHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 	params, err := parseParams[TaskGetParams](req)
 	if err != nil {
@@ -34,7 +34,7 @@ func (h *TaskHandlers) Get(c *fiber.Ctx, ownerID uint, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	task, err := h.task.GetByName(c.Context(), ownerID, params.TaskName)
+	task, err := h.task.Get(c.Context(), ownerID, params.TaskID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgTaskNotFound, err.Error(), req.ID)
@@ -98,8 +98,7 @@ func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
-	// First update the task status to "terminated"
-	if err := h.task.UpdateStatusByName(c.Context(), ownerID, params.TaskName, models.TaskStatusTerminated); err != nil {
+	if err := h.task.UpdateStatus(c.Context(), ownerID, params.TaskID, models.TaskStatusTerminated); err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgTaskTerminateFailed, err.Error(), req.ID)
 	}
 
@@ -107,4 +106,54 @@ func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 		Success: true,
 		ID:      req.ID,
 	})
+}
+
+// ListByInstanceID handles listing tasks for a specific instance ID, with optional action filter and pagination.
+// This is a direct REST endpoint, not an RPC one.
+func (h *TaskHandlers) ListByInstanceID(c *fiber.Ctx) error {
+	// TODO: Extract OwnerID from authenticated context (e.g., c.Locals("userID").(uint))
+	// For now, using a placeholder or admin ID. This needs proper auth integration.
+	ownerID := models.AdminID
+
+	instanceID, err := c.ParamsInt("instance_id")
+	if err != nil || instanceID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput("Invalid or missing instance_id parameter"))
+	}
+
+	params := TaskListByInstanceParams{
+		InstanceID: uint(instanceID),
+		OwnerID:    ownerID,
+		Action:     c.Query("action"),
+		Limit:      c.QueryInt("limit", DefaultPageSize),
+		Offset:     c.QueryInt("offset", 0),
+	}
+
+	if err := params.Validate(); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(types.ErrInvalidInput(err.Error()))
+	}
+
+	listOpts := &models.ListOptions{
+		Limit:  params.Limit,
+		Offset: params.Offset,
+	}
+
+	tasks, err := h.task.ListTasksByInstanceID(c.Context(), params.OwnerID, params.InstanceID, models.TaskAction(params.Action), listOpts)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(types.ErrServer("Failed to retrieve tasks for the instance"))
+	}
+
+	page := 0
+	if params.Limit > 0 {
+		page = (params.Offset / params.Limit) + 1
+	}
+
+	return c.Status(fiber.StatusOK).JSON(types.Success(types.ListResponse[models.Task]{
+		Rows: tasks,
+		Pagination: types.PaginationResponse{
+			Total:  len(tasks),
+			Limit:  params.Limit,
+			Offset: params.Offset,
+			Page:   page,
+		},
+	}))
 }

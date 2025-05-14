@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -52,6 +53,8 @@ type Suite struct {
 	// Context management
 	ctx        context.Context
 	cancelFunc context.CancelFunc
+
+	workerWG *sync.WaitGroup
 
 	// Cleanup function
 	cleanup func()
@@ -140,28 +143,34 @@ func NewSuite(t *testing.T) *Suite {
 		cancelFunc: cancel,
 	}
 
-	// Initialize cleanup function
+	// Setup database first, it might append to suite.cleanup for DB closing.
+	SetupTestDB(suite, nil)
+	// Then setup the server, which starts the worker and might also append to suite.cleanup for server closing.
+	SetupServer(suite)
+
+	// Initialize the main cleanup function AFTER other components have potentially added their own.
+	// This final suite.cleanup will be the one called by suite.Cleanup().
+	// It needs to orchestrate the shutdown in the correct order.
+	finalCleanup := suite.cleanup // Capture any cleanup actions appended by SetupTestDB/SetupServer
 	suite.cleanup = func() {
-		if suite.Server != nil {
-			suite.Server.Close()
-		}
+		// 1. Cancel context (signals worker and other context-aware components)
 		if suite.cancelFunc != nil {
 			suite.cancelFunc()
+			suite.cancelFunc = nil // Prevent double closing
 		}
-		// Close database if it exists
-		if suite.DB != nil {
-			sqlDB, err := suite.DB.DB()
-			if err == nil && sqlDB != nil {
-				_ = sqlDB.Close()
-			}
+
+		// 2. Wait for worker to finish (if it was started)
+		if suite.workerWG != nil {
+			suite.workerWG.Wait()
+			suite.workerWG = nil
+		}
+
+		// 3. Call any previously chained cleanup functions (e.g., close HTTP server from SetupServer, close DB from SetupTestDB)
+		// This order ensures server/db are closed after worker is done.
+		if finalCleanup != nil {
+			finalCleanup()
 		}
 	}
-
-	// Setup database by default
-	SetupTestDB(suite, nil)
-
-	// Setup server by default
-	SetupServer(suite)
 
 	// Setup mock DO client by default
 	SetupMockDOClient(suite)

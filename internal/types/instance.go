@@ -15,7 +15,6 @@ const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 // NOTE: These should be cleaned up and replaced with specific RPC request types
 type InstanceRequest struct {
 	// DB Model Data - User Defined
-	Name     string            `json:"name"`     // Name for instance, or instances if number_of_instances > 1
 	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
 	Provider models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
 	Region   string            `json:"region"`   // Region where instances will be created
@@ -55,20 +54,14 @@ type DeleteInstanceRequest struct {
 
 // DeleteInstancesRequest represents the request body for deleting instances
 type DeleteInstancesRequest struct {
-	OwnerID       uint     `json:"owner_id" validate:"required"`             // Owner ID
-	ProjectName   string   `json:"project_name" validate:"required"`         // Project name
-	InstanceNames []string `json:"instance_names" validate:"required,min=1"` // Instances to delete
+	OwnerID     uint   `json:"owner_id" validate:"required"`           // Owner ID
+	ProjectName string `json:"project_name" validate:"required"`       // Project name
+	InstanceIDs []uint `json:"instance_ids" validate:"required,min=1"` // Instances to delete
 }
 
 // Validate validates the instance configuration
 func (i *InstanceRequest) Validate() error {
 	// Validate Metadata
-	if i.Name == "" {
-		return fmt.Errorf("instance name is required")
-	}
-	if err := validateHostname(i.Name); err != nil {
-		return fmt.Errorf("invalid instance name: %w", err)
-	}
 	if i.ProjectName == "" {
 		return fmt.Errorf("project_name is required")
 	}
