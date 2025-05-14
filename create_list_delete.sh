@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -euo pipefail
 # Script to create, list, and delete instances in Digital Ocean via API
 # Usage: ./create_list_delete.sh -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -l
