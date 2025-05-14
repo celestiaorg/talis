@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Script to create and delete instances in Digital Ocean via API
-# Usage: ./create_list_delete.sh -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]
+# Script to create, list, and delete instances in Digital Ocean via API
+# Usage: ./create_list_delete.sh -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]
+# Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -l
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -n 2 -c
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -d
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -n 3 -c -d
@@ -16,13 +17,14 @@ fi
 # Initialize variables
 CREATE=false
 DELETE=false
+LIST=false
 API_KEY=""
 HOST_IP=""
 PROJECT_NAME=""
 NUM_INSTANCES=1  # Default to 1 instance
 
 # Parse command line options
-while getopts "k:h:p:n:cd" opt; do
+while getopts "k:h:p:n:cld" opt; do
     case $opt in
         k)
             API_KEY="$OPTARG"
@@ -47,14 +49,17 @@ while getopts "k:h:p:n:cd" opt; do
         d)
             DELETE=true
             ;;
+        l)
+            LIST=true
+            ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
-            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]"
+            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
             exit 1
             ;;
         :)
             echo "Option -$OPTARG requires an argument." >&2
-            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]"
+            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
             exit 1
             ;;
     esac
@@ -63,33 +68,34 @@ done
 # Check if API key is provided
 if [ -z "$API_KEY" ]; then
     echo "Error: API key is required"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
     exit 1
 fi
 
 # Check if host IP is provided
 if [ -z "$HOST_IP" ]; then
     echo "Error: Host IP is required"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
     exit 1
 fi
 
 # Check if project name is provided
 if [ -z "$PROJECT_NAME" ]; then
     echo "Error: Project name is required"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
     exit 1
 fi
 
 # Check if at least one action is specified
-if [ "$CREATE" = false ] && [ "$DELETE" = false ]; then
-    echo "Error: At least one action (-c or -d) must be specified"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d]"
+if [ "$CREATE" = false ] && [ "$DELETE" = false ] && [ "$LIST" = false ]; then
+    echo "Error: At least one action (-c, -d, or -l) must be specified"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
     exit 1
 fi
 
 API_URL="http://${HOST_IP}:8000/talis/api/v1/instances"
 PROJECT_URL="http://${HOST_IP}:8000/talis/api/v1"
+LIST_URL="http://${HOST_IP}:8000/talis/api/v1/instances/all-metadata"
 
 # Function to create project
 create_project() {
@@ -239,7 +245,35 @@ delete_instances() {
     fi
 }
 
+# Function to list instances
+list_instances() {
+    echo "Listing instances for project: $PROJECT_NAME"
+    
+    # Make the request and capture both response and status code
+    RESPONSE=$(curl -s -w "\n%{http_code}" \
+         -H "Content-Type: application/json" \
+         -H "apikey: $API_KEY" \
+         "$LIST_URL")
+    
+    # Extract the status code (last line) and response body
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+    
+    if [ "$HTTP_CODE" -eq 200 ]; then
+        echo "Successfully retrieved instances. HTTP Status: $HTTP_CODE"
+        # Use jq to format the output nicely
+        echo "$RESPONSE_BODY" | jq '.'
+    else
+        echo "Failed to list instances. HTTP Status: $HTTP_CODE"
+        echo "Response: $RESPONSE_BODY"
+    fi
+}
+
 # Execute requested actions
+if [ "$LIST" = true ]; then
+    list_instances
+fi
+
 if [ "$CREATE" = true ]; then
     create_project
     create_instances
