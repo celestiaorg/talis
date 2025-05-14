@@ -90,7 +90,7 @@ These endpoints are typically for administrative purposes and might require spec
         {
           "id": 1,
           "owner_id": 100,
-          "project_name": "admin-project",
+          "project_id": 5,
           "provider_instance_id": "prov-inst-id-1",
           "provider": "do",
           "name": "instance-01-admin",
