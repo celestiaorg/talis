@@ -120,7 +120,7 @@ create_project() {
 create_instances() {
     echo "Attempting to create $NUM_INSTANCES instances..."
     
-    PAYLOAD_TEMPLATE='''[
+    PAYLOAD_TEMPLATE='[
     {
         "owner_id": 1,
         "provider": "do",
@@ -140,17 +140,15 @@ create_instances() {
             }
         ]
     }
-]'''
+]'
 
-    # Create an array to store instance names for deletion
-    INSTANCE_NAMES=()
+    # Create an array to store instance IDs for deletion
+    INSTANCE_IDS=()
     
-    for i in $(seq 0 $((NUM_INSTANCES-1))); do
-        CURRENT_PAYLOAD=$(printf "$PAYLOAD_TEMPLATE" "$i" "$PROJECT_NAME")
-        INSTANCE_NAME="test-$i"
-        INSTANCE_NAMES+=("$INSTANCE_NAME")
+    for i in $(seq 1 $NUM_INSTANCES); do
+        CURRENT_PAYLOAD=$(printf "$PAYLOAD_TEMPLATE" "$PROJECT_NAME")
         
-        echo "Creating instance $INSTANCE_NAME with payload:"
+        echo "Creating instance $i with payload:"
         echo "$CURRENT_PAYLOAD"
         
         RESPONSE=$(curl -X POST \
@@ -160,10 +158,14 @@ create_instances() {
              "$API_URL")
         
         if [ $? -eq 0 ]; then
-            echo "Instance $INSTANCE_NAME creation request sent. Server response:"
+            echo "Instance creation request sent. Server response:"
             echo "$RESPONSE"
+            # Extract instance ID from response if available
+            # TODO: Add proper JSON parsing to extract instance ID
+            # For now, we'll use a placeholder
+            INSTANCE_IDS+=($i)
         else
-            echo "Failed to send request for instance $INSTANCE_NAME."
+            echo "Failed to send request for instance $i."
         fi
         
         echo "------------------------------------"
@@ -177,18 +179,12 @@ create_instances() {
 delete_instances() {
     echo "Attempting to delete instances..."
     
-    # Create the instance names array for deletion
-    INSTANCE_NAMES=()
-    for i in $(seq 0 $((NUM_INSTANCES-1))); do
-        INSTANCE_NAMES+=("test-$i")
-    done
-    
     # Convert array to JSON array string
-    INSTANCE_NAMES_JSON=$(printf '"%s",' "${INSTANCE_NAMES[@]}" | sed 's/,$//')
+    INSTANCE_IDS_JSON=$(printf '%d,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
     
     DELETE_PAYLOAD="{
         \"project_name\": \"$PROJECT_NAME\",
-        \"instance_ids\": [2] # TODO: Change to use instance names
+        \"instance_ids\": [$INSTANCE_IDS_JSON]
     }"
     
     echo "Sending delete request with payload:"
