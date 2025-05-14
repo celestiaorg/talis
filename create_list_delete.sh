@@ -213,8 +213,8 @@ delete_instances() {
     fi
     
     # Convert array to JSON array string
-    INSTANCE_IDS_JSON=4
-    #INSTANCE_IDS_JSON=$(printf '%s,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
+    # INSTANCE_IDS_JSON=4
+    INSTANCE_IDS_JSON=$(printf '%s,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
     
     DELETE_PAYLOAD="{
         \"project_name\": \"$PROJECT_NAME\",
