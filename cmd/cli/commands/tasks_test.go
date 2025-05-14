@@ -16,7 +16,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/db/models"
-	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test"
 )
 
@@ -231,15 +230,9 @@ func TestListTasksCmd(t *testing.T) {
 			args:         []string{"tasks", "list", "--project", projectName, "-o", fmt.Sprintf("%d", ownerID)},
 			setupProject: true,
 			setupTasks: func(s *test.Suite, projectID uint) []models.Task {
-				// Create a proper payload for the terminate instance task
-				terminatePayload, err := json.Marshal(types.DeleteInstanceRequest{
-					InstanceID: 1, // Using a dummy instance ID since this is just for testing
-				})
-				s.Require().NoError(err)
-
 				tasksToCreate := []models.Task{
 					{Model: gorm.Model{CreatedAt: createdAt}, ProjectID: projectID, OwnerID: ownerID, Status: models.TaskStatusCompleted, Action: models.TaskActionCreateInstances, Logs: "Log for task 1"},
-					{Model: gorm.Model{CreatedAt: createdAt.Add(time.Second)}, ProjectID: projectID, OwnerID: ownerID, Status: models.TaskStatusRunning, Action: models.TaskActionTerminateInstances, Error: "Some error for task 2", Payload: terminatePayload},
+					{Model: gorm.Model{CreatedAt: createdAt.Add(time.Second)}, ProjectID: projectID, OwnerID: ownerID, Status: models.TaskStatusRunning, Action: models.TaskActionTerminateInstances, Error: "Some error for task 2"},
 				}
 				createdTasks := make([]models.Task, len(tasksToCreate))
 				for i, task := range tasksToCreate {
