@@ -1,6 +1,5 @@
 [
     {
-        "name": "test-hostname",
         "owner_id": 1,
         "project_name": "my-project",
         "provider": "do",

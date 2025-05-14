@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 # Script to create, list, and delete instances in Digital Ocean via API
-# Usage: ./create_list_delete.sh -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]
+# Usage: ./create_list_delete.sh -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -l
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -n 2 -c
-# Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -d
+# Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -i 1,2,3 -d
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -n 3 -c -d
 
 # Check if jq is installed
@@ -22,9 +22,10 @@ API_KEY=""
 HOST_IP=""
 PROJECT_NAME=""
 NUM_INSTANCES=1  # Default to 1 instance
+INSTANCE_IDS_TO_DELETE=()  # Array to store instance IDs specified for deletion
 
 # Parse command line options
-while getopts "k:h:p:n:cld" opt; do
+while getopts "k:h:p:n:i:cld" opt; do
     case $opt in
         k)
             API_KEY="$OPTARG"
@@ -43,6 +44,18 @@ while getopts "k:h:p:n:cld" opt; do
                 exit 1
             fi
             ;;
+        i)
+            # Split the comma-separated list of instance IDs
+            IFS=',' read -ra IDS <<< "$OPTARG"
+            for id in "${IDS[@]}"; do
+                # Validate that each ID is a positive integer
+                if ! [[ "$id" =~ ^[1-9][0-9]*$ ]]; then
+                    echo "Error: Instance ID must be a positive integer: $id"
+                    exit 1
+                fi
+                INSTANCE_IDS_TO_DELETE+=("$id")
+            done
+            ;;
         c)
             CREATE=true
             ;;
@@ -54,12 +67,12 @@ while getopts "k:h:p:n:cld" opt; do
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
-            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
+            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]"
             exit 1
             ;;
         :)
             echo "Option -$OPTARG requires an argument." >&2
-            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
+            echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]"
             exit 1
             ;;
     esac
@@ -68,28 +81,28 @@ done
 # Check if API key is provided
 if [ -z "$API_KEY" ]; then
     echo "Error: API key is required"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]"
     exit 1
 fi
 
 # Check if host IP is provided
 if [ -z "$HOST_IP" ]; then
     echo "Error: Host IP is required"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]"
     exit 1
 fi
 
 # Check if project name is provided
 if [ -z "$PROJECT_NAME" ]; then
     echo "Error: Project name is required"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]"
     exit 1
 fi
 
 # Check if at least one action is specified
 if [ "$CREATE" = false ] && [ "$DELETE" = false ] && [ "$LIST" = false ]; then
     echo "Error: At least one action (-c, -d, or -l) must be specified"
-    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-c] [-d] [-l]"
+    echo "Usage: $0 -k <api_key> -h <host_ip> -p <project_name> [-n <number_of_instances>] [-i <instance_ids>] [-c] [-d] [-l]"
     exit 1
 fi
 
@@ -144,6 +157,7 @@ create_instances() {
         "image": "ubuntu-22-04-x64",
         "tags": ["talis", "dev", "testing"],
         "ssh_key_name": "talis-dev-server",
+        "ssh_key_type": "ed25519",
         "project_name": "%s",
         "volumes": [
             {
@@ -155,8 +169,8 @@ create_instances() {
     }
 ]'
 
-    # Create an array to store instance IDs for deletion
-    INSTANCE_IDS=()
+    # Initialize the array
+    declare -a INSTANCE_IDS=()
     
     for i in $(seq 1 $NUM_INSTANCES); do
         CURRENT_PAYLOAD=$(printf "$PAYLOAD_TEMPLATE" "$PROJECT_NAME")
@@ -179,8 +193,8 @@ create_instances() {
             echo "Instance creation request sent. Server response:"
             echo "$RESPONSE_BODY"
             
-            # Extract instance ID from response using jq
-            INSTANCE_ID=$(echo "$RESPONSE_BODY" | jq -r '.result.id')
+            # Extract instance ID from response using jq - looking for ID in the data array
+            INSTANCE_ID=$(echo "$RESPONSE_BODY" | jq -r '.data[0].ID')
             if [ "$INSTANCE_ID" != "null" ] && [ ! -z "$INSTANCE_ID" ]; then
                 echo "Successfully created instance with ID: $INSTANCE_ID"
                 INSTANCE_IDS+=("$INSTANCE_ID")
@@ -196,25 +210,41 @@ create_instances() {
         sleep 2
     done
     
-    # Export the instance IDs for use in delete function
-    export INSTANCE_IDS
-    
-    echo "Finished creating $NUM_INSTANCES instances."
-    echo "Created instance IDs: ${INSTANCE_IDS[*]}"
+    # Only export if we have instance IDs
+    if [ ${#INSTANCE_IDS[@]} -gt 0 ]; then
+        export INSTANCE_IDS
+        echo "Finished creating $NUM_INSTANCES instances."
+        echo "Created instance IDs: ${INSTANCE_IDS[*]}"
+    else
+        echo "Warning: No instance IDs were captured"
+    fi
 }
 
 # Function to delete instances
 delete_instances() {
     echo "Attempting to delete instances..."
     
-    if [ ${#INSTANCE_IDS[@]} -eq 0 ]; then
-        echo "No instance IDs available for deletion"
-        return
+    # Determine which instance IDs to use
+    local instance_ids_to_delete=()
+    
+    # If specific instance IDs were provided via -i, use those
+    if [ ${#INSTANCE_IDS_TO_DELETE[@]} -gt 0 ]; then
+        instance_ids_to_delete=("${INSTANCE_IDS_TO_DELETE[@]}")
+        echo "Using specified instance IDs for deletion: ${instance_ids_to_delete[*]}"
+    # Otherwise, use the instance IDs from creation if available
+    elif [ -n "${INSTANCE_IDS:-}" ] && [ ${#INSTANCE_IDS[@]} -gt 0 ]; then
+        instance_ids_to_delete=("${INSTANCE_IDS[@]}")
+        echo "Using instance IDs from creation: ${instance_ids_to_delete[*]}"
+    else
+        echo "Error: No instance IDs available for deletion"
+        echo "Please either:"
+        echo "  1. Create instances first using -c"
+        echo "  2. Specify instance IDs to delete using -i <id1,id2,...>"
+        return 1
     fi
     
     # Convert array to JSON array string
-    # INSTANCE_IDS_JSON=4
-    INSTANCE_IDS_JSON=$(printf '%s,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
+    local INSTANCE_IDS_JSON=$(printf '%s,' "${instance_ids_to_delete[@]}" | sed 's/,$//')
     
     DELETE_PAYLOAD="{
         \"project_name\": \"$PROJECT_NAME\",
