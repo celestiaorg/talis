@@ -368,7 +368,7 @@ These endpoints are typically for administrative purposes and might require spec
     ```bash
     curl -H "apikey: YOUR_API_KEY" http://localhost:8080/api/v1/instances/10/tasks?limit=5
     ```
-*   **Example Response (200 OK):** (Hypothetical - endpoint returned 404 in tests)
+*   **Example Response (200 OK):**
     ```json
     {
       "rows": [
@@ -401,7 +401,6 @@ These endpoints are typically for administrative purposes and might require spec
       }
     }
     ```
-*   **Current Status (Testing Note):** During testing, this endpoint returned a `404 Not Found` with `{"error":"Cannot GET /api/v1/instances/:instance_id/tasks"}`. This suggests a routing or deployment issue on the server. It's also possible this is related to the "record not found" error observed with the RPC `task.list` method if the underlying task retrieval logic has issues distinguishing "no tasks found" from "parent record (instance/project) not found".
 
 ---
 
@@ -580,7 +579,6 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
       "id": "proj-list-001"
     }
     ```
-*   **Testing Note:** This RPC method was tested successfully. The server returned a default pagination limit different from the one requested, which is noted.
 
 #### `project.delete`
 
