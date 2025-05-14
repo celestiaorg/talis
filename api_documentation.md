@@ -135,8 +135,8 @@ These endpoints are typically for administrative purposes and might require spec
 
 *   **Endpoint:** `GET /api/v1/instances`
 *   **Route Name:** `GetInstances`
-*   **Handler:** `instanceHandler.ListInstances` (Note: The handler implies AdminID is used; this might be subject to OwnerID filtering in a real scenario based on TODOs in code).
-*   **Description:** Retrieves a list of instances. (Assumed to be filterable by OwnerID in the future).
+*   **Handler:** `instanceHandler.ListInstances`
+*   **Description:** Retrieves a list of instances.
 *   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:** Same as [List All Instances (Admin)](#list-all-instances-admin).
@@ -151,7 +151,7 @@ These endpoints are typically for administrative purposes and might require spec
 *   **Endpoint:** `GET /api/v1/instances/all-metadata`
 *   **Route Name:** `GetMetadata`
 *   **Handler:** `instanceHandler.GetAllMetadata`
-*   **Description:** Retrieves metadata for instances. (Assumed to be filterable by OwnerID in the future).
+*   **Description:** Retrieves metadata for instances.
 *   **Authentication:** Required. Pass the API key in the `apikey` header.
 *   **Request Body:** None
 *   **Query Parameters:** Same as [List All Instances (Admin)](#list-all-instances-admin).
@@ -296,7 +296,7 @@ These endpoints are typically for administrative purposes and might require spec
     {
       "id": 10,
       "owner_id": 1,
-      "project_name": "batch-processing", // Note: In current DB model this is project_id (int)
+      "project_id": 5,
       "provider_instance_id": "prov-inst-id-10",
       "provider": "do",
       "name": "instance-batch-01-0", // Name may include a numeric suffix (e.g., -0, -1)
@@ -540,9 +540,9 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
 *   **Authentication (for RPC endpoint):** Required. Pass the API key in the `apikey` header.
 *   **Params (`handlers.ProjectListParams`):
     *   `owner_id` (uint, required)
-    *   `limit` (int, optional, default: 50 in `handlers.getPaginationOptions`)
+    *   `limit` (int, optional, default: 50)
     *   `offset` (int, optional, default: 0)
-    *   `page` (int, optional, default: 1) - Note: `limit` & `offset` are preferred for direct service layer calls.
+    *   `page` (int, optional, default: 1)
 *   **Example Request:**
     ```bash
     curl -X POST -H "Content-Type: application/json" -H "apikey: YOUR_API_KEY" \
@@ -569,9 +569,9 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
           // ... other projects
         ],
         "pagination": {
-          "total": 1, // Actual total number of projects for the owner
+          "total": 1,
           "page": 1,
-          "limit": 50, // Note: Server might return its default limit (e.g., 50) despite request
+          "limit": 50,
           "offset": 0
         }
       },
@@ -647,7 +647,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
           {
             "id": 20,
             "owner_id": 1,
-            "project_name": "another-project",
+            "project_id": 5,
             "name": "instance-alpha",
             // ... other instance fields
           }
@@ -655,7 +655,7 @@ Dispatched by `rpcHandler.handleProjectMethod` to `ProjectHandlers`.
         "pagination": {
           "total": 1,
           "page": 1,
-          "limit": 10, // DefaultPageSize
+          "limit": 10,
           "offset": 0
         }
       },
