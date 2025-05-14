@@ -6,6 +6,13 @@
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -d
 # Example: ./create_list_delete.sh -k <api-token> -h <host-ip> -p <project-name> -n 3 -c -d
 
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required but not installed. Please install jq first."
+    echo "You can install it with: brew install jq (macOS) or apt-get install jq (Ubuntu)"
+    exit 1
+fi
+
 # Initialize variables
 CREATE=false
 DELETE=false
@@ -151,36 +158,57 @@ create_instances() {
         echo "Creating instance $i with payload:"
         echo "$CURRENT_PAYLOAD"
         
-        RESPONSE=$(curl -X POST \
+        # Make the request and capture both response and status code
+        RESPONSE=$(curl -s -w "\n%{http_code}" \
              -H "Content-Type: application/json" \
              -H "apikey: $API_KEY" \
              -d "$CURRENT_PAYLOAD" \
              "$API_URL")
         
-        if [ $? -eq 0 ]; then
+        # Extract the status code (last line) and response body
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+        
+        if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 201 ]; then
             echo "Instance creation request sent. Server response:"
-            echo "$RESPONSE"
-            # Extract instance ID from response if available
-            # TODO: Add proper JSON parsing to extract instance ID
-            # For now, we'll use a placeholder
-            INSTANCE_IDS+=($i)
+            echo "$RESPONSE_BODY"
+            
+            # Extract instance ID from response using jq
+            INSTANCE_ID=$(echo "$RESPONSE_BODY" | jq -r '.result.id')
+            if [ "$INSTANCE_ID" != "null" ] && [ ! -z "$INSTANCE_ID" ]; then
+                echo "Successfully created instance with ID: $INSTANCE_ID"
+                INSTANCE_IDS+=("$INSTANCE_ID")
+            else
+                echo "Warning: Could not extract instance ID from response"
+            fi
         else
-            echo "Failed to send request for instance $i."
+            echo "Failed to create instance. HTTP Status: $HTTP_CODE"
+            echo "Response: $RESPONSE_BODY"
         fi
         
         echo "------------------------------------"
         sleep 2
     done
     
-    echo "Finished sending requests for $NUM_INSTANCES instances."
+    # Export the instance IDs for use in delete function
+    export INSTANCE_IDS
+    
+    echo "Finished creating $NUM_INSTANCES instances."
+    echo "Created instance IDs: ${INSTANCE_IDS[*]}"
 }
 
 # Function to delete instances
 delete_instances() {
     echo "Attempting to delete instances..."
     
+    if [ ${#INSTANCE_IDS[@]} -eq 0 ]; then
+        echo "No instance IDs available for deletion"
+        return
+    fi
+    
     # Convert array to JSON array string
-    INSTANCE_IDS_JSON=$(printf '%d,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
+    INSTANCE_IDS_JSON=4
+    #INSTANCE_IDS_JSON=$(printf '%s,' "${INSTANCE_IDS[@]}" | sed 's/,$//')
     
     DELETE_PAYLOAD="{
         \"project_name\": \"$PROJECT_NAME\",
@@ -190,17 +218,24 @@ delete_instances() {
     echo "Sending delete request with payload:"
     echo "$DELETE_PAYLOAD"
     
-    RESPONSE=$(curl -X DELETE \
+    # Make the request and capture both response and status code
+    RESPONSE=$(curl -s -w "\n%{http_code}" \
+         -X DELETE \
          -H "Content-Type: application/json" \
          -H "apikey: $API_KEY" \
          -d "$DELETE_PAYLOAD" \
          "$API_URL")
     
-    if [ $? -eq 0 ]; then
-        echo "Delete request sent. Server response:"
-        echo "$RESPONSE"
+    # Extract the status code (last line) and response body
+    HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+    RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+    
+    if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 204 ]; then
+        echo "Successfully deleted instances. HTTP Status: $HTTP_CODE"
+        echo "Response: $RESPONSE_BODY"
     else
-        echo "Failed to send delete request."
+        echo "Failed to delete instances. HTTP Status: $HTTP_CODE"
+        echo "Response: $RESPONSE_BODY"
     fi
 }
 
