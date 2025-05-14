@@ -326,7 +326,7 @@ These endpoints are typically for administrative purposes and might require spec
     ```bash
     curl -X DELETE \
       http://163.172.162.109:8000/talis/api/v1/instances \
-      -H "apikey: lif8TrWsK0EcIHiVCOApzfj2Xsi4NCwY" \
+      -H "apikey: YOUR_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
             "owner_id": 1,
