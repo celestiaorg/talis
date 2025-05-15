@@ -23,7 +23,9 @@ func NewInMemoryDB() (*gorm.DB, string, error) {
 	dbPath := filepath.Join(tmpDir, "talis_test.db")
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
-		os.RemoveAll(tmpDir)
+		if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
+			return nil, "", fmt.Errorf("failed to open database: %w (cleanup error: %v)", err, rmErr)
+		}
 		return nil, "", fmt.Errorf("failed to open database: %w", err)
 	}
 	return db, tmpDir, nil
@@ -33,9 +35,13 @@ func NewInMemoryDB() (*gorm.DB, string, error) {
 func CleanupTestDB(db *gorm.DB, tmpDir string) {
 	sqlDB, err := db.DB()
 	if err == nil && sqlDB != nil {
-		_ = sqlDB.Close()
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			fmt.Printf("Error closing database connection: %v\n", closeErr)
+		}
 	}
-	_ = os.RemoveAll(tmpDir)
+	if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
+		fmt.Printf("Error removing temporary directory: %v\n", rmErr)
+	}
 }
 
 // RunMigrations runs all database migrations for the test database.
