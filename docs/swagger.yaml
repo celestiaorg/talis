@@ -1,0 +1,809 @@
+basePath: /api/v1
+definitions:
+  github_com_celestiaorg_talis_internal_db_models.Instance:
+    properties:
+      created_at:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      id:
+        type: integer
+      image:
+        type: string
+      owner_id:
+        type: integer
+      payload_status:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.PayloadStatus'
+        description: Default to PayloadStatusNone
+      project_id:
+        type: integer
+      provider_id:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.ProviderID'
+      provider_instance_id:
+        type: integer
+      public_ip:
+        type: string
+      region:
+        type: string
+      size:
+        type: string
+      status:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.InstanceStatus'
+      tags:
+        items:
+          type: string
+        type: array
+      updatedAt:
+        type: string
+      volume_details:
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.VolumeDetail'
+        type: array
+      volume_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_db_models.InstanceStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    type: integer
+    x-enum-varnames:
+    - InstanceStatusUnknown
+    - InstanceStatusPending
+    - InstanceStatusCreated
+    - InstanceStatusProvisioning
+    - InstanceStatusReady
+    - InstanceStatusTerminated
+  github_com_celestiaorg_talis_internal_db_models.PayloadStatus:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    type: integer
+    x-enum-varnames:
+    - PayloadStatusNone
+    - PayloadStatusPendingCopy
+    - PayloadStatusCopyFailed
+    - PayloadStatusCopied
+    - PayloadStatusPendingExecution
+    - PayloadStatusExecutionFailed
+    - PayloadStatusExecuted
+  github_com_celestiaorg_talis_internal_db_models.Project:
+    properties:
+      config:
+        type: string
+      created_at:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Task'
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  github_com_celestiaorg_talis_internal_db_models.ProviderID:
+    enum:
+    - aws
+    - gcp
+    - azure
+    - do
+    - scw
+    - vultr
+    - linode
+    - hetzner
+    - ovh
+    - do-mock
+    - digitalocean-mock
+    - mock
+    type: string
+    x-enum-varnames:
+    - ProviderAWS
+    - ProviderGCP
+    - ProviderAzure
+    - ProviderDO
+    - ProviderScaleway
+    - ProviderVultr
+    - ProviderLinode
+    - ProviderHetzner
+    - ProviderOVH
+    - ProviderDOMock1
+    - ProviderDOMock2
+    - ProviderMock3
+  github_com_celestiaorg_talis_internal_db_models.Task:
+    properties:
+      action:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.TaskAction'
+        description: make sure this is long enough to handle all actions
+      attempts:
+        type: integer
+      created_at:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      error:
+        type: string
+      id:
+        type: integer
+      instance_id:
+        description: Link to the specific instance, if applicable
+        type: integer
+      logs:
+        type: string
+      payload:
+        description: Data that is required for the task to be executed
+        items:
+          type: integer
+        type: array
+      project_id:
+        type: integer
+      result:
+        description: Result of the task
+        items:
+          type: integer
+        type: array
+      status:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.TaskStatus'
+      updatedAt:
+        type: string
+      webhook_sent:
+        type: boolean
+      webhook_url:
+        type: string
+    type: object
+  github_com_celestiaorg_talis_internal_db_models.TaskAction:
+    enum:
+    - create_instances
+    - terminate_instances
+    type: string
+    x-enum-varnames:
+    - TaskActionCreateInstances
+    - TaskActionTerminateInstances
+  github_com_celestiaorg_talis_internal_db_models.TaskStatus:
+    enum:
+    - unknown
+    - pending
+    - running
+    - completed
+    - failed
+    - terminated
+    type: string
+    x-enum-varnames:
+    - TaskStatusUnknown
+    - TaskStatusPending
+    - TaskStatusRunning
+    - TaskStatusCompleted
+    - TaskStatusFailed
+    - TaskStatusTerminated
+  github_com_celestiaorg_talis_internal_db_models.User:
+    properties:
+      created_at:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      email:
+        type: string
+      id:
+        type: integer
+      public_ssh_key:
+        type: string
+      role:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.UserRole'
+      updated_at:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+  github_com_celestiaorg_talis_internal_db_models.UserRole:
+    enum:
+    - 0
+    - 1
+    type: integer
+    x-enum-varnames:
+    - UserRoleUser
+    - UserRoleAdmin
+  github_com_celestiaorg_talis_internal_db_models.VolumeDetail:
+    properties:
+      id:
+        type: string
+      mount_point:
+        type: string
+      name:
+        type: string
+      region:
+        type: string
+      size_gb:
+        type: integer
+    type: object
+  github_com_celestiaorg_talis_internal_types.CreateUserResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  github_com_celestiaorg_talis_internal_types.DeleteInstancesRequest:
+    properties:
+      instance_ids:
+        description: Instances to delete
+        items:
+          type: integer
+        minItems: 1
+        type: array
+      owner_id:
+        description: Owner ID
+        type: integer
+      project_name:
+        description: Project name
+        type: string
+    required:
+    - instance_ids
+    - owner_id
+    - project_name
+    type: object
+  github_com_celestiaorg_talis_internal_types.ErrorResponse:
+    properties:
+      details: {}
+      error:
+        type: string
+    type: object
+  github_com_celestiaorg_talis_internal_types.InstanceListResponse:
+    properties:
+      pagination:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+      rows:
+        items: {}
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.InstanceRequest:
+    properties:
+      action:
+        description: Internal Configs - Set by the Talis Server
+        type: string
+      execute_payload:
+        description: Whether to execute the payload after copying
+        type: boolean
+      image:
+        description: OS image to use
+        type: string
+      instance_id:
+        description: DB Model Data - Internally set during creation
+        type: integer
+      last_task_id:
+        description: ID of the last task
+        type: integer
+      number_of_instances:
+        description: Number of instances to create
+        type: integer
+      owner_id:
+        description: DB Model Data - User Defined
+        type: integer
+      payload_path:
+        description: Local path to the payload script on the API server
+        type: string
+      project_name:
+        description: User Defined Configs
+        type: string
+      provider:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.ProviderID'
+        description: Cloud provider (e.g., "do")
+      provider_instance_id:
+        description: Provider-specific instance ID
+        type: integer
+      provision:
+        description: Whether to run Ansible provisioning
+        type: boolean
+      public_ip:
+        description: Public IP address
+        type: string
+      region:
+        description: Region where instances will be created
+        type: string
+      size:
+        description: Instance size/type
+        type: string
+      ssh_key_name:
+        description: Name of the SSH key to use
+        type: string
+      ssh_key_path:
+        description: Custom path to the private SSH key file for Ansible. Overrides
+          defaults.
+        type: string
+      ssh_key_type:
+        description: Talis Server Configs - Optional
+        type: string
+      tags:
+        description: Tags to apply to instances
+        items:
+          type: string
+        type: array
+      volume_details:
+        description: Detailed information about attached volumes
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.VolumeDetails'
+        type: array
+      volume_ids:
+        description: List of attached volume IDs
+        items:
+          type: string
+        type: array
+      volumes:
+        description: Optional volumes to attach
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.VolumeConfig'
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.ListResponse-github_com_celestiaorg_talis_internal_db_models_Instance:
+    properties:
+      pagination:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+      rows:
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Instance'
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.ListResponse-github_com_celestiaorg_talis_internal_db_models_Project:
+    properties:
+      pagination:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+      rows:
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Project'
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.PaginationResponse:
+    properties:
+      limit:
+        description: Number of items per page
+        type: integer
+      offset:
+        description: Offset from start of results
+        type: integer
+      page:
+        description: Current page number
+        type: integer
+      total:
+        description: Total number of values
+        type: integer
+    type: object
+  github_com_celestiaorg_talis_internal_types.PublicIPs:
+    properties:
+      public_ip:
+        type: string
+    type: object
+  github_com_celestiaorg_talis_internal_types.PublicIPsResponse:
+    properties:
+      pagination:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        description: Pagination information
+      public_ips:
+        description: List of public IPs
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PublicIPs'
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.SuccessResponse:
+    properties:
+      data: {}
+    type: object
+  github_com_celestiaorg_talis_internal_types.TaskListResponse:
+    properties:
+      pagination:
+        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+      rows:
+        items: {}
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.UserResponse:
+    properties:
+      pagination:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        description: Pagination info included only when returning multiple users
+      user:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.User'
+        description: This can be a single user or null when returning multiple users
+      users:
+        description: This can be an array of users or null when returning a single
+          user
+        items:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.User'
+        type: array
+    type: object
+  github_com_celestiaorg_talis_internal_types.VolumeConfig:
+    properties:
+      filesystem:
+        description: File system type (optional)
+        type: string
+      mount_point:
+        description: Where to mount the volume
+        type: string
+      name:
+        description: Name of the volume
+        type: string
+      region:
+        description: Region where to create the volume
+        type: string
+      size_gb:
+        description: Size in gigabytes
+        type: integer
+    type: object
+  github_com_celestiaorg_talis_internal_types.VolumeDetails:
+    properties:
+      id:
+        description: Volume ID
+        type: string
+      mount_point:
+        description: Where the volume is mounted
+        type: string
+      name:
+        description: Volume name
+        type: string
+      region:
+        description: Region where volume was created
+        type: string
+      size_gb:
+        description: Size in gigabytes
+        type: integer
+    type: object
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  pkg_api_v1_handlers.RPCError:
+    properties:
+      code:
+        description: Code is a numeric error code
+        type: integer
+      data:
+        description: Data contains additional error details (optional)
+      message:
+        description: Message is a human-readable error message
+        type: string
+    type: object
+  pkg_api_v1_handlers.RPCRequest:
+    properties:
+      id:
+        description: ID is an optional request identifier that will be echoed back
+          in the response
+        type: string
+      method:
+        description: Method is the operation to perform (e.g., "project.create", "task.list")
+        type: string
+      params:
+        description: Params contains the operation parameters
+    type: object
+  pkg_api_v1_handlers.RPCResponse:
+    properties:
+      data:
+        description: Data contains the operation result
+      error:
+        allOf:
+        - $ref: '#/definitions/pkg_api_v1_handlers.RPCError'
+        description: Error contains error information if the operation failed
+      id:
+        description: ID echoes back the request ID if provided
+        type: string
+      success:
+        description: Success indicates if the operation was successful
+        type: boolean
+    type: object
+info:
+  contact: {}
+  description: API for Talis - Celestia's infrastructure management service
+  title: Talis API
+  version: "1.0"
+paths:
+  /:
+    post:
+      consumes:
+      - application/json
+      description: 'Process RPC-style API requests for projects, tasks, and users.
+        The RPC endpoint supports the following methods: Project methods: project.create
+        (Create a new project), project.get (Get a project by name), project.list
+        (List all projects), project.delete (Delete a project), project.listInstances
+        (List instances for a project). Task methods: task.get (Get a task by ID),
+        task.list (List tasks for a project), task.terminate (Terminate a running
+        task). User methods: user.create (Create a new user), user.get (Get users
+        or a single user by username), user.get.id (Get a user by ID), user.delete
+        (Delete a user).'
+      parameters:
+      - description: RPC request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/pkg_api_v1_handlers.RPCRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pkg_api_v1_handlers.RPCResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/pkg_api_v1_handlers.RPCResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/pkg_api_v1_handlers.RPCResponse'
+      summary: Handle RPC requests
+      tags:
+      - rpc
+  /api/v1/instances:
+    delete:
+      consumes:
+      - application/json
+      description: Terminates one or more instances
+      parameters:
+      - description: Termination request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.DeleteInstancesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Instances terminated successfully
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: Terminate instances
+      tags:
+      - instances
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of instances with pagination and optional filtering
+      parameters:
+      - description: Number of items to return (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include deleted instances (default false)
+        in: query
+        name: include_deleted
+        type: boolean
+      - description: Filter by instance status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of instances
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.InstanceListResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: List instances
+      tags:
+      - instances
+    post:
+      consumes:
+      - application/json
+      description: Creates one or more new instances
+      parameters:
+      - description: Instance creation requests
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.InstanceRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created instances
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: Create new instances
+      tags:
+      - instances
+  /api/v1/instances/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns details of a specific instance by ID
+      parameters:
+      - description: Instance ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Instance details
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Instance'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: Get instance details
+      tags:
+      - instances
+  /api/v1/instances/{instance_id}/tasks:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of tasks for a specific instance with optional filtering
+        and pagination
+      parameters:
+      - description: Instance ID
+        in: path
+        name: instance_id
+        required: true
+        type: integer
+      - description: Filter by task action
+        in: query
+        name: action
+        type: string
+      - description: Number of items to return (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of tasks
+          schema:
+            allOf:
+            - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.TaskListResponse'
+              type: object
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: List tasks for an instance
+      tags:
+      - tasks
+  /api/v1/instances/all-metadata:
+    get:
+      consumes:
+      - application/json
+      description: Returns detailed metadata for all instances
+      parameters:
+      - description: Number of items to return (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include deleted instances (default false)
+        in: query
+        name: include_deleted
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of instance metadata
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.InstanceListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: Get all instance metadata
+      tags:
+      - instances
+  /api/v1/instances/public-ips:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of public IPs for all instances
+      parameters:
+      - description: Number of items to return (default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Number of items to skip (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Include deleted instances (default false)
+        in: query
+        name: include_deleted
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of public IPs
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PublicIPsResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
+      summary: Get public IPs
+      tags:
+      - instances
+swagger: "2.0"

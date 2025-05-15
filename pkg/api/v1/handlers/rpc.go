@@ -55,7 +55,37 @@ type RPCHandler struct {
 	UserHandlers    *UserHandler
 }
 
-// HandleRPC handles all RPC requests for various resource types
+// HandleRPC handles all RPC-style API requests for projects, tasks, and users
+// The RPC endpoint supports the following methods:
+//
+// Project methods:
+// - project.create: Create a new project
+// - project.get: Get a project by name
+// - project.list: List all projects
+// - project.delete: Delete a project
+// - project.listInstances: List instances for a project
+//
+// Task methods:
+// - task.get: Get a task by ID
+// - task.list: List tasks for a project
+// - task.terminate: Terminate a running task
+//
+// User methods:
+// - user.create: Create a new user
+// - user.get: Get users or a single user by username
+// - user.get.id: Get a user by ID
+// - user.delete: Delete a user
+//
+// @Summary Handle RPC requests
+// @Description Process RPC-style API requests for projects, tasks, and users. The RPC endpoint supports the following methods: Project methods: project.create (Create a new project), project.get (Get a project by name), project.list (List all projects), project.delete (Delete a project), project.listInstances (List instances for a project). Task methods: task.get (Get a task by ID), task.list (List tasks for a project), task.terminate (Terminate a running task). User methods: user.create (Create a new user), user.get (Get users or a single user by username), user.get.id (Get a user by ID), user.delete (Delete a user).
+// @Tags rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request"
+// @Success 200 {object} RPCResponse
+// @Failure 400 {object} RPCResponse
+// @Failure 500 {object} RPCResponse
+// @Router / [post]
 func (h *RPCHandler) HandleRPC(c *fiber.Ctx) error {
 	var req RPCRequest
 	if err := c.BodyParser(&req); err != nil {

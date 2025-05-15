@@ -35,3 +35,26 @@ type ListResponse[T any] struct {
 	Rows       []T                `json:"rows"`
 	Pagination PaginationResponse `json:"pagination"`
 }
+
+// InstanceListResponse represents a response containing a list of instances
+type InstanceListResponse struct {
+	Rows       []interface{}      `json:"rows"`
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+// TaskListResponse represents a response containing a list of tasks
+type TaskListResponse struct {
+	Rows       []interface{}      `json:"rows"`
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Error   string      `json:"error"`
+	Details interface{} `json:"details,omitempty"`
+}
+
+// SuccessResponse represents a success response
+type SuccessResponse struct {
+	Data interface{} `json:"data,omitempty"`
+}

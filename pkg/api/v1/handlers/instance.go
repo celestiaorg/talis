@@ -22,7 +22,21 @@ func NewInstanceHandler(api *APIHandler) *InstanceHandler {
 	}
 }
 
-// ListInstances handles the request to list all instances
+// ListInstances godoc
+// @Summary List all instances
+// @Description Returns a list of all instances with pagination
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param limit query int false "Number of items to return (default 10)"
+// @Param offset query int false "Number of items to skip (default 0)"
+// @Param include_deleted query bool false "Include deleted instances (default false)"
+// @Param status query string false "Filter by instance status"
+// @Success 200 {object} types.InstanceListResponse "List of instances"
+// @Failure 400 {object} types.ErrorResponse "Invalid input"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances [get]
+// @OperationId listAllInstances
 func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	var opts models.ListOptions
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
@@ -64,7 +78,18 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	})
 }
 
-// GetInstance returns details of a specific instance
+// GetInstance godoc
+// @Summary Get instance details
+// @Description Returns details of a specific instance by ID
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param id path int true "Instance ID"
+// @Success 200 {object} models.Instance "Instance details"
+// @Failure 400 {object} types.ErrorResponse "Invalid input"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances/{id} [get]
+// @OperationId getInstanceById
 func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	instanceID, err := c.ParamsInt("id")
 	if err != nil {
@@ -88,8 +113,18 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	return c.JSON(instance)
 }
 
-// CreateInstance handles the request to create instances
-// TODO: the RPC response for this should be the instances and tasks created.
+// CreateInstance godoc
+// @Summary Create new instances
+// @Description Creates one or more new instances
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param request body []types.InstanceRequest true "Instance creation requests"
+// @Success 201 {object} types.SuccessResponse "Created instances"
+// @Failure 400 {object} types.ErrorResponse "Invalid input"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances [post]
+// @OperationId createInstances
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	var instanceReqs []types.InstanceRequest
 	if err := c.BodyParser(&instanceReqs); err != nil {
@@ -121,7 +156,19 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 		JSON(types.Success(createdInstances))
 }
 
-// GetPublicIPs returns a list of public IPs for all instances
+// GetPublicIPs godoc
+// @Summary Get public IPs
+// @Description Returns a list of public IPs for all instances
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param limit query int false "Number of items to return (default 10)"
+// @Param offset query int false "Number of items to skip (default 0)"
+// @Param include_deleted query bool false "Include deleted instances (default false)"
+// @Success 200 {object} types.PublicIPsResponse "List of public IPs"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances/public-ips [get]
+// @OperationId getInstancePublicIPs
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all public IPs...")
 
@@ -168,7 +215,19 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	})
 }
 
-// GetAllMetadata returns a list of all instance details
+// GetAllMetadata godoc
+// @Summary Get all instance metadata
+// @Description Returns detailed metadata for all instances
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param limit query int false "Number of items to return (default 10)"
+// @Param offset query int false "Number of items to skip (default 0)"
+// @Param include_deleted query bool false "Include deleted instances (default false)"
+// @Success 200 {object} types.InstanceListResponse "List of instance metadata"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances/all-metadata [get]
+// @OperationId getAllInstanceMetadata
 func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all instance metadata...")
 
@@ -207,7 +266,21 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	})
 }
 
-// GetInstances handles the request to list instances
+// GetInstances godoc
+// @Summary List instances
+// @Description Returns a list of instances with pagination and optional filtering
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param limit query int false "Number of items to return (default 10)"
+// @Param offset query int false "Number of items to skip (default 0)"
+// @Param include_deleted query bool false "Include deleted instances (default false)"
+// @Param status query string false "Filter by instance status"
+// @Success 200 {object} types.InstanceListResponse "List of instances"
+// @Failure 400 {object} types.ErrorResponse "Invalid input"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances [get]
+// @OperationId getInstancesList
 func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 	var opts models.ListOptions
 	opts.Limit = c.QueryInt("limit", DefaultPageSize)
@@ -243,7 +316,18 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 	})
 }
 
-// TerminateInstances handles the request to terminate instances
+// TerminateInstances godoc
+// @Summary Terminate instances
+// @Description Terminates one or more instances
+// @Tags instances
+// @Accept json
+// @Produce json
+// @Param request body types.DeleteInstancesRequest true "Termination request"
+// @Success 200 {object} types.SuccessResponse "Instances terminated successfully"
+// @Failure 400 {object} types.ErrorResponse "Invalid input"
+// @Failure 500 {object} types.ErrorResponse "Internal server error"
+// @Router /api/v1/instances [delete]
+// @OperationId terminateInstances
 func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 	var deleteReq types.DeleteInstancesRequest
 	if err := c.BodyParser(&deleteReq); err != nil {

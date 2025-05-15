@@ -76,6 +76,9 @@ func RegisterRoutes(
 	rpcHandler *handlers.RPCHandler,
 	taskHandler *handlers.TaskHandlers,
 ) {
+	// Register Swagger routes
+	RegisterSwaggerRoutes(app)
+
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
 
