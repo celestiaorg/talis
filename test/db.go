@@ -23,8 +23,9 @@ func NewFileBasedTestDB() (*gorm.DB, string, error) {
 	dbPath := filepath.Join(tmpDir, "talis_test.db")
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
+		// Try to clean up the temporary directory, but don't fail if cleanup fails
 		if rmErr := os.RemoveAll(tmpDir); rmErr != nil {
-			return nil, "", fmt.Errorf("failed to open database: %w (cleanup error: %v)", err, rmErr)
+			fmt.Printf("Warning: failed to remove temporary directory after database error: %v\n", rmErr)
 		}
 		return nil, "", fmt.Errorf("failed to open database: %w", err)
 	}
