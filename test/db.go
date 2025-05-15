@@ -13,9 +13,9 @@ import (
 	"github.com/celestiaorg/talis/internal/db/repos"
 )
 
-// NewInMemoryDB creates a new file-based SQLite database for testing.
+// NewFileBasedTestDB creates a new file-based SQLite database for testing.
 // It returns the database connection and the path to the temporary directory.
-func NewInMemoryDB() (*gorm.DB, string, error) {
+func NewFileBasedTestDB() (*gorm.DB, string, error) {
 	tmpDir, err := os.MkdirTemp("", "talis_test")
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create temporary directory: %w", err)
@@ -66,7 +66,7 @@ func SetupTestDB(suite *Suite, database *gorm.DB) {
 		suite.DB = database
 	} else {
 		// Create new file-based database
-		dbConn, tmpDir, err := NewInMemoryDB()
+		dbConn, tmpDir, err := NewFileBasedTestDB()
 		suite.Require().NoError(err, "Failed to create file-based database")
 		suite.DB = dbConn
 
