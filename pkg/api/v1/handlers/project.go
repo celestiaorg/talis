@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
@@ -42,7 +43,7 @@ func (h *ProjectHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 	}
 
 	if err := h.project.Create(c.Context(), &project); err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgProjAlreadyExists, err.Error(), req.ID)
 		}
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjCreateFailed, err.Error(), req.ID)
