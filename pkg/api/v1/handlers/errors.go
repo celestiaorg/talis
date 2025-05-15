@@ -20,6 +20,7 @@ const (
 	ErrMsgProjListFailed      = "Failed to list projects"
 	ErrMsgProjDeleteFailed    = "Failed to delete project"
 	ErrMsgProjGetFailed       = "Failed to get project"
+	ErrMsgProjAlreadyExists   = "Project already exists"
 )
 
 // Task error messages
