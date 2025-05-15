@@ -32,3 +32,10 @@ coverage.html
 # Custom local file for dumping test/debug files
 ignore/
 
+memory-bank/activeContext.md
+memory-bank/productContext.md
+memory-bank/progress.md
+memory-bank/projectbrief.md
+memory-bank/systemPatterns.md
+memory-bank/techContext.md
+.clinerules

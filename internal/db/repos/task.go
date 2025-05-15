@@ -3,8 +3,10 @@ package repos
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -90,34 +92,127 @@ func (r *TaskRepository) Update(ctx context.Context, ownerID uint, task *models.
 	}).Updates(task).Error
 }
 
+// AcquireTaskLock attempts to lock a task for processing.
+// Returns true if the lock was acquired, false otherwise.
+func (r *TaskRepository) AcquireTaskLock(ctx context.Context, taskID uint) (bool, error) {
+	now := time.Now()
+	lockExpiry := now.Add(models.TaskLockTimeout)
+
+	// Create a task model with ID for the where clause
+	taskModel := &models.Task{Model: gorm.Model{ID: taskID}}
+
+	// Attempt to acquire the lock using an atomic update
+	result := r.db.WithContext(ctx).Model(taskModel).
+		Where(
+			clause.Or(
+				clause.Eq{Column: models.TaskLockedAtField, Value: nil},
+				clause.Lt{Column: models.TaskLockExpiryField, Value: now},
+			),
+		).
+		Updates(map[string]interface{}{
+			models.TaskLockedAtField:   now,
+			models.TaskLockExpiryField: lockExpiry,
+		})
+
+	if result.Error != nil {
+		return false, fmt.Errorf("failed to acquire task lock: %w", result.Error)
+	}
+
+	// If rows affected is 0, the lock was not acquired
+	return result.RowsAffected > 0, nil
+}
+
+// ReleaseTaskLock releases a task lock
+func (r *TaskRepository) ReleaseTaskLock(ctx context.Context, taskID uint) error {
+	// Create a task model with ID for the where clause
+	taskModel := &models.Task{Model: gorm.Model{ID: taskID}}
+
+	// Update the task to release the lock
+	result := r.db.WithContext(ctx).Model(taskModel).
+		Updates(map[string]interface{}{
+			models.TaskLockedAtField:   nil,
+			models.TaskLockExpiryField: nil,
+		})
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to release task lock: %w", result.Error)
+	}
+
+	return nil
+}
+
+// RecoverStaleTasks finds tasks that were in progress when the system crashed
+// and resets them to pending status with incremented attempts
+func (r *TaskRepository) RecoverStaleTasks(ctx context.Context) (int64, error) {
+	now := time.Now()
+
+	// Find tasks that are in running state with expired locks or no locks
+	result := r.db.WithContext(ctx).Model(&models.Task{}).
+		Where(&models.Task{Status: models.TaskStatusRunning}).
+		Where(
+			clause.Or(
+				clause.Eq{Column: models.TaskLockedAtField, Value: nil},
+				clause.Lt{Column: models.TaskLockExpiryField, Value: now},
+			),
+		).
+		Updates(map[string]interface{}{
+			models.TaskStatusField:     models.TaskStatusPending,
+			models.TaskLockedAtField:   nil,
+			models.TaskLockExpiryField: nil,
+			models.TaskAttemptsField:   gorm.Expr(fmt.Sprintf("%s + 1", models.TaskAttemptsField)),
+			models.TaskLogsField:       gorm.Expr(fmt.Sprintf("CONCAT(%s, '\n[RECOVERED] Task was in running state during system restart')", models.TaskLogsField)),
+		})
+
+	if result.Error != nil {
+		return 0, fmt.Errorf("failed to recover stale tasks: %w", result.Error)
+	}
+
+	return result.RowsAffected, nil
+}
+
 // GetSchedulableTasks retrieves tasks that are ready for processing,
-// ordered by error status (no error first) and then by creation date (oldest first).
+// ordered by priority (high first), error status (no error first), and then by creation date (oldest first).
 // It fetches tasks with statuses other than Completed or Terminated.
-func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
+func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, priority models.TaskPriority, limit int) ([]models.Task, error) {
 	var tasks []models.Task
 
 	// Define statuses to exclude
-	excludedStatuses := []models.TaskStatus{
+	excludedStatuses := []interface{}{
 		models.TaskStatusCompleted,
 		models.TaskStatusTerminated,
 	}
 
 	// Build the query
-	query := r.db.WithContext(ctx).Model(&models.Task{}).Where(
-		"status NOT IN ?", excludedStatuses,
-	).Where("attempts < ?", maxAttempts)
-
-	// Order by error presence (errors last), then by creation date (oldest first)
-	// Use DB-specific syntax for CASE WHEN or similar logic if needed, assuming standard SQL here.
-	// GORM automatically quotes column names.
-	query = query.Order("CASE WHEN error = '' THEN 0 ELSE 1 END").Order("created_at ASC")
+	query := r.db.WithContext(ctx).Model(&models.Task{}).
+		Where(models.Task{
+			Status:   models.TaskStatusPending,
+			Priority: priority,
+		}).
+		Where(
+			clause.NotConditions{
+				Exprs: []clause.Expression{
+					clause.IN{
+						Column: models.TaskStatusField,
+						Values: excludedStatuses,
+					},
+				},
+			},
+			clause.Lt{Column: models.TaskAttemptsField, Value: maxAttempts},
+			clause.Or(
+				clause.Eq{Column: models.TaskLockedAtField, Value: nil},
+				clause.Lt{Column: models.TaskLockExpiryField, Value: time.Now()},
+			),
+		).
+		// Order by priority (lower number = higher priority), error presence (errors last), then by creation date (oldest first)
+		Order(clause.OrderByColumn{Column: clause.Column{Name: models.TaskPriorityField}, Desc: false}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: models.TaskErrorField}, Desc: false}).
+		Order(clause.OrderByColumn{Column: clause.Column{Name: models.TaskIDField}, Desc: false}) // faster than created_at
 
 	// Apply limit
-	defaultLimit := 100
 	if limit > 0 {
 		query = query.Limit(limit)
 	} else {
-		query = query.Limit(defaultLimit)
+		query = query.Limit(models.DefaultLimit)
 	}
 
 	// Execute the query

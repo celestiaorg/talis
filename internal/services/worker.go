@@ -17,8 +17,19 @@ import (
 // DefaultBackoff is the default backoff time for the worker
 const DefaultBackoff = time.Second
 
-// Worker is a struct that contains the worker's dependencies
-type Worker struct {
+const (
+	// DefaultWorkerCount is the default number of workers in the pool
+	DefaultWorkerCount = 100
+
+	// DefaultHighPriorityRatio is the default ratio of workers assigned to high priority tasks
+	DefaultHighPriorityRatio = 0.7
+
+	// QueueSize is the size of the task queue
+	QueueSize = 100
+)
+
+// WorkerPool is a struct that contains the worker pool's dependencies
+type WorkerPool struct {
 	// Services
 	instanceService *Instance
 	projectService  *Project
@@ -32,109 +43,289 @@ type Worker struct {
 	computeMU    sync.RWMutex
 
 	// Config
-	backoff time.Duration
+	backoff           time.Duration
+	workerCount       int
+	highPriorityRatio float64
+
+	// Task queues
+	highPriorityQueue chan models.Task
+	lowPriorityQueue  chan models.Task
 }
 
-// NewWorker creates a new Worker
-func NewWorker(instanceService *Instance, projectService *Project, taskService *Task, userService *User, backoff time.Duration) *Worker {
-	return &Worker{
-		instanceService: instanceService,
-		projectService:  projectService,
-		taskService:     taskService,
-		userService:     userService,
-		providers:       make(map[models.ProviderID]compute.Provider),
-		provisioners:    make(map[models.ProviderID]compute.Provisioner),
-		backoff:         backoff,
+// NewWorkerPool creates a new WorkerPool
+func NewWorkerPool(instanceService *Instance, projectService *Project, taskService *Task, userService *User, backoff time.Duration) *WorkerPool {
+	return &WorkerPool{
+		instanceService:   instanceService,
+		projectService:    projectService,
+		taskService:       taskService,
+		userService:       userService,
+		providers:         make(map[models.ProviderID]compute.Provider),
+		provisioners:      make(map[models.ProviderID]compute.Provisioner),
+		backoff:           backoff,
+		workerCount:       DefaultWorkerCount,
+		highPriorityRatio: DefaultHighPriorityRatio,
+		highPriorityQueue: make(chan models.Task, QueueSize),
+		lowPriorityQueue:  make(chan models.Task, QueueSize),
 	}
 }
 
-// LaunchWorker launches a goroutine that will initialize the worker and execute tasks
-func (w *Worker) LaunchWorker(ctx context.Context, wg *sync.WaitGroup) {
+// WithWorkerCount sets the number of workers in the pool
+func (w *WorkerPool) WithWorkerCount(count int) *WorkerPool {
+	if count > 0 {
+		w.workerCount = count
+	}
+	return w
+}
+
+// WithHighPriorityRatio sets the ratio of workers assigned to high priority tasks
+func (w *WorkerPool) WithHighPriorityRatio(ratio float64) *WorkerPool {
+	if ratio > 0 && ratio <= 1.0 {
+		w.highPriorityRatio = ratio
+	}
+	return w
+}
+
+// LaunchWorkerPool launches a task dispatcher and worker pool to process tasks
+func (w *WorkerPool) LaunchWorkerPool(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	const taskLimit = 10
+
+	// Recover stale tasks from previous runs
+	w.recoverStaleTasks(ctx)
+
+	// Create a wait group for the workers
+	var workersWg sync.WaitGroup
+
+	// Launch task dispatchers for each priority level
+	dispatcherCtx, cancelDispatcher := context.WithCancel(ctx)
+	workersWg.Add(2) // One for each priority dispatcher
+	go w.taskDispatcher(dispatcherCtx, &workersWg, models.TaskPriorityHigh, taskLimit)
+	go w.taskDispatcher(dispatcherCtx, &workersWg, models.TaskPriorityLow, taskLimit)
+
+	// Calculate worker distribution
+	highPriorityWorkers := int(float64(w.workerCount) * w.highPriorityRatio)
+	lowPriorityWorkers := w.workerCount - highPriorityWorkers
+
+	// Launch high priority workers
+	for i := 0; i < highPriorityWorkers; i++ {
+		workerId := i + 1
+		workersWg.Add(1)
+		go w.highPriorityTaskProcessor(ctx, &workersWg, workerId)
+	}
+
+	// Launch low priority workers
+	for i := 0; i < lowPriorityWorkers; i++ {
+		workerId := highPriorityWorkers + i + 1
+		workersWg.Add(1)
+		go w.lowPriorityTaskProcessor(ctx, &workersWg, workerId)
+	}
+
+	logger.Infof("Worker pool started with %d workers (%d high priority, %d low priority)",
+		w.workerCount, highPriorityWorkers, lowPriorityWorkers)
+
+	// Wait for context cancellation
+	<-ctx.Done()
+	logger.Info("Worker pool received shutdown signal, stopping dispatchers...")
+	cancelDispatcher()
+
+	// Close task queues after dispatchers are done
+	workersWg.Wait()
+	close(w.highPriorityQueue)
+	close(w.lowPriorityQueue)
+
+	logger.Info("Worker pool shutdown complete")
+}
+
+// recoverStaleTasks finds and resets tasks that were in progress when the system crashed
+func (w *WorkerPool) recoverStaleTasks(ctx context.Context) {
+	count, err := w.taskService.RecoverStaleTasks(ctx)
+	if err != nil {
+		logger.Errorf("Failed to recover stale tasks: %v", err)
+		return
+	}
+
+	if count > 0 {
+		logger.Infof("Recovered %d stale tasks that were in progress during previous run", count)
+	}
+}
+
+// taskDispatcher fetches tasks from database and puts them in the appropriate queue
+func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, priority models.TaskPriority, taskLimit int) {
+	defer wg.Done()
 
 	// NOTE: tickers need a non-zero duration, this will just cause a small delay before the worker starts
 	t := time.NewTicker(time.Millisecond)
 
-	logger.Info("Worker started")
+	// Determine which queue to use based on priority
+	var queue chan models.Task
+	priorityName := priority.String()
+
+	if priority == models.TaskPriorityHigh {
+		queue = w.highPriorityQueue
+	} else {
+		queue = w.lowPriorityQueue
+	}
+
+	logger.Infof("%s priority task dispatcher started", priorityName)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Worker received shutdown signal, stopping...")
+			logger.Infof("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
 			return
 		case <-t.C:
 		}
 
-		// Fetch schedulable tasks
-		tasks, err := w.taskService.GetSchedulableTasks(ctx, taskLimit)
+		// Fetch schedulable tasks for this priority level
+		tasks, err := w.taskService.GetSchedulableTasks(ctx, priority, taskLimit)
 		if err != nil {
-			logger.Errorf("Worker error fetching tasks: %v", err)
+			logger.Errorf("%s priority task dispatcher error fetching tasks: %v", priorityName, err)
 			// Wait before retrying to avoid spamming logs on persistent DB errors
 			t.Reset(w.backoff)
 			continue
 		}
 
 		if len(tasks) == 0 {
-			logger.Debug("Worker: No tasks to process")
+			logger.Debugf("%s priority task dispatcher: No tasks to process", priorityName)
 			// Wait before retrying to give time for tasks to be created
 			t.Reset(w.backoff)
 			continue
 		}
 
+		// Distribute tasks to workers through the queue
 		for i := range tasks {
-			// Check if the context has been cancelled to avoid processing tasks after shutdown
 			select {
 			case <-ctx.Done():
-				logger.Info("Worker received shutdown signal, stopping...")
+				logger.Infof("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
 				return
-			default:
-			}
-			tasks[i].Attempts++
-			switch tasks[i].Action {
-			case models.TaskActionCreateInstances:
-				err := w.processCreateInstanceTask(ctx, &tasks[i])
-				if err != nil {
-					logMsg := fmt.Sprintf("❌ Failed to process create instance task %d: %v", tasks[i].ID, err)
-					logger.Error(logMsg)
-					tasks[i].Logs += fmt.Sprintf("\n%s", logMsg)
-					err = w.taskService.UpdateFailed(ctx, &tasks[i], err.Error(), logMsg)
-					if err != nil {
-						logger.Errorf("Worker: Failed to update task: %v", err)
-					}
-					// No time reset needed here as we are just continuing through the tasks
-					continue
-				}
-				err = w.taskService.UpdateStatus(ctx, tasks[i].OwnerID, tasks[i].ID, models.TaskStatusCompleted)
-				if err != nil {
-					logger.Errorf("Worker: Failed to update task status: %v", err)
-				}
-			case models.TaskActionTerminateInstances:
-				err := w.processTerminateInstanceTask(ctx, &tasks[i])
-				if err != nil {
-					logMsg := fmt.Sprintf("❌ Failed to process terminate instance task %d: %v", tasks[i].ID, err)
-					logger.Error(logMsg)
-					tasks[i].Logs += fmt.Sprintf("\n%s", logMsg)
-					err = w.taskService.UpdateFailed(ctx, &tasks[i], err.Error(), logMsg)
-					if err != nil {
-						logger.Errorf("Worker: Failed to update task: %v", err)
-					}
-					// No time reset needed here as we are just continuing through the tasks
-					continue
-				}
-				err = w.taskService.UpdateStatus(ctx, tasks[i].OwnerID, tasks[i].ID, models.TaskStatusCompleted)
-				if err != nil {
-					logger.Errorf("Worker: Failed to update task status: %v", err)
-				}
-			default:
-				logger.Errorf("Worker: Unknown task action %s for task %d", tasks[i].Action, tasks[i].ID)
+			case queue <- tasks[i]:
+				logger.Debugf("%s priority task dispatcher: Queued task %d for processing", priorityName, tasks[i].ID)
 			}
 		}
 	}
 }
 
+// highPriorityTaskProcessor processes tasks from the high priority queue
+func (w *WorkerPool) highPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerId int) {
+	defer wg.Done()
+
+	logger.Infof("High priority worker %d started", workerId)
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Infof("High priority worker %d received shutdown signal, stopping...", workerId)
+			return
+		case task, ok := <-w.highPriorityQueue:
+			if !ok {
+				// Queue is closed
+				logger.Infof("High priority worker %d shutting down, task queue is closed", workerId)
+				return
+			}
+
+			// Process the task
+			w.processTask(ctx, workerId, task)
+		}
+	}
+}
+
+// lowPriorityTaskProcessor processes tasks from the low priority queue
+func (w *WorkerPool) lowPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerId int) {
+	defer wg.Done()
+
+	logger.Infof("Low priority worker %d started", workerId)
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Infof("Low priority worker %d received shutdown signal, stopping...", workerId)
+			return
+		case task, ok := <-w.lowPriorityQueue:
+			if !ok {
+				// Queue is closed
+				logger.Infof("Low priority worker %d shutting down, task queue is closed", workerId)
+				return
+			}
+
+			// Process the task
+			w.processTask(ctx, workerId, task)
+		}
+	}
+}
+
+// processTask handles the actual task processing with locking
+func (w *WorkerPool) processTask(ctx context.Context, workerId int, task models.Task) {
+	priorityName := task.Priority.String()
+	logger.Debugf("%s priority worker %d attempting to process task %d", priorityName, workerId, task.ID)
+
+	// Try to acquire a lock on the task
+	locked, err := w.taskService.AcquireTaskLock(ctx, task.ID)
+	if err != nil {
+		logger.Errorf("%s priority worker %d failed to acquire lock for task %d: %v",
+			priorityName, workerId, task.ID, err)
+		return
+	}
+
+	if !locked {
+		logger.Debugf("%s priority worker %d could not acquire lock for task %d, skipping",
+			priorityName, workerId, task.ID, err)
+		return
+	}
+
+	logger.Debugf("%s priority worker %d processing task %d", priorityName, workerId, task.ID)
+	task.Attempts++
+
+	// Process the task based on its action
+	var processErr error
+	switch task.Action {
+	case models.TaskActionCreateInstances:
+		processErr = w.processCreateInstanceTask(ctx, &task)
+		if processErr != nil {
+			logMsg := fmt.Sprintf("❌ %s priority worker %d failed to process create instance task %d: %v",
+				priorityName, workerId, task.ID, processErr)
+			logger.Error(logMsg)
+			task.Logs += fmt.Sprintf("\n%s", logMsg)
+			err = w.taskService.UpdateFailed(ctx, &task, processErr.Error(), logMsg)
+			if err != nil {
+				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerId, err)
+			}
+		} else {
+			err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusCompleted)
+			if err != nil {
+				logger.Errorf("%s priority worker %d: Failed to update task status: %v", priorityName, workerId, err)
+			}
+		}
+	case models.TaskActionTerminateInstances:
+		processErr = w.processTerminateInstanceTask(ctx, &task)
+		if processErr != nil {
+			logMsg := fmt.Sprintf("❌ %s priority worker %d failed to process terminate instance task %d: %v",
+				priorityName, workerId, task.ID, processErr)
+			logger.Error(logMsg)
+			task.Logs += fmt.Sprintf("\n%s", logMsg)
+			err = w.taskService.UpdateFailed(ctx, &task, processErr.Error(), logMsg)
+			if err != nil {
+				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerId, err)
+			}
+		} else {
+			err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusCompleted)
+			if err != nil {
+				logger.Errorf("%s priority worker %d: Failed to update task status: %v", priorityName, workerId, err)
+			}
+		}
+	default:
+		logger.Errorf("%s priority worker %d: Unknown task action %s for task %d",
+			priorityName, workerId, task.Action, task.ID)
+	}
+
+	// Release the lock regardless of success or failure
+	if err := w.taskService.ReleaseTaskLock(ctx, task.ID); err != nil {
+		logger.Errorf("%s priority worker %d failed to release lock for task %d: %v",
+			priorityName, workerId, task.ID, err)
+	}
+}
+
 // processCreateInstanceTask processes a create instance task. It will handle the instance creation, provisioning, and status updates for the instance.
-func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Task) error {
+func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models.Task) error {
 	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
 	if err != nil {
 		return fmt.Errorf("Worker: Failed to update task status: %w", err)
@@ -230,33 +421,27 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 		fallthrough
 	case models.InstanceStatusProvisioning:
 		logger.Debugf("Instance ID %d is in status %s, provisioning", instance.ID, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Running Ansible provisioning for instance ID %d", instance.ID))
-		// Run the Ansible playbook
-		// Ansible playbooks can be rerun so we shouldn't need to worry about where we left off
+		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Provisioning instance ID %d", instance.ID))
 
-		// Get the provisioner, or create a new one if it doesn't exist
-		provisioner := w.getProvisioner(instanceReq.Provider)
-		if provisioner == nil {
-			return fmt.Errorf("Worker: Failed to get provisioner for provider %v", instanceReq.Provider)
-		}
-
-		// --- Step 1: Ensure all hosts are ready for SSH connections ---
-		// TODO: This currently uses a default/shared key path assumption. Improve if needed.
-		sshKeyPath := getAnsibleSSHKeyPath(instanceReq)
-		hosts := make([]string, 1)
-		hosts[0] = instanceReq.PublicIP
-		if err := provisioner.ConfigureHosts(ctx, hosts, sshKeyPath); err != nil {
-			// ConfigureHosts already logs details
-			return fmt.Errorf("failed to ensure SSH readiness for all hosts: %w", err)
-		}
-
-		// --- Step 2: Create the inventory file using InstanceRequest ---
-		// CreateInventory now handles extracting info and determining the key path internally
-		// TODO: should inventory path be stored?
-		inventoryPath, err := provisioner.CreateInventory(&instanceReq, sshKeyPath)
+		// Get provisioning tasks
+		provisioner, err := w.getProvisioner(instanceReq.Provider)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to create inventory for instance ID %d: %w", instance.ID, err)
+			return fmt.Errorf("Worker: Failed to get provisioner for provider %s: %w", instanceReq.Provider, err)
 		}
+
+		// Verify that the instance IP is available
+		if instance.PublicIP == "" {
+			return fmt.Errorf("Worker: instance ID %d has no public IP, can't provision", instance.ID)
+		}
+
+		// TODO: Validate inputs
+
+		// create a hosts file with the instance IP to provision.
+		inventoryPath, err := provisioner.CreateInventory(&instanceReq, getAnsibleSSHKeyPath(instanceReq))
+		if err != nil {
+			return fmt.Errorf("Worker: Failed to create inventory file for instance ID %d: %w", instance.ID, err)
+		}
+
 		if inventoryPath == "" {
 			// Should not happen if hosts were provided and valid, but handle defensively
 			logger.Warnf("Worker: Inventory path empty for instance ID %d, skipping playbook run", instance.ID)
@@ -291,7 +476,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 }
 
 // processTerminateInstanceTask processes a terminate instance task. It will handle the infrastructure deletion and status updates for the instance.
-func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.Task) error {
+func (w *WorkerPool) processTerminateInstanceTask(ctx context.Context, task *models.Task) error {
 	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
 	if err != nil {
 		return fmt.Errorf("Worker: Failed to update task status: %w", err)
@@ -347,7 +532,7 @@ func (w *Worker) processTerminateInstanceTask(ctx context.Context, task *models.
 }
 
 // getProvider returns the compute provider for the given instance
-func (w *Worker) getProvider(providerID models.ProviderID) (compute.Provider, error) {
+func (w *WorkerPool) getProvider(providerID models.ProviderID) (compute.Provider, error) {
 	w.computeMU.RLock()
 
 	provider, ok := w.providers[providerID]
@@ -370,7 +555,7 @@ func (w *Worker) getProvider(providerID models.ProviderID) (compute.Provider, er
 }
 
 // getProvisioner returns the provisioner for the given instance
-func (w *Worker) getProvisioner(providerID models.ProviderID) compute.Provisioner {
+func (w *WorkerPool) getProvisioner(providerID models.ProviderID) (compute.Provisioner, error) {
 	w.computeMU.RLock()
 
 	provisioner, ok := w.provisioners[providerID]
@@ -385,5 +570,5 @@ func (w *Worker) getProvisioner(providerID models.ProviderID) compute.Provisione
 	}
 	w.computeMU.RUnlock()
 
-	return provisioner
+	return provisioner, nil
 }

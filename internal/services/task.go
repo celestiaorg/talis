@@ -8,6 +8,7 @@ import (
 
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
+	"github.com/celestiaorg/talis/internal/logger"
 )
 
 // Task handles task-related operations
@@ -152,11 +153,35 @@ func (s *Task) CompleteTask(ctx context.Context, ownerID uint, taskID uint, resu
 	return nil
 }
 
+// AcquireTaskLock attempts to lock a task for processing
+// Returns true if the lock was acquired, false otherwise
+func (s *Task) AcquireTaskLock(ctx context.Context, taskID uint) (bool, error) {
+	return s.repo.AcquireTaskLock(ctx, taskID)
+}
+
+// ReleaseTaskLock releases a task lock
+func (s *Task) ReleaseTaskLock(ctx context.Context, taskID uint) error {
+	return s.repo.ReleaseTaskLock(ctx, taskID)
+}
+
+// RecoverStaleTasks finds tasks that were in progress when the system crashed
+// and resets them to pending status with incremented attempts
+func (s *Task) RecoverStaleTasks(ctx context.Context) (int64, error) {
+	count, err := s.repo.RecoverStaleTasks(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	if count > 0 {
+		logger.Infof("Recovered %d stale tasks that were in progress during system restart", count)
+	}
+
+	return count, nil
+}
+
 // GetSchedulableTasks retrieves tasks ready for the worker to process.
-func (s *Task) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Task, error) {
-	// Note: Currently, this doesn't filter by ownerID as the worker is system-wide.
-	// If worker logic becomes owner-specific, ownerID filtering might be needed here or in the repo method.
-	return s.repo.GetSchedulableTasks(ctx, limit)
+func (s *Task) GetSchedulableTasks(ctx context.Context, priority models.TaskPriority, limit int) ([]models.Task, error) {
+	return s.repo.GetSchedulableTasks(ctx, priority, limit)
 }
 
 // ListTasksByInstanceID retrieves all tasks for a specific instance, with an optional action filter.
