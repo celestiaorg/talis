@@ -81,11 +81,6 @@ func TestProjectRPCMethods(t *testing.T) {
 	require.Equal(t, 1, len(listResponse))
 	// Don't check ID since it's auto-incremented by the DB
 	require.Equal(t, defaultProjectCreateParams.Name, listResponse[0].Name)
-
-	// Attempt to create another project with the same name
-	_, err = suite.APIClient.CreateProject(suite.Context(), defaultProjectCreateParams)
-	require.Error(t, err, "Creating a project with the same name should fail")
-	require.Contains(t, err.Error(), "Project with the same name already exists", "Error message should indicate that the project already exists")
 }
 
 func TestTaskRPCMethods(t *testing.T) {

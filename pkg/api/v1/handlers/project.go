@@ -41,17 +41,6 @@ func (h *ProjectHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 		Config:      params.Config,
 	}
 
-	// Check if a project with the same name already exists for the given owner ID
-	_, err = h.project.GetByName(c.Context(), params.OwnerID, params.Name)
-	if err == nil {
-		// A project with the same name already exists
-		return respondWithRPCError(c, fiber.StatusBadRequest, "Project with the same name already exists", nil, req.ID)
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		// An unexpected error occurred while checking for the project
-		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to check for existing project", err.Error(), req.ID)
-	}
-
 	if err := h.project.Create(c.Context(), &project); err != nil {
 		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgProjCreateFailed, err.Error(), req.ID)
 	}
