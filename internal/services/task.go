@@ -197,6 +197,11 @@ func (s *Task) GetSchedulableTasks(ctx context.Context, priority models.TaskPrio
 	return s.repo.GetSchedulableTasks(ctx, priority, limit)
 }
 
+// IncrementAttempts atomically increments the attempts count for a task
+func (s *Task) IncrementAttempts(ctx context.Context, taskID uint) error {
+	return s.repo.IncrementAttempts(ctx, taskID)
+}
+
 // ListTasksByInstanceID retrieves all tasks for a specific instance, with an optional action filter.
 func (s *Task) ListTasksByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter models.TaskAction, opts *models.ListOptions) ([]models.Task, error) {
 	// Basic validation can be added here if needed, beyond what the repository does.

@@ -49,8 +49,8 @@ type WorkerPool struct {
 	highPriorityRatio float64
 
 	// Task queues
-	highPriorityQueue chan models.Task
-	lowPriorityQueue  chan models.Task
+	highPriorityQueue chan *models.Task
+	lowPriorityQueue  chan *models.Task
 }
 
 // NewWorkerPool creates a new WorkerPool
@@ -65,8 +65,8 @@ func NewWorkerPool(instanceService *Instance, projectService *Project, taskServi
 		backoff:           backoff,
 		workerCount:       DefaultWorkerCount,
 		highPriorityRatio: DefaultHighPriorityRatio,
-		highPriorityQueue: make(chan models.Task, QueueSize),
-		lowPriorityQueue:  make(chan models.Task, QueueSize),
+		highPriorityQueue: make(chan *models.Task, QueueSize),
+		lowPriorityQueue:  make(chan *models.Task, QueueSize),
 	}
 }
 
@@ -159,7 +159,7 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 	defer t.Stop()
 
 	// Determine which queue to use based on priority
-	var queue chan models.Task
+	var queue chan *models.Task
 	priorityName := priority.String()
 
 	if priority == models.TaskPriorityHigh {
@@ -200,7 +200,7 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 			case <-ctx.Done():
 				logger.Infof("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
 				return
-			case queue <- tasks[i]:
+			case queue <- &tasks[i]:
 				logger.Debugf("%s priority task dispatcher: Queued task %d for processing", priorityName, tasks[i].ID)
 			}
 		}
@@ -256,12 +256,24 @@ func (w *WorkerPool) lowPriorityTaskProcessor(ctx context.Context, wg *sync.Wait
 }
 
 // processTask handles the actual task processing with locking
-func (w *WorkerPool) processTask(ctx context.Context, workerID int, task models.Task) {
+func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *models.Task) {
 	priorityName := task.Priority.String()
 	logger.Debugf("%s priority worker %d attempting to process task %d", priorityName, workerID, task.ID)
 
+	// Atomically increment attempts count before trying to acquire the lock
+	// This ensures we track all processing attempts, even if lock acquisition fails
+	err := w.taskService.IncrementAttempts(ctx, task.ID)
+	if err != nil {
+		logger.Errorf("%s priority worker %d failed to increment attempts for task %d: %v",
+			priorityName, workerID, task.ID, err)
+		// Continue processing despite the error, as this is not critical
+	} else {
+		// Update the local task object to reflect the increment
+		task.Attempts++
+	}
+
 	// Try to acquire a lock on the task
-	err := w.taskService.AcquireTaskLock(ctx, task.ID)
+	err = w.taskService.AcquireTaskLock(ctx, task.ID)
 	if err != nil {
 		if errors.Is(err, ErrTaskLockNotAcquired) {
 			logger.Debugf("%s priority worker %d could not acquire lock for task %d, skipping",
@@ -274,19 +286,18 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task models.
 	}
 
 	logger.Debugf("%s priority worker %d processing task %d", priorityName, workerID, task.ID)
-	task.Attempts++
 
 	// Process the task based on its action
 	var processErr error
 	switch task.Action {
 	case models.TaskActionCreateInstances:
-		processErr = w.processCreateInstanceTask(ctx, &task)
+		processErr = w.processCreateInstanceTask(ctx, task)
 		if processErr != nil {
 			logMsg := fmt.Sprintf("❌ %s priority worker %d failed to process create instance task %d: %v",
 				priorityName, workerID, task.ID, processErr)
 			logger.Error(logMsg)
 			task.Logs += fmt.Sprintf("\n%s", logMsg)
-			err = w.taskService.UpdateFailed(ctx, &task, processErr.Error(), logMsg)
+			err = w.taskService.UpdateFailed(ctx, task, processErr.Error(), logMsg)
 			if err != nil {
 				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerID, err)
 			}
@@ -297,13 +308,13 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task models.
 			}
 		}
 	case models.TaskActionTerminateInstances:
-		processErr = w.processTerminateInstanceTask(ctx, &task)
+		processErr = w.processTerminateInstanceTask(ctx, task)
 		if processErr != nil {
 			logMsg := fmt.Sprintf("❌ %s priority worker %d failed to process terminate instance task %d: %v",
 				priorityName, workerID, task.ID, processErr)
 			logger.Error(logMsg)
 			task.Logs += fmt.Sprintf("\n%s", logMsg)
-			err = w.taskService.UpdateFailed(ctx, &task, processErr.Error(), logMsg)
+			err = w.taskService.UpdateFailed(ctx, task, processErr.Error(), logMsg)
 			if err != nil {
 				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerID, err)
 			}

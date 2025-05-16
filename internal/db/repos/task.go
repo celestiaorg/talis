@@ -219,6 +219,22 @@ func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, priority model
 	return tasks, nil
 }
 
+// IncrementAttempts atomically increments the attempts count for a task
+func (r *TaskRepository) IncrementAttempts(ctx context.Context, taskID uint) error {
+	err := r.db.WithContext(ctx).
+		Model(&models.Task{Model: gorm.Model{ID: taskID}}).
+		Update(
+			models.TaskAttemptsField,
+			gorm.Expr(fmt.Sprintf("%s + 1", models.TaskAttemptsField)),
+		).Error
+
+	if err != nil {
+		return fmt.Errorf("failed to increment task attempts: %w", err)
+	}
+
+	return nil
+}
+
 // ListByInstanceID retrieves all tasks for a specific instance from the database with pagination and optional action filter.
 func (r *TaskRepository) ListByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter models.TaskAction, opts *models.ListOptions) ([]models.Task, error) {
 	if err := models.ValidateOwnerID(ownerID); err != nil {
