@@ -13,7 +13,7 @@ import (
 func TestWorker_getProvider(t *testing.T) {
 	// Create a worker with nil services as they are not used by getProvider
 	// Use a short backoff for testing purposes if needed, though not relevant here.
-	w := NewWorker(nil, nil, nil, nil, time.Millisecond*10)
+	w := NewWorkerPool(nil, nil, nil, nil, time.Millisecond*10)
 
 	// Define provider IDs for testing
 	// Assuming "digitalocean-mock" is a valid provider ID that compute.NewComputeProvider can handle
@@ -96,7 +96,7 @@ func TestWorker_getProvider(t *testing.T) {
 
 func TestWorker_getProvisioner(t *testing.T) {
 	// Create a worker with nil services as they are not used by getProvisioner
-	w := NewWorker(nil, nil, nil, nil, time.Millisecond*10)
+	w := NewWorkerPool(nil, nil, nil, nil, time.Millisecond*10)
 
 	// Define a provider ID for testing. getProvisioner works with any valid ProviderID.
 	// We'll use the same mock ID as in the provider test for consistency.
@@ -104,7 +104,8 @@ func TestWorker_getProvisioner(t *testing.T) {
 
 	t.Run("Basic", func(t *testing.T) {
 		// --- Get provisioner for the first time ---
-		provisioner := w.getProvisioner(providerID)
+		provisioner, err := w.getProvisioner(providerID)
+		require.NoError(t, err, "Getting a valid provisioner should not return an error")
 		require.NotNil(t, provisioner, "Provisioner instance should not be nil")
 
 		// Store the instance for comparison
@@ -118,7 +119,8 @@ func TestWorker_getProvisioner(t *testing.T) {
 		require.Same(t, firstProvisionerInstance, cachedProvisioner, "Cached provisioner instance should match the returned one")
 
 		// --- Get the same provisioner again (should return cached instance) ---
-		provisioner = w.getProvisioner(providerID)
+		provisioner, err = w.getProvisioner(providerID)
+		require.NoError(t, err, "Getting a cached valid provisioner should not return an error")
 		require.NotNil(t, provisioner, "Cached provisioner instance should not be nil")
 
 		// Crucial check: Ensure it's the *same* instance, not a new one
@@ -148,7 +150,7 @@ func TestWorker_getProvisioner(t *testing.T) {
 						return // Stop signal received
 					default:
 						// Repeatedly get the provisioner to test concurrent map access
-						_ = w.getProvisioner(providerID)
+						_, _ = w.getProvisioner(providerID)
 					}
 				}
 			}(done) // Pass the done channel to the goroutine
