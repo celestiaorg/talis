@@ -1,10 +1,14 @@
+// Package routes defines the API routes and URL structure
 package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/swaggo/swag"
+
+	_ "github.com/celestiaorg/talis/docs" // Import generated docs
 )
 
-// RegisterSwaggerRoutes adds Swagger documentation routes to the app
+// RegisterSwaggerRoutes registers the Swagger UI routes
 func RegisterSwaggerRoutes(app *fiber.App) {
 	// Serve Swagger UI HTML
 	app.Get("/swagger", func(c *fiber.Ctx) error {
@@ -13,11 +17,10 @@ func RegisterSwaggerRoutes(app *fiber.App) {
 
 	// Serve Swagger JSON
 	app.Get("/swagger/doc.json", func(c *fiber.Ctx) error {
-		return c.SendFile("./docs/swagger.json")
-	})
-
-	// Serve Swagger YAML
-	app.Get("/swagger/doc.yaml", func(c *fiber.Ctx) error {
-		return c.SendFile("./docs/swagger.yaml")
+		doc, err := swag.ReadDoc()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
+		return c.Type("json").Send([]byte(doc))
 	})
 }
