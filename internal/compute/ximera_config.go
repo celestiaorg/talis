@@ -8,10 +8,12 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+
+	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
 )
 
 // InitXimeraConfig initializes the configuration from environment variables
-func InitXimeraConfig() (*Configuration, error) {
+func InitXimeraConfig() (*computeTypes.Configuration, error) {
 	apiURL := os.Getenv("XIMERA_API_URL")
 	apiToken := os.Getenv("XIMERA_API_TOKEN")
 	userIDStr := os.Getenv("XIMERA_USER_ID")
@@ -33,7 +35,7 @@ func InitXimeraConfig() (*Configuration, error) {
 		return nil, fmt.Errorf("invalid XIMERA_HYPERVISOR_GROUP_ID: %w", err)
 	}
 
-	config := &Configuration{
+	config := &computeTypes.Configuration{
 		APIURL:       apiURL,
 		APIToken:     apiToken,
 		UserID:       userID,
@@ -44,7 +46,7 @@ func InitXimeraConfig() (*Configuration, error) {
 }
 
 // LoadXimeraServerConfigs loads server configurations from a JSON file
-func LoadXimeraServerConfigs(filename string) ([]ServerConfig, error) {
+func LoadXimeraServerConfigs(filename string) ([]computeTypes.ServerConfig, error) {
 	// #nosec G304 -- filename is controlled by the caller, ensure only trusted sources call this function
 	if !strings.HasSuffix(filename, ".json") {
 		return nil, fmt.Errorf("invalid file extension: %s", filename)
@@ -54,7 +56,7 @@ func LoadXimeraServerConfigs(filename string) ([]ServerConfig, error) {
 		return nil, fmt.Errorf("error reading server configurations file: %w", err)
 	}
 
-	var configs []ServerConfig
+	var configs []computeTypes.ServerConfig
 	if err := json.Unmarshal(data, &configs); err != nil {
 		return nil, fmt.Errorf("error unmarshaling server configurations: %w", err)
 	}
@@ -63,7 +65,7 @@ func LoadXimeraServerConfigs(filename string) ([]ServerConfig, error) {
 }
 
 // SaveXimeraServerState saves the server state to a JSON file
-func SaveXimeraServerState(server *ServerResponse, filename string) error {
+func SaveXimeraServerState(server *computeTypes.ServerResponse, filename string) error {
 	// Use viper to marshal the server state to JSON
 	viper.SetConfigType("json")
 	viper.Set("server", server)

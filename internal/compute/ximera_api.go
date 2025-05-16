@@ -8,17 +8,19 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
 )
 
 // XimeraAPIClient is a client for interacting with the Ximera API
 // Uses local ximera models
 type XimeraAPIClient struct {
-	config     *Configuration
+	config     *computeTypes.Configuration
 	httpClient *http.Client
 }
 
 // NewXimeraAPIClient creates a new API client
-func NewXimeraAPIClient(config *Configuration) *XimeraAPIClient {
+func NewXimeraAPIClient(config *computeTypes.Configuration) *XimeraAPIClient {
 	return &XimeraAPIClient{
 		config: config,
 		httpClient: &http.Client{
@@ -72,13 +74,13 @@ func (c *XimeraAPIClient) MakeRequest(method, endpoint string, body interface{})
 }
 
 // ListServers lists all servers
-func (c *XimeraAPIClient) ListServers() (*ServersListResponse, error) {
+func (c *XimeraAPIClient) ListServers() (*computeTypes.ServersListResponse, error) {
 	respBody, err := c.MakeRequest("GET", "/servers", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var response ServersListResponse
+	var response computeTypes.ServersListResponse
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
@@ -104,8 +106,8 @@ func (c *XimeraAPIClient) ServerExists(name string) (bool, int, error) {
 }
 
 // CreateServer creates a new server
-func (c *XimeraAPIClient) CreateServer(name string, packageID int, storage, traffic, memory, cpuCores int) (*ServerResponse, error) {
-	request := ServerCreateRequest{
+func (c *XimeraAPIClient) CreateServer(name string, packageID int, storage, traffic, memory, cpuCores int) (*computeTypes.ServerResponse, error) {
+	request := computeTypes.ServerCreateRequest{
 		PackageID:    packageID,
 		UserID:       c.config.UserID,
 		HypervisorID: c.config.HypervisorID,
@@ -132,7 +134,7 @@ func (c *XimeraAPIClient) CreateServer(name string, packageID int, storage, traf
 		return nil, err
 	}
 
-	var response ServerResponse
+	var response computeTypes.ServerResponse
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
@@ -142,14 +144,14 @@ func (c *XimeraAPIClient) CreateServer(name string, packageID int, storage, traf
 }
 
 // GetServer gets a server by ID
-func (c *XimeraAPIClient) GetServer(id int) (*ServerResponse, error) {
+func (c *XimeraAPIClient) GetServer(id int) (*computeTypes.ServerResponse, error) {
 	endpoint := fmt.Sprintf("/servers/%d", id)
 	respBody, err := c.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var response ServerResponse
+	var response computeTypes.ServerResponse
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
@@ -183,7 +185,7 @@ func (c *XimeraAPIClient) GetServer(id int) (*ServerResponse, error) {
 }
 
 // BuildServer builds a server with the given ID
-func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*ServerResponse, error) {
+func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*computeTypes.ServerResponse, error) {
 	osIDInt, err := strconv.Atoi(osID)
 	if err != nil {
 		return nil, fmt.Errorf("error converting osID to int: %w", err)
@@ -193,7 +195,7 @@ func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*Serve
 		return nil, fmt.Errorf("error converting sshKey to int: %w", err)
 	}
 
-	request := ServerBuildRequest{
+	request := computeTypes.ServerBuildRequest{
 		OperatingSystemID: osIDInt,
 		Name:              name,
 		Hostname:          "",
@@ -206,7 +208,7 @@ func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*Serve
 		return nil, err
 	}
 
-	var response ServerResponse
+	var response computeTypes.ServerResponse
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
@@ -216,14 +218,14 @@ func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*Serve
 }
 
 // ListTemplates lists available OS templates for a package
-func (c *XimeraAPIClient) ListTemplates(packageID int) (*TemplatesResponse, error) {
+func (c *XimeraAPIClient) ListTemplates(packageID int) (*computeTypes.TemplatesResponse, error) {
 	endpoint := fmt.Sprintf("/media/templates/fromServerPackageSpec/%d", packageID)
 	respBody, err := c.MakeRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var response TemplatesResponse
+	var response computeTypes.TemplatesResponse
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)

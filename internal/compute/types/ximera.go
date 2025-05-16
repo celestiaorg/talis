@@ -1,4 +1,4 @@
-package compute
+package types
 
 // Configuration holds the API configuration
 type Configuration struct {
