@@ -11,7 +11,7 @@ import (
 type Project struct {
 	gorm.Model
 	OwnerID     uint      `json:"-" gorm:"not null; index"`
-	Name        string    `json:"name" gorm:"not null; index"`
+	Name        string    `json:"name" gorm:"not null; index; unique"`
 	Description string    `json:"description" gorm:"type:text"`
 	Config      string    `json:"config" gorm:"type:text"`
 	Tasks       []Task    `json:"tasks" gorm:"foreignKey:ProjectID"`
