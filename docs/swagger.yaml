@@ -270,15 +270,21 @@ definitions:
     type: object
   github_com_celestiaorg_talis_internal_types.ErrorResponse:
     properties:
-      details: {}
+      details:
+        description: Optional additional details about the error, may include field-specific
+          validation errors
       error:
+        description: Error message describing what went wrong
         type: string
     type: object
   github_com_celestiaorg_talis_internal_types.InstanceListResponse:
     properties:
       pagination:
-        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        description: Pagination information for the result set
       rows:
+        description: Array of instance objects
         items: {}
         type: array
     type: object
@@ -364,8 +370,11 @@ definitions:
   github_com_celestiaorg_talis_internal_types.ListResponse-github_com_celestiaorg_talis_internal_db_models_Instance:
     properties:
       pagination:
-        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        description: Pagination information for the result set
       rows:
+        description: Array of resource items
         items:
           $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Instance'
         type: array
@@ -373,8 +382,11 @@ definitions:
   github_com_celestiaorg_talis_internal_types.ListResponse-github_com_celestiaorg_talis_internal_db_models_Project:
     properties:
       pagination:
-        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        description: Pagination information for the result set
       rows:
+        description: Array of resource items
         items:
           $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Project'
         type: array
@@ -382,21 +394,22 @@ definitions:
   github_com_celestiaorg_talis_internal_types.PaginationResponse:
     properties:
       limit:
-        description: Number of items per page
+        description: Maximum number of items per page
         type: integer
       offset:
-        description: Offset from start of results
+        description: Number of items skipped from the beginning of the result set
         type: integer
       page:
-        description: Current page number
+        description: Current page number (1-based)
         type: integer
       total:
-        description: Total number of values
+        description: Total number of items available across all pages
         type: integer
     type: object
   github_com_celestiaorg_talis_internal_types.PublicIPs:
     properties:
       public_ip:
+        description: The public IPv4 address of the instance
         type: string
     type: object
   github_com_celestiaorg_talis_internal_types.PublicIPsResponse:
@@ -404,22 +417,27 @@ definitions:
       pagination:
         allOf:
         - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
-        description: Pagination information
+        description: Pagination information for the result set
       public_ips:
-        description: List of public IPs
+        description: List of public IP addresses for instances
         items:
           $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PublicIPs'
         type: array
     type: object
   github_com_celestiaorg_talis_internal_types.SuccessResponse:
     properties:
-      data: {}
+      data:
+        description: Optional data returned by the operation, may include created
+          resource IDs or other operation results
     type: object
   github_com_celestiaorg_talis_internal_types.TaskListResponse:
     properties:
       pagination:
-        $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse'
+        description: Pagination information for the result set
       rows:
+        description: Array of task objects
         items: {}
         type: array
     type: object
@@ -571,9 +589,13 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Terminates one or more instances
+      description: |-
+        Terminates one or more instances by their IDs within a specific project.
+        This operation is irreversible and will stop the instances, release their resources, and mark them as terminated.
+        You must provide the owner ID, project name, and an array of instance IDs to be terminated.
       parameters:
-      - description: Termination request
+      - description: Termination request containing owner_id, project_name, and instance_ids
+          array
         in: body
         name: request
         required: true
@@ -583,15 +605,16 @@ paths:
       - application/json
       responses:
         "200":
-          description: Instances terminated successfully
+          description: Instances terminated successfully - resources have been released
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse'
         "400":
-          description: Invalid input
+          description: Invalid input - missing required fields or empty instance IDs
+            array
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
         "500":
-          description: Internal server error
+          description: Internal server error - provider API errors or service failures
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
       summary: Terminate instances
@@ -600,21 +623,29 @@ paths:
     get:
       consumes:
       - application/json
-      description: Returns a list of instances with pagination and optional filtering
+      description: |-
+        Returns a list of instances with pagination and optional filtering by status.
+        This endpoint is similar to ListInstances but with a different operation ID for client compatibility.
+        You can filter by status (pending, created, provisioning, ready, terminated) and control pagination with limit and offset.
       parameters:
       - description: Number of items to return (default 10)
+        example: 10
         in: query
         name: limit
         type: integer
       - description: Number of items to skip (default 0)
+        example: 0
         in: query
         name: offset
         type: integer
       - description: Include deleted instances (default false)
+        example: false
         in: query
         name: include_deleted
         type: boolean
-      - description: Filter by instance status
+      - description: Filter by instance status (pending, created, provisioning, ready,
+          terminated)
+        example: ready
         in: query
         name: status
         type: string
@@ -622,15 +653,15 @@ paths:
       - application/json
       responses:
         "200":
-          description: List of instances
+          description: List of instances with pagination information
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.InstanceListResponse'
         "400":
-          description: Invalid input
+          description: Invalid input - typically an invalid status value
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
         "500":
-          description: Internal server error
+          description: Internal server error - database or service errors
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
       summary: List instances
@@ -639,9 +670,13 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates one or more new instances
+      description: |-
+        Creates one or more new cloud instances based on the provided specifications.
+        You can specify provider details (AWS, GCP, DigitalOcean, etc.), region, size, image, SSH key, and optional volume configurations.
+        The API supports creating multiple instances in a single request by providing an array of instance configurations.
       parameters:
-      - description: Instance creation requests
+      - description: Array of instance creation requests with provider, region, size,
+          image, and other configuration details
         in: body
         name: request
         required: true
@@ -653,15 +688,17 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created instances
+          description: Successfully created instances with details of the created
+            resources
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse'
         "400":
-          description: Invalid input
+          description: Invalid input - missing required fields or validation errors
+            in the request
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
         "500":
-          description: Internal server error
+          description: Internal server error - provider API errors or service failures
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
       summary: Create new instances
@@ -671,9 +708,12 @@ paths:
     get:
       consumes:
       - application/json
-      description: Returns details of a specific instance by ID
+      description: |-
+        Returns detailed information about a specific instance identified by its ID.
+        This endpoint provides complete information including status, provider details, region, size, IP address, and volume information.
       parameters:
       - description: Instance ID
+        example: 123
         in: path
         name: id
         required: true
@@ -682,15 +722,17 @@ paths:
       - application/json
       responses:
         "200":
-          description: Instance details
+          description: Complete instance details including status, provider, region,
+            size, IP, and volumes
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.Instance'
         "400":
-          description: Invalid input
+          description: Invalid input - typically a non-numeric or negative instance
+            ID
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
         "500":
-          description: Internal server error
+          description: Internal server error - database errors or instance not found
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
       summary: Get instance details
@@ -747,17 +789,23 @@ paths:
     get:
       consumes:
       - application/json
-      description: Returns detailed metadata for all instances
+      description: |-
+        Returns comprehensive metadata for all instances, including provider details, status, region, size, and volume information.
+        This endpoint is useful for administrative purposes and detailed monitoring of all instances.
+        By default, terminated instances are excluded unless include_deleted=true is specified.
       parameters:
       - description: Number of items to return (default 10)
+        example: 10
         in: query
         name: limit
         type: integer
       - description: Number of items to skip (default 0)
+        example: 0
         in: query
         name: offset
         type: integer
       - description: Include deleted instances (default false)
+        example: false
         in: query
         name: include_deleted
         type: boolean
@@ -765,11 +813,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: List of instance metadata
+          description: Complete list of instance metadata with pagination information
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.InstanceListResponse'
         "500":
-          description: Internal server error
+          description: Internal server error - database or service errors
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
       summary: Get all instance metadata
@@ -779,17 +827,23 @@ paths:
     get:
       consumes:
       - application/json
-      description: Returns a list of public IPs for all instances
+      description: |-
+        Returns a list of public IP addresses for all instances.
+        This endpoint is useful for monitoring or connecting to instances without needing full instance details.
+        By default, terminated instances are excluded unless include_deleted=true is specified.
       parameters:
       - description: Number of items to return (default 10)
+        example: 10
         in: query
         name: limit
         type: integer
       - description: Number of items to skip (default 0)
+        example: 0
         in: query
         name: offset
         type: integer
       - description: Include deleted instances (default false)
+        example: false
         in: query
         name: include_deleted
         type: boolean
@@ -797,11 +851,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: List of public IPs
+          description: List of public IPs with pagination information
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.PublicIPsResponse'
         "500":
-          description: Internal server error
+          description: Internal server error - database or service errors
           schema:
             $ref: '#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse'
       summary: Get public IPs
