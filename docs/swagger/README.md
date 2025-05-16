@@ -45,6 +45,8 @@ Swagger annotations are special comments in your Go code that provide informatio
 // @BasePath /api/v1
 ```
 
+Note: The `@host` value can be overridden at runtime by setting the `API_HOST` environment variable. This allows you to dynamically set the host based on the deployment environment (e.g., `localhost:8080` for local development, `api.example.com` for production).
+
 ### Endpoint Documentation
 
 ```go
@@ -91,6 +93,7 @@ This provides an interactive interface where you can:
 - Try out API calls directly from the browser
 - View example requests and responses
 
+
 ## Best Practices
 
 1. **Keep annotations up to date**: Always update the Swagger annotations when you modify an API endpoint.
@@ -106,6 +109,7 @@ This provides an interactive interface where you can:
 - [Swagger UI](https://swagger.io/tools/swagger-ui/)
 - [OpenAPI Initiative](https://www.openapis.org/)
 - [Swagger Editor](https://editor.swagger.io/)
+- [Swagger Article](https://medium.com/julotech/implementing-swagger-in-go-projects-8579a5fb955)
 
 ## Troubleshooting
 
@@ -114,5 +118,6 @@ This provides an interactive interface where you can:
 1. **Swagger documentation not updating**: Make sure you're running `make swagger` after making changes to the annotations.
 2. **Missing endpoints in Swagger UI**: Check that your endpoints have the correct Swagger annotations.
 3. **Incorrect parameter types**: Verify that the parameter types in your annotations match the actual types in your code.
+4. **Host not updating dynamically**: If the Swagger UI is not showing the correct host after setting the `API_HOST` environment variable, ensure that the application was restarted after changing the environment variable and that the variable is correctly set in your environment or `.env` file.
 
 If you encounter any issues with the Swagger documentation, please check the Swaggo documentation or open an issue in the project repository.
