@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -20,7 +21,9 @@ type InstanceRequest struct {
 	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
 	Provider models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
 	Region   string            `json:"region"`   // Region where instances will be created
-	Size     string            `json:"size"`     // Instance size/type
+	Size     string            `json:"size"`     // Instance size/type (used for cloud provider with predefined sizes)
+	Memory   int               `json:"memory"`   // Memory in MB (used for Ximera to allow custom memory)
+	CPU      int               `json:"cpu"`      // CPU cores (used for Ximera to allow custom CPU)
 	Image    string            `json:"image"`    // OS image to use
 	Tags     []string          `json:"tags"`     // Tags to apply to instances
 
@@ -83,8 +86,8 @@ func (i *InstanceRequest) Validate() error {
 	if i.Region == "" {
 		return fmt.Errorf("region is required")
 	}
-	if i.Size == "" {
-		return fmt.Errorf("size is required")
+	if i.Size == "" && (i.Memory == 0 || i.CPU == 0) {
+		return fmt.Errorf("either size, or both memory and cpu, must be provided")
 	}
 	if i.Image == "" {
 		return fmt.Errorf("image is required")
@@ -97,6 +100,23 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if len(i.Volumes) == 0 {
 		return fmt.Errorf("at least one volume configuration is required")
+	}
+	// Ximera-specific validation
+	if i.Provider == "ximera" {
+		if i.Memory <= 0 {
+			return fmt.Errorf("memory is required and must be > 0 for Ximera")
+		}
+		if i.CPU <= 0 {
+			return fmt.Errorf("cpu is required and must be > 0 for Ximera")
+		}
+		// Validate osID (Image) is an integer
+		if _, err := strconv.Atoi(i.Image); err != nil {
+			return fmt.Errorf("image (osID) must be a valid integer for Ximera: %w", err)
+		}
+		// Validate sshKeyID (SSHKeyName) is an integer
+		if _, err := strconv.Atoi(i.SSHKeyName); err != nil {
+			return fmt.Errorf("ssh_key_name (sshKeyID) must be a valid integer for Ximera: %w", err)
+		}
 	}
 	// Validate volumes if present
 	for j := range i.Volumes {

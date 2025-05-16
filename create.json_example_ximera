@@ -1,0 +1,23 @@
+[
+    {
+        "name": "test-hostname",
+        "owner_id": 1,
+        "project_name": "smuu",
+        "provider": "ximera",
+        "number_of_instances": 1,
+        "provision": true,
+        "region": "nyc1",
+        "memory": 1,
+        "cpu": 1,
+        "image": "14",
+        "tags": ["talis", "dev", "testing"],
+        "ssh_key_name": "4",
+        "volumes": [
+            {
+                "name": "talis-volume",
+                "size_gb": 5,
+                "mount_point": "/mnt/data"
+            }
+        ]
+    }
+]

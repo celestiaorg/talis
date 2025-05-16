@@ -25,6 +25,8 @@ const (
 	ProviderHetzner ProviderID = "hetzner"
 	// ProviderOVH represents OVH provider
 	ProviderOVH ProviderID = "ovh"
+	// ProviderXimera represents Ximera provider
+	ProviderXimera ProviderID = "ximera"
 
 	// Mock Providers
 	// ProviderDOMock1 represents DigitalOcean provider mock 1
@@ -70,7 +72,8 @@ func ToProviderID(s string) ProviderID {
 func (p ProviderID) IsValid() bool {
 	switch p {
 	case ProviderAWS, ProviderGCP, ProviderAzure, ProviderDO,
-		ProviderScaleway, ProviderVultr, ProviderLinode, ProviderHetzner, ProviderOVH:
+		ProviderScaleway, ProviderVultr, ProviderLinode, ProviderHetzner, ProviderOVH,
+		ProviderXimera:
 		return true
 	case ProviderDOMock1, ProviderDOMock2, ProviderMock3: // mocked providers
 		return true
