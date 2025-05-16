@@ -2,20 +2,16 @@ package models
 
 import (
 	"encoding/json"
-	"math"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-// AdminProjectID represents the special ID for when we need to provide a project ID for a task that is not associated with a specific project
-const AdminProjectID uint = math.MaxUint32
-
 // Project represents a collection of related tasks and instances
 type Project struct {
 	gorm.Model
 	OwnerID     uint      `json:"-" gorm:"not null; index"`
-	Name        string    `json:"name" gorm:"not null; index"`
+	Name        string    `json:"name" gorm:"not null; index; unique"`
 	Description string    `json:"description" gorm:"type:text"`
 	Config      string    `json:"config" gorm:"type:text"`
 	Tasks       []Task    `json:"tasks" gorm:"foreignKey:ProjectID"`

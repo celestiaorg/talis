@@ -8,30 +8,38 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/celestiaorg/talis/pkg/api/v1/client"
-	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 )
 
-// flag names and environment variable names
+// flagOwnerID is the flag for the owner ID
 const (
-	// Flags
-	flagOwnerID       = "owner-id"
-	flagServerAddress = "server-address" // Renamed from flagAPIURL
-
-	// Environment Variables
-	envServerAddress = "TALIS_API_URL" // Use the merged env var name
+	// flagOwnerID is the flag for the owner ID
+	flagOwnerID = "owner-id"
+	// flagAPIURL is the flag for the API URL
+	flagAPIURL = "api-url"
 )
 
 var (
 	// apiClient is the shared API client instance
 	apiClient client.Client
-	// serverAddress holds the target API server address. Flag parsing sets this.
-	serverAddress string
+	// apiURLFlag holds the value for the API URL flag
+	apiURLFlag string
 )
+
+// getAPIBaseURL determines the API base URL from flag, environment variable, or default value
+func getAPIBaseURL() string {
+	if apiURLFlag != "" {
+		return apiURLFlag
+	}
+	if env := os.Getenv("TALIS_API_URL"); env != "" {
+		return env
+	}
+	return client.DefaultOptions().BaseURL
+}
 
 // initClient initializes the API client with the appropriate base URL
 func initClient() error {
 	opts := client.DefaultOptions()
-	opts.BaseURL = serverAddress // Use the finalized serverAddress
+	opts.BaseURL = getAPIBaseURL()
 
 	var err error
 	apiClient, err = client.NewClient(opts)
@@ -39,14 +47,8 @@ func initClient() error {
 }
 
 func init() {
-	// Set a basic default for the flag. PersistentPreRunE will handle env var override.
-	// Use flagServerAddress and the TALIS_API_URL env var name in the description.
-	RootCmd.PersistentFlags().StringVarP(&serverAddress, flagServerAddress, "s", routes.DefaultBaseURL, "Address of the Talis API server (env: TALIS_API_URL)")
-
 	RootCmd.PersistentFlags().StringP(flagOwnerID, "o", "", "Owner ID for resources")
-
-	// Removed duplicate flag registration for apiURLFlag
-
+	RootCmd.PersistentFlags().StringVar(&apiURLFlag, flagAPIURL, "", "Base URL for the Talis API (overrides TALIS_API_URL)")
 	RootCmd.AddCommand(GetInfraCmd())
 	RootCmd.AddCommand(GetUsersCmd())
 	RootCmd.AddCommand(GetTasksCmd())
@@ -59,25 +61,7 @@ var RootCmd = &cobra.Command{
 	Short: "Talis CLI - A command line interface for Talis API",
 	Long: `Talis CLI is a command line tool for managing infrastructure and jobs through the Talis API.
 	Complete documentation is available at https://github.com/celestiaorg/talis`,
-	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-		// Check if the server address flag was explicitly set by the user.
-		if !cmd.Flags().Changed(flagServerAddress) {
-			// If not set via flag, check the environment variable *after* godotenv.Load() has run.
-			// Use the correct env var name: envServerAddress (which is TALIS_API_URL)
-			envAddr := os.Getenv(envServerAddress)
-			if envAddr != "" {
-				serverAddress = envAddr // Override the default value with the env var
-			}
-		}
-
-		// Now serverAddress has the correct precedence: Flag > Env Var > Default
-		fmt.Println("Talis Server address:", serverAddress) // Debug print
-
-		// Validate the final server address
-		if serverAddress == "" {
-			return fmt.Errorf("server address cannot be empty")
-		}
-		// Initialization now happens here, using the correct serverAddress
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		return initClient()
 	},
 }

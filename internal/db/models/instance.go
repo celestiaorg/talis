@@ -12,11 +12,11 @@ import (
 
 // Field names for instance model
 const (
+	InstanceIDField        = "id"
 	InstanceCreatedAtField = "created_at"
 	InstanceDeletedField   = "deleted"
 	InstanceStatusField    = "status"
 	InstancePublicIPField  = "public_ip"
-	InstanceNameField      = "name"
 )
 
 // InstanceStatus represents the current state of an instance
@@ -66,7 +66,6 @@ type Instance struct {
 	ProjectID          uint           `json:"project_id" gorm:"not null;index"`
 	ProviderID         ProviderID     `json:"provider_id" gorm:"not null"`
 	ProviderInstanceID int            `json:"provider_instance_id" gorm:"not null"`
-	Name               string         `json:"name" gorm:"not null;index"`
 	PublicIP           string         `json:"public_ip" gorm:"varchar(100)"`
 	Region             string         `json:"region" gorm:"varchar(255)"`
 	Size               string         `json:"size" gorm:"varchar(255)"`

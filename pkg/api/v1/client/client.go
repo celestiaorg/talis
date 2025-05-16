@@ -2,16 +2,11 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -30,18 +25,18 @@ const DefaultTimeout = 30 * time.Second
 // Client is the interface for API client
 type Client interface {
 	// Admin Endpoints
-	AdminGetInstances(ctx context.Context) ([]models.Instance, error)
-	AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error)
+	AdminGetInstances(ctx context.Context) ([]*models.Instance, error)
+	AdminGetInstancesMetadata(ctx context.Context) ([]*models.Instance, error)
 
 	// Health Check
 	HealthCheck(ctx context.Context) (map[string]string, error)
 
 	// Instance Endpoints
-	GetInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
-	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error)
+	GetInstances(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error)
+	GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error)
 	GetInstancesPublicIPs(ctx context.Context, opts *models.ListOptions) (types.PublicIPsResponse, error)
 	GetInstance(ctx context.Context, id string) (models.Instance, error)
-	CreateInstance(ctx context.Context, req []types.InstanceRequest) error
+	CreateInstance(ctx context.Context, req []types.InstanceRequest) ([]*models.Instance, error)
 	DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error // Renamed method from DeleteInstance
 
 	//User Endpoints
@@ -53,13 +48,14 @@ type Client interface {
 	// Project methods
 	CreateProject(ctx context.Context, params handlers.ProjectCreateParams) (models.Project, error)
 	GetProject(ctx context.Context, params handlers.ProjectGetParams) (models.Project, error)
-	ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error)
+	ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]*models.Project, error)
 	DeleteProject(ctx context.Context, params handlers.ProjectDeleteParams) error
-	ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error)
+	ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]*models.Instance, error)
 
 	// Task methods
 	GetTask(ctx context.Context, params handlers.TaskGetParams) (models.Task, error)
-	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error)
+	ListTasks(ctx context.Context, params handlers.TaskListParams) ([]*models.Task, error)
+	ListTasksByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter string, opts *models.ListOptions) ([]*models.Task, error)
 	TerminateTask(ctx context.Context, params handlers.TaskTerminateParams) error
 	UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error
 }
@@ -71,6 +67,9 @@ type Options struct {
 	// BaseURL is the base URL of the API
 	BaseURL string
 
+	// APIKey is the API key for authentication
+	APIKey string
+
 	// Timeout is the request timeout
 	Timeout time.Duration
 }
@@ -79,6 +78,7 @@ type Options struct {
 func DefaultOptions() *Options {
 	return &Options{
 		BaseURL: routes.DefaultBaseURL,
+		APIKey:  "",
 		Timeout: DefaultTimeout,
 	}
 }
@@ -88,6 +88,7 @@ type APIClient struct {
 	baseURL   string
 	timeout   time.Duration
 	AuthToken string
+	APIKey    string
 }
 
 // NewClient creates a new API client with the given options
@@ -104,29 +105,14 @@ func NewClient(opts *Options) (Client, error) {
 
 	return &APIClient{
 		baseURL: opts.BaseURL,
+		APIKey:  opts.APIKey,
 		timeout: opts.Timeout,
 	}, nil
 }
 
-// addFileToMultipart adds a file to the multipart writer.
-// The form field name will be the same as the clientFilePath.
-func addFileToMultipart(writer *multipart.Writer, clientFilePath string) error {
-	file, err := os.Open(filepath.Clean(clientFilePath)) // Use filepath.Clean
-	if err != nil {
-		return fmt.Errorf("failed to open file %s: %w", clientFilePath, err)
-	}
-	defer func() { _ = file.Close() }() // Ignore close error
-
-	part, err := writer.CreateFormFile(clientFilePath, filepath.Base(clientFilePath))
-	if err != nil {
-		return fmt.Errorf("failed to create form file for %s: %w", clientFilePath, err)
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("failed to copy file content for %s: %w", clientFilePath, err)
-	}
-
-	return nil
+// SetAPIKey sets the API key for the client.
+func (c *APIClient) SetAPIKey(apiKey string) {
+	c.APIKey = apiKey
 }
 
 // createAgent creates a new Fiber Agent for the given method and endpoint
@@ -161,6 +147,11 @@ func (c *APIClient) createAgent(ctx context.Context, method, endpoint string, bo
 	// Set common headers
 	agent.Set("Content-Type", "application/json")
 	agent.Set("Accept", "application/json")
+
+	// Add API key header if set
+	if c.APIKey != "" {
+		agent.Set("apikey", c.APIKey)
+	}
 
 	// Add body if provided
 	if body != nil {
@@ -290,51 +281,24 @@ func (c *APIClient) executeRPC(ctx context.Context, method string, params interf
 	return nil
 }
 
-// executeMultipartRequest handles sending a multipart/form-data request.
-// It takes the prepared multipart writer and body buffer.
-func (c *APIClient) executeMultipartRequest(ctx context.Context, endpoint string, writer *multipart.Writer, body *bytes.Buffer, response interface{}) error {
-	// Resolve the full URL
-	fullURL := c.baseURL + endpoint
-
-	// Create Fiber agent for the POST request using the full URL
-	agent := fiber.Post(fullURL)
-
-	// Set timeout
-	if deadline, ok := ctx.Deadline(); ok {
-		agent.Timeout(time.Until(deadline))
-	} else {
-		agent.Timeout(c.timeout)
-	}
-
-	// Set headers for multipart/form-data
-	agent.Set("Content-Type", writer.FormDataContentType())
-	agent.Set("Accept", "application/json")
-
-	// Set the request body
-	agent.Body(body.Bytes())
-
-	// Execute the request using doRequest
-	return c.doRequest(agent, response)
-}
-
 // Admin methods implementation
 
 // AdminGetInstances retrieves all instances
-func (c *APIClient) AdminGetInstances(ctx context.Context) ([]models.Instance, error) {
+func (c *APIClient) AdminGetInstances(ctx context.Context) ([]*models.Instance, error) {
 	endpoint := routes.AdminInstancesURL()
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
 
 // AdminGetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]models.Instance, error) {
+func (c *APIClient) AdminGetInstancesMetadata(ctx context.Context) ([]*models.Instance, error) {
 	endpoint := routes.AdminInstancesMetadataURL()
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
@@ -406,31 +370,31 @@ func getQueryParams(opts *models.ListOptions) (url.Values, error) {
 }
 
 // GetInstances lists instances with optional filtering
-func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+func (c *APIClient) GetInstances(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 
 	endpoint := routes.GetInstancesURL(q)
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
 
 // GetInstancesMetadata retrieves metadata for all instances
-func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]models.Instance, error) {
+func (c *APIClient) GetInstancesMetadata(ctx context.Context, opts *models.ListOptions) ([]*models.Instance, error) {
 	q, err := getQueryParams(opts)
 	if err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 
 	endpoint := routes.GetInstanceMetadataURL(q)
 	var response types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &response); err != nil {
-		return []models.Instance{}, err
+		return []*models.Instance{}, err
 	}
 	return response.Rows, nil
 }
@@ -460,56 +424,34 @@ func (c *APIClient) GetInstance(ctx context.Context, id string) (models.Instance
 	return response, nil
 }
 
-// CreateInstance creates a new instance
-func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) error {
+// CreateInstance creates new instances
+func (c *APIClient) CreateInstance(ctx context.Context, req []types.InstanceRequest) ([]*models.Instance, error) {
 	endpoint := routes.CreateInstanceURL()
+	var slugResp types.SlugResponse
 
-	// Create multipart body
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	if err := c.executeRequest(ctx, fiber.MethodPost, endpoint, req, &slugResp); err != nil {
+		return nil, err
+	}
 
-	// 1. Marshal the instance request slice to JSON
-	reqDataJSON, err := json.Marshal(req)
+	if slugResp.Slug != types.SuccessSlug {
+		return nil, fmt.Errorf("API error (%s): %s", slugResp.Slug, slugResp.Error)
+	}
+
+	// Data should be a slice of instances
+	var createdInstances []*models.Instance
+	jsonData, err := json.Marshal(slugResp.Data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal instance request data: %w", err)
+		return nil, fmt.Errorf("failed to marshal slugResp.Data for CreateInstance: %w", err)
 	}
 
-	// 2. Add the JSON data as a form field "request_data"
-	if err := writer.WriteField("request_data", string(reqDataJSON)); err != nil {
-		return fmt.Errorf("failed to write request_data field: %w", err)
+	if err := json.Unmarshal(jsonData, &createdInstances); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal created instances from slugResp.Data: %w", err)
 	}
 
-	// 3. Add files specified in the requests
-	uploadedFiles := make(map[string]bool) // Track files already added
-	for _, r := range req {
-		// Add PayloadPath file if specified and not already added
-		if r.PayloadPath != "" && !uploadedFiles[r.PayloadPath] {
-			if err := addFileToMultipart(writer, r.PayloadPath); err != nil {
-				return fmt.Errorf("failed to add payload file %s: %w", r.PayloadPath, err)
-			}
-			uploadedFiles[r.PayloadPath] = true
-		}
-
-		// Add TarArchivePath file if specified and not already added
-		if r.TarArchivePath != "" && !uploadedFiles[r.TarArchivePath] {
-			if err := addFileToMultipart(writer, r.TarArchivePath); err != nil {
-				return fmt.Errorf("failed to add tar archive file %s: %w", r.TarArchivePath, err)
-			}
-			uploadedFiles[r.TarArchivePath] = true
-		}
-	}
-
-	// Close the multipart writer (important! This finalizes the body)
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	// Use the dedicated multipart helper
-	// Pass nil for response as CreateInstance doesn't expect a specific body back
-	return c.executeMultipartRequest(ctx, endpoint, writer, body, nil)
+	return createdInstances, nil
 }
 
-// DeleteInstances deletes instances by ID (renamed from DeleteInstance)
+// DeleteInstances deletes specified instances for a project
 func (c *APIClient) DeleteInstances(ctx context.Context, req types.DeleteInstancesRequest) error {
 	endpoint := routes.TerminateInstancesURL()
 	return c.executeRequest(ctx, http.MethodDelete, endpoint, req, nil)
@@ -568,7 +510,7 @@ func (c *APIClient) GetProject(ctx context.Context, params handlers.ProjectGetPa
 }
 
 // ListProjects lists all projects
-func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]models.Project, error) {
+func (c *APIClient) ListProjects(ctx context.Context, params handlers.ProjectListParams) ([]*models.Project, error) {
 	var listResponse types.ListResponse[models.Project] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectList, params, &listResponse); err != nil {
 		return nil, err
@@ -582,7 +524,7 @@ func (c *APIClient) DeleteProject(ctx context.Context, params handlers.ProjectDe
 }
 
 // ListProjectInstances lists all instances for a project
-func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]models.Instance, error) {
+func (c *APIClient) ListProjectInstances(ctx context.Context, params handlers.ProjectListInstancesParams) ([]*models.Instance, error) {
 	var listResponse types.ListResponse[models.Instance] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.ProjectListInstances, params, &listResponse); err != nil {
 		return nil, err
@@ -602,11 +544,61 @@ func (c *APIClient) GetTask(ctx context.Context, params handlers.TaskGetParams) 
 }
 
 // ListTasks lists all tasks
-func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]models.Task, error) {
+func (c *APIClient) ListTasks(ctx context.Context, params handlers.TaskListParams) ([]*models.Task, error) {
 	var listResponse types.ListResponse[models.Task] // Use pkg/types
 	if err := c.executeRPC(ctx, handlers.TaskList, params, &listResponse); err != nil {
 		return nil, err
 	}
+	return listResponse.Rows, nil
+}
+
+// ListTasksByInstanceID retrieves tasks for a specific instance ID, with optional action and pagination.
+func (c *APIClient) ListTasksByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter string, opts *models.ListOptions) ([]*models.Task, error) {
+	queryParams := url.Values{}
+	// Add owner_id to query parameters
+	queryParams.Set("owner_id", strconv.FormatUint(uint64(ownerID), 10))
+
+	if actionFilter != "" {
+		queryParams.Set("action", actionFilter)
+	}
+	if opts != nil {
+		if opts.Limit > 0 {
+			queryParams.Set("limit", strconv.Itoa(opts.Limit))
+		}
+		if opts.Offset > 0 {
+			queryParams.Set("offset", strconv.Itoa(opts.Offset))
+		}
+	}
+
+	endpoint := routes.ListInstanceTasksURL(strconv.FormatUint(uint64(instanceID), 10), queryParams)
+
+	// The response from the server is expected to be types.SlugResponse
+	// where Data contains types.ListResponse[models.Task]
+	var slugResp types.SlugResponse
+	if err := c.executeRequest(ctx, http.MethodGet, endpoint, nil, &slugResp); err != nil {
+		return nil, fmt.Errorf("failed to execute request for ListTasksByInstanceID: %w", err)
+	}
+
+	if slugResp.Slug != types.SuccessSlug {
+		return nil, fmt.Errorf("API error on ListTasksByInstanceID (%s): %s", slugResp.Slug, slugResp.Error)
+	}
+
+	// Ensure Data is not nil
+	if slugResp.Data == nil {
+		return nil, fmt.Errorf("API response for ListTasksByInstanceID missing data")
+	}
+
+	// Manually unmarshal slugResp.Data into types.ListResponse[models.Task]
+	var listResponse types.ListResponse[models.Task]
+	jsonData, err := json.Marshal(slugResp.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal slugResp.Data for ListTasksByInstanceID: %w", err)
+	}
+
+	if err := json.Unmarshal(jsonData, &listResponse); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ListResponse from slugResp.Data for ListTasksByInstanceID: %w", err)
+	}
+
 	return listResponse.Rows, nil
 }
 

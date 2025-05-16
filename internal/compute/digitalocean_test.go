@@ -237,15 +237,16 @@ func TestDigitalOceanProvider(t *testing.T) {
 	t.Run("CreateDropletRequest", func(t *testing.T) {
 		provider, _ := newTestProvider()
 		config := types.InstanceRequest{
-			Region:     "nyc1",
-			Size:       "s-1vcpu-1gb",
-			Image:      "ubuntu-20-04-x64",
-			SSHKeyName: "test-key",
+			ProjectName: "test-project",
+			Region:      "nyc1",
+			Size:        "s-1vcpu-1gb",
+			Image:       "ubuntu-20-04-x64",
+			SSHKeyName:  "test-key",
 		}
 
 		sshKeyID := 12345
 		request := provider.createDropletRequest(&config, sshKeyID)
-		assert.Equal(t, config.Name, request.Name)
+		assert.Contains(t, request.Name, config.ProjectName)
 		assert.Equal(t, config.Region, request.Region)
 		assert.Equal(t, config.Size, request.Size)
 		assert.Equal(t, config.Image, request.Image.Slug)
@@ -257,14 +258,15 @@ func TestDigitalOceanProvider(t *testing.T) {
 		keys, _, err := provider.doClient.Keys().List(context.Background(), nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, keys)
+		require.NotEmpty(t, keys)
 
 		// Create instance
 		config := types.InstanceRequest{
-			Name:       "test-instance",
-			Region:     "nyc1",
-			Size:       "s-1vcpu-1gb",
-			Image:      "ubuntu-20-04-x64",
-			SSHKeyName: keys[0].Name,
+			ProjectName: "test-project",
+			Region:      "nyc1",
+			Size:        "s-1vcpu-1gb",
+			Image:       "ubuntu-20-04-x64",
+			SSHKeyName:  keys[0].Name,
 		}
 
 		err = provider.CreateInstance(context.Background(), &config)
@@ -301,7 +303,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		require.NotEmpty(t, keys)
 
 		config := types.InstanceRequest{
-			Name:              "test-instance",
+			ProjectName:       "test-project-ssh",
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
