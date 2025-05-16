@@ -45,6 +45,8 @@ type ServerBuildRequest struct {
 }
 
 // ServerResponse represents the response from the API
+// Refactored to include nested structs for network and interfaces
+// so that the public IP can be unmarshalled directly.
 type ServerResponse struct {
 	Data struct {
 		ID               int    `json:"id"`
@@ -58,6 +60,14 @@ type ServerResponse struct {
 		PublicIP         string `json:"publicIp,omitempty"`
 		Created          string `json:"created"`
 		Updated          string `json:"updated"`
+
+		Network struct {
+			Interfaces []struct {
+				IPv4 []struct {
+					Address string `json:"address"`
+				} `json:"ipv4"`
+			} `json:"interfaces"`
+		} `json:"network"`
 	} `json:"data"`
 }
 

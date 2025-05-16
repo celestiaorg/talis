@@ -157,27 +157,11 @@ func (c *XimeraAPIClient) GetServer(id int) (*computeTypes.ServerResponse, error
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 
-	// Extract public IP address from the full API response
-	var fullResponse map[string]interface{}
-	err = json.Unmarshal(respBody, &fullResponse)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshaling full response: %w", err)
-	}
-
-	// Navigate through the JSON structure to find the public IP
-	if data, ok := fullResponse["data"].(map[string]interface{}); ok {
-		if network, ok := data["network"].(map[string]interface{}); ok {
-			if interfaces, ok := network["interfaces"].([]interface{}); ok && len(interfaces) > 0 {
-				if iface, ok := interfaces[0].(map[string]interface{}); ok {
-					if ipv4, ok := iface["ipv4"].([]interface{}); ok && len(ipv4) > 0 {
-						if ip, ok := ipv4[0].(map[string]interface{}); ok {
-							if address, ok := ip["address"].(string); ok {
-								response.Data.PublicIP = address
-							}
-						}
-					}
-				}
-			}
+	// Set PublicIP from nested struct if available
+	if len(response.Data.Network.Interfaces) > 0 {
+		iface := response.Data.Network.Interfaces[0]
+		if len(iface.IPv4) > 0 {
+			response.Data.PublicIP = iface.IPv4[0].Address
 		}
 	}
 
