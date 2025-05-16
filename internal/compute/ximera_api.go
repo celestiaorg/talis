@@ -55,9 +55,11 @@ func (c *XimeraAPIClient) MakeRequest(method, endpoint string, body interface{})
 		return nil, fmt.Errorf("error making request: %w", err)
 	}
 	defer func() {
-		cerr := resp.Body.Close()
-		if cerr != nil {
-			fmt.Printf("warning: error closing response body: %v\n", cerr)
+		if resp != nil && resp.Body != nil {
+			cerr := resp.Body.Close()
+			if cerr != nil {
+				fmt.Printf("warning: error closing response body: %v\n", cerr)
+			}
 		}
 	}()
 
@@ -90,6 +92,8 @@ func (c *XimeraAPIClient) ListServers() (*computeTypes.ServersListResponse, erro
 }
 
 // ServerExists checks if a server with the given name exists
+// TODO: Optimize this method if the API supports filtering servers by name
+// instead of retrieving all servers and filtering client-side
 func (c *XimeraAPIClient) ServerExists(name string) (bool, int, error) {
 	servers, err := c.ListServers()
 	if err != nil {
@@ -111,7 +115,7 @@ func (c *XimeraAPIClient) CreateServer(name string, packageID int, storage, traf
 		PackageID:    packageID,
 		UserID:       c.config.UserID,
 		HypervisorID: c.config.HypervisorID,
-		IPv4:         1,
+		IPv4:         1, // Hardcoded to 1 to ensure every VM gets an IP address
 		Name:         name,
 	}
 
@@ -157,8 +161,8 @@ func (c *XimeraAPIClient) GetServer(id int) (*computeTypes.ServerResponse, error
 		return nil, fmt.Errorf("error unmarshaling response: %w", err)
 	}
 
-	// Set PublicIP from nested struct if available
-	if len(response.Data.Network.Interfaces) > 0 {
+	// Extract PublicIP from nested struct if not already set and network data is available
+	if response.Data.PublicIP == "" && len(response.Data.Network.Interfaces) > 0 {
 		iface := response.Data.Network.Interfaces[0]
 		if len(iface.IPv4) > 0 {
 			response.Data.PublicIP = iface.IPv4[0].Address

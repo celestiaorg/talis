@@ -36,8 +36,11 @@ func (p *XimeraProvider) ValidateCredentials() error {
 // GetEnvironmentVars returns the environment variables needed for the provider
 func (p *XimeraProvider) GetEnvironmentVars() map[string]string {
 	return map[string]string{
-		"XIMERA_API_URL":   os.Getenv("XIMERA_API_URL"),
-		"XIMERA_API_TOKEN": os.Getenv("XIMERA_API_TOKEN"),
+		"XIMERA_API_URL":             os.Getenv("XIMERA_API_URL"),
+		"XIMERA_API_TOKEN":           os.Getenv("XIMERA_API_TOKEN"),
+		"XIMERA_USER_ID":             os.Getenv("XIMERA_USER_ID"),
+		"XIMERA_HYPERVISOR_GROUP_ID": os.Getenv("XIMERA_HYPERVISOR_GROUP_ID"),
+		"XIMERA_PACKAGE_ID":          os.Getenv("XIMERA_PACKAGE_ID"),
 	}
 }
 
@@ -59,7 +62,7 @@ func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRe
 	}
 
 	if req.Size != "" {
-		fmt.Println("size is not supported for Ximera")
+		fmt.Printf("Warning: 'size' parameter '%s' is not supported for Ximera provider and will be ignored. Use 'memory' and 'cpu' parameters instead.\n", req.Size)
 	}
 
 	if req.Memory == 0 {
@@ -72,8 +75,8 @@ func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRe
 
 	// we want each ximera server to have unlimited traffic
 	traffic := 0
-	// as we specify memory, cpu, and storage, we can hardcode the packageID, as it will be overridden
-	packageID := 1
+	// Use the configured package ID from the client's configuration
+	packageID := p.client.config.PackageID
 
 	// Map InstanceRequest to ximera's CreateServer
 	resp, err := p.client.CreateServer(
