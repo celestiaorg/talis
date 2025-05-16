@@ -112,6 +112,7 @@ func (r *TaskRepository) AcquireTaskLock(ctx context.Context, taskID uint) (bool
 		Updates(map[string]interface{}{
 			models.TaskLockedAtField:   now,
 			models.TaskLockExpiryField: lockExpiry,
+			models.TaskStatusField:     models.TaskStatusRunning,
 		})
 
 	if result.Error != nil {
@@ -176,26 +177,21 @@ func (r *TaskRepository) RecoverStaleTasks(ctx context.Context) (int64, error) {
 func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, priority models.TaskPriority, limit int) ([]models.Task, error) {
 	var tasks []models.Task
 
-	// Define statuses to exclude
-	excludedStatuses := []interface{}{
-		models.TaskStatusCompleted,
-		models.TaskStatusTerminated,
+	// Define statuses to include
+	includeStatuses := []interface{}{
+		models.TaskStatusPending,
+		models.TaskStatusRunning,
 	}
 
 	// Build the query
 	query := r.db.WithContext(ctx).Model(&models.Task{}).
 		Where(models.Task{
-			Status:   models.TaskStatusPending,
 			Priority: priority,
 		}).
 		Where(
-			clause.NotConditions{
-				Exprs: []clause.Expression{
-					clause.IN{
-						Column: models.TaskStatusField,
-						Values: excludedStatuses,
-					},
-				},
+			clause.IN{
+				Column: models.TaskStatusField,
+				Values: includeStatuses,
 			},
 			clause.Lt{Column: models.TaskAttemptsField, Value: maxAttempts},
 			clause.Or(
@@ -205,7 +201,6 @@ func (r *TaskRepository) GetSchedulableTasks(ctx context.Context, priority model
 		).
 		// Order by priority (lower number = higher priority), error presence (errors last), then by creation date (oldest first)
 		Order(clause.OrderByColumn{Column: clause.Column{Name: models.TaskPriorityField}, Desc: false}).
-		Order(clause.OrderByColumn{Column: clause.Column{Name: models.TaskErrorField}, Desc: false}).
 		Order(clause.OrderByColumn{Column: clause.Column{Name: models.TaskIDField}, Desc: false}) // faster than created_at
 
 	// Apply limit

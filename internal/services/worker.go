@@ -259,16 +259,15 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task models.
 	logger.Debugf("%s priority worker %d attempting to process task %d", priorityName, workerId, task.ID)
 
 	// Try to acquire a lock on the task
-	locked, err := w.taskService.AcquireTaskLock(ctx, task.ID)
+	err := w.taskService.AcquireTaskLock(ctx, task.ID)
 	if err != nil {
-		logger.Errorf("%s priority worker %d failed to acquire lock for task %d: %v",
-			priorityName, workerId, task.ID, err)
-		return
-	}
-
-	if !locked {
-		logger.Debugf("%s priority worker %d could not acquire lock for task %d, skipping",
-			priorityName, workerId, task.ID, err)
+		if err == ErrTaskLockNotAcquired {
+			logger.Debugf("%s priority worker %d could not acquire lock for task %d, skipping",
+				priorityName, workerId, task.ID)
+		} else {
+			logger.Errorf("%s priority worker %d failed to acquire lock for task %d: %v",
+				priorityName, workerId, task.ID, err)
+		}
 		return
 	}
 

@@ -200,7 +200,11 @@ func (t *Task) BeforeCreate(_ *gorm.DB) error {
 
 // IsLocked checks if the task is currently locked for processing
 func (t *Task) IsLocked() bool {
-	return t.LockedAt != nil && t.LockExpiry != nil && time.Now().Before(*t.LockExpiry)
+	// Return false if either LockedAt or LockExpiry is nil to prevent nil pointer dereference
+	if t.LockedAt == nil || t.LockExpiry == nil {
+		return false
+	}
+	return time.Now().Before(*t.LockExpiry)
 }
 
 // Lock locks the task for processing

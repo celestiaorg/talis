@@ -32,9 +32,30 @@ Configure the number of workers using the `WORKER_COUNT` environment variable:
 WORKER_COUNT=10
 ```
 
-If not specified, the system defaults to 5 workers (`DefaultWorkerCount`).
+If not specified, the system defaults to 100 workers (`DefaultWorkerCount`).
+
+You can also configure the ratio of workers assigned to high-priority tasks using the `HIGH_PRIORITY_RATIO` environment variable:
+
+```shell
+# Set the ratio of workers assigned to high-priority tasks (value between 0.0 and 1.0)
+HIGH_PRIORITY_RATIO=0.7
+```
+
+If not specified, the system defaults to 0.7 (70%) of workers assigned to high-priority tasks (`DefaultHighPriorityRatio`).
 
 ## Design Considerations
+
+### Task Prioritization
+
+The worker pool implements a priority queue mechanism that ensures tasks are processed in an optimal order:
+
+1. Tasks are divided into high and low priority queues
+2. Workers are distributed between these queues based on the `HIGH_PRIORITY_RATIO` setting
+3. Within each priority level, tasks are ordered by:
+   - Tasks without errors are processed before tasks with errors
+   - Oldest tasks (by creation date) are processed first
+
+This prioritization ensures that critical tasks are handled promptly while maintaining fair processing for all tasks.
 
 ### Task Independence
 
@@ -70,4 +91,4 @@ Potential future improvements include:
 1. **Resource-aware Scheduling**: Implement task priorities or resource allocation based on task types.
 2. **Worker Health Metrics**: Track and expose metrics about worker pool performance.
 3. **Dynamic Worker Scaling**: Automatically adjust the number of workers based on system load.
-4. **Task Batching**: Group related tasks for more efficient processing. 
+4. **Task Batching**: Group related tasks for more efficient processing.

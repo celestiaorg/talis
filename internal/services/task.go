@@ -153,10 +153,23 @@ func (s *Task) CompleteTask(ctx context.Context, ownerID uint, taskID uint, resu
 	return nil
 }
 
+// ErrTaskLockNotAcquired is returned when a task lock could not be acquired
+var ErrTaskLockNotAcquired = fmt.Errorf("task lock could not be acquired")
+
 // AcquireTaskLock attempts to lock a task for processing
-// Returns true if the lock was acquired, false otherwise
-func (s *Task) AcquireTaskLock(ctx context.Context, taskID uint) (bool, error) {
-	return s.repo.AcquireTaskLock(ctx, taskID)
+// Returns nil if the lock was acquired, ErrTaskLockNotAcquired if the lock was not acquired,
+// or another error if there was a problem with the database operation
+func (s *Task) AcquireTaskLock(ctx context.Context, taskID uint) error {
+	locked, err := s.repo.AcquireTaskLock(ctx, taskID)
+	if err != nil {
+		return fmt.Errorf("failed to acquire task lock: %w", err)
+	}
+
+	if !locked {
+		return ErrTaskLockNotAcquired
+	}
+
+	return nil
 }
 
 // ReleaseTaskLock releases a task lock
