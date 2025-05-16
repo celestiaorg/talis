@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,15 @@ var defaultProjectCreateParams = handlers.ProjectCreateParams{
 var defaultTaskGetParams = handlers.TaskGetParams{
 	TaskID:  1,
 	OwnerID: models.AdminID,
+}
+
+type RPCError struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    string `json:"data"`
+	} `json:"error"`
+	Success bool `json:"success"`
 }
 
 func TestProjectRPCMethods(t *testing.T) {
@@ -272,5 +282,66 @@ func TestClientUserMethods(t *testing.T) {
 		nonExistingUserID := uint(234)
 		err = suite.APIClient.DeleteUser(suite.Context(), handlers.DeleteUserParams{ID: nonExistingUserID})
 		require.Error(t, err)
+	})
+}
+
+func TestProjectCreateErrors(t *testing.T) {
+	suite := test.NewSuite(t)
+	defer suite.Cleanup()
+
+	t.Run("CreateProject_Success", func(t *testing.T) {
+		// Create a project with valid parameters
+		project, err := suite.APIClient.CreateProject(suite.Context(), defaultProjectCreateParams)
+		require.NoError(t, err)
+		require.Equal(t, defaultProjectCreateParams.Name, project.Name)
+		require.Equal(t, defaultProjectCreateParams.Description, project.Description)
+		require.Equal(t, defaultProjectCreateParams.Config, project.Config)
+	})
+
+	t.Run("CreateProject_DuplicateKey", func(t *testing.T) {
+		// Try to create a project with the same name
+		params := defaultProjectCreateParams
+		_, err := suite.APIClient.CreateProject(suite.Context(), params)
+		require.Error(t, err)
+
+		// Parse the error response
+		var rpcErr RPCError
+		err = json.Unmarshal([]byte(err.Error()), &rpcErr)
+		require.NoError(t, err)
+		require.Equal(t, 400, rpcErr.Error.Code)
+		require.Equal(t, "Project already exists", rpcErr.Error.Message)
+		require.Contains(t, rpcErr.Error.Data, "UNIQUE constraint failed")
+		require.False(t, rpcErr.Success)
+	})
+
+	t.Run("CreateProject_EmptyName", func(t *testing.T) {
+		// Try to create a project with empty name
+		invalidProject := defaultProjectCreateParams
+		invalidProject.Name = ""
+		_, err := suite.APIClient.CreateProject(suite.Context(), invalidProject)
+		require.Error(t, err, "Creating project with empty name should fail")
+		require.Contains(t, err.Error(), "project name is required", "Error message should indicate name is required")
+	})
+
+	t.Run("CreateProject_InvalidConfig", func(t *testing.T) {
+		// Create a project with invalid JSON config
+		invalidProject := defaultProjectCreateParams
+		invalidProject.Name = "invalid-project"
+		invalidProject.Config = `{"invalid": json}` // This should cause a JSON parsing error
+
+		_, err := suite.APIClient.CreateProject(suite.Context(), invalidProject)
+		require.Error(t, err, "Creating project with invalid config should fail")
+		require.Contains(t, err.Error(), "invalid character", "Error message should indicate invalid JSON")
+	})
+
+	t.Run("CreateProject_InvalidOwnerID", func(t *testing.T) {
+		// Try to create a project with non-existent owner ID
+		invalidProject := defaultProjectCreateParams
+		invalidProject.Name = "invalid-owner-project"
+		invalidProject.OwnerID = 0 // Use 0 as invalid owner ID since it's not allowed
+
+		_, err := suite.APIClient.CreateProject(suite.Context(), invalidProject)
+		require.Error(t, err, "Creating project with invalid owner ID should fail")
+		require.Contains(t, err.Error(), "owner_id is required", "Error message should indicate owner ID is required")
 	})
 }
