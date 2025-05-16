@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
-
 	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
 )
 
@@ -62,18 +60,4 @@ func LoadXimeraServerConfigs(filename string) ([]computeTypes.ServerConfig, erro
 	}
 
 	return configs, nil
-}
-
-// SaveXimeraServerState saves the server state to a JSON file
-func SaveXimeraServerState(server *computeTypes.ServerResponse, filename string) error {
-	// Use viper to marshal the server state to JSON
-	viper.SetConfigType("json")
-	viper.Set("server", server)
-
-	// Write the JSON to a file
-	if err := viper.WriteConfigAs(filename); err != nil {
-		return fmt.Errorf("error writing server state to file: %w", err)
-	}
-
-	return nil
 }
