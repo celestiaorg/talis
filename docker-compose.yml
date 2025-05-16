@@ -6,8 +6,7 @@ services:
       POSTGRES_PASSWORD: talis
       POSTGRES_DB: talis
     ports:
-      - "5432:5432" # bind to localhost
-      # - "127.0.0.1:5432:5432" # bind to localhost
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,8 +26,8 @@ services:
     depends_on:
       - db
     # Mount the SSH key from the server to the container
-    # volumes:
-    #   - /root/.ssh:/root/.ssh:ro
+    volumes:
+      - /root/.ssh:/root/.ssh:ro
   kong-database:
     image: postgres:9.6
     container_name: kong-database

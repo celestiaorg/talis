@@ -230,9 +230,23 @@ func TestListTasksCmd(t *testing.T) {
 			args:         []string{"tasks", "list", "--project", projectName, "-o", fmt.Sprintf("%d", ownerID)},
 			setupProject: true,
 			setupTasks: func(s *test.Suite, projectID uint) []models.Task {
+				// Create an instance first
+				instance := models.Instance{
+					OwnerID:    ownerID,
+					ProjectID:  projectID,
+					ProviderID: models.ProviderDO,
+					Region:     "nyc1",
+					Status:     models.InstanceStatusReady,
+				}
+				_, err := s.InstanceRepo.Create(s.Context(), &instance)
+				s.Require().NoError(err)
+
+				// Create a valid payload for the terminate task
+				terminatePayload := []byte(`{"instance_id": ` + fmt.Sprintf("%d", instance.ID) + `, "owner_id": ` + fmt.Sprintf("%d", ownerID) + `}`)
+
 				tasksToCreate := []models.Task{
 					{Model: gorm.Model{CreatedAt: createdAt}, ProjectID: projectID, OwnerID: ownerID, Status: models.TaskStatusCompleted, Action: models.TaskActionCreateInstances, Logs: "Log for task 1"},
-					{Model: gorm.Model{CreatedAt: createdAt.Add(time.Second)}, ProjectID: projectID, OwnerID: ownerID, Status: models.TaskStatusRunning, Action: models.TaskActionTerminateInstances, Error: "Some error for task 2"},
+					{Model: gorm.Model{CreatedAt: createdAt.Add(time.Second)}, ProjectID: projectID, OwnerID: ownerID, Status: models.TaskStatusRunning, Action: models.TaskActionTerminateInstances, Error: "Some error for task 2", Payload: terminatePayload},
 				}
 				createdTasks := make([]models.Task, len(tasksToCreate))
 				for i, task := range tasksToCreate {
