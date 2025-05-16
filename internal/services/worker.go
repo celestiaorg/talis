@@ -154,8 +154,8 @@ func (w *WorkerPool) recoverStaleTasks(ctx context.Context) {
 func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, priority models.TaskPriority, taskLimit int) {
 	defer wg.Done()
 
-	// NOTE: tickers need a non-zero duration, this will just cause a small delay before the worker starts
-	t := time.NewTicker(time.Millisecond)
+	// Initialize ticker with 1 second interval to reduce DB polling on startup
+	t := time.NewTicker(time.Second)
 	defer t.Stop()
 
 	// Determine which queue to use based on priority
