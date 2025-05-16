@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -81,8 +82,8 @@ func (i *InstanceRequest) Validate() error {
 	if i.Region == "" {
 		return fmt.Errorf("region is required")
 	}
-	if i.Size == "" {
-		return fmt.Errorf("size is required")
+	if i.Size == "" && (i.Memory == 0 || i.CPU == 0) {
+		return fmt.Errorf("either size, or both memory and cpu, must be provided")
 	}
 	if i.Image == "" {
 		return fmt.Errorf("image is required")
@@ -95,6 +96,23 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if len(i.Volumes) == 0 {
 		return fmt.Errorf("at least one volume configuration is required")
+	}
+	// Ximera-specific validation
+	if i.Provider == "ximera" {
+		if i.Memory <= 0 {
+			return fmt.Errorf("memory is required and must be > 0 for Ximera")
+		}
+		if i.CPU <= 0 {
+			return fmt.Errorf("cpu is required and must be > 0 for Ximera")
+		}
+		// Validate osID (Image) is an integer
+		if _, err := strconv.Atoi(i.Image); err != nil {
+			return fmt.Errorf("image (osID) must be a valid integer for Ximera: %w", err)
+		}
+		// Validate sshKeyID (SSHKeyName) is an integer
+		if _, err := strconv.Atoi(i.SSHKeyName); err != nil {
+			return fmt.Errorf("ssh_key_name (sshKeyID) must be a valid integer for Ximera: %w", err)
+		}
 	}
 	// Validate volumes if present
 	for j := range i.Volumes {

@@ -48,7 +48,6 @@ func (p *XimeraProvider) ConfigureProvider(_ interface{}) error {
 
 // CreateInstance creates a new instance using Ximera
 func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRequest) error {
-
 	machineName := fmt.Sprintf("%s-%s", req.ProjectName, generateRandomSuffix())
 
 	if len(req.Volumes) == 0 {
@@ -92,20 +91,17 @@ func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRe
 	if err != nil {
 		return fmt.Errorf("failed to build ximera server: %w", err)
 	}
-
-	// Set ProviderInstanceID and PublicIP from build response
-	if buildResp != nil {
-		req.ProviderInstanceID = buildResp.Data.ID
-		req.PublicIP = buildResp.Data.PublicIP
+	if buildResp == nil {
+		return fmt.Errorf("build server response is nil")
 	}
 
-	// Wait for the server to be fully created
-	err = p.client.WaitForServerCreation(buildResp.Data.ID, 10)
+	// Wait for the server to be fully created (polling with timeout)
+	err = p.client.WaitForServerCreation(buildResp.Data.ID, 120) // 120s timeout
 	if err != nil {
 		return fmt.Errorf("failed to wait for ximera server to be fully created: %w", err)
 	}
 
-	// Get the server details
+	// Get the server details (extract IP here)
 	server, err := p.client.GetServer(buildResp.Data.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get ximera server details: %w", err)
@@ -113,6 +109,7 @@ func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRe
 
 	fmt.Printf("Ximera server created with ID %d and public IP %s\n", server.Data.ID, server.Data.PublicIP)
 
+	req.ProviderInstanceID = server.Data.ID
 	req.PublicIP = server.Data.PublicIP
 	return nil
 }

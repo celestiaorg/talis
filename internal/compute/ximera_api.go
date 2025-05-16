@@ -242,18 +242,26 @@ func (c *XimeraAPIClient) DeleteServer(id int) error {
 }
 
 // WaitForServerCreation waits for a server to be fully created
-func (c *XimeraAPIClient) WaitForServerCreation(serverID int, _ int) error {
+func (c *XimeraAPIClient) WaitForServerCreation(serverID int, timeoutSeconds int) error {
 	fmt.Printf("Waiting for server creation to complete...")
 
-	// Just wait a short time to ensure the server is registered in the system
-	time.Sleep(2 * time.Second)
+	interval := 5 * time.Second
+	maxWait := time.Duration(timeoutSeconds) * time.Second
+	start := time.Now()
 
-	// Get the current server state
-	server, err := c.GetServer(serverID)
-	if err != nil {
-		return fmt.Errorf("error getting server details: %w", err)
+	for {
+		server, err := c.GetServer(serverID)
+		if err != nil {
+			return fmt.Errorf("error getting server details: %w", err)
+		}
+		if server != nil && (server.Data.State == "complete") {
+			fmt.Printf(" done (state: %s)\n", server.Data.State)
+			return nil
+		}
+		if time.Since(start) > maxWait {
+			return fmt.Errorf("timeout waiting for server to be running (last state: %s)", server.Data.State)
+		}
+		fmt.Printf(". ")
+		time.Sleep(interval)
 	}
-
-	fmt.Printf(" done (state: %s)\n", server.Data.State)
-	return nil
 }

@@ -128,7 +128,8 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string, tags []st
 	args = append(args, pathToPlaybook)
 
 	if len(tags) > 0 {
-		args = append(args, "--tags", strings.Join(tags, ","))
+		tagsStr := strings.Join(tags, ",")
+		args = append(args, "--tags", tagsStr)
 	}
 
 	// Run ansible-playbook command
