@@ -522,6 +522,7 @@ definitions:
         description: Success indicates if the operation was successful
         type: boolean
     type: object
+host: localhost:8080
 info:
   contact: {}
   description: API for Talis - Celestia's infrastructure management service
@@ -566,7 +567,7 @@ paths:
       summary: Handle RPC requests
       tags:
       - rpc
-  /api/v1/instances:
+  /instances:
     delete:
       consumes:
       - application/json
@@ -666,7 +667,7 @@ paths:
       summary: Create new instances
       tags:
       - instances
-  /api/v1/instances/{id}:
+  /instances/{id}:
     get:
       consumes:
       - application/json
@@ -695,7 +696,7 @@ paths:
       summary: Get instance details
       tags:
       - instances
-  /api/v1/instances/{instance_id}/tasks:
+  /instances/{instance_id}/tasks:
     get:
       consumes:
       - application/json
@@ -742,7 +743,7 @@ paths:
       summary: List tasks for an instance
       tags:
       - tasks
-  /api/v1/instances/all-metadata:
+  /instances/all-metadata:
     get:
       consumes:
       - application/json
@@ -774,7 +775,7 @@ paths:
       summary: Get all instance metadata
       tags:
       - instances
-  /api/v1/instances/public-ips:
+  /instances/public-ips:
     get:
       consumes:
       - application/json

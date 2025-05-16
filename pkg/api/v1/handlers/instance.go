@@ -35,7 +35,7 @@ func NewInstanceHandler(api *APIHandler) *InstanceHandler {
 // @Success 200 {object} types.InstanceListResponse "List of instances"
 // @Failure 400 {object} types.ErrorResponse "Invalid input"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances [get]
+// @Router /instances [get]
 // @OperationId listAllInstances
 func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 	var opts models.ListOptions
@@ -88,7 +88,7 @@ func (h *InstanceHandler) ListInstances(c *fiber.Ctx) error {
 // @Success 200 {object} models.Instance "Instance details"
 // @Failure 400 {object} types.ErrorResponse "Invalid input"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances/{id} [get]
+// @Router /instances/{id} [get]
 // @OperationId getInstanceById
 func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 	instanceID, err := c.ParamsInt("id")
@@ -123,7 +123,7 @@ func (h *InstanceHandler) GetInstance(c *fiber.Ctx) error {
 // @Success 201 {object} types.SuccessResponse "Created instances"
 // @Failure 400 {object} types.ErrorResponse "Invalid input"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances [post]
+// @Router /instances [post]
 // @OperationId createInstances
 func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 	var instanceReqs []types.InstanceRequest
@@ -167,7 +167,7 @@ func (h *InstanceHandler) CreateInstance(c *fiber.Ctx) error {
 // @Param include_deleted query bool false "Include deleted instances (default false)"
 // @Success 200 {object} types.PublicIPsResponse "List of public IPs"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances/public-ips [get]
+// @Router /instances/public-ips [get]
 // @OperationId getInstancePublicIPs
 func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all public IPs...")
@@ -226,7 +226,7 @@ func (h *InstanceHandler) GetPublicIPs(c *fiber.Ctx) error {
 // @Param include_deleted query bool false "Include deleted instances (default false)"
 // @Success 200 {object} types.InstanceListResponse "List of instance metadata"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances/all-metadata [get]
+// @Router /instances/all-metadata [get]
 // @OperationId getAllInstanceMetadata
 func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 	fmt.Println("🔍 Getting all instance metadata...")
@@ -279,7 +279,7 @@ func (h *InstanceHandler) GetAllMetadata(c *fiber.Ctx) error {
 // @Success 200 {object} types.InstanceListResponse "List of instances"
 // @Failure 400 {object} types.ErrorResponse "Invalid input"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances [get]
+// @Router /instances [get]
 // @OperationId getInstancesList
 func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 	var opts models.ListOptions
@@ -326,7 +326,7 @@ func (h *InstanceHandler) GetInstances(c *fiber.Ctx) error {
 // @Success 200 {object} types.SuccessResponse "Instances terminated successfully"
 // @Failure 400 {object} types.ErrorResponse "Invalid input"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances [delete]
+// @Router /instances [delete]
 // @OperationId terminateInstances
 func (h *InstanceHandler) TerminateInstances(c *fiber.Ctx) error {
 	var deleteReq types.DeleteInstancesRequest

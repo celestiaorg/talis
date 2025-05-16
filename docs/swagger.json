@@ -6,6 +6,7 @@
         "contact": {},
         "version": "1.0"
     },
+    "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
         "/": {
@@ -54,7 +55,7 @@
                 }
             }
         },
-        "/api/v1/instances": {
+        "/instances": {
             "get": {
                 "description": "Returns a list of instances with pagination and optional filtering",
                 "consumes": [
@@ -206,7 +207,7 @@
                 }
             }
         },
-        "/api/v1/instances/all-metadata": {
+        "/instances/all-metadata": {
             "get": {
                 "description": "Returns detailed metadata for all instances",
                 "consumes": [
@@ -255,7 +256,7 @@
                 }
             }
         },
-        "/api/v1/instances/public-ips": {
+        "/instances/public-ips": {
             "get": {
                 "description": "Returns a list of public IPs for all instances",
                 "consumes": [
@@ -304,7 +305,7 @@
                 }
             }
         },
-        "/api/v1/instances/{id}": {
+        "/instances/{id}": {
             "get": {
                 "description": "Returns details of a specific instance by ID",
                 "consumes": [
@@ -348,7 +349,7 @@
                 }
             }
         },
-        "/api/v1/instances/{instance_id}/tasks": {
+        "/instances/{instance_id}/tasks": {
             "get": {
                 "description": "Returns a list of tasks for a specific instance with optional filtering and pagination",
                 "consumes": [

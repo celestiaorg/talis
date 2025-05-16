@@ -152,7 +152,7 @@ func (h *TaskHandlers) Terminate(c *fiber.Ctx, ownerID uint, req RPCRequest) err
 // @Success 200 {object} types.SuccessResponse{data=types.TaskListResponse} "List of tasks"
 // @Failure 400 {object} types.ErrorResponse "Invalid input"
 // @Failure 500 {object} types.ErrorResponse "Internal server error"
-// @Router /api/v1/instances/{instance_id}/tasks [get]
+// @Router /instances/{instance_id}/tasks [get]
 func (h *TaskHandlers) ListByInstanceID(c *fiber.Ctx) error {
 	// TODO: Extract OwnerID from authenticated context (e.g., c.Locals("userID").(uint))
 	// For now, using a placeholder or admin ID. This needs proper auth integration.
