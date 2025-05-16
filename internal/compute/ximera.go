@@ -70,7 +70,9 @@ func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRe
 		return fmt.Errorf("cpu is required for Ximera")
 	}
 
+	// we want each ximera server to have unlimited traffic
 	traffic := 0
+	// as we specify memory, cpu, and storage, we can hardcode the packageID, as it will be overridden
 	packageID := 1
 
 	// Map InstanceRequest to ximera's CreateServer

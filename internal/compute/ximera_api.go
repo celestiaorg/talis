@@ -170,6 +170,20 @@ func (c *XimeraAPIClient) GetServer(id int) (*computeTypes.ServerResponse, error
 
 // BuildServer builds a server with the given ID
 func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*computeTypes.ServerResponse, error) {
+	// Validate osID and sshKey are non-empty and numeric
+	if osID == "" {
+		return nil, fmt.Errorf("osID cannot be empty")
+	}
+	if sshKey == "" {
+		return nil, fmt.Errorf("sshKey cannot be empty")
+	}
+	if !isNumeric(osID) {
+		return nil, fmt.Errorf("osID must be a valid numeric string, got: %s", osID)
+	}
+	if !isNumeric(sshKey) {
+		return nil, fmt.Errorf("sshKey must be a valid numeric string, got: %s", sshKey)
+	}
+
 	osIDInt, err := strconv.Atoi(osID)
 	if err != nil {
 		return nil, fmt.Errorf("error converting osID to int: %w", err)
@@ -199,6 +213,16 @@ func (c *XimeraAPIClient) BuildServer(id int, osID, name, sshKey string) (*compu
 	}
 
 	return &response, nil
+}
+
+// isNumeric returns true if the string contains only numeric characters
+func isNumeric(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // ListTemplates lists available OS templates for a package

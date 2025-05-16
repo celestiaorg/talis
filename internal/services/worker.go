@@ -267,7 +267,7 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 				tags = []string{"setup"}
 			}
 			if instanceReq.Provider == models.ProviderDO {
-				tags = []string{"setup,volumes"}
+				tags = []string{"setup", "volumes"}
 			}
 
 			if err := provisioner.RunAnsiblePlaybook(inventoryPath, tags); err != nil {

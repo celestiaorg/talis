@@ -1,11 +1,9 @@
 package compute
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
 )
@@ -41,23 +39,4 @@ func InitXimeraConfig() (*computeTypes.Configuration, error) {
 	}
 
 	return config, nil
-}
-
-// LoadXimeraServerConfigs loads server configurations from a JSON file
-func LoadXimeraServerConfigs(filename string) ([]computeTypes.ServerConfig, error) {
-	// #nosec G304 -- filename is controlled by the caller, ensure only trusted sources call this function
-	if !strings.HasSuffix(filename, ".json") {
-		return nil, fmt.Errorf("invalid file extension: %s", filename)
-	}
-	data, err := os.ReadFile(filename) // #nosec G304
-	if err != nil {
-		return nil, fmt.Errorf("error reading server configurations file: %w", err)
-	}
-
-	var configs []computeTypes.ServerConfig
-	if err := json.Unmarshal(data, &configs); err != nil {
-		return nil, fmt.Errorf("error unmarshaling server configurations: %w", err)
-	}
-
-	return configs, nil
 }
