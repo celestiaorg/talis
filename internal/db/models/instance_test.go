@@ -140,7 +140,6 @@ func TestInstance_Validation(t *testing.T) {
 		},
 		ProjectID:  1,
 		ProviderID: ProviderDO,
-		Name:       "test-instance",
 		PublicIP:   "192.0.2.1",
 		Region:     "nyc1",
 		Size:       "s-1vcpu-1gb",
@@ -159,10 +158,9 @@ func TestInstance_Validation(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Verify fields were correctly marshaled/unmarshaled
-		// Don't check ID as it's not part of the JSON output
+		assert.Equal(t, validInstance.ID, unmarshaledInstance.ID)
 		assert.Equal(t, validInstance.ProjectID, unmarshaledInstance.ProjectID)
 		assert.Equal(t, validInstance.ProviderID, unmarshaledInstance.ProviderID)
-		assert.Equal(t, validInstance.Name, unmarshaledInstance.Name)
 		assert.Equal(t, validInstance.PublicIP, unmarshaledInstance.PublicIP)
 		assert.Equal(t, validInstance.Region, unmarshaledInstance.Region)
 		assert.Equal(t, validInstance.Size, unmarshaledInstance.Size)
@@ -193,6 +191,8 @@ func TestInstance_Validation(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that important fields are in the JSON output
-		assert.Equal(t, validInstance.Name, jsonMap["name"])
+		// Name is removed, let's check for ID instead.
+		// When unmarshaling to map[string]interface{}, numbers are often float64
+		assert.Equal(t, float64(validInstance.ID), jsonMap["ID"])
 	})
 }

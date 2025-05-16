@@ -92,7 +92,8 @@ func main() {
 	app.Use(log.APILogger())
 
 	// Register routes - no need for project and task handlers as they're handled via RPC
-	routes.RegisterRoutes(app, instanceHandler, rpcHandler)
+	// The above comment is no longer entirely true as ListByInstanceID is a direct REST endpoint on TaskHandler
+	routes.RegisterRoutes(app, instanceHandler, rpcHandler, taskHandler)
 
 	// Create context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

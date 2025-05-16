@@ -179,3 +179,31 @@ docker-down:
 	@echo "Stopping Docker Compose..."
 	@docker compose down
 .PHONY: docker-down
+
+
+# # # # # # # # # # # #
+# Kong
+# # # # # # # # # # # #
+
+.PHONY: kong-setup
+kong-setup:
+	# 1. Create the service
+	curl -i -X POST http://localhost:8001/services \
+	  --data "name=api" \
+	  --data "url=http://api:8080"
+
+	# 2. Create the route (for example, for /talis)
+	curl -i -X POST http://localhost:8001/services/api/routes \
+	  --data "paths[]=/talis" \
+	  --data "strip_path=true"
+
+	# 3. Add the key-auth plugin to the service
+	curl -i -X POST http://localhost:8001/services/api/plugins \
+	  --data "name=key-auth"
+
+	# 4. Create a consumer
+	curl -i -X POST http://localhost:8001/consumers \
+	  --data "username=talisuser"
+
+	# 5. Create an API key for the consumer
+	curl -i -X POST http://localhost:8001/consumers/talisuser/key-auth

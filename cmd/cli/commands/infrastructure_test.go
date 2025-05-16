@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/test"
@@ -65,10 +65,9 @@ func TestCreateInfraCmd(t *testing.T) {
 			name:      "successful create",
 			args:      []string{"infra", "create", "--file", "infra.json"},
 			inputFile: "infra.json",
-			inputContent: `[
+			inputContent: fmt.Sprintf(`[
   {
     "project_name": "test-project",
-    "name": "instance-1",
     "number_of_instances": 1,
     "provider": "do",
     "region": "nyc1",
@@ -83,10 +82,10 @@ func TestCreateInfraCmd(t *testing.T) {
         "mount_point": "/mnt/data"
       }
     ],
-    "owner_id": 1
+    "owner_id": %d
   }
-]`,
-			expectedOutput: "", // Don't check for specific output - just check it doesn't error
+]`, 1),
+			expectedOutput: "Successfully created instances. A delete file has been generated:",
 		},
 		{
 			name:          "missing file flag",
@@ -151,7 +150,7 @@ func TestCreateInfraCmd(t *testing.T) {
 				createProjectReq := handlers.ProjectCreateParams{
 					Name:        projectName,
 					Description: "Test project for infra commands",
-					OwnerID:     models.AdminID,
+					OwnerID:     1,
 				}
 				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
 				// Ignore "already exists" errors if the project was created in a previous step/test
@@ -192,50 +191,47 @@ func TestCreateInfraCmd(t *testing.T) {
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedError)
-				return
-			}
-
-			// For successful tests in a test environment, we'll accept API errors related to
-			// missing resources or validation that might be specific to the test environment
-			if err != nil {
-				// These errors are acceptable in tests due to missing resources
-				acceptableErrors := []string{
-					"job_name is required",
-					"failed to get project",
-					"record not found",
-					"invalid input",
+				// If error was expected, don't proceed to output checks
+			} else {
+				// No error was expected, fail if one occurred
+				assert.NoError(t, err, "Expected no error but got one")
+				// Check output only if execution succeeded and output is expected
+				if err == nil && tt.expectedOutput != "" {
+					assert.Contains(t, buf.String(), tt.expectedOutput)
 				}
 
-				for _, acceptable := range acceptableErrors {
-					if strings.Contains(err.Error(), acceptable) {
-						// This is expected in a test environment
-						t.Logf("Got expected error in test environment: %v", err)
-						return
-					}
-				}
+				// If this is the successful create test, check for the delete file
+				if tt.name == "successful create" && err == nil {
+					// Find the delete file (e.g., delete-test-project-TIMESTAMP.json)
+					files, readDirErr := os.ReadDir(tmpDir) // tmpDir is where infra.json was, so delete file should be there too
+					require.NoError(t, readDirErr)
 
-				// Any other error should fail the test
-				t.Fatalf("Unexpected error: %v", err)
-			}
-
-			if tt.expectedOutput != "" {
-				assert.Contains(t, buf.String(), tt.expectedOutput)
-			}
-
-			// For successful tests, let's check if the delete file is there, but not require it
-			if tt.name == "successful create" {
-				deleteFilePath := filepath.Join(tmpDir, "delete_"+tt.inputFile)
-				_, err = os.Stat(deleteFilePath)
-				if err == nil {
-					// Delete file was created, check its content
-					content, err := os.ReadFile(deleteFilePath) //nolint:gosec
-					if err == nil {
-						var deleteReq types.DeleteInstancesRequest
-						if err := json.Unmarshal(content, &deleteReq); err == nil {
-							assert.Equal(t, "test-project", deleteReq.ProjectName)
-							assert.Contains(t, deleteReq.InstanceNames, "instance-1")
+					var deleteFilePath string
+					foundDeleteFile := false
+					for _, f := range files {
+						if !f.IsDir() && strings.HasPrefix(f.Name(), "delete-test-project-") && strings.HasSuffix(f.Name(), ".json") {
+							deleteFilePath = filepath.Join(tmpDir, f.Name())
+							foundDeleteFile = true
+							break
 						}
 					}
+					require.True(t, foundDeleteFile, "Expected delete file to be generated in %s", tmpDir)
+
+					// Read and verify the delete file content
+					deleteFileContent, readFileErr := os.ReadFile(deleteFilePath) //nolint:gosec
+					require.NoError(t, readFileErr)
+
+					var deleteReq types.DeleteInstancesRequest
+					jsonErr := json.Unmarshal(deleteFileContent, &deleteReq)
+					require.NoError(t, jsonErr)
+
+					assert.Equal(t, "test-project", deleteReq.ProjectName)
+					assert.Equal(t, uint(1), deleteReq.OwnerID)
+					require.Len(t, deleteReq.InstanceIDs, 1, "Expected one instance ID in the delete file")
+					// Since the DB is reset for tests, the first instance created usually gets ID 1.
+					// This might be fragile if other tests create instances before this one without full cleanup.
+					// For now, let's assume it's 1. If tests become flaky, this needs a more robust way to get the expected ID.
+					assert.GreaterOrEqual(t, deleteReq.InstanceIDs[0], uint(1), "Instance ID should be positive")
 				}
 			}
 		})
@@ -255,11 +251,12 @@ func TestDeleteInfraCmd(t *testing.T) {
 			name:      "successful delete",
 			args:      []string{"infra", "delete", "--file", "delete.json"},
 			inputFile: "delete.json",
-			inputContent: `{
+			inputContent: fmt.Sprintf(`{
   "job_name": "test-job",
   "project_name": "test-project",
-  "instance_names": ["instance-1"]
-}`,
+  "owner_id": %d,
+  "instance_ids": [1]
+}`, 1),
 			expectedOutput: "", // Don't check for specific output - just check it doesn't error
 		},
 		{
@@ -318,7 +315,7 @@ func TestDeleteInfraCmd(t *testing.T) {
 				createProjectReq := handlers.ProjectCreateParams{
 					Name:        projectName,
 					Description: "Test project for infra commands",
-					OwnerID:     models.AdminID,
+					OwnerID:     1,
 				}
 				_, err := suite.APIClient.CreateProject(context.Background(), createProjectReq)
 				// Ignore "already exists" errors if the project was created in a previous step/test

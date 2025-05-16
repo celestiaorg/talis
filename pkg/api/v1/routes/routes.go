@@ -53,6 +53,7 @@ const (
 	GetInstance        = "GetInstance"
 	CreateInstance     = "CreateInstance"
 	TerminateInstances = "TerminateInstances"
+	ListInstanceTasks  = "ListInstanceTasks"
 
 	// RPC routes
 	RPC = "RPC"
@@ -73,6 +74,7 @@ func RegisterRoutes(
 	app *fiber.App,
 	instanceHandler *handlers.InstanceHandler,
 	rpcHandler *handlers.RPCHandler,
+	taskHandler *handlers.TaskHandlers,
 ) {
 	// API v1 routes
 	v1 := app.Group(APIv1Prefix)
@@ -98,6 +100,9 @@ func RegisterRoutes(
 	instances.Post("/", instanceHandler.CreateInstance).Name(CreateInstance)
 	instances.Delete("/", instanceHandler.TerminateInstances).Name(TerminateInstances)
 
+	// Tasks for a specific instance
+	instances.Get("/:instance_id/tasks", taskHandler.ListByInstanceID).Name(ListInstanceTasks)
+
 	// RPC endpoint as the root handler for all operations
 	v1.Post("/", rpcHandler.HandleRPC).Name(RPC)
 }
@@ -113,9 +118,10 @@ func initRouteCache() {
 		// Create empty handlers for route registration
 		mockInstanceHandler := &handlers.InstanceHandler{}
 		mockRPCHandler := &handlers.RPCHandler{}
+		mockTaskHandler := &handlers.TaskHandlers{}
 
 		// Register routes with mock handlers - project and task handlers are handled via RPC
-		RegisterRoutes(app, mockInstanceHandler, mockRPCHandler)
+		RegisterRoutes(app, mockInstanceHandler, mockRPCHandler, mockTaskHandler)
 
 		// Extract routes from the app
 		for _, route := range app.GetRoutes() {
@@ -215,6 +221,11 @@ func CreateInstanceURL() string {
 // TerminateInstancesURL returns the URL for terminating instances
 func TerminateInstancesURL() string {
 	return BuildURL(TerminateInstances, nil, nil)
+}
+
+// ListInstanceTasksURL returns the URL for listing tasks for a specific instance.
+func ListInstanceTasksURL(instanceID string, queryParams url.Values) string {
+	return BuildURL(ListInstanceTasks, map[string]string{"instance_id": instanceID}, queryParams)
 }
 
 // RPC route helper

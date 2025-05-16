@@ -34,13 +34,8 @@ func (s *Task) CreateBatch(ctx context.Context, tasks []*models.Task) error {
 	return s.repo.CreateBatch(ctx, tasks)
 }
 
-// GetByName retrieves a task by name
-func (s *Task) GetByName(ctx context.Context, ownerID uint, taskName string) (*models.Task, error) {
-	return s.repo.GetByName(ctx, ownerID, taskName)
-}
-
-// GetByID retrieves a task by ID
-func (s *Task) GetByID(ctx context.Context, ownerID uint, taskID uint) (*models.Task, error) {
+// Get retrieves a task by ID
+func (s *Task) Get(ctx context.Context, ownerID uint, taskID uint) (*models.Task, error) {
 	return s.repo.GetByID(ctx, ownerID, taskID)
 }
 
@@ -58,15 +53,6 @@ func (s *Task) UpdateStatus(ctx context.Context, ownerID uint, taskID uint, stat
 	return s.repo.UpdateStatus(ctx, ownerID, taskID, status)
 }
 
-// UpdateStatusByName updates the status of a task by name
-func (s *Task) UpdateStatusByName(ctx context.Context, ownerID uint, taskName string, status models.TaskStatus) error {
-	task, err := s.repo.GetByName(ctx, ownerID, taskName)
-	if err != nil {
-		return err
-	}
-	return s.repo.UpdateStatus(ctx, ownerID, task.ID, status)
-}
-
 // Update updates an existing task.
 func (s *Task) Update(ctx context.Context, ownerID uint, task *models.Task) error {
 	return s.repo.Update(ctx, ownerID, task)
@@ -82,7 +68,7 @@ func (s *Task) UpdateFailed(ctx context.Context, task *models.Task, errMsg, logM
 
 // AddLogs appends logs to a task
 func (s *Task) AddLogs(ctx context.Context, ownerID uint, taskID uint, logs string) error {
-	task, err := s.GetByID(ctx, ownerID, taskID)
+	task, err := s.Get(ctx, ownerID, taskID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
@@ -97,7 +83,7 @@ func (s *Task) AddLogs(ctx context.Context, ownerID uint, taskID uint, logs stri
 
 // SetResult updates a task with results data
 func (s *Task) SetResult(ctx context.Context, ownerID uint, taskID uint, result json.RawMessage) error {
-	task, err := s.GetByID(ctx, ownerID, taskID)
+	task, err := s.Get(ctx, ownerID, taskID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
@@ -108,7 +94,7 @@ func (s *Task) SetResult(ctx context.Context, ownerID uint, taskID uint, result 
 
 // SetError updates a task with error information
 func (s *Task) SetError(ctx context.Context, ownerID uint, taskID uint, errMsg string) error {
-	task, err := s.GetByID(ctx, ownerID, taskID)
+	task, err := s.Get(ctx, ownerID, taskID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
@@ -137,7 +123,7 @@ func (s *Task) SetError(ctx context.Context, ownerID uint, taskID uint, errMsg s
 
 // CompleteTask marks a task as completed and sends webhook if configured
 func (s *Task) CompleteTask(ctx context.Context, ownerID uint, taskID uint, result json.RawMessage) error {
-	task, err := s.GetByID(ctx, ownerID, taskID)
+	task, err := s.Get(ctx, ownerID, taskID)
 	if err != nil {
 		return fmt.Errorf("failed to get task: %w", err)
 	}
@@ -171,4 +157,12 @@ func (s *Task) GetSchedulableTasks(ctx context.Context, limit int) ([]models.Tas
 	// Note: Currently, this doesn't filter by ownerID as the worker is system-wide.
 	// If worker logic becomes owner-specific, ownerID filtering might be needed here or in the repo method.
 	return s.repo.GetSchedulableTasks(ctx, limit)
+}
+
+// ListTasksByInstanceID retrieves all tasks for a specific instance, with an optional action filter.
+func (s *Task) ListTasksByInstanceID(ctx context.Context, ownerID uint, instanceID uint, actionFilter models.TaskAction, opts *models.ListOptions) ([]models.Task, error) {
+	// Basic validation can be added here if needed, beyond what the repository does.
+	// For example, checking if the instance itself exists or if the owner has access to the instance.
+	// For now, we rely on the repository's ownerID and instanceID checks.
+	return s.repo.ListByInstanceID(ctx, ownerID, instanceID, actionFilter, opts)
 }
