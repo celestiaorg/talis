@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -155,6 +156,7 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 
 	// NOTE: tickers need a non-zero duration, this will just cause a small delay before the worker starts
 	t := time.NewTicker(time.Millisecond)
+	defer t.Stop()
 
 	// Determine which queue to use based on priority
 	var queue chan models.Task
@@ -261,7 +263,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task models.
 	// Try to acquire a lock on the task
 	err := w.taskService.AcquireTaskLock(ctx, task.ID)
 	if err != nil {
-		if err == ErrTaskLockNotAcquired {
+		if errors.Is(err, ErrTaskLockNotAcquired) {
 			logger.Debugf("%s priority worker %d could not acquire lock for task %d, skipping",
 				priorityName, workerId, task.ID)
 		} else {

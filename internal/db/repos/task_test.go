@@ -210,7 +210,7 @@ func (s *TaskRepositoryTestSuite) TestGetSchedulableTasks() {
 	limit := 4
 	schedulableTasks, err := s.taskRepo.GetSchedulableTasks(s.ctx, models.TaskPriorityHigh, limit)
 	s.Require().NoError(err)
-	s.Require().Len(schedulableTasks, 4, "Expected 4 schedulable tasks for limit 4")
+	s.Require().Len(schedulableTasks, 3, "Expected 3 schedulable tasks for limit 4")
 	if len(schedulableTasks) > 1 {
 		s.Assert().True(schedulableTasks[0].CreatedAt.Before(schedulableTasks[1].CreatedAt) || schedulableTasks[0].CreatedAt.Equal(schedulableTasks[1].CreatedAt), "Tasks should be ordered by creation time if error status is same")
 	}
@@ -227,18 +227,13 @@ func (s *TaskRepositoryTestSuite) TestGetSchedulableTasks() {
 	}
 
 	// --- Test Case 3: Limit = 10 (Testing retrieval of all eligible tasks) ---
-	limit = 10 // Higher than eligible tasks (5 are eligible: 3 no error, 2 with error)
+	limit = 10 // Higher than eligible tasks (3 are eligible: all with no error)
 	schedulableTasks, err = s.taskRepo.GetSchedulableTasks(s.ctx, models.TaskPriorityHigh, limit)
 	s.Require().NoError(err)
-	s.Require().Len(schedulableTasks, 5, "Expected all 5 eligible schedulable tasks")
-	// Check that tasks with errors come after tasks without errors
-	foundErrorTask := false
+	s.Require().Len(schedulableTasks, 3, "Expected all 3 eligible schedulable tasks")
+	// All tasks should have no error since TaskStatusFailed tasks are no longer included
 	for _, task := range schedulableTasks {
-		if task.Error != "" {
-			foundErrorTask = true
-		} else {
-			s.Assert().False(foundErrorTask, "Tasks without errors should appear before tasks with errors")
-		}
+		s.Assert().Empty(task.Error, "All tasks should have no error")
 	}
 
 	// --- Test Case 4: Verify task with maxAttempts is excluded ---
