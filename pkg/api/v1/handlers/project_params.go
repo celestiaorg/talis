@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -28,6 +29,13 @@ func (p ProjectCreateParams) Validate() error {
 	}
 	if p.OwnerID == 0 {
 		return fmt.Errorf("%s", strings.ToLower(ErrMsgProjOwnerIDRequired))
+	}
+	// Validate config JSON if provided
+	if p.Config != "" {
+		var config ProjectConfig
+		if err := json.Unmarshal([]byte(p.Config), &config); err != nil {
+			return fmt.Errorf("invalid config JSON: %w", err)
+		}
 	}
 	return nil
 }
