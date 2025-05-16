@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/celestiaorg/talis/docs/swagger"
-	_ "github.com/celestiaorg/talis/docs/swagger"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
