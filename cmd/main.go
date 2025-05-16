@@ -1,4 +1,9 @@
 // Package main provides the entry point for the server application
+// @title Talis API
+// @version 1.0
+// @description API for Talis - Web3 infrastructure management service
+// @host localhost:8080
+// @BasePath /api/v1
 package main
 
 import (
@@ -12,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/celestiaorg/talis/docs/swagger"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
@@ -36,6 +42,14 @@ func main() {
 
 	// Log that the application is starting
 	log.Info("Starting application...")
+
+	// Set dynamic Swagger host from environment variable
+	if apiHost := os.Getenv("API_HOST"); apiHost != "" {
+		swagger.SwaggerInfo.Host = apiHost
+		log.Infof("Swagger host set dynamically to: %s", apiHost)
+	} else {
+		log.Info("API_HOST environment variable not set, using default Swagger host from annotations.")
+	}
 
 	// This is temporary, we will pass them through the CLI later
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
@@ -102,10 +116,38 @@ func main() {
 	// Create a WaitGroup to wait for goroutines to finish
 	var wg sync.WaitGroup
 
-	// Launch worker with the cancellable context and WaitGroup
+	// Get worker count from environment or use default
+	workerCount := services.DefaultWorkerCount
+	if workerCountStr := os.Getenv("WORKER_COUNT"); workerCountStr != "" {
+		if count, err := strconv.Atoi(workerCountStr); err == nil && count > 0 {
+			workerCount = count
+			log.Infof("Using configured worker count: %d", workerCount)
+		} else if err != nil {
+			log.Warnf("Invalid WORKER_COUNT value: %s, using default: %d", workerCountStr, workerCount)
+		}
+	}
+
+	// Get high priority ratio from environment or use default
+	highPriorityRatio := services.DefaultHighPriorityRatio
+	if ratioStr := os.Getenv("HIGH_PRIORITY_RATIO"); ratioStr != "" {
+		if ratio, err := strconv.ParseFloat(ratioStr, 64); err == nil && ratio > 0 && ratio <= 1.0 {
+			highPriorityRatio = ratio
+			log.Infof("Using configured high priority ratio: %.2f", highPriorityRatio)
+		} else if err != nil {
+			log.Warnf("Invalid HIGH_PRIORITY_RATIO value: %s, using default: %.2f", ratioStr, highPriorityRatio)
+		} else {
+			log.Warnf("HIGH_PRIORITY_RATIO must be between 0 and 1, using default: %.2f", highPriorityRatio)
+		}
+	}
+
+	// Launch worker pool with the cancellable context and WaitGroup
 	wg.Add(1) // Increment counter before launching goroutine
-	worker := services.NewWorker(instanceService, projectService, taskService, userService, services.DefaultBackoff)
-	go worker.LaunchWorker(ctx, &wg)
+	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, services.DefaultBackoff)
+	workerPool.WithWorkerCount(workerCount).WithHighPriorityRatio(highPriorityRatio)
+
+	// Recover any stale tasks before starting the worker pool
+	log.Info("Starting worker pool...")
+	go workerPool.LaunchWorkerPool(ctx, &wg)
 
 	// Start server in a goroutine so that it doesn't block.
 	var errChan = make(chan error)

@@ -24,7 +24,17 @@ func NewProjectHandlers(api *APIHandler) *ProjectHandlers {
 	}
 }
 
-// Create handles creating a project
+// Create godoc
+// @Summary Create a new project
+// @Description Creates a new project via RPC
+// @Tags projects,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with ProjectCreateParams"
+// @Success 200 {object} RPCResponse{data=models.Project} "Created project"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId createProject
 func (h *ProjectHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectCreateParams](req)
 	if err != nil {
@@ -56,7 +66,18 @@ func (h *ProjectHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// Get handles retrieving a project by name
+// Get godoc
+// @Summary Get project by name
+// @Description Retrieves a project by its name via RPC
+// @Tags projects,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with ProjectGetParams"
+// @Success 200 {object} RPCResponse{data=models.Project} "Project details"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 404 {object} RPCResponse "Project not found"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId getProjectByName
 func (h *ProjectHandlers) Get(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectGetParams](req)
 	if err != nil {
@@ -82,7 +103,17 @@ func (h *ProjectHandlers) Get(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// List handles listing all projects with pagination
+// List godoc
+// @Summary List projects
+// @Description Returns a list of projects with pagination via RPC
+// @Tags projects,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with ProjectListParams"
+// @Success 200 {object} RPCResponse{data=types.ListResponse[models.Project]} "List of projects"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId listProjects
 func (h *ProjectHandlers) List(c *fiber.Ctx, req RPCRequest) error {
 	page := 1
 
@@ -121,7 +152,17 @@ func (h *ProjectHandlers) List(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// Delete handles deleting a project by name
+// Delete godoc
+// @Summary Delete a project
+// @Description Deletes a project by its name via RPC
+// @Tags projects,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with ProjectDeleteParams"
+// @Success 200 {object} RPCResponse "Project deleted successfully"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId deleteProject
 func (h *ProjectHandlers) Delete(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectDeleteParams](req)
 	if err != nil {
@@ -142,7 +183,17 @@ func (h *ProjectHandlers) Delete(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// ListInstances handles listing all instances for a project
+// ListInstances godoc
+// @Summary List instances for a project
+// @Description Returns a list of instances for a specific project via RPC
+// @Tags projects,rpc,instances
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with ProjectListInstancesParams"
+// @Success 200 {object} RPCResponse{data=types.ListResponse[models.Instance]} "List of instances"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId listProjectInstances
 func (h *ProjectHandlers) ListInstances(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[ProjectListInstancesParams](req)
 	if err != nil {

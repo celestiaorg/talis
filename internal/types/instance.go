@@ -14,6 +14,8 @@ const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 
 // InstanceRequest represents an RPC request for a single instance
 // NOTE: These should be cleaned up and replaced with specific RPC request types
+// swagger:model
+// Example: {"owner_id":1,"provider":"do","region":"nyc1","size":"s-1vcpu-1gb","image":"ubuntu-20-04-x64","tags":["webserver","production"],"project_name":"my-web-project","ssh_key_name":"my-ssh-key","number_of_instances":2,"provision":true,"payload_path":"/path/to/your/script.sh","execute_payload":true,"volumes":[{"name":"my-volume-1","size_gb":10,"mount_point":"/mnt/data"}]}
 type InstanceRequest struct {
 	// DB Model Data - User Defined
 	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
@@ -56,6 +58,8 @@ type DeleteInstanceRequest struct {
 }
 
 // DeleteInstancesRequest represents the request body for deleting instances
+// swagger:model
+// Example: {"owner_id":1,"project_name":"my-web-project","instance_ids":[123,456]}
 type DeleteInstancesRequest struct {
 	OwnerID     uint   `json:"owner_id" validate:"required"`           // Owner ID
 	ProjectName string `json:"project_name" validate:"required"`       // Project name

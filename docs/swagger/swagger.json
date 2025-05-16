@@ -1,0 +1,1244 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API for Talis - Web3 infrastructure management service",
+        "title": "Talis API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/v1",
+    "paths": {
+        "/": {
+            "post": {
+                "description": "Process RPC-style API requests for projects, tasks, and users. The RPC endpoint supports the following methods: Project methods: project.create (Create a new project), project.get (Get a project by name), project.list (List all projects), project.delete (Delete a project), project.listInstances (List instances for a project). Task methods: task.get (Get a task by ID), task.list (List tasks for a project), task.terminate (Terminate a running task). User methods: user.create (Create a new user), user.get (Get users or a single user by username), user.get.id (Get a user by ID), user.delete (Delete a user).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rpc"
+                ],
+                "summary": "Handle RPC requests",
+                "parameters": [
+                    {
+                        "description": "RPC request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/pkg_api_v1_handlers.RPCRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pkg_api_v1_handlers.RPCResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/pkg_api_v1_handlers.RPCResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/pkg_api_v1_handlers.RPCResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances": {
+            "get": {
+                "description": "Returns a list of instances with pagination and optional filtering by status.\nThis endpoint is similar to ListInstances but with a different operation ID for client compatibility.\nYou can filter by status (pending, created, provisioning, ready, terminated) and control pagination with limit and offset.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "List instances",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Number of items to return (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 0,
+                        "description": "Number of items to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Include deleted instances (default false)",
+                        "name": "include_deleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "ready",
+                        "description": "Filter by instance status (pending, created, provisioning, ready, terminated)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of instances with pagination information",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.InstanceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input - typically an invalid status value",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database or service errors",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates one or more new cloud instances based on the provided specifications.\nYou can specify provider details (AWS, GCP, DigitalOcean, etc.), region, size, image, SSH key, and optional volume configurations.\nThe API supports creating multiple instances in a single request by providing an array of instance configurations.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Create new instances",
+                "parameters": [
+                    {
+                        "description": "Array of instance creation requests with provider, region, size, image, and other configuration details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.InstanceRequest"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Successfully created instances with details of the created resources",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input - missing required fields or validation errors in the request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - provider API errors or service failures",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Terminates one or more instances by their IDs within a specific project.\nThis operation is irreversible and will stop the instances, release their resources, and mark them as terminated.\nYou must provide the owner ID, project name, and an array of instance IDs to be terminated.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Terminate instances",
+                "parameters": [
+                    {
+                        "description": "Termination request containing owner_id, project_name, and instance_ids array",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.DeleteInstancesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Instances terminated successfully - resources have been released",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input - missing required fields or empty instance IDs array",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - provider API errors or service failures",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/all-metadata": {
+            "get": {
+                "description": "Returns comprehensive metadata for all instances, including provider details, status, region, size, and volume information.\nThis endpoint is useful for administrative purposes and detailed monitoring of all instances.\nBy default, terminated instances are excluded unless include_deleted=true is specified.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Get all instance metadata",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Number of items to return (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 0,
+                        "description": "Number of items to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Include deleted instances (default false)",
+                        "name": "include_deleted",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Complete list of instance metadata with pagination information",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.InstanceListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database or service errors",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/public-ips": {
+            "get": {
+                "description": "Returns a list of public IP addresses for all instances.\nThis endpoint is useful for monitoring or connecting to instances without needing full instance details.\nBy default, terminated instances are excluded unless include_deleted=true is specified.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Get public IPs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Number of items to return (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 0,
+                        "description": "Number of items to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Include deleted instances (default false)",
+                        "name": "include_deleted",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of public IPs with pagination information",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PublicIPsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database or service errors",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{id}": {
+            "get": {
+                "description": "Returns detailed information about a specific instance identified by its ID.\nThis endpoint provides complete information including status, provider details, region, size, IP address, and volume information.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instances"
+                ],
+                "summary": "Get instance details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 123,
+                        "description": "Instance ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Complete instance details including status, provider, region, size, IP, and volumes",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.Instance"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input - typically a non-numeric or negative instance ID",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error - database errors or instance not found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/instances/{instance_id}/tasks": {
+            "get": {
+                "description": "Returns a list of tasks for a specific instance with optional filtering and pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "List tasks for an instance",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Instance ID",
+                        "name": "instance_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by task action",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to return (default 10)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items to skip (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of tasks",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.SuccessResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.TaskListResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_celestiaorg_talis_internal_db_models.Instance": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "integer"
+                },
+                "payload_status": {
+                    "description": "Default to PayloadStatusNone",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.PayloadStatus"
+                        }
+                    ]
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "provider_id": {
+                    "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.ProviderID"
+                },
+                "provider_instance_id": {
+                    "type": "integer"
+                },
+                "public_ip": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.InstanceStatus"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "volume_details": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.VolumeDetail"
+                    }
+                },
+                "volume_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_db_models.InstanceStatus": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            "x-enum-varnames": [
+                "InstanceStatusUnknown",
+                "InstanceStatusPending",
+                "InstanceStatusCreated",
+                "InstanceStatusProvisioning",
+                "InstanceStatusReady",
+                "InstanceStatusTerminated"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.PayloadStatus": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+            ],
+            "x-enum-varnames": [
+                "PayloadStatusNone",
+                "PayloadStatusPendingCopy",
+                "PayloadStatusCopyFailed",
+                "PayloadStatusCopied",
+                "PayloadStatusPendingExecution",
+                "PayloadStatusExecutionFailed",
+                "PayloadStatusExecuted"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.Project": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.Task"
+                    }
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_db_models.ProviderID": {
+            "type": "string",
+            "enum": [
+                "aws",
+                "gcp",
+                "azure",
+                "do",
+                "scw",
+                "vultr",
+                "linode",
+                "hetzner",
+                "ovh",
+                "do-mock",
+                "digitalocean-mock",
+                "mock"
+            ],
+            "x-enum-varnames": [
+                "ProviderAWS",
+                "ProviderGCP",
+                "ProviderAzure",
+                "ProviderDO",
+                "ProviderScaleway",
+                "ProviderVultr",
+                "ProviderLinode",
+                "ProviderHetzner",
+                "ProviderOVH",
+                "ProviderDOMock1",
+                "ProviderDOMock2",
+                "ProviderMock3"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.Task": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "make sure this is long enough to handle all actions",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.TaskAction"
+                        }
+                    ]
+                },
+                "attempts": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "instance_id": {
+                    "description": "Link to the specific instance, if applicable",
+                    "type": "integer"
+                },
+                "lock_expiry": {
+                    "description": "When the lock expires",
+                    "type": "string"
+                },
+                "locked_at": {
+                    "description": "When the task was locked for processing",
+                    "type": "string"
+                },
+                "logs": {
+                    "type": "string"
+                },
+                "payload": {
+                    "description": "Data that is required for the task to be executed",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "priority": {
+                    "description": "Task priority (higher number = lower priority)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.TaskPriority"
+                        }
+                    ]
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "result": {
+                    "description": "Result of the task",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.TaskStatus"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "webhook_sent": {
+                    "type": "boolean"
+                },
+                "webhook_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_db_models.TaskAction": {
+            "type": "string",
+            "enum": [
+                "create_instances",
+                "terminate_instances"
+            ],
+            "x-enum-varnames": [
+                "TaskActionCreateInstances",
+                "TaskActionTerminateInstances"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.TaskPriority": {
+            "type": "integer",
+            "enum": [
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "TaskPriorityHigh",
+                "TaskPriorityLow"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.TaskStatus": {
+            "type": "string",
+            "enum": [
+                "unknown",
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "terminated"
+            ],
+            "x-enum-varnames": [
+                "TaskStatusUnknown",
+                "TaskStatusPending",
+                "TaskStatusRunning",
+                "TaskStatusCompleted",
+                "TaskStatusFailed",
+                "TaskStatusTerminated"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.User": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "public_ssh_key": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.UserRole"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_db_models.UserRole": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "UserRoleUser",
+                "UserRoleAdmin"
+            ]
+        },
+        "github_com_celestiaorg_talis_internal_db_models.VolumeDetail": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "mount_point": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "size_gb": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.CreateUserResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.DeleteInstancesRequest": {
+            "type": "object",
+            "required": [
+                "instance_ids",
+                "owner_id",
+                "project_name"
+            ],
+            "properties": {
+                "instance_ids": {
+                    "description": "Instances to delete",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "owner_id": {
+                    "description": "Owner ID",
+                    "type": "integer"
+                },
+                "project_name": {
+                    "description": "Project name",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "description": "Optional additional details about the error, may include field-specific validation errors"
+                },
+                "error": {
+                    "description": "Error message describing what went wrong",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.InstanceListResponse": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "description": "Pagination information for the result set",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse"
+                        }
+                    ]
+                },
+                "rows": {
+                    "description": "Array of instance objects",
+                    "type": "array",
+                    "items": {}
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.InstanceRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Internal Configs - Set by the Talis Server",
+                    "type": "string"
+                },
+                "execute_payload": {
+                    "description": "Whether to execute the payload after copying",
+                    "type": "boolean"
+                },
+                "image": {
+                    "description": "OS image to use",
+                    "type": "string"
+                },
+                "instance_id": {
+                    "description": "DB Model Data - Internally set during creation",
+                    "type": "integer"
+                },
+                "last_task_id": {
+                    "description": "ID of the last task",
+                    "type": "integer"
+                },
+                "number_of_instances": {
+                    "description": "Number of instances to create",
+                    "type": "integer"
+                },
+                "owner_id": {
+                    "description": "DB Model Data - User Defined",
+                    "type": "integer"
+                },
+                "payload_path": {
+                    "description": "Local path to the payload script on the API server",
+                    "type": "string"
+                },
+                "project_name": {
+                    "description": "User Defined Configs",
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Cloud provider (e.g., \"do\")",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.ProviderID"
+                        }
+                    ]
+                },
+                "provider_instance_id": {
+                    "description": "Provider-specific instance ID",
+                    "type": "integer"
+                },
+                "provision": {
+                    "description": "Whether to run Ansible provisioning",
+                    "type": "boolean"
+                },
+                "public_ip": {
+                    "description": "Public IP address",
+                    "type": "string"
+                },
+                "region": {
+                    "description": "Region where instances will be created",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Instance size/type",
+                    "type": "string"
+                },
+                "ssh_key_name": {
+                    "description": "Name of the SSH key to use",
+                    "type": "string"
+                },
+                "ssh_key_path": {
+                    "description": "Custom path to the private SSH key file for Ansible. Overrides defaults.",
+                    "type": "string"
+                },
+                "ssh_key_type": {
+                    "description": "Talis Server Configs - Optional",
+                    "type": "string"
+                },
+                "tags": {
+                    "description": "Tags to apply to instances",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "volume_details": {
+                    "description": "Detailed information about attached volumes",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.VolumeDetails"
+                    }
+                },
+                "volume_ids": {
+                    "description": "List of attached volume IDs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "volumes": {
+                    "description": "Optional volumes to attach",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.VolumeConfig"
+                    }
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.ListResponse-github_com_celestiaorg_talis_internal_db_models_Instance": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "description": "Pagination information for the result set",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse"
+                        }
+                    ]
+                },
+                "rows": {
+                    "description": "Array of resource items",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.Instance"
+                    }
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.ListResponse-github_com_celestiaorg_talis_internal_db_models_Project": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "description": "Pagination information for the result set",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse"
+                        }
+                    ]
+                },
+                "rows": {
+                    "description": "Array of resource items",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.Project"
+                    }
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.PaginationResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "description": "Maximum number of items per page",
+                    "type": "integer"
+                },
+                "offset": {
+                    "description": "Number of items skipped from the beginning of the result set",
+                    "type": "integer"
+                },
+                "page": {
+                    "description": "Current page number (1-based)",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total number of items available across all pages",
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.PublicIPs": {
+            "type": "object",
+            "properties": {
+                "public_ip": {
+                    "description": "The public IPv4 address of the instance",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.PublicIPsResponse": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "description": "Pagination information for the result set",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse"
+                        }
+                    ]
+                },
+                "public_ips": {
+                    "description": "List of public IP addresses for instances",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PublicIPs"
+                    }
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.SuccessResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Optional data returned by the operation, may include created resource IDs or other operation results"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.TaskListResponse": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "description": "Pagination information for the result set",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse"
+                        }
+                    ]
+                },
+                "rows": {
+                    "description": "Array of task objects",
+                    "type": "array",
+                    "items": {}
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.UserResponse": {
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "description": "Pagination info included only when returning multiple users",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_types.PaginationResponse"
+                        }
+                    ]
+                },
+                "user": {
+                    "description": "This can be a single user or null when returning multiple users",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.User"
+                        }
+                    ]
+                },
+                "users": {
+                    "description": "This can be an array of users or null when returning a single user",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_celestiaorg_talis_internal_db_models.User"
+                    }
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.VolumeConfig": {
+            "type": "object",
+            "properties": {
+                "filesystem": {
+                    "description": "File system type (optional)",
+                    "type": "string"
+                },
+                "mount_point": {
+                    "description": "Where to mount the volume",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name of the volume",
+                    "type": "string"
+                },
+                "region": {
+                    "description": "Region where to create the volume",
+                    "type": "string"
+                },
+                "size_gb": {
+                    "description": "Size in gigabytes",
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_celestiaorg_talis_internal_types.VolumeDetails": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "Volume ID",
+                    "type": "string"
+                },
+                "mount_point": {
+                    "description": "Where the volume is mounted",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Volume name",
+                    "type": "string"
+                },
+                "region": {
+                    "description": "Region where volume was created",
+                    "type": "string"
+                },
+                "size_gb": {
+                    "description": "Size in gigabytes",
+                    "type": "integer"
+                }
+            }
+        },
+        "gorm.DeletedAt": {
+            "type": "object",
+            "properties": {
+                "time": {
+                    "type": "string"
+                },
+                "valid": {
+                    "description": "Valid is true if Time is not NULL",
+                    "type": "boolean"
+                }
+            }
+        },
+        "pkg_api_v1_handlers.RPCError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is a numeric error code",
+                    "type": "integer"
+                },
+                "data": {
+                    "description": "Data contains additional error details (optional)"
+                },
+                "message": {
+                    "description": "Message is a human-readable error message",
+                    "type": "string"
+                }
+            }
+        },
+        "pkg_api_v1_handlers.RPCRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is an optional request identifier that will be echoed back in the response",
+                    "type": "string"
+                },
+                "method": {
+                    "description": "Method is the operation to perform (e.g., \"project.create\", \"task.list\")",
+                    "type": "string"
+                },
+                "params": {
+                    "description": "Params contains the operation parameters"
+                }
+            }
+        },
+        "pkg_api_v1_handlers.RPCResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data contains the operation result"
+                },
+                "error": {
+                    "description": "Error contains error information if the operation failed",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/pkg_api_v1_handlers.RPCError"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "ID echoes back the request ID if provided",
+                    "type": "string"
+                },
+                "success": {
+                    "description": "Success indicates if the operation was successful",
+                    "type": "boolean"
+                }
+            }
+        }
+    }
+}

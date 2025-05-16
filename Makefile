@@ -26,8 +26,8 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
 .PHONY: help
 
-## all: Run check-env, lint, test, and build
-all: check-env lint test build
+## all: Run check-env, lint, test, build, and generate swagger docs
+all: check-env lint test build swagger
 .PHONY: all
 
 ## build: Build the application
@@ -133,7 +133,24 @@ dev-setup: check-env install-hooks
 		echo "Installing golangci-lint..."; \
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin; \
 	fi
+	@if ! command -v swag >/dev/null; then \
+		echo "Installing swag..."; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+	fi
 .PHONY: dev-setup
+
+## swagger: Generate Swagger documentation
+swagger:
+	@echo "Generating Swagger documentation..."
+	@if command -v swag >/dev/null; then \
+		echo "Using swag to generate documentation..."; \
+		swag init -g cmd/main.go -o docs/swagger --parseDependency --parseInternal --parseDepth 2 --generatedTime; \
+	else \
+		echo "Swag command not found. Using existing files..."; \
+		echo "To install swag, run: go install github.com/swaggo/swag/cmd/swag@latest"; \
+		echo "Then add it to your PATH or use the full path to run it."; \
+	fi
+.PHONY: swagger
 
 ## build-cli: Build the Talis CLI tool
 build-cli:
@@ -185,7 +202,7 @@ docker-down:
 # Kong
 # # # # # # # # # # # #
 
-.PHONY: kong-setup
+## kong-setup: Setup Kong service, routes, and authentication
 kong-setup:
 	# 1. Create the service
 	curl -i -X POST http://localhost:8001/services \
@@ -207,3 +224,62 @@ kong-setup:
 
 	# 5. Create an API key for the consumer
 	curl -i -X POST http://localhost:8001/consumers/talisuser/key-auth
+
+	# 6. Create a separate route for swagger
+	curl -i -X POST http://localhost:8001/services/api/routes \
+	  --data "paths[]=/swagger" \
+	  --data "strip_path=false" \
+	  --data "name=swagger-route"
+
+	# 7. Add basic-auth plugin to the swagger route
+	curl -i -X POST http://localhost:8001/routes/swagger-route/plugins \
+	  --data "name=basic-auth" \
+	  --data "config.hide_credentials=true"
+
+	# 8. Create a basic auth credential for the swagger consumer
+	curl -i -X POST http://localhost:8001/consumers/talisuser/basic-auth \
+	  --data "username=talis" \
+	  --data "password=talis123"
+.PHONY: kong-setup
+
+## kong-list-auth: List all basic auth credentials
+kong-list-auth:
+	@echo "Listing basic auth credentials..."
+	curl -s http://localhost:8001/consumers/talisuser/basic-auth | jq .
+.PHONY: kong-list-auth
+
+## kong-update-auth: Update basic auth password (usage: make kong-update-auth PASSWORD=your_new_password)
+kong-update-auth:
+	@if [ -z "$(PASSWORD)" ]; then \
+		echo "Error: PASSWORD is required. Usage: make kong-update-auth PASSWORD=your_new_password"; \
+		exit 1; \
+	fi
+	@echo "Updating basic auth password..."
+	@CREDENTIAL_ID=$$(curl -s http://localhost:8001/consumers/talisuser/basic-auth | jq -r '.data[0].id'); \
+	if [ -n "$$CREDENTIAL_ID" ]; then \
+		echo "Deleting existing credential $$CREDENTIAL_ID..."; \
+		curl -i -X DELETE http://localhost:8001/consumers/talisuser/basic-auth/$$CREDENTIAL_ID; \
+		echo "Creating new credential..."; \
+		curl -i -X POST http://localhost:8001/consumers/talisuser/basic-auth \
+		  --data "username=talis" \
+		  --data "password=$(PASSWORD)"; \
+	else \
+		echo "No existing credential found. Creating new one..."; \
+		curl -i -X POST http://localhost:8001/consumers/talisuser/basic-auth \
+		  --data "username=talis" \
+		  --data "password=$(PASSWORD)"; \
+	fi
+.PHONY: kong-update-auth
+
+## kong-verify: Verify Kong configuration
+kong-verify:
+	@echo "Verifying Kong configuration..."
+	@echo "\nChecking services..."
+	curl -s http://localhost:8001/services | jq .
+	@echo "\nChecking routes..."
+	curl -s http://localhost:8001/routes | jq .
+	@echo "\nChecking plugins..."
+	curl -s http://localhost:8001/plugins | jq .
+	@echo "\nChecking consumers..."
+	curl -s http://localhost:8001/consumers | jq .
+.PHONY: kong-verify
