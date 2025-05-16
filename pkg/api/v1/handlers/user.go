@@ -22,7 +22,17 @@ func NewUserHandler(api *APIHandler) *UserHandler {
 	}
 }
 
-// CreateUser handles the creation of a new user
+// CreateUser godoc
+// @Summary Create a new user
+// @Description Creates a new user via RPC
+// @Tags users,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with CreateUserParams"
+// @Success 200 {object} RPCResponse{data=types.CreateUserResponse} "Created user ID"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId createUser
 func (h *UserHandler) CreateUser(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[CreateUserParams](req)
 	if err != nil {
@@ -54,7 +64,18 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// GetUserByID retrieves a user by their ID
+// GetUserByID godoc
+// @Summary Get user by ID
+// @Description Retrieves a user by their ID via RPC
+// @Tags users,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with UserGetByIDParams"
+// @Success 200 {object} RPCResponse{data=models.User} "User details"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 404 {object} RPCResponse "User not found"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId getUserById
 func (h *UserHandler) GetUserByID(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[UserGetByIDParams](req)
 	if err != nil {
@@ -83,7 +104,18 @@ func (h *UserHandler) GetUserByID(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// GetUsers retrieves all users or a single user if username is provided
+// GetUsers godoc
+// @Summary Get users
+// @Description Retrieves all users or a single user by username via RPC
+// @Tags users,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with UserGetParams"
+// @Success 200 {object} RPCResponse{data=types.UserResponse} "User list or single user"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 404 {object} RPCResponse "User not found"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId getUsers
 func (h *UserHandler) GetUsers(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[UserGetParams](req)
 	if err != nil {
@@ -119,7 +151,17 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx, req RPCRequest) error {
 	})
 }
 
-// getUserByUsername handles fetching a single user by username
+// getUserByUsername godoc
+// @Summary Get user by username
+// @Description Retrieves a user by their username (internal helper method)
+// @Tags users,rpc
+// @Accept json
+// @Produce json
+// @Param username path string true "Username"
+// @Param request body RPCRequest true "RPC request"
+// @Success 200 {object} RPCResponse{data=types.UserResponse} "User details"
+// @Failure 404 {object} RPCResponse "User not found"
+// @Failure 500 {object} RPCResponse "Internal server error"
 func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string, req RPCRequest) error {
 	user, err := h.user.GetUserByUsername(c.Context(), username)
 
@@ -143,7 +185,18 @@ func (h *UserHandler) getUserByUsername(c *fiber.Ctx, username string, req RPCRe
 	})
 }
 
-// DeleteUser handles the request to terminate a user
+// DeleteUser godoc
+// @Summary Delete a user
+// @Description Deletes a user by their ID via RPC
+// @Tags users,rpc
+// @Accept json
+// @Produce json
+// @Param request body RPCRequest true "RPC request with DeleteUserParams"
+// @Success 200 {object} RPCResponse "User deleted successfully"
+// @Failure 400 {object} RPCResponse "Invalid parameters"
+// @Failure 404 {object} RPCResponse "User not found"
+// @Failure 500 {object} RPCResponse "Internal server error"
+// @OperationId deleteUser
 func (h *UserHandler) DeleteUser(c *fiber.Ctx, req RPCRequest) error {
 	params, err := parseParams[DeleteUserParams](req)
 	if err != nil {

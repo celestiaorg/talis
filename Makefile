@@ -26,8 +26,8 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
 .PHONY: help
 
-## all: Run check-env, lint, test, and build
-all: check-env lint test build
+## all: Run check-env, lint, test, build, and generate swagger docs
+all: check-env lint test build swagger
 .PHONY: all
 
 ## build: Build the application
@@ -133,7 +133,24 @@ dev-setup: check-env install-hooks
 		echo "Installing golangci-lint..."; \
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin; \
 	fi
+	@if ! command -v swag >/dev/null; then \
+		echo "Installing swag..."; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+	fi
 .PHONY: dev-setup
+
+## swagger: Generate Swagger documentation
+swagger:
+	@echo "Generating Swagger documentation..."
+	@if command -v swag >/dev/null; then \
+		echo "Using swag to generate documentation..."; \
+		swag init -g cmd/main.go -o docs/swagger --parseDependency --parseInternal --parseDepth 2 --generatedTime; \
+	else \
+		echo "Swag command not found. Using existing files..."; \
+		echo "To install swag, run: go install github.com/swaggo/swag/cmd/swag@latest"; \
+		echo "Then add it to your PATH or use the full path to run it."; \
+	fi
+.PHONY: swagger
 
 ## build-cli: Build the Talis CLI tool
 build-cli:

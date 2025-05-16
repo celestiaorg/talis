@@ -1,4 +1,9 @@
 // Package main provides the entry point for the server application
+// @title Talis API
+// @version 1.0
+// @description API for Talis - Web3 infrastructure management service
+// @host localhost:8080
+// @BasePath /api/v1
 package main
 
 import (
@@ -12,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/celestiaorg/talis/docs/swagger"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
@@ -36,6 +42,14 @@ func main() {
 
 	// Log that the application is starting
 	log.Info("Starting application...")
+
+	// Set dynamic Swagger host from environment variable
+	if apiHost := os.Getenv("API_HOST"); apiHost != "" {
+		swagger.SwaggerInfo.Host = apiHost
+		log.Infof("Swagger host set dynamically to: %s", apiHost)
+	} else {
+		log.Info("API_HOST environment variable not set, using default Swagger host from annotations.")
+	}
 
 	// This is temporary, we will pass them through the CLI later
 	dbPort, err := strconv.Atoi(os.Getenv("DB_PORT"))
