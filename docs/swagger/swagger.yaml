@@ -153,6 +153,12 @@ definitions:
       instance_id:
         description: Link to the specific instance, if applicable
         type: integer
+      lock_expiry:
+        description: When the lock expires
+        type: string
+      locked_at:
+        description: When the task was locked for processing
+        type: string
       logs:
         type: string
       payload:
@@ -160,6 +166,10 @@ definitions:
         items:
           type: integer
         type: array
+      priority:
+        allOf:
+        - $ref: '#/definitions/github_com_celestiaorg_talis_internal_db_models.TaskPriority'
+        description: Task priority (higher number = lower priority)
       project_id:
         type: integer
       result:
@@ -184,6 +194,14 @@ definitions:
     x-enum-varnames:
     - TaskActionCreateInstances
     - TaskActionTerminateInstances
+  github_com_celestiaorg_talis_internal_db_models.TaskPriority:
+    enum:
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - TaskPriorityHigh
+    - TaskPriorityLow
   github_com_celestiaorg_talis_internal_db_models.TaskStatus:
     enum:
     - unknown
@@ -543,7 +561,7 @@ definitions:
 host: localhost:8080
 info:
   contact: {}
-  description: API for Talis - Celestia's infrastructure management service
+  description: API for Talis - Web3 infrastructure management service
   title: Talis API
   version: "1.0"
 paths:

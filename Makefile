@@ -144,7 +144,7 @@ swagger:
 	@echo "Generating Swagger documentation..."
 	@if command -v swag >/dev/null; then \
 		echo "Using swag to generate documentation..."; \
-		swag init -g cmd/main.go -o docs --parseDependency --parseInternal --parseDepth 2 --generatedTime; \
+		swag init -g cmd/main.go -o docs/swagger --parseDependency --parseInternal --parseDepth 2 --generatedTime; \
 	else \
 		echo "Swag command not found. Using existing files..."; \
 		echo "To install swag, run: go install github.com/swaggo/swag/cmd/swag@latest"; \

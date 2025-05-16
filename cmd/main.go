@@ -1,7 +1,7 @@
 // Package main provides the entry point for the server application
 // @title Talis API
 // @version 1.0
-// @description API for Talis - Celestia's infrastructure management service
+// @description API for Talis - Web3 infrastructure management service
 // @host localhost:8080
 // @BasePath /api/v1
 package main
@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/celestiaorg/talis/docs" // Import swagger docs
+	_ "github.com/celestiaorg/talis/docs/swagger"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 
