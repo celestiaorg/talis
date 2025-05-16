@@ -468,7 +468,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 			}
 
 			if err := provisioner.RunAnsiblePlaybook(inventoryPath, tags); err != nil {
-				return fmt.Errorf("Worker: Failed to run ansible playbook for instance ID %d: %w", instance.ID, err)
+				return fmt.Errorf("worker: failed to run ansible playbook for instance ID %d: %w", instance.ID, err)
 			}
 			// Optionally remove inventory file after successful run
 			// if err := os.Remove(inventoryPath); err != nil {
