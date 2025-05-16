@@ -4,10 +4,8 @@ package compute
 type Configuration struct {
 	APIURL       string
 	APIToken     string
-	PackageID    int
 	UserID       int
 	HypervisorID int
-	IPv4         int
 }
 
 // ServerCreateRequest represents the request to create a server

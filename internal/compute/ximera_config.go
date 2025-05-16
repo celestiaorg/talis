@@ -16,7 +16,6 @@ func InitXimeraConfig() (*Configuration, error) {
 	apiToken := os.Getenv("XIMERA_API_TOKEN")
 	userIDStr := os.Getenv("XIMERA_USER_ID")
 	hypervisorGroupIDStr := os.Getenv("XIMERA_HYPERVISOR_GROUP_ID")
-	ipv4Str := os.Getenv("XIMERA_IPV4")
 
 	if apiURL == "" {
 		return nil, fmt.Errorf("XIMERA_API_URL is required in environment")
@@ -33,19 +32,12 @@ func InitXimeraConfig() (*Configuration, error) {
 	if err != nil && hypervisorGroupIDStr != "" {
 		return nil, fmt.Errorf("invalid XIMERA_HYPERVISOR_GROUP_ID: %w", err)
 	}
-	ipv4 := 0
-	if ipv4Str != "" {
-		if val, err := strconv.Atoi(ipv4Str); err == nil {
-			ipv4 = val
-		}
-	}
 
 	config := &Configuration{
 		APIURL:       apiURL,
 		APIToken:     apiToken,
 		UserID:       userID,
 		HypervisorID: hypervisorGroupID,
-		IPv4:         ipv4,
 	}
 
 	return config, nil
