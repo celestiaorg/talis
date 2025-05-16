@@ -130,7 +130,7 @@ func main() {
 	wg.Add(1) // Increment counter before launching goroutine
 	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, services.DefaultBackoff)
 	workerPool.WithWorkerCount(workerCount).WithHighPriorityRatio(highPriorityRatio)
-	
+
 	// Recover any stale tasks before starting the worker pool
 	log.Info("Starting worker pool...")
 	go workerPool.LaunchWorkerPool(ctx, &wg)

@@ -109,16 +109,16 @@ func (w *WorkerPool) LaunchWorkerPool(ctx context.Context, wg *sync.WaitGroup) {
 
 	// Launch high priority workers
 	for i := 0; i < highPriorityWorkers; i++ {
-		workerId := i + 1
+		workerID := i + 1
 		workersWg.Add(1)
-		go w.highPriorityTaskProcessor(ctx, &workersWg, workerId)
+		go w.highPriorityTaskProcessor(ctx, &workersWg, workerID)
 	}
 
 	// Launch low priority workers
 	for i := 0; i < lowPriorityWorkers; i++ {
-		workerId := highPriorityWorkers + i + 1
+		workerID := highPriorityWorkers + i + 1
 		workersWg.Add(1)
-		go w.lowPriorityTaskProcessor(ctx, &workersWg, workerId)
+		go w.lowPriorityTaskProcessor(ctx, &workersWg, workerID)
 	}
 
 	logger.Infof("Worker pool started with %d workers (%d high priority, %d low priority)",
@@ -208,72 +208,72 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 }
 
 // highPriorityTaskProcessor processes tasks from the high priority queue
-func (w *WorkerPool) highPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerId int) {
+func (w *WorkerPool) highPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerID int) {
 	defer wg.Done()
 
-	logger.Infof("High priority worker %d started", workerId)
+	logger.Infof("High priority worker %d started", workerID)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("High priority worker %d received shutdown signal, stopping...", workerId)
+			logger.Infof("High priority worker %d received shutdown signal, stopping...", workerID)
 			return
 		case task, ok := <-w.highPriorityQueue:
 			if !ok {
 				// Queue is closed
-				logger.Infof("High priority worker %d shutting down, task queue is closed", workerId)
+				logger.Infof("High priority worker %d shutting down, task queue is closed", workerID)
 				return
 			}
 
 			// Process the task
-			w.processTask(ctx, workerId, task)
+			w.processTask(ctx, workerID, task)
 		}
 	}
 }
 
 // lowPriorityTaskProcessor processes tasks from the low priority queue
-func (w *WorkerPool) lowPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerId int) {
+func (w *WorkerPool) lowPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerID int) {
 	defer wg.Done()
 
-	logger.Infof("Low priority worker %d started", workerId)
+	logger.Infof("Low priority worker %d started", workerID)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("Low priority worker %d received shutdown signal, stopping...", workerId)
+			logger.Infof("Low priority worker %d received shutdown signal, stopping...", workerID)
 			return
 		case task, ok := <-w.lowPriorityQueue:
 			if !ok {
 				// Queue is closed
-				logger.Infof("Low priority worker %d shutting down, task queue is closed", workerId)
+				logger.Infof("Low priority worker %d shutting down, task queue is closed", workerID)
 				return
 			}
 
 			// Process the task
-			w.processTask(ctx, workerId, task)
+			w.processTask(ctx, workerID, task)
 		}
 	}
 }
 
 // processTask handles the actual task processing with locking
-func (w *WorkerPool) processTask(ctx context.Context, workerId int, task models.Task) {
+func (w *WorkerPool) processTask(ctx context.Context, workerID int, task models.Task) {
 	priorityName := task.Priority.String()
-	logger.Debugf("%s priority worker %d attempting to process task %d", priorityName, workerId, task.ID)
+	logger.Debugf("%s priority worker %d attempting to process task %d", priorityName, workerID, task.ID)
 
 	// Try to acquire a lock on the task
 	err := w.taskService.AcquireTaskLock(ctx, task.ID)
 	if err != nil {
 		if errors.Is(err, ErrTaskLockNotAcquired) {
 			logger.Debugf("%s priority worker %d could not acquire lock for task %d, skipping",
-				priorityName, workerId, task.ID)
+				priorityName, workerID, task.ID)
 		} else {
 			logger.Errorf("%s priority worker %d failed to acquire lock for task %d: %v",
-				priorityName, workerId, task.ID, err)
+				priorityName, workerID, task.ID, err)
 		}
 		return
 	}
 
-	logger.Debugf("%s priority worker %d processing task %d", priorityName, workerId, task.ID)
+	logger.Debugf("%s priority worker %d processing task %d", priorityName, workerID, task.ID)
 	task.Attempts++
 
 	// Process the task based on its action
@@ -283,45 +283,45 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task models.
 		processErr = w.processCreateInstanceTask(ctx, &task)
 		if processErr != nil {
 			logMsg := fmt.Sprintf("❌ %s priority worker %d failed to process create instance task %d: %v",
-				priorityName, workerId, task.ID, processErr)
+				priorityName, workerID, task.ID, processErr)
 			logger.Error(logMsg)
 			task.Logs += fmt.Sprintf("\n%s", logMsg)
 			err = w.taskService.UpdateFailed(ctx, &task, processErr.Error(), logMsg)
 			if err != nil {
-				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerId, err)
+				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerID, err)
 			}
 		} else {
 			err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusCompleted)
 			if err != nil {
-				logger.Errorf("%s priority worker %d: Failed to update task status: %v", priorityName, workerId, err)
+				logger.Errorf("%s priority worker %d: Failed to update task status: %v", priorityName, workerID, err)
 			}
 		}
 	case models.TaskActionTerminateInstances:
 		processErr = w.processTerminateInstanceTask(ctx, &task)
 		if processErr != nil {
 			logMsg := fmt.Sprintf("❌ %s priority worker %d failed to process terminate instance task %d: %v",
-				priorityName, workerId, task.ID, processErr)
+				priorityName, workerID, task.ID, processErr)
 			logger.Error(logMsg)
 			task.Logs += fmt.Sprintf("\n%s", logMsg)
 			err = w.taskService.UpdateFailed(ctx, &task, processErr.Error(), logMsg)
 			if err != nil {
-				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerId, err)
+				logger.Errorf("%s priority worker %d: Failed to update task: %v", priorityName, workerID, err)
 			}
 		} else {
 			err = w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusCompleted)
 			if err != nil {
-				logger.Errorf("%s priority worker %d: Failed to update task status: %v", priorityName, workerId, err)
+				logger.Errorf("%s priority worker %d: Failed to update task status: %v", priorityName, workerID, err)
 			}
 		}
 	default:
 		logger.Errorf("%s priority worker %d: Unknown task action %s for task %d",
-			priorityName, workerId, task.Action, task.ID)
+			priorityName, workerID, task.Action, task.ID)
 	}
 
 	// Release the lock regardless of success or failure
 	if err := w.taskService.ReleaseTaskLock(ctx, task.ID); err != nil {
 		logger.Errorf("%s priority worker %d failed to release lock for task %d: %v",
-			priorityName, workerId, task.ID, err)
+			priorityName, workerID, task.ID, err)
 	}
 }
 
@@ -329,7 +329,7 @@ func (w *WorkerPool) processTask(ctx context.Context, workerId int, task models.
 func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models.Task) error {
 	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to update task status: %w", err)
+		return fmt.Errorf("worker: failed to update task status: %w", err)
 	}
 	logger.Debugf("Creating instance for task %d", task.ID)
 
@@ -337,16 +337,16 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 	var instanceReq types.InstanceRequest
 	err = json.Unmarshal(task.Payload, &instanceReq)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to unmarshal task payload for task %d: %w", task.ID, err)
+		return fmt.Errorf("worker: failed to unmarshal task payload for task %d: %w", task.ID, err)
 	}
 
 	// Check the instance status
 	instance, err := w.instanceService.Get(ctx, instanceReq.OwnerID, instanceReq.InstanceID)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to get instance: %w", err)
+		return fmt.Errorf("worker: failed to get instance: %w", err)
 	}
 	if instance == nil {
-		return fmt.Errorf("Worker: Instance %d not found", instanceReq.InstanceID)
+		return fmt.Errorf("worker: instance %d not found", instanceReq.InstanceID)
 	}
 
 	switch instance.Status {
@@ -359,14 +359,14 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		// Get the compute provider or create a new one
 		provider, err := w.getProvider(instanceReq.Provider)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to get compute provider for provider %s: %w", instanceReq.Provider, err)
+			return fmt.Errorf("worker: failed to get compute provider for provider %s: %w", instanceReq.Provider, err)
 		}
 
 		// Create the instance
 		// NOTE: since the instance request type is now being updated during the create instance process we might need to update the task payload to include the updates. This is more of a concern if we want to support resuming from a failed task.
 		err = provider.CreateInstance(ctx, &instanceReq)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to create instance: %w", err)
+			return fmt.Errorf("worker: failed to create instance: %w", err)
 		}
 
 		// Update instance DB with IP and volume info
@@ -388,7 +388,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		instance.ProviderInstanceID = instanceReq.ProviderInstanceID
 		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to update instance: %w", err)
+			return fmt.Errorf("worker: failed to update instance: %w", err)
 		}
 
 		// Fall through to the next case and step in the process
@@ -404,7 +404,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 			instance.Status = models.InstanceStatusReady
 			err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 			if err != nil {
-				return fmt.Errorf("Worker: Failed to update instance ID %d: %w", instance.ID, err)
+				return fmt.Errorf("worker: failed to update instance ID %d: %w", instance.ID, err)
 			}
 			logger.Debugf("✅ Instance ID %d is ready", instance.ID)
 			w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d is ready", instance.ID))
@@ -416,7 +416,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		instance.Status = models.InstanceStatusProvisioning
 		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to update instance ID %d: %w", instance.ID, err)
+			return fmt.Errorf("worker: failed to update instance ID %d: %w", instance.ID, err)
 		}
 
 		fallthrough
@@ -427,12 +427,12 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		// Get provisioning tasks
 		provisioner, err := w.getProvisioner(instanceReq.Provider)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to get provisioner for provider %s: %w", instanceReq.Provider, err)
+			return fmt.Errorf("worker: failed to get provisioner for provider %s: %w", instanceReq.Provider, err)
 		}
 
 		// Verify that the instance IP is available
 		if instance.PublicIP == "" {
-			return fmt.Errorf("Worker: instance ID %d has no public IP, can't provision", instance.ID)
+			return fmt.Errorf("worker: instance ID %d has no public IP, can't provision", instance.ID)
 		}
 
 		// TODO: Validate inputs
@@ -440,7 +440,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		// create a hosts file with the instance IP to provision.
 		inventoryPath, err := provisioner.CreateInventory(&instanceReq, getAnsibleSSHKeyPath(instanceReq))
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to create inventory file for instance ID %d: %w", instance.ID, err)
+			return fmt.Errorf("worker: failed to create inventory file for instance ID %d: %w", instance.ID, err)
 		}
 
 		if inventoryPath == "" {
@@ -448,7 +448,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 			logger.Warnf("Worker: Inventory path empty for instance ID %d, skipping playbook run", instance.ID)
 		} else {
 			if err := provisioner.RunAnsiblePlaybook(inventoryPath); err != nil {
-				return fmt.Errorf("Worker: Failed to run ansible playbook for instance ID %d: %w", instance.ID, err)
+				return fmt.Errorf("worker: failed to run ansible playbook for instance ID %d: %w", instance.ID, err)
 			}
 			// Optionally remove inventory file after successful run
 			// if err := os.Remove(inventoryPath); err != nil {
@@ -460,7 +460,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		instance.Status = models.InstanceStatusReady
 		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
-			return fmt.Errorf("Worker: Failed to update instance ID %d to ready: %w", instance.ID, err)
+			return fmt.Errorf("worker: failed to update instance ID %d to ready: %w", instance.ID, err)
 		}
 		logger.Debugf("✅ Instance ID %d successfully provisioned, marking as ready", instance.ID)
 		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d successfully provisioned and is ready", instance.ID))
@@ -471,7 +471,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d already in final state (%s)", instance.ID, instance.Status))
 		return nil
 	default:
-		return fmt.Errorf("Worker: instance ID %d is in an unknown state %s", instance.ID, instance.Status)
+		return fmt.Errorf("worker: instance ID %d is in an unknown state %s", instance.ID, instance.Status)
 	}
 	return nil
 }
@@ -480,7 +480,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 func (w *WorkerPool) processTerminateInstanceTask(ctx context.Context, task *models.Task) error {
 	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to update task status: %w", err)
+		return fmt.Errorf("worker: failed to update task status: %w", err)
 	}
 	logger.Debugf("Terminating instance for task %d", task.ID)
 
@@ -488,16 +488,16 @@ func (w *WorkerPool) processTerminateInstanceTask(ctx context.Context, task *mod
 	var deleteReq types.DeleteInstanceRequest
 	err = json.Unmarshal(task.Payload, &deleteReq)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to unmarshal task payload for task %d: %w", task.ID, err)
+		return fmt.Errorf("worker: failed to unmarshal task payload for task %d: %w", task.ID, err)
 	}
 
 	// Get the instance
 	instance, err := w.instanceService.Get(ctx, task.OwnerID, deleteReq.InstanceID)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to get instance: %w", err)
+		return fmt.Errorf("worker: failed to get instance: %w", err)
 	}
 	if instance == nil {
-		return fmt.Errorf("Worker: Instance %d not found", deleteReq.InstanceID)
+		return fmt.Errorf("worker: instance %d not found", deleteReq.InstanceID)
 	}
 
 	// Confirm the instance is not already terminated
@@ -509,7 +509,7 @@ func (w *WorkerPool) processTerminateInstanceTask(ctx context.Context, task *mod
 	// Get the compute provider or create a new one
 	provider, err := w.getProvider(instance.ProviderID)
 	if err != nil {
-		return fmt.Errorf("Worker: Failed to get compute provider for provider %s: %w", instance.ProviderID, err)
+		return fmt.Errorf("worker: failed to get compute provider for provider %s: %w", instance.ProviderID, err)
 	}
 
 	// Delete the instance
@@ -544,7 +544,7 @@ func (w *WorkerPool) getProvider(providerID models.ProviderID) (compute.Provider
 		provider, err = compute.NewComputeProvider(providerID)
 		if err != nil {
 			w.computeMU.Unlock()
-			return nil, fmt.Errorf("Worker: Failed to create compute provider for provider %s: %w", providerID, err)
+			return nil, fmt.Errorf("worker: failed to create compute provider for provider %s: %w", providerID, err)
 		}
 		w.providers[providerID] = provider
 		w.computeMU.Unlock()
