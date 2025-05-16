@@ -261,7 +261,16 @@ func (w *Worker) processCreateInstanceTask(ctx context.Context, task *models.Tas
 			// Should not happen if hosts were provided and valid, but handle defensively
 			logger.Warnf("Worker: Inventory path empty for instance ID %d, skipping playbook run", instance.ID)
 		} else {
-			if err := provisioner.RunAnsiblePlaybook(inventoryPath); err != nil {
+			// tags depending on the provisioner
+			tags := []string{}
+			if instanceReq.Provider == models.ProviderXimera {
+				tags = []string{"setup"}
+			}
+			if instanceReq.Provider == models.ProviderDO {
+				tags = []string{"setup,volumes"}
+			}
+
+			if err := provisioner.RunAnsiblePlaybook(inventoryPath, tags); err != nil {
 				return fmt.Errorf("Worker: Failed to run ansible playbook for instance ID %d: %w", instance.ID, err)
 			}
 			// Optionally remove inventory file after successful run

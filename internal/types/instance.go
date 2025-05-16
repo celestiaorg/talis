@@ -18,7 +18,9 @@ type InstanceRequest struct {
 	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
 	Provider models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
 	Region   string            `json:"region"`   // Region where instances will be created
-	Size     string            `json:"size"`     // Instance size/type
+	Size     string            `json:"size"`     // Instance size/type (used for cloud provider with predefined sizes)
+	Memory   int               `json:"memory"`   // Memory in MB (used for Ximera to allow custom memory)
+	CPU      int               `json:"cpu"`      // CPU cores (used for Ximera to allow custom CPU)
 	Image    string            `json:"image"`    // OS image to use
 	Tags     []string          `json:"tags"`     // Tags to apply to instances
 

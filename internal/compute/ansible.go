@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -108,7 +109,7 @@ func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, t
 }
 
 // RunAnsiblePlaybook runs the Ansible playbook for all instances in parallel
-func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string) error {
+func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string, tags []string) error {
 	fmt.Println("🎭 Running Ansible playbook...")
 
 	// Prepare command arguments
@@ -125,6 +126,10 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string) error {
 
 	// Add playbook path
 	args = append(args, pathToPlaybook)
+
+	if len(tags) > 0 {
+		args = append(args, "--tags", strings.Join(tags, ","))
+	}
 
 	// Run ansible-playbook command
 	// #nosec G204 -- command arguments are constructed from validated inputs
