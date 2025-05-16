@@ -121,7 +121,7 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			name:    "Error: missing size",
 			request: func() InstanceRequest { r := baseReq; r.Size = ""; return r }(),
 			wantErr: true,
-			errMsg:  "size is required",
+			errMsg:  "either size, or both memory and cpu, must be provided",
 		},
 		{
 			name:    "Error: missing image",
