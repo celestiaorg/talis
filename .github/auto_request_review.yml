@@ -6,7 +6,8 @@ reviewers:
       - team:devops
 files:
   ".github/**":
-    - MSevey
+    - tty47
+    - mojtaba-esk
     - devops
 options:
   ignore_draft: true
