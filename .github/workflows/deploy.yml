@@ -16,6 +16,8 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/')) ||
       github.event_name == 'release'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,8 +46,8 @@ jobs:
       - name: Wait for Docker Build to complete
         if: github.event_name == 'release'
         run: |
-          # Get the tag from the release event
-          TAG=${GITHUB_REF#refs/tags/}
+          # Use the tag from the previous step
+          TAG=${{ steps.get_tag.outputs.TAG }}
           echo "[INFO] Waiting for Docker Build workflow to complete for tag: $TAG"
 
           # Initialize counter
