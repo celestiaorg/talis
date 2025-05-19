@@ -6,7 +6,8 @@ on:
     types:
       - completed
     branches:
-      - 'refs/tags/**' # Only trigger for tag-based workflows (releases)
+      # Only trigger for tag-based workflows (releases)
+      - 'refs/tags/**'
   workflow_dispatch:
   release:
     types: [published]
