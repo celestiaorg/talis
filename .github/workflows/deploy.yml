@@ -5,19 +5,21 @@ on:
     workflows: ["Docker Build & Publish"]
     types:
       - completed
-    branches:
-      # Only trigger for tag-based workflows (releases)
-      - 'refs/tags/**'
   workflow_dispatch:
   release:
     types: [published]
+  # Trigger only on tag creation
+  push:
+    tags:
+      - '*'
 
 jobs:
   deploy:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_ref != '') ||
-      github.event_name == 'release'
+      github.event_name == 'release' ||
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
