@@ -8,22 +8,53 @@ on:
   workflow_dispatch:
   release:
     types: [published]
-  # Trigger only on tag creation
-  push:
-    tags:
-      - '*'
 
 jobs:
   deploy:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_ref != '') ||
-      github.event_name == 'release' ||
-      github.event_name == 'push'
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Wait for Docker Build to complete
+        if: github.event_name == 'release'
+        run: |
+          # Get the tag from the release event
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "[INFO] Waiting for Docker Build workflow to complete for tag: $TAG"
+          
+          # Initialize counter
+          ATTEMPTS=0
+          MAX_ATTEMPTS=10
+          
+          # Wait for the Docker Build workflow to complete
+          while true; do
+            # Increment attempt counter
+            ATTEMPTS=$((ATTEMPTS + 1))
+            
+            # Get the most recent workflow run for Docker Build & Publish
+            RUNS=$(gh api repos/${{ github.repository }}/actions/workflows/docker-build.yml/runs --jq '.workflow_runs[0]')
+            RUN_CONCLUSION=$(echo $RUNS | jq -r '.conclusion')
+            RUN_HEAD_REF=$(echo $RUNS | jq -r '.head_branch')
+            
+            if [ "$RUN_CONCLUSION" = "success" ] && [ "$RUN_HEAD_REF" = "$TAG" ]; then
+              echo "[INFO] Docker Build workflow completed successfully for tag: $TAG"
+              break
+            elif [ "$RUN_CONCLUSION" = "failure" ] || [ "$RUN_CONCLUSION" = "cancelled" ]; then
+              echo "[ERROR] Docker Build workflow failed or was cancelled for tag: $TAG"
+              exit 1
+            elif [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+              echo "[ERROR] Timed out waiting for Docker Build workflow after $MAX_ATTEMPTS attempts (5 minutes)"
+              exit 1
+            fi
+            
+            echo "[INFO] Waiting for Docker Build workflow to complete... (Attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+            sleep 30
+          done
 
       - name: Copy docker-compose file to server
         uses: appleboy/scp-action@v1.0.0
