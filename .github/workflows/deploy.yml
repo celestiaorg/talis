@@ -22,6 +22,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install GitHub CLI
+        if: github.event_name == 'release'
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
+
       - name: Get release tag
         id: get_tag
         run: |
@@ -58,9 +68,17 @@ jobs:
           while true; do
             # Increment attempt counter
             ATTEMPTS=$((ATTEMPTS + 1))
-
             # Get the most recent workflow run for Docker Build & Publish
-            RUNS=$(gh api repos/${{ github.repository }}/actions/workflows/docker-build.yml/runs --jq '.workflow_runs[0]')
+
+            # First, get the workflow ID
+            WORKFLOW_ID=$(gh api repos/${{ github.repository }}/actions/workflows --jq '.workflows[] | select(.name == "Docker Build & Publish") | .id')
+            if [ -z "$WORKFLOW_ID" ]; then
+              echo "[ERROR] Could not find workflow 'Docker Build & Publish'"
+              exit 1
+            fi
+            # Then get the most recent run for this workflow
+            RUNS=$(gh api repos/${{ github.repository }}/actions/workflows/$WORKFLOW_ID/runs --jq '.workflow_runs[0]')
+
             RUN_CONCLUSION=$(echo $RUNS | jq -r '.conclusion')
             RUN_HEAD_REF=$(echo $RUNS | jq -r '.head_branch')
 
