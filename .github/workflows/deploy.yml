@@ -23,10 +23,19 @@ jobs:
       - name: Get release tag
         id: get_tag
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            # For release events, get the tag from the release
+            echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # For direct tag pushes
             echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            # For workflow runs, get the tag from the triggering workflow
             echo "TAG=${GITHUB_EVENT_WORKFLOW_RUN_HEAD_BRANCH#refs/tags/}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            # For manual triggers, we need to get the latest tag
+            LATEST_TAG=$(git describe --tags --abbrev=0)
+            echo "TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
           else
             echo "[ERROR] Invalid trigger: $GITHUB_EVENT_NAME"
             exit 1
