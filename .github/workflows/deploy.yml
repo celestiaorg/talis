@@ -15,8 +15,8 @@ on:
 jobs:
   deploy:
     if: |
-      github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/')) ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_ref != '') ||
       github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
