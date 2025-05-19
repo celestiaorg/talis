@@ -13,12 +13,24 @@ jobs:
   deploy:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/')) ||
       github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: get_tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            echo "TAG=${GITHUB_EVENT_WORKFLOW_RUN_HEAD_BRANCH#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "[ERROR] Invalid trigger: $GITHUB_EVENT_NAME"
+            exit 1
+          fi
 
       - name: Wait for Docker Build to complete
         if: github.event_name == 'release'
@@ -64,10 +76,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml"
           target: ${{ secrets.DEPLOYMENT_DIR }}
-
-      - name: Get release tag
-        id: get_tag
-        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Update image tag and deploy
         uses: appleboy/ssh-action@v1.2.2
