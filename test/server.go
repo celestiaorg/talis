@@ -59,12 +59,12 @@ func SetupServer(suite *Suite) {
 	suite.Require().NoError(err, "Failed to create API client")
 	suite.APIClient = client
 
-	// Launch worker
+	// Launch worker pool
 	var wg sync.WaitGroup
 	wg.Add(1)
 	suite.workerWG = &wg
-	worker := services.NewWorker(instanceService, projectService, taskService, userService, 100*time.Millisecond)
-	go worker.LaunchWorker(suite.ctx, &wg)
+	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, 100*time.Millisecond)
+	go workerPool.LaunchWorkerPool(suite.ctx, &wg)
 
 	// Update cleanup to close server
 	originalCleanup := suite.cleanup

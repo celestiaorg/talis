@@ -32,3 +32,5 @@ coverage.html
 # Custom local file for dumping test/debug files
 ignore/
 
+memory-bank/
+.clinerules

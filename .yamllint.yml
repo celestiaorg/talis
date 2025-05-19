@@ -9,3 +9,7 @@ rules:
     level: warning
   # Disable truthy values check (yes, Yes, TRUE, etc)
   truthy: disable
+
+# Ignore auto-generated files
+ignore:
+  - docs/swagger/swagger.yaml

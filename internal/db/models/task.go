@@ -16,14 +16,28 @@ const (
 	TaskStatusField = "status"
 	// TaskIDField is the field name for task ID
 	TaskIDField = "id"
-
 	// TaskCreatedAtField is the field name for task created at
 	TaskCreatedAtField = "created_at"
+	// TaskLockedAtField is the field name for task locked at
+	TaskLockedAtField = "locked_at"
+	// TaskLockExpiryField is the field name for task lock expiry
+	TaskLockExpiryField = "lock_expiry"
+	// TaskAttemptsField is the field name for task attempts
+	TaskAttemptsField = "attempts"
+	// TaskLogsField is the field name for task logs
+	TaskLogsField = "logs"
+	// TaskErrorField is the field name for task error
+	TaskErrorField = "error"
+	// TaskPriorityField is the field name for task priority
+	TaskPriorityField = "priority"
 
 	// WebhookTimeoutSeconds is the timeout for webhook requests in seconds
 	WebhookTimeout = 10 * time.Second
 	// WebhookContentType is the content type for webhook requests
 	WebhookContentType = "application/json"
+
+	// TaskLockTimeout is the duration after which a task lock is considered expired
+	TaskLockTimeout = 5 * time.Minute
 )
 
 // TaskStatus represents the current state of a task
@@ -55,6 +69,28 @@ const (
 	TaskActionTerminateInstances TaskAction = "terminate_instances"
 )
 
+// TaskPriority represents the priority level of a task
+type TaskPriority int
+
+const (
+	// TaskPriorityHigh represents high priority tasks (like create operations)
+	TaskPriorityHigh TaskPriority = 1
+	// TaskPriorityLow represents low priority tasks (like terminate operations)
+	TaskPriorityLow TaskPriority = 2
+)
+
+// String returns the string representation of the task priority
+func (p TaskPriority) String() string {
+	switch p {
+	case TaskPriorityHigh:
+		return "high"
+	case TaskPriorityLow:
+		return "low"
+	default:
+		return "unknown"
+	}
+}
+
 // Task represents an asynchronous operation that can be tracked
 type Task struct {
 	gorm.Model
@@ -71,6 +107,9 @@ type Task struct {
 	WebhookURL  string          `json:"webhook_url,omitempty" gorm:"type:text"`
 	WebhookSent bool            `json:"webhook_sent" gorm:"not null;default:false;index"`
 	CreatedAt   time.Time       `json:"created_at" gorm:"index"`
+	LockedAt    *time.Time      `json:"locked_at,omitempty" gorm:"index"`   // When the task was locked for processing
+	LockExpiry  *time.Time      `json:"lock_expiry,omitempty" gorm:""`      // When the lock expires
+	Priority    TaskPriority    `json:"priority" gorm:"not null;default:1"` // Task priority (higher number = lower priority)
 }
 
 // MarshalJSON implements the json.Marshaler interface for Task
@@ -143,7 +182,43 @@ func (t *Task) BeforeCreate(_ *gorm.DB) error {
 	if t.Status == "" {
 		t.Status = TaskStatusPending
 	}
+
+	// Set default priority based on action
+	if t.Priority == 0 {
+		switch t.Action {
+		case TaskActionCreateInstances:
+			t.Priority = TaskPriorityHigh
+		case TaskActionTerminateInstances:
+			t.Priority = TaskPriorityLow
+		default:
+			t.Priority = TaskPriorityHigh // Default to high priority
+		}
+	}
+
 	return t.Validate()
+}
+
+// IsLocked checks if the task is currently locked for processing
+func (t *Task) IsLocked() bool {
+	// Return false if either LockedAt or LockExpiry is nil to prevent nil pointer dereference
+	if t.LockedAt == nil || t.LockExpiry == nil {
+		return false
+	}
+	return time.Now().Before(*t.LockExpiry)
+}
+
+// Lock locks the task for processing
+func (t *Task) Lock(duration time.Duration) {
+	now := time.Now()
+	expiry := now.Add(duration)
+	t.LockedAt = &now
+	t.LockExpiry = &expiry
+}
+
+// Unlock unlocks the task
+func (t *Task) Unlock() {
+	t.LockedAt = nil
+	t.LockExpiry = nil
 }
 
 // SendWebhook sends a notification to the webhook URL if configured
