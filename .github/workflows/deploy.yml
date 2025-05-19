@@ -62,7 +62,7 @@ jobs:
 
           # Initialize counter
           ATTEMPTS=0
-          MAX_ATTEMPTS=10
+          MAX_ATTEMPTS=25
 
           # Wait for the Docker Build workflow to complete
           while true; do
@@ -94,7 +94,7 @@ jobs:
             fi
 
             echo "[INFO] Waiting for Docker Build workflow to complete... (Attempt $ATTEMPTS/$MAX_ATTEMPTS)"
-            sleep 30
+            sleep 60
           done
 
       - name: Copy docker-compose file to server
