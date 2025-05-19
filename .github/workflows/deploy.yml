@@ -68,6 +68,7 @@ jobs:
       - name: Get release tag
         id: get_tag
         run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
       - name: Update image tag and deploy
         uses: appleboy/ssh-action@v1.2.2
         with:
