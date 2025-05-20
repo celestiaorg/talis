@@ -211,7 +211,7 @@ To create a new user:
 createUserParams := handlers.CreateUserParams{
     Username: "newuser",
     Email:    "newuser@example.com",
-    Role:     1, // Role level (e.g., 1 for regular user, higher for admin)
+    // Role is not implemented yet
 }
 userResponse, err := apiClient.CreateUser(context.Background(), createUserParams)
 if err != nil {
@@ -391,8 +391,6 @@ instanceRequests := []types.InstanceRequest{
                 Name:       "data-volume",
                 SizeGB:     50,
                 MountPoint: "/mnt/data",
-                Region:     "nyc3", // Usually same as instance region
-                FileSystem: "ext4", // Optional: filesystem type
             },
         },
     },
