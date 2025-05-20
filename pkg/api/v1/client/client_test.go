@@ -1,3 +1,13 @@
+// Package client provides unit tests for the Talis API client.
+//
+// These tests verify the client's functionality by testing:
+// - Client creation and configuration
+// - HTTP request/response handling
+// - Error handling
+// - Parameter conversion
+//
+// The tests use httptest to create a mock server that simulates the Talis API,
+// allowing the client to be tested without requiring an actual API server.
 package client
 
 import (
@@ -20,13 +30,21 @@ import (
 
 // Define status variables used in tests
 // var pendingStatus = models.InstanceStatusPending // REMOVED - Unused
+
+// invalidInstanceStatus represents an invalid instance status value used for testing error handling.
 var invalidInstanceStatus = models.InstanceStatus(999)
 
-// Helper to get pointer to InstanceStatus (needed for tests)
+// instanceStatusPtr is a helper function that returns a pointer to an InstanceStatus value.
+// This is needed for tests that require a pointer to an InstanceStatus.
 func instanceStatusPtr(status models.InstanceStatus) *models.InstanceStatus {
 	return &status
 }
 
+// TestNewClient tests the NewClient function with various configurations.
+// It verifies:
+// - Default options are applied when nil options are provided
+// - Custom options are properly applied
+// - Invalid base URLs are properly rejected
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -94,8 +112,13 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
+// setupTestServer creates a mock HTTP server for testing the client.
+// It provides several endpoints that simulate different API responses:
+// - /success: Returns a successful JSON response
+// - /error: Returns a 400 Bad Request error
+// - /invalid-json: Returns malformed JSON to test error handling
+// - Any other path: Returns a 404 Not Found error
 func setupTestServer() *httptest.Server {
-	// Create a test server
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/success":
@@ -113,6 +136,12 @@ func setupTestServer() *httptest.Server {
 	}))
 }
 
+// TestAPIClient_doRequest tests the doRequest method of the APIClient.
+// It verifies the client correctly:
+// - Processes successful responses and unmarshals JSON data
+// - Handles HTTP error responses (4xx, 5xx status codes)
+// - Handles malformed JSON responses
+// - Handles 404 Not Found responses
 func TestAPIClient_doRequest(t *testing.T) {
 	// Create a test server
 	server := setupTestServer()
@@ -183,6 +212,12 @@ func TestAPIClient_doRequest(t *testing.T) {
 	})
 }
 
+// TestAPIClient_createAgent tests the createAgent method of the APIClient.
+// It verifies the client correctly:
+// - Creates agents for valid HTTP methods
+// - Rejects invalid HTTP methods
+// - Properly attaches request bodies
+// - Respects context deadlines
 func TestAPIClient_createAgent(t *testing.T) {
 	client, err := NewClient(&Options{
 		BaseURL: "http://example.com",
@@ -223,6 +258,13 @@ func TestAPIClient_createAgent(t *testing.T) {
 	})
 }
 
+// TestGetQueryParams tests the getQueryParams helper function.
+// It verifies the function correctly:
+// - Handles nil and empty ListOptions
+// - Converts pagination parameters (limit, offset)
+// - Handles boolean flags (include_deleted)
+// - Converts enum values (StatusFilter, InstanceStatus)
+// - Properly validates and rejects invalid enum values
 func TestGetQueryParams(t *testing.T) {
 	tests := []struct {
 		name    string
