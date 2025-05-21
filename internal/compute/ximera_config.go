@@ -9,7 +9,7 @@ import (
 )
 
 // InitXimeraConfig initializes the configuration from environment variables
-func InitXimeraConfig() (*computeTypes.Configuration, error) {
+func InitXimeraConfig() (*computeTypes.XimeraConfiguration, error) {
 	apiURL := os.Getenv("XIMERA_API_URL")
 	apiToken := os.Getenv("XIMERA_API_TOKEN")
 	userIDStr := os.Getenv("XIMERA_USER_ID")
@@ -60,7 +60,7 @@ func InitXimeraConfig() (*computeTypes.Configuration, error) {
 		}
 	}
 
-	config := &computeTypes.Configuration{
+	config := &computeTypes.XimeraConfiguration{
 		APIURL:       apiURL,
 		APIToken:     apiToken,
 		UserID:       userID,

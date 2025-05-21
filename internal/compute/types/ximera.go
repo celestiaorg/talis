@@ -4,8 +4,8 @@ import (
 	"fmt"
 )
 
-// Configuration holds the API configuration
-type Configuration struct {
+// XimeraConfiguration holds the API configuration
+type XimeraConfiguration struct {
 	APIURL       string
 	APIToken     string
 	UserID       int
@@ -13,8 +13,8 @@ type Configuration struct {
 	PackageID    int // Default package ID to use when creating servers
 }
 
-// Validate validates the Configuration struct
-func (c *Configuration) Validate() error {
+// Validate validates the XimeraConfiguration struct
+func (c *XimeraConfiguration) Validate() error {
 	if c.APIURL == "" {
 		return fmt.Errorf("API URL cannot be empty")
 	}
@@ -24,8 +24,8 @@ func (c *Configuration) Validate() error {
 	return nil
 }
 
-// ServerCreateRequest represents the request to create a server
-type ServerCreateRequest struct {
+// XimeraServerCreateRequest represents the request to create a server
+type XimeraServerCreateRequest struct {
 	PackageID    int    `json:"packageId"`
 	UserID       int    `json:"userId"`
 	HypervisorID int    `json:"hypervisorId"`
@@ -37,8 +37,8 @@ type ServerCreateRequest struct {
 	CPUCores     int    `json:"cpuCores,omitempty"`
 }
 
-// Validate validates the ServerCreateRequest struct
-func (s *ServerCreateRequest) Validate() error {
+// Validate validates the XimeraServerCreateRequest struct
+func (s *XimeraServerCreateRequest) Validate() error {
 	if s.PackageID <= 0 {
 		return fmt.Errorf("package ID must be positive")
 	}
@@ -51,8 +51,8 @@ func (s *ServerCreateRequest) Validate() error {
 	return nil
 }
 
-// ServerConfig represents a server configuration in the batch file
-type ServerConfig struct {
+// XimeraServerConfig represents a server configuration in the batch file
+type XimeraServerConfig struct {
 	Name       string `json:"name"`
 	Package    int    `json:"package"`
 	Hypervisor int    `json:"hypervisor"`
@@ -66,8 +66,8 @@ type ServerConfig struct {
 	Delete     bool   `json:"delete,omitempty"`
 }
 
-// Validate validates the ServerConfig struct
-func (s *ServerConfig) Validate() error {
+// Validate validates the XimeraServerConfig struct
+func (s *XimeraServerConfig) Validate() error {
 	if s.Name == "" {
 		return fmt.Errorf("server name cannot be empty")
 	}
@@ -92,26 +92,26 @@ func (s *ServerConfig) Validate() error {
 	return nil
 }
 
-// ServerBuildRequest represents the request to build a server
-type ServerBuildRequest struct {
+// XimeraServerBuildRequest represents the request to build a server
+type XimeraServerBuildRequest struct {
 	OperatingSystemID int    `json:"operatingSystemId"`
 	Name              string `json:"name,omitempty"`
 	Hostname          string `json:"hostname,omitempty"`
 	SSHKeys           []int  `json:"sshKeys,omitempty"`
 }
 
-// Validate validates the ServerBuildRequest struct
-func (s *ServerBuildRequest) Validate() error {
+// Validate validates the XimeraServerBuildRequest struct
+func (s *XimeraServerBuildRequest) Validate() error {
 	if s.OperatingSystemID <= 0 {
 		return fmt.Errorf("operating system ID must be positive")
 	}
 	return nil
 }
 
-// ServerResponse represents the response from the API
+// XimeraServerResponse represents the response from the API
 // Refactored to include nested structs for network and interfaces
 // so that the public IP can be unmarshalled directly.
-type ServerResponse struct {
+type XimeraServerResponse struct {
 	Data struct {
 		ID               int    `json:"id"`
 		OwnerID          int    `json:"ownerId"`
@@ -135,17 +135,17 @@ type ServerResponse struct {
 	} `json:"data"`
 }
 
-// TemplateGroup represents a group of templates in the API response
-type TemplateGroup struct {
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	Icon        string     `json:"icon"`
-	Templates   []Template `json:"templates"`
-	ID          int        `json:"id"`
+// XimeraTemplateGroup represents a group of templates in the API response
+type XimeraTemplateGroup struct {
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Icon        string           `json:"icon"`
+	Templates   []XimeraTemplate `json:"templates"`
+	ID          int              `json:"id"`
 }
 
-// Template represents an OS template in the API response
-type Template struct {
+// XimeraTemplate represents an OS template in the API response
+type XimeraTemplate struct {
 	ID          int    `json:"id"`          // Unique identifier for the template
 	Name        string `json:"name"`        // Name of the OS template
 	Version     string `json:"version"`     // Version of the OS
@@ -161,8 +161,8 @@ type Template struct {
 	Type        string `json:"type"`        // Template type identifier
 }
 
-// Validate validates the Template struct
-func (t *Template) Validate() error {
+// Validate validates the XimeraTemplate struct
+func (t *XimeraTemplate) Validate() error {
 	if t.ID <= 0 {
 		return fmt.Errorf("template ID must be positive")
 	}
@@ -172,13 +172,13 @@ func (t *Template) Validate() error {
 	return nil
 }
 
-// TemplatesResponse represents the response from the API for OS templates
-type TemplatesResponse struct {
-	Data []TemplateGroup `json:"data"`
+// XimeraTemplatesResponse represents the response from the API for OS templates
+type XimeraTemplatesResponse struct {
+	Data []XimeraTemplateGroup `json:"data"`
 }
 
-// ServersListResponse represents the response from listing servers
-type ServersListResponse struct {
+// XimeraServersListResponse represents the response from listing servers
+type XimeraServersListResponse struct {
 	Data []struct {
 		ID           int    `json:"id"`
 		OwnerID      int    `json:"ownerId"`

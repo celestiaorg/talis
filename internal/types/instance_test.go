@@ -118,8 +118,32 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			errMsg:  "region is required",
 		},
 		{
-			name:    "Error: missing size",
+			name:    "Error: missing size, memory, and cpu",
 			request: func() InstanceRequest { r := baseReq; r.Size = ""; return r }(),
+			wantErr: true,
+			errMsg:  "either size, or both memory and cpu, must be provided",
+		},
+		{
+			name: "Error: only memory provided (without cpu)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Size = ""
+				r.Memory = 2048
+				r.CPU = 0
+				return r
+			}(),
+			wantErr: true,
+			errMsg:  "either size, or both memory and cpu, must be provided",
+		},
+		{
+			name: "Error: only cpu provided (without memory)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Size = ""
+				r.Memory = 0
+				r.CPU = 2
+				return r
+			}(),
 			wantErr: true,
 			errMsg:  "either size, or both memory and cpu, must be provided",
 		},
@@ -243,6 +267,27 @@ func TestInstanceRequest_Validate(t *testing.T) {
 		},
 
 		// --- Valid Cases --- //
+		{
+			name: "Valid: Request with memory and cpu (no size)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Size = ""
+				r.Memory = 2048
+				r.CPU = 2
+				return r
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "Valid: Request with size only (explicit test)",
+			request: func() InstanceRequest {
+				r := baseReq
+				r.Memory = 0
+				r.CPU = 0
+				return r
+			}(),
+			wantErr: false,
+		},
 		{
 			name: "Valid: Minimal request without payload (provision=false)",
 			request: func() InstanceRequest {

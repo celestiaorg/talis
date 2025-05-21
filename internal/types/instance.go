@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/validation"
 )
 
 const maxPayloadSize = 2 * 1024 * 1024 // 2MB
@@ -66,6 +66,26 @@ type DeleteInstancesRequest struct {
 	InstanceIDs []uint `json:"instance_ids" validate:"required,min=1"` // Instances to delete
 }
 
+// GetMemory returns the memory value for validation
+func (i *InstanceRequest) GetMemory() int {
+	return i.Memory
+}
+
+// GetCPU returns the CPU value for validation
+func (i *InstanceRequest) GetCPU() int {
+	return i.CPU
+}
+
+// GetImage returns the Image value for validation
+func (i *InstanceRequest) GetImage() string {
+	return i.Image
+}
+
+// GetSSHKeyName returns the SSHKeyName value for validation
+func (i *InstanceRequest) GetSSHKeyName() string {
+	return i.SSHKeyName
+}
+
 // Validate validates the instance configuration
 func (i *InstanceRequest) Validate() error {
 	// Validate Metadata
@@ -103,19 +123,8 @@ func (i *InstanceRequest) Validate() error {
 	}
 	// Ximera-specific validation
 	if i.Provider == "ximera" {
-		if i.Memory <= 0 {
-			return fmt.Errorf("memory is required and must be > 0 for Ximera")
-		}
-		if i.CPU <= 0 {
-			return fmt.Errorf("cpu is required and must be > 0 for Ximera")
-		}
-		// Validate osID (Image) is an integer
-		if _, err := strconv.Atoi(i.Image); err != nil {
-			return fmt.Errorf("image (osID) must be a valid integer for Ximera: %w", err)
-		}
-		// Validate sshKeyID (SSHKeyName) is an integer
-		if _, err := strconv.Atoi(i.SSHKeyName); err != nil {
-			return fmt.Errorf("ssh_key_name (sshKeyID) must be a valid integer for Ximera: %w", err)
+		if err := validation.XimeraInstanceRequest(i); err != nil {
+			return err
 		}
 	}
 	// Validate volumes if present
