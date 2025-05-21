@@ -32,12 +32,16 @@ type InstanceRequest struct {
 
 	// User Defined Configs
 	ProjectName       string         `json:"project_name"`
+	Name              string         `json:"name,omitempty"`            // Optional name for the instance(s). If multiple instances, will be suffixed with index
 	SSHKeyName        string         `json:"ssh_key_name"`              // Name of the SSH key to use
 	NumberOfInstances int            `json:"number_of_instances"`       // Number of instances to create
 	Provision         bool           `json:"provision"`                 // Whether to run Ansible provisioning
 	PayloadPath       string         `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
 	ExecutePayload    bool           `json:"execute_payload,omitempty"` // Whether to execute the payload after copying
 	Volumes           []VolumeConfig `json:"volumes"`                   // Optional volumes to attach
+
+	// Internal Configs - Used during processing
+	InstanceIndex int `json:"instance_index,omitempty"` // Index of this instance when creating multiple instances
 
 	// Talis Server Configs - Optional
 	SSHKeyType string `json:"ssh_key_type,omitempty"` // Type of the private SSH key for Ansible (e.g., "rsa", "ed25519"). Defaults to "rsa".

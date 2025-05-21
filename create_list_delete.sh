@@ -106,9 +106,18 @@ if [ "$CREATE" = false ] && [ "$DELETE" = false ] && [ "$LIST" = false ]; then
     exit 1
 fi
 
-API_URL="http://${HOST_IP}:8000/talis/api/v1/instances"
-PROJECT_URL="http://${HOST_IP}:8000/talis/api/v1"
-LIST_URL="http://${HOST_IP}:8000/talis/api/v1/instances/all-metadata"
+# Define API URLs based on HOST_IP
+if [ "$HOST_IP" = "localhost" ]; then
+    echo "Using localhost API endpoints (port 8080)"
+    API_URL="http://${HOST_IP}:8080/api/v1/instances"
+    PROJECT_URL="http://${HOST_IP}:8080/api/v1"
+    LIST_URL="http://${HOST_IP}:8080/api/v1/instances/all-metadata"
+else
+    echo "Using public API endpoints (port 8000 with /talis prefix)"
+    API_URL="http://${HOST_IP}:8000/talis/api/v1/instances"
+    PROJECT_URL="http://${HOST_IP}:8000/talis/api/v1"
+    LIST_URL="http://${HOST_IP}:8000/talis/api/v1/instances/all-metadata"
+fi
 
 # Function to create project
 create_project() {
@@ -150,7 +159,7 @@ create_instances() {
     {
         "owner_id": 1,
         "provider": "do",
-        "number_of_instances": 1,
+        "number_of_instances": '$NUM_INSTANCES',
         "provision": true,
         "region": "nyc3",
         "size": "s-1vcpu-1gb",
@@ -159,6 +168,7 @@ create_instances() {
         "ssh_key_name": "talis-dev-server",
         "ssh_key_type": "ed25519",
         "project_name": "%s",
+        "name": "%s-node",
         "volumes": [
             {
                 "name": "talis-volume",
@@ -173,7 +183,7 @@ create_instances() {
     declare -a INSTANCE_IDS=()
     
     for i in $(seq 1 $NUM_INSTANCES); do
-        CURRENT_PAYLOAD=$(printf "$PAYLOAD_TEMPLATE" "$PROJECT_NAME")
+        CURRENT_PAYLOAD=$(printf "$PAYLOAD_TEMPLATE" "$PROJECT_NAME" "$PROJECT_NAME")
         
         echo "Creating instance $i with payload:"
         echo "$CURRENT_PAYLOAD"

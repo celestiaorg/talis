@@ -61,6 +61,14 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			// Create new instance request for task payload
 			req := i
 
+			// Store the instance index in the request for proper naming
+			// when creating multiple instances with the same name
+			if req.Name != "" && req.NumberOfInstances > 1 {
+				// Add the instance index to the request so the provider
+				// can use it to generate the correct name
+				req.InstanceIndex = idx
+			}
+
 			// Marshal the request to JSON
 			payload, err := json.Marshal(req)
 			if err != nil {
