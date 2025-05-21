@@ -1,3 +1,17 @@
+// Package api_test provides integration tests for the Talis API client.
+//
+// Unlike the unit tests in the client package, these tests interact with a real
+// (or realistically mocked) API server to verify the client's functionality in
+// an end-to-end manner. The tests cover:
+//
+// - Admin operations (listing instances, metadata)
+// - Health check functionality
+// - Instance operations (creating, listing, deleting)
+// - Task operations (listing tasks by instance ID)
+//
+// These tests use the test.Suite helper to set up a test environment with
+// a running API server and database, allowing for comprehensive testing of
+// the client's interaction with the actual API.
 package api_test
 
 import (
@@ -14,11 +28,13 @@ import (
 	"github.com/celestiaorg/talis/test"
 )
 
+// Test data for instance creation requests
 var defaultInstancesRequest = []types.InstanceRequest{
 	defaultInstanceRequest1,
 	defaultInstanceRequest2,
 }
 
+// defaultInstanceRequest1 defines the first test instance configuration
 var defaultInstanceRequest1 = types.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
 	OwnerID:           models.AdminID,
@@ -37,6 +53,7 @@ var defaultInstanceRequest1 = types.InstanceRequest{
 	},
 }
 
+// defaultInstanceRequest2 defines the second test instance configuration
 var defaultInstanceRequest2 = types.InstanceRequest{
 	Provider:          models.ProviderID("digitalocean-mock"),
 	OwnerID:           models.AdminID,
@@ -55,11 +72,14 @@ var defaultInstanceRequest2 = types.InstanceRequest{
 	},
 }
 
+// defaultUser1 defines test user parameters with complete information
 var defaultUser1 = handlers.CreateUserParams{
 	Username: "user1",
 	Email:    "user1@example.com",
 	Role:     1,
 }
+
+// defaultUser2 defines minimal test user parameters
 var defaultUser2 = handlers.CreateUserParams{
 	Username: "user12",
 }
@@ -125,6 +145,9 @@ func TestClientAdminMethods(t *testing.T) {
 	require.Equal(t, defaultInstanceRequest2.Size, instances[1].Size)
 }
 
+// TestClientHealthCheck verifies the HealthCheck method of the API client.
+// It ensures that the client can successfully connect to the API and receive
+// a valid health check response.
 func TestClientHealthCheck(t *testing.T) {
 	suite := test.NewSuite(t)
 	defer suite.Cleanup()
@@ -135,6 +158,14 @@ func TestClientHealthCheck(t *testing.T) {
 	require.NotNil(t, healthCheck)
 }
 
+// TestClientInstanceMethods tests the instance-related methods of the API client.
+// This test verifies the full lifecycle of instances:
+// 1. Creating instances in a project
+// 2. Listing instances and verifying their properties
+// 3. Getting instance metadata
+// 4. Retrieving public IP addresses
+// 5. Deleting instances and verifying they are terminated
+// 6. Verifying that terminated instances don't appear in default listings
 func TestClientInstanceMethods(t *testing.T) {
 	suite := test.NewSuite(t)
 	defer suite.Cleanup()
@@ -243,6 +274,14 @@ func TestClientInstanceMethods(t *testing.T) {
 	require.Empty(t, instanceList, "expected no non-terminated instances")
 }
 
+// TestClient_ListTasksByInstanceID tests the ListTasksByInstanceID method of the API client.
+// This comprehensive test verifies:
+// 1. Creating instances and their associated tasks
+// 2. Retrieving all tasks for a specific instance
+// 3. Filtering tasks by action type (create_instances, terminate_instances)
+// 4. Pagination of task results
+// 5. Handling of non-existent instance IDs
+// 6. Proper ordering of tasks by creation time
 func TestClient_ListTasksByInstanceID(t *testing.T) {
 	suite := test.NewSuite(t)
 	defer suite.Cleanup()

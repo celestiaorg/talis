@@ -11,11 +11,91 @@ on:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/')) ||
+      github.event_name == 'release'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        if: github.event_name == 'release'
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
+
+      - name: Get release tag
+        id: get_tag
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            # For release events, get the tag from the release
+            echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # For direct tag pushes
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            # For workflow runs, get the tag from the triggering workflow
+            echo "TAG=${GITHUB_EVENT_WORKFLOW_RUN_HEAD_BRANCH#refs/tags/}" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            # For manual triggers, we need to get the latest tag
+            LATEST_TAG=$(git describe --tags --abbrev=0)
+            echo "TAG=$LATEST_TAG" >> $GITHUB_OUTPUT
+          else
+            echo "[ERROR] Invalid trigger: $GITHUB_EVENT_NAME"
+            exit 1
+          fi
+
+      - name: Wait for Docker Build to complete
+        if: github.event_name == 'release'
+        run: |
+          # Use the tag from the previous step
+          TAG=${{ steps.get_tag.outputs.TAG }}
+          echo "[INFO] Waiting for Docker Build workflow to complete for tag: $TAG"
+
+          # Initialize counter
+          ATTEMPTS=0
+          MAX_ATTEMPTS=25
+
+          # Wait for the Docker Build workflow to complete
+          while true; do
+            # Increment attempt counter
+            ATTEMPTS=$((ATTEMPTS + 1))
+            # Get the most recent workflow run for Docker Build & Publish
+
+            # First, get the workflow ID
+            WORKFLOW_ID=$(gh api repos/${{ github.repository }}/actions/workflows --jq '.workflows[] | select(.name == "Docker Build & Publish") | .id')
+            if [ -z "$WORKFLOW_ID" ]; then
+              echo "[ERROR] Could not find workflow 'Docker Build & Publish'"
+              exit 1
+            fi
+            # Then get the most recent run for this workflow
+            RUNS=$(gh api repos/${{ github.repository }}/actions/workflows/$WORKFLOW_ID/runs --jq '.workflow_runs[0]')
+
+            RUN_CONCLUSION=$(echo $RUNS | jq -r '.conclusion')
+            RUN_HEAD_REF=$(echo $RUNS | jq -r '.head_branch')
+
+            if [ "$RUN_CONCLUSION" = "success" ] && [ "$RUN_HEAD_REF" = "$TAG" ]; then
+              echo "[INFO] Docker Build workflow completed successfully for tag: $TAG"
+              break
+            elif [ "$RUN_CONCLUSION" = "failure" ] || [ "$RUN_CONCLUSION" = "cancelled" ]; then
+              echo "[ERROR] Docker Build workflow failed or was cancelled for tag: $TAG"
+              exit 1
+            elif [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
+              echo "[ERROR] Timed out waiting for Docker Build workflow after $MAX_ATTEMPTS attempts (5 minutes)"
+              exit 1
+            fi
+
+            echo "[INFO] Waiting for Docker Build workflow to complete... (Attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+            sleep 60
+          done
 
       - name: Copy docker-compose file to server
         uses: appleboy/scp-action@v1.0.0
@@ -26,9 +106,6 @@ jobs:
           source: "docker-compose.yml"
           target: ${{ secrets.DEPLOYMENT_DIR }}
 
-      - name: Get release tag
-        id: get_tag
-        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
       - name: Update image tag and deploy
         uses: appleboy/ssh-action@v1.2.2
         with:
