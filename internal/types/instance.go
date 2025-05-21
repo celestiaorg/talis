@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/celestiaorg/talis/internal/db/models"
+	"github.com/celestiaorg/talis/internal/validation"
 )
 
 const maxPayloadSize = 2 * 1024 * 1024 // 2MB
@@ -20,7 +21,9 @@ type InstanceRequest struct {
 	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
 	Provider models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
 	Region   string            `json:"region"`   // Region where instances will be created
-	Size     string            `json:"size"`     // Instance size/type
+	Size     string            `json:"size"`     // Instance size/type (used for cloud provider with predefined sizes)
+	Memory   int               `json:"memory"`   // Memory in MB (used for Ximera to allow custom memory)
+	CPU      int               `json:"cpu"`      // CPU cores (used for Ximera to allow custom CPU)
 	Image    string            `json:"image"`    // OS image to use
 	Tags     []string          `json:"tags"`     // Tags to apply to instances
 
@@ -63,6 +66,26 @@ type DeleteInstancesRequest struct {
 	InstanceIDs []uint `json:"instance_ids" validate:"required,min=1"` // Instances to delete
 }
 
+// GetMemory returns the memory value for validation
+func (i *InstanceRequest) GetMemory() int {
+	return i.Memory
+}
+
+// GetCPU returns the CPU value for validation
+func (i *InstanceRequest) GetCPU() int {
+	return i.CPU
+}
+
+// GetImage returns the Image value for validation
+func (i *InstanceRequest) GetImage() string {
+	return i.Image
+}
+
+// GetSSHKeyName returns the SSHKeyName value for validation
+func (i *InstanceRequest) GetSSHKeyName() string {
+	return i.SSHKeyName
+}
+
 // Validate validates the instance configuration
 func (i *InstanceRequest) Validate() error {
 	// Validate Metadata
@@ -83,8 +106,8 @@ func (i *InstanceRequest) Validate() error {
 	if i.Region == "" {
 		return fmt.Errorf("region is required")
 	}
-	if i.Size == "" {
-		return fmt.Errorf("size is required")
+	if i.Size == "" && (i.Memory == 0 || i.CPU == 0) {
+		return fmt.Errorf("either size, or both memory and cpu, must be provided")
 	}
 	if i.Image == "" {
 		return fmt.Errorf("image is required")
@@ -97,6 +120,12 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if len(i.Volumes) == 0 {
 		return fmt.Errorf("at least one volume configuration is required")
+	}
+	// Ximera-specific validation
+	if i.Provider == "ximera" {
+		if err := validation.XimeraInstanceRequest(i); err != nil {
+			return err
+		}
 	}
 	// Validate volumes if present
 	for j := range i.Volumes {
