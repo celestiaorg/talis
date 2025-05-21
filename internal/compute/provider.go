@@ -39,7 +39,7 @@ type Provisioner interface {
 	CreateInventory(instance *types.InstanceRequest, sshKeyPath string) (string, error)
 
 	// RunAnsiblePlaybook runs the Ansible playbook
-	RunAnsiblePlaybook(inventoryName string) error
+	RunAnsiblePlaybook(inventoryName string, tags []string) error
 }
 
 // NewComputeProvider creates a new compute provider based on the provider name
@@ -47,6 +47,8 @@ func NewComputeProvider(provider models.ProviderID) (Provider, error) {
 	switch provider {
 	case models.ProviderDO:
 		return NewDigitalOceanProvider()
+	case models.ProviderXimera:
+		return NewXimeraProvider()
 	case "do-mock", "digitalocean-mock":
 		return mocks.NewMockDOClient(), nil
 	default:
