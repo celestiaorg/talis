@@ -61,9 +61,11 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			// Create new instance request for task payload
 			req := i
 
-			// Store the instance index in the request for proper naming
-			// when creating multiple instances with the same name
+			// Construct the actual instance name
+			instanceName := req.Name
 			if req.Name != "" && req.NumberOfInstances > 1 {
+				// Add the instance index to create unique names for multiple instances
+				instanceName = fmt.Sprintf("%s-%d", req.Name, idx+1)
 				// Add the instance index to the request so the provider
 				// can use it to generate the correct name
 				req.InstanceIndex = idx
@@ -92,6 +94,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			instancesToCreate = append(instancesToCreate, &models.Instance{
 				OwnerID:       req.OwnerID,
 				ProjectID:     project.ID,
+				Name:          instanceName,
 				ProviderID:    req.Provider,
 				Status:        models.InstanceStatusPending,
 				Region:        req.Region,
