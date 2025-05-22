@@ -1,8 +1,5 @@
 {
   "owner_id": 1,
   "project_name": "my-project",
-  "instance_names": [
-    "talis-node-0",
-    "talis-node-1"
-  ]
+  "instance_ids": [123, 456]
 }
