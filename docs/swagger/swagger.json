@@ -6,8 +6,8 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
-    "basePath": "/api/v1",
+    "host": "localhost:8000",
+    "basePath": "/talis/api/v1",
     "paths": {
         "/": {
             "post": {
@@ -454,6 +454,9 @@
                 "image": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "owner_id": {
                     "type": "integer"
                 },
@@ -596,6 +599,7 @@
                 "linode",
                 "hetzner",
                 "ovh",
+                "ximera",
                 "do-mock",
                 "digitalocean-mock",
                 "mock"
@@ -610,6 +614,7 @@
                 "ProviderLinode",
                 "ProviderHetzner",
                 "ProviderOVH",
+                "ProviderXimera",
                 "ProviderDOMock1",
                 "ProviderDOMock2",
                 "ProviderMock3"
@@ -876,6 +881,10 @@
                     "description": "Internal Configs - Set by the Talis Server",
                     "type": "string"
                 },
+                "cpu": {
+                    "description": "CPU cores (used for Ximera to allow custom CPU)",
+                    "type": "integer"
+                },
                 "execute_payload": {
                     "description": "Whether to execute the payload after copying",
                     "type": "boolean"
@@ -888,9 +897,21 @@
                     "description": "DB Model Data - Internally set during creation",
                     "type": "integer"
                 },
+                "instance_index": {
+                    "description": "Internal Configs - Used during processing",
+                    "type": "integer"
+                },
                 "last_task_id": {
                     "description": "ID of the last task",
                     "type": "integer"
+                },
+                "memory": {
+                    "description": "Memory in MB (used for Ximera to allow custom memory)",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Optional name for the instance(s). If multiple instances, will be suffixed with index",
+                    "type": "string"
                 },
                 "number_of_instances": {
                     "description": "Number of instances to create",
@@ -933,7 +954,7 @@
                     "type": "string"
                 },
                 "size": {
-                    "description": "Instance size/type",
+                    "description": "Instance size/type (used for cloud provider with predefined sizes)",
                     "type": "string"
                 },
                 "ssh_key_name": {
@@ -1239,6 +1260,13 @@
                     "type": "boolean"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
         }
     }
 }
