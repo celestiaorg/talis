@@ -2,8 +2,11 @@
 // @title Talis API
 // @version 1.0
 // @description API for Talis - Web3 infrastructure management service
-// @host localhost:8080
-// @BasePath /api/v1
+// @host localhost:8000
+// @BasePath /talis/api/v1
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
 package main
 
 import (
@@ -46,6 +49,7 @@ func main() {
 	// Set dynamic Swagger host from environment variable
 	if apiHost := os.Getenv("API_HOST"); apiHost != "" {
 		swagger.SwaggerInfo.Host = apiHost
+		swagger.SwaggerInfo.BasePath = "/talis/api/v1" // Ensure base path is set correctly even with dynamic host
 		log.Infof("Swagger host set dynamically to: %s", apiHost)
 	} else {
 		log.Info("API_HOST environment variable not set, using default Swagger host from annotations.")
