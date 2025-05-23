@@ -28,18 +28,29 @@ func RegisterSwaggerRoutes(app *fiber.App) {
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
-		defer content.Close()
 
 		// Read the file content
 		fileInfo, err := content.Stat()
 		if err != nil {
+			closeErr := content.Close()
+			if closeErr != nil {
+				return c.Status(fiber.StatusInternalServerError).SendString("failed to close file: " + closeErr.Error())
+			}
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 
 		buffer := make([]byte, fileInfo.Size())
 		_, err = content.Read(buffer)
 		if err != nil {
+			closeErr := content.Close()
+			if closeErr != nil {
+				return c.Status(fiber.StatusInternalServerError).SendString("failed to close file: " + closeErr.Error())
+			}
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
+
+		if err := content.Close(); err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString("failed to close file: " + err.Error())
 		}
 
 		c.Set("Content-Type", "text/html")
