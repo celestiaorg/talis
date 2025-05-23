@@ -42,10 +42,13 @@ Swagger annotations are special comments in your Go code that provide informatio
 // @version 1.0
 // @description API for Talis - Celestia's infrastructure management service
 // @host localhost:8080
-// @BasePath /api/v1
+// @BasePath /talis/api/v1
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
 ```
 
-Note: The `@host` value can be overridden at runtime by setting the `API_HOST` environment variable. This allows you to dynamically set the host based on the deployment environment (e.g., `localhost:8080` for local development, `api.example.com` for production).
+Note: The `@host` value can be overridden at runtime by setting the `API_HOST` environment variable, and the `@BasePath` can be overridden by setting the `API_BASE_PATH` environment variable. This allows you to dynamically set both the host and base path based on the deployment environment (e.g., `localhost:8080` for local development, `api.example.com` for production).
 
 ### Endpoint Documentation
 
