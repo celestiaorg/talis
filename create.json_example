@@ -2,6 +2,7 @@
     {
         "owner_id": 1,
         "project_name": "my-project",
+        "name": "my-instance",
         "provider": "do",
         "number_of_instances": 1,
         "provision": true,

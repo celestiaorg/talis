@@ -17,6 +17,7 @@ const (
 	InstanceDeletedField   = "deleted"
 	InstanceStatusField    = "status"
 	InstancePublicIPField  = "public_ip"
+	InstanceNameField      = "name"
 )
 
 // InstanceStatus represents the current state of an instance
@@ -64,6 +65,7 @@ type Instance struct {
 	gorm.Model
 	OwnerID            uint           `json:"owner_id" gorm:"not null;index"`
 	ProjectID          uint           `json:"project_id" gorm:"not null;index"`
+	Name               string         `json:"name" gorm:"varchar(255);index"`
 	ProviderID         ProviderID     `json:"provider_id" gorm:"not null"`
 	ProviderInstanceID int            `json:"provider_instance_id" gorm:"not null"`
 	PublicIP           string         `json:"public_ip" gorm:"varchar(100)"`

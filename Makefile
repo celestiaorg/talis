@@ -209,13 +209,14 @@ kong-setup:
 	  --data "name=api" \
 	  --data "url=http://api:8080"
 
-	# 2. Create the route (for example, for /talis)
+	# 2. Create the route for /talis
 	curl -i -X POST http://localhost:8001/services/api/routes \
 	  --data "paths[]=/talis" \
-	  --data "strip_path=true"
+	  --data "strip_path=true" \
+	  --data "name=talis-route"
 
-	# 3. Add the key-auth plugin to the service
-	curl -i -X POST http://localhost:8001/services/api/plugins \
+	# 3. Add the key-auth plugin specifically to the /talis route
+	curl -i -X POST http://localhost:8001/routes/talis-route/plugins \
 	  --data "name=key-auth"
 
 	# 4. Create a consumer

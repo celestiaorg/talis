@@ -295,7 +295,10 @@ func (p *DigitalOceanProvider) CreateInstance(
 		return fmt.Errorf("failed to get SSH key: %w", err)
 	}
 
-	// For single instance, use the name as is
+	// Create the droplet with the appropriate instance index
+	// Note: The service layer only calls this method once per instance,
+	// so we always use index 0 here. The instance index is used by the
+	// createDropletRequest method to generate the appropriate name.
 	return p.createSingleDroplet(ctx, config, sshKeyID)
 }
 
@@ -304,8 +307,20 @@ func (p *DigitalOceanProvider) createDropletRequest(
 	config *talisTypes.InstanceRequest,
 	sshKeyID int,
 ) *godo.DropletCreateRequest {
-	// Generate a name for the DO droplet using ProjectName instead of the removed Name
-	dropletName := fmt.Sprintf("%s-%s", config.ProjectName, generateRandomSuffix())
+	// Generate a name for the DO droplet
+	var dropletName string
+	if config.Name != "" {
+		// If user provided a name and we're creating multiple instances, add index suffix
+		if config.NumberOfInstances > 1 {
+			dropletName = fmt.Sprintf("%s-%d", config.Name, config.InstanceIndex+1)
+		} else {
+			dropletName = config.Name
+		}
+	} else {
+		// Fallback to project name with random suffix if no name provided
+		dropletName = fmt.Sprintf("%s-%s", config.ProjectName, generateRandomSuffix())
+	}
+
 	return &godo.DropletCreateRequest{
 		Name:   dropletName,
 		Region: config.Region,
