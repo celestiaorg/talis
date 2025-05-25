@@ -16,6 +16,7 @@ import (
 	"github.com/digitalocean/godo"
 
 	computeTypes "github.com/celestiaorg/talis/internal/compute/types"
+	"github.com/celestiaorg/talis/internal/constants"
 	"github.com/celestiaorg/talis/internal/logger"
 	talisTypes "github.com/celestiaorg/talis/internal/types"
 )
@@ -287,8 +288,8 @@ func (p *DigitalOceanProvider) CreateInstance(
 	logger.Debugf("  Image: %s", config.Image)
 	logger.Debugf("  Number of instances: %d", config.NumberOfInstances)
 
-	// Get SSH key ID
-	sshKeyID, err := p.getSSHKeyID(ctx, config.SSHKeyName)
+	// Get SSH key ID from environment variable
+	sshKeyID, err := p.getSSHKeyID(ctx, "")
 	if err != nil {
 		logger.Errorf("❌ Failed to get SSH key: %v", err)
 		return fmt.Errorf("failed to get SSH key: %w", err)
@@ -410,16 +411,20 @@ fi
 	return script.String()
 }
 
-// getSSHKeyID gets the ID of an SSH key by its name
-func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, keyName string) (int, error) {
+// getSSHKeyID gets the ID of an SSH key from the environment variable
+func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, _ string) (int, error) {
 	if p.doClient == nil {
 		return 0, fmt.Errorf("client not initialized")
 	}
 
-	// If keyName is empty, use the default test key
-	if keyName == "" {
+	// Get SSH key name from environment variable
+	keyName := os.Getenv(constants.EnvTalisSSHKeyName)
+	if keyName != "" {
+		logger.Debugf("🔑 Using SSH key name from environment variable: %s", keyName)
+	} else {
+		// If not set, use the default test key
 		keyName = "test-key"
-		logger.Warnf("🔑 Using default test key: %s", keyName)
+		logger.Warnf("🔑 Environment variable %s not set, using default test key: %s", constants.EnvTalisSSHKeyName, keyName)
 	}
 
 	logger.Debugf("🔑 Looking up SSH key: %s", keyName)

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/constants"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/test/mocks"
 )
@@ -198,14 +199,23 @@ func TestKeyService(t *testing.T) {
 
 // TestDigitalOceanProvider tests the basic provider functionality
 func TestDigitalOceanProvider(t *testing.T) {
-	// Save original env var
+	// Save original env vars
 	originalToken := os.Getenv("DIGITALOCEAN_TOKEN")
+	originalSSHKeyName := os.Getenv(constants.EnvTalisSSHKeyName)
 	defer func() {
 		err := os.Setenv("DIGITALOCEAN_TOKEN", originalToken)
 		if err != nil {
 			t.Logf("Failed to restore DIGITALOCEAN_TOKEN: %v", err)
 		}
+		err = os.Setenv(constants.EnvTalisSSHKeyName, originalSSHKeyName)
+		if err != nil {
+			t.Logf("Failed to restore %s: %v", constants.EnvTalisSSHKeyName, err)
+		}
 	}()
+
+	// Set SSH key name env var for tests
+	err := os.Setenv(constants.EnvTalisSSHKeyName, "test-key")
+	require.NoError(t, err)
 
 	t.Run("ValidToken", func(t *testing.T) {
 		// Set env var for test
@@ -241,7 +251,6 @@ func TestDigitalOceanProvider(t *testing.T) {
 			Region:      "nyc1",
 			Size:        "s-1vcpu-1gb",
 			Image:       "ubuntu-20-04-x64",
-			SSHKeyName:  "test-key",
 		}
 
 		sshKeyID := 12345
@@ -260,13 +269,16 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.NotNil(t, keys)
 		require.NotEmpty(t, keys)
 
+		// Set the SSH key name to match the test key
+		err = os.Setenv(constants.EnvTalisSSHKeyName, keys[0].Name)
+		require.NoError(t, err)
+
 		// Create instance
 		config := types.InstanceRequest{
 			ProjectName: "test-project",
 			Region:      "nyc1",
 			Size:        "s-1vcpu-1gb",
 			Image:       "ubuntu-20-04-x64",
-			SSHKeyName:  keys[0].Name,
 		}
 
 		err = provider.CreateInstance(context.Background(), &config)
@@ -302,12 +314,15 @@ func TestDigitalOceanProvider(t *testing.T) {
 		require.NotNil(t, keys)
 		require.NotEmpty(t, keys)
 
+		// Set the SSH key name to match the test key
+		err = os.Setenv(constants.EnvTalisSSHKeyName, keys[0].Name)
+		require.NoError(t, err)
+
 		config := types.InstanceRequest{
 			ProjectName:       "test-project-ssh",
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
-			SSHKeyName:        keys[0].Name,
 			NumberOfInstances: 1,
 		}
 
@@ -323,16 +338,19 @@ func TestDigitalOceanProvider(t *testing.T) {
 	t.Run("CreateInstance_SSHKey_NotFound", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
+		// Set a non-existent SSH key name
+		err := os.Setenv(constants.EnvTalisSSHKeyName, "not-existing-key")
+		require.NoError(t, err)
+
 		config := types.InstanceRequest{
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
-			SSHKeyName:        "not-existing-key",
 			NumberOfInstances: 1,
 		}
 
 		// Call CreateInstance which internally uses getSSHKeyID
-		err := provider.CreateInstance(context.Background(), &config)
+		err = provider.CreateInstance(context.Background(), &config)
 
 		// Verify results
 		assert.Error(t, err)
@@ -367,7 +385,7 @@ func TestDigitalOceanProvider(t *testing.T) {
 		assert.Contains(t, err.Error(), "client not initialized")
 	})
 
-	t.Run("DeleteInstance_Success", func(t *testing.T) {
+	t.Run("DeleteInstance", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
 		// Call DeleteInstance which internally uses waitForDeletion
@@ -380,16 +398,19 @@ func TestDigitalOceanProvider(t *testing.T) {
 	t.Run("CreateInstance_Success_With_IP", func(t *testing.T) {
 		provider, _ := newTestProvider()
 
+		// Set the SSH key name
+		err := os.Setenv(constants.EnvTalisSSHKeyName, "test-key")
+		require.NoError(t, err)
+
 		config := types.InstanceRequest{
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
-			SSHKeyName:        "test-key",
 			NumberOfInstances: 1,
 		}
 
 		// Call CreateInstance which internally uses waitForIP
-		err := provider.CreateInstance(context.Background(), &config)
+		err = provider.CreateInstance(context.Background(), &config)
 
 		// Verify results
 		assert.NoError(t, err)

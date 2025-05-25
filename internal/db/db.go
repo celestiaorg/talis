@@ -113,5 +113,6 @@ func migrate(db *gorm.DB) error {
 		&models.Project{},
 		&models.Task{},
 		&models.User{},
+		&models.SSHKey{},
 	)
 }

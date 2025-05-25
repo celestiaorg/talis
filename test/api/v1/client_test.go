@@ -16,17 +16,28 @@ package api_test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/celestiaorg/talis/internal/constants"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/types"
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/test"
 )
+
+func init() {
+	// Set environment variable for SSH key name for all tests in this package
+	err := os.Setenv(constants.EnvTalisSSHKeyName, "test-key")
+	if err != nil {
+		// Since we can't use testing.T in init, we'll log the error and continue
+		fmt.Printf("Warning: Failed to set %s: %v\n", constants.EnvTalisSSHKeyName, err)
+	}
+}
 
 // Test data for instance creation requests
 var defaultInstancesRequest = []types.InstanceRequest{
@@ -40,7 +51,6 @@ var defaultInstanceRequest1 = types.InstanceRequest{
 	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
 	ProjectName:       "test-project",
-	SSHKeyName:        "test-key",
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
 	Image:             "ubuntu-20-04-x64",
@@ -59,7 +69,6 @@ var defaultInstanceRequest2 = types.InstanceRequest{
 	OwnerID:           models.AdminID,
 	NumberOfInstances: 1,
 	ProjectName:       "test-project",
-	SSHKeyName:        "test-key",
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
 	Image:             "ubuntu-20-04-x64",
@@ -294,14 +303,14 @@ func TestClient_ListTasksByInstanceID(t *testing.T) {
 	instanceReqs := []types.InstanceRequest{
 		{
 			Provider: models.ProviderID("digitalocean-mock"), OwnerID: models.AdminID, NumberOfInstances: 1,
-			ProjectName: project.Name, SSHKeyName: "test-key-inst1", Region: "sfo3", Size: "s-1vcpu-1gb", Image: "ubuntu-22-04-x64",
+			ProjectName: project.Name, Region: "sfo3", Size: "s-1vcpu-1gb", Image: "ubuntu-22-04-x64",
 			Volumes: []types.VolumeConfig{{
 				Name: "vol-inst1", SizeGB: 5, MountPoint: "/mnt/data", Region: "sfo3", FileSystem: "ext4",
 			}},
 		},
 		{
 			Provider: models.ProviderID("digitalocean-mock"), OwnerID: models.AdminID, NumberOfInstances: 1,
-			ProjectName: project.Name, SSHKeyName: "test-key-inst2", Region: "ams3", Size: "s-2vcpu-2gb", Image: "fedora-38-x64",
+			ProjectName: project.Name, Region: "ams3", Size: "s-2vcpu-2gb", Image: "fedora-38-x64",
 			Volumes: []types.VolumeConfig{{
 				Name: "vol-inst2", SizeGB: 8, MountPoint: "/mnt/data", Region: "ams3", FileSystem: "xfs",
 			}},

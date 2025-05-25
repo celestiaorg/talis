@@ -10,19 +10,29 @@ import (
 	"sync"
 	"time"
 
+	"github.com/celestiaorg/talis/internal/constants"
 	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
 const (
+	// ansibleDir is the base directory for all ansible files
+	ansibleDir = "ansible"
+
 	// ansibleDebug is the verbose mode for ansible
 	//
 	//nolint:unused // Will be used in future implementation
 	ansibleDebug = false
 
 	// pathToPlaybook is the path to the ansible main playbook
-	pathToPlaybook = "ansible/main.yml"
+	pathToPlaybook = ansibleDir + "/main.yml"
+
+	// ansibleKeyPath is the fixed path where the SSH key will be stored
+	ansibleKeyPath = ansibleDir + "/talis_ssh_key"
 )
+
+// keyFileMutex protects access to the SSH key file to prevent race conditions
+var keyFileMutex sync.RWMutex
 
 // AnsibleConfigurator implements the Provisioner interface
 type AnsibleConfigurator struct {
@@ -30,8 +40,6 @@ type AnsibleConfigurator struct {
 	jobID string
 	// instances keeps track of all instances to be configured
 	instances map[string]string
-	// sshKeyPath stores the SSH key path for all instances
-	sshKeyPath string
 	// mutex protects the instances map
 	mutex sync.Mutex
 }
@@ -44,8 +52,61 @@ func NewAnsibleConfigurator(jobID string) *AnsibleConfigurator {
 	}
 }
 
+// GetSSHKeyFromEnv returns the SSH key from the environment variable
+func (a *AnsibleConfigurator) GetSSHKeyFromEnv() string {
+	return os.Getenv(constants.EnvTalisSSHKey)
+}
+
+// EnsureSSHKeyFile ensures the SSH key is written to a file and returns the path
+// If the file already exists with the correct content, it won't be overwritten
+// This function is goroutine-safe and optimized for concurrent reads.
+func (a *AnsibleConfigurator) EnsureSSHKeyFile() (string, error) {
+	// Get key content before acquiring any lock
+	keyContent := a.GetSSHKeyFromEnv()
+	if keyContent == "" {
+		return "", fmt.Errorf("no SSH key found in environment variable %s", constants.EnvTalisSSHKey)
+	}
+
+	// Create ansible directory with secure permissions if it doesn't exist
+	// This is safe to do without locking
+	if err := os.MkdirAll(ansibleDir, 0750); err != nil {
+		return "", fmt.Errorf("failed to create ansible directory: %w", err)
+	}
+
+	// First acquire a read lock to check if the file exists with correct content
+	keyFileMutex.RLock()
+	existingContent, err := os.ReadFile(ansibleKeyPath)
+	if err == nil && string(existingContent) == keyContent {
+		// File exists with correct content, we're done
+		keyFileMutex.RUnlock()
+		logger.Debugf("SSH key file already exists with correct content at %s", ansibleKeyPath)
+		return ansibleKeyPath, nil
+	}
+	// Release the read lock so we can acquire a write lock
+	keyFileMutex.RUnlock()
+
+	// Acquire a write lock for writing the file
+	keyFileMutex.Lock()
+	defer keyFileMutex.Unlock()
+
+	// Check again in case another goroutine wrote the file while we were waiting
+	existingContent, err = os.ReadFile(ansibleKeyPath)
+	if err == nil && string(existingContent) == keyContent {
+		logger.Debugf("SSH key file already exists with correct content at %s", ansibleKeyPath)
+		return ansibleKeyPath, nil
+	}
+
+	// Write the key with secure permissions
+	if err := os.WriteFile(ansibleKeyPath, []byte(keyContent), 0600); err != nil {
+		return "", fmt.Errorf("failed to write SSH key to file: %w", err)
+	}
+
+	logger.Debugf("Created SSH key file at %s", ansibleKeyPath)
+	return ansibleKeyPath, nil
+}
+
 // CreateInventory creates the inventory file directly from InstanceRequest and returns the inventory path file
-func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, talisSSHKeyPath string) (string, error) {
+func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest) (string, error) {
 	fmt.Printf("⚙️ Creating Ansible inventory for job %s...\n", a.jobID)
 
 	if instance == nil {
@@ -53,13 +114,14 @@ func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, t
 		return "", nil // Nothing to do
 	}
 
-	// Create inventory path with base name
-	inventoryPath := fmt.Sprintf("ansible/inventory_%s_ansible.ini", a.jobID)
-
-	// Create ansible directory with secure permissions
-	if err := os.MkdirAll("ansible", 0750); err != nil {
-		return "", fmt.Errorf("failed to create ansible directory: %w", err)
+	// Ensure SSH key file exists
+	keyPath, err := a.EnsureSSHKeyFile()
+	if err != nil {
+		return "", err
 	}
+
+	// Create inventory path with base name
+	inventoryPath := filepath.Join(ansibleDir, fmt.Sprintf("inventory_%s_ansible.ini", a.jobID))
 
 	// Create inventory file with secure permissions
 	// #nosec G304 -- inventory path is constructed from validated job ID
@@ -81,9 +143,8 @@ func (a *AnsibleConfigurator) CreateInventory(instance *types.InstanceRequest, t
 
 	// Write all instances using data from InstanceRequest
 	// Start base line with name, host, user, and key
-	// Using PublicIP as the host identifier since Name is removed.
 	line := fmt.Sprintf("%s ansible_host=%s ansible_user=root ansible_ssh_private_key_file=%s",
-		instance.PublicIP, instance.PublicIP, talisSSHKeyPath)
+		instance.PublicIP, instance.PublicIP, keyPath)
 
 	// Add payload variables directly from InstanceRequest
 	payloadPresent := instance.PayloadPath != ""
@@ -157,13 +218,18 @@ func (a *AnsibleConfigurator) RunAnsiblePlaybook(inventoryPath string, tags []st
 // ConfigureHost implements the Provisioner interface
 //
 // NOTE: this isn't a create name since all it is really doing is ensuring SSH readiness
-func (a *AnsibleConfigurator) ConfigureHost(ctx context.Context, host string, sshKeyPath string) error {
-	// Store instance and SSH key path
+func (a *AnsibleConfigurator) ConfigureHost(ctx context.Context, host string) error {
+	// Store instance
 	a.mutex.Lock()
 	instanceName := fmt.Sprintf("%s-%d", a.jobID, len(a.instances))
 	a.instances[instanceName] = host
-	a.sshKeyPath = sshKeyPath
 	a.mutex.Unlock()
+
+	// Ensure SSH key file exists
+	keyPath, err := a.EnsureSSHKeyFile()
+	if err != nil {
+		return err
+	}
 
 	fmt.Printf("🔧 Configuring host %s (instance: %s)...\n", host, instanceName)
 
@@ -178,7 +244,7 @@ func (a *AnsibleConfigurator) ConfigureHost(ctx context.Context, host string, ss
 		}
 
 		args := []string{
-			"-i", sshKeyPath,
+			"-i", keyPath,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null",
 			"-o", "ConnectTimeout=5",
@@ -206,10 +272,9 @@ func (a *AnsibleConfigurator) ConfigureHost(ctx context.Context, host string, ss
 }
 
 // ConfigureHosts ensures SSH readiness for multiple hosts in parallel.
-// It no longer creates the inventory or runs the playbook.
 //
 // NOTE: this isn't a create name since all it is really doing is ensuring SSH readiness
-func (a *AnsibleConfigurator) ConfigureHosts(ctx context.Context, hosts []string, sshKeyPath string) error {
+func (a *AnsibleConfigurator) ConfigureHosts(ctx context.Context, hosts []string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(hosts))
 
@@ -219,7 +284,7 @@ func (a *AnsibleConfigurator) ConfigureHosts(ctx context.Context, hosts []string
 		wg.Add(1)
 		go func(h string) {
 			defer wg.Done()
-			if err := a.ConfigureHost(ctx, h, sshKeyPath); err != nil {
+			if err := a.ConfigureHost(ctx, h); err != nil {
 				errChan <- fmt.Errorf("failed to ensure SSH readiness for host %s: %w", h, err)
 			}
 		}(host)

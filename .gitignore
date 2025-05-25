@@ -34,3 +34,4 @@ ignore/
 
 memory-bank/
 .clinerules
+ansible/

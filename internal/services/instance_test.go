@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
+	"github.com/celestiaorg/talis/internal/constants"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/types"
@@ -79,6 +81,19 @@ func TestInstanceService_CreateInstance_SetsTaskInstanceID(t *testing.T) {
 	ts := NewTestSetup(t)
 	defer ts.CleanUp()
 
+	// Save original env var
+	originalSSHKeyName := os.Getenv(constants.EnvTalisSSHKeyName)
+	defer func() {
+		err := os.Setenv(constants.EnvTalisSSHKeyName, originalSSHKeyName)
+		if err != nil {
+			t.Logf("Failed to restore %s: %v", constants.EnvTalisSSHKeyName, err)
+		}
+	}()
+
+	// Set SSH key name env var for tests
+	err := os.Setenv(constants.EnvTalisSSHKeyName, "test-key")
+	assert.NoError(t, err)
+
 	// Test data
 	ownerID := uint(1)
 	projectName := "test-project"
@@ -90,14 +105,14 @@ func TestInstanceService_CreateInstance_SetsTaskInstanceID(t *testing.T) {
 		Name:    projectName,
 		Model:   gorm.Model{ID: projectID},
 	}
-	err := ts.ProjectRepo.Create(ts.ctx, project)
+	err = ts.ProjectRepo.Create(ts.ctx, project)
 	assert.NoError(t, err)
 
 	instanceReqs := []types.InstanceRequest{
 		{
 			OwnerID: ownerID, ProjectName: projectName, Provider: models.ProviderDO,
 			Region: "nyc1", Size: "s-1vcpu-1gb", Image: "ubuntu-20-04-x64",
-			SSHKeyName: "test-key", NumberOfInstances: 1, Action: "create",
+			NumberOfInstances: 1, Action: "create",
 			Volumes: []types.VolumeConfig{{Name: "vol1", SizeGB: 10, MountPoint: "/mnt/vol1"}},
 		},
 	}

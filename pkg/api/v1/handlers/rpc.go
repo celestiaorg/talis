@@ -53,6 +53,7 @@ type RPCHandler struct {
 	ProjectHandlers *ProjectHandlers
 	TaskHandlers    *TaskHandlers
 	UserHandlers    *UserHandler
+	SSHKeyHandlers  *SSHKeyHandlers
 }
 
 // HandleRPC handles all RPC-style API requests for projects, tasks, and users
@@ -75,6 +76,11 @@ type RPCHandler struct {
 // - user.get: Get users or a single user by username
 // - user.get.id: Get a user by ID
 // - user.delete: Delete a user
+//
+// SSH Key methods:
+// - sshkey.create: Create a new SSH key
+// - sshkey.list: List SSH keys for an owner
+// - sshkey.delete: Delete an SSH key
 //
 // @Summary Handle RPC requests
 // @Description Process RPC-style API requests for projects, tasks, and users. The RPC endpoint supports the following methods: Project methods: project.create (Create a new project), project.get (Get a project by name), project.list (List all projects), project.delete (Delete a project), project.listInstances (List instances for a project). Task methods: task.get (Get a task by ID), task.list (List tasks for a project), task.terminate (Terminate a running task). User methods: user.create (Create a new user), user.get (Get users or a single user by username), user.get.id (Get a user by ID), user.delete (Delete a user).
@@ -105,6 +111,8 @@ func (h *RPCHandler) HandleRPC(c *fiber.Ctx) error {
 		return h.handleTaskMethod(c, req)
 	case IsUserMethod(req.Method):
 		return h.handleUserMethod(c, req)
+	case IsSSHKeyMethod(req.Method):
+		return h.handleSSHKeyMethod(c, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown method", nil, req.ID)
 	}
@@ -169,6 +177,24 @@ func (h *RPCHandler) handleUserMethod(c *fiber.Ctx, req RPCRequest) error {
 		return h.UserHandlers.DeleteUser(c, req)
 	default:
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown user method", nil, req.ID)
+	}
+}
+
+// handleSSHKeyMethod routes SSH key methods to their respective handlers
+func (h *RPCHandler) handleSSHKeyMethod(c *fiber.Ctx, req RPCRequest) error {
+	if h.SSHKeyHandlers == nil {
+		return respondWithRPCError(c, fiber.StatusInternalServerError, "SSH key handlers not configured", nil, req.ID)
+	}
+
+	switch req.Method {
+	case SSHKeyCreate:
+		return h.SSHKeyHandlers.Create(c, req)
+	case SSHKeyList:
+		return h.SSHKeyHandlers.List(c, req)
+	case SSHKeyDelete:
+		return h.SSHKeyHandlers.Delete(c, req)
+	default:
+		return respondWithRPCError(c, fiber.StatusBadRequest, "Unknown SSH key method", nil, req.ID)
 	}
 }
 

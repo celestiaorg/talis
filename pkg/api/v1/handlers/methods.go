@@ -21,6 +21,11 @@ const (
 	UserGet     = "user.get"
 	UserGetByID = "user.get.id"
 	UserDelete  = "user.delete"
+
+	// SSH Key methods
+	SSHKeyCreate = "sshkey.create"
+	SSHKeyList   = "sshkey.list"
+	SSHKeyDelete = "sshkey.delete"
 )
 
 // IsProjectMethod checks if the given method is a project operation
@@ -47,6 +52,16 @@ func IsTaskMethod(method string) bool {
 func IsUserMethod(method string) bool {
 	switch method {
 	case UserCreate, UserGet, UserGetByID, UserDelete:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsSSHKeyMethod checks if the given method is an SSH key operation
+func IsSSHKeyMethod(method string) bool {
+	switch method {
+	case SSHKeyCreate, SSHKeyList, SSHKeyDelete:
 		return true
 	default:
 		return false

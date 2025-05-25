@@ -36,10 +36,10 @@ type WorkerPool struct {
 	projectService  *Project
 	taskService     *Task
 	userService     *User
+	sshKeyService   *SSHKeyService
 
 	// Providers & Provisioners
-	providers map[models.ProviderID]compute.Provider
-	// Create a provisioner for each provider
+	providers    map[models.ProviderID]compute.Provider
 	provisioners map[models.ProviderID]compute.Provisioner
 	computeMU    sync.RWMutex
 
@@ -54,12 +54,13 @@ type WorkerPool struct {
 }
 
 // NewWorkerPool creates a new WorkerPool
-func NewWorkerPool(instanceService *Instance, projectService *Project, taskService *Task, userService *User, backoff time.Duration) *WorkerPool {
+func NewWorkerPool(instanceService *Instance, projectService *Project, taskService *Task, userService *User, sshKeyService *SSHKeyService, backoff time.Duration) *WorkerPool {
 	return &WorkerPool{
 		instanceService:   instanceService,
 		projectService:    projectService,
 		taskService:       taskService,
 		userService:       userService,
+		sshKeyService:     sshKeyService,
 		providers:         make(map[models.ProviderID]compute.Provider),
 		provisioners:      make(map[models.ProviderID]compute.Provisioner),
 		backoff:           backoff,
@@ -449,7 +450,7 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		// TODO: Validate inputs
 
 		// create a hosts file with the instance IP to provision.
-		inventoryPath, err := provisioner.CreateInventory(&instanceReq, getAnsibleSSHKeyPath(instanceReq))
+		inventoryPath, err := provisioner.CreateInventory(&instanceReq)
 		if err != nil {
 			return fmt.Errorf("worker: failed to create inventory file for instance ID %d: %w", instance.ID, err)
 		}
@@ -566,6 +567,9 @@ func (w *WorkerPool) getProvider(providerID models.ProviderID) (compute.Provider
 			w.computeMU.Unlock()
 			return nil, fmt.Errorf("worker: failed to create compute provider for provider %s: %w", providerID, err)
 		}
+
+		// Provider initialization is complete
+
 		w.providers[providerID] = provider
 		w.computeMU.Unlock()
 		w.computeMU.RLock()

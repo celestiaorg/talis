@@ -13,7 +13,7 @@ import (
 func TestWorker_getProvider(t *testing.T) {
 	// Create a worker with nil services as they are not used by getProvider
 	// Use a short backoff for testing purposes if needed, though not relevant here.
-	w := NewWorkerPool(nil, nil, nil, nil, time.Millisecond*10)
+	w := NewWorkerPool(nil, nil, nil, nil, nil, time.Millisecond*10)
 
 	// Define provider IDs for testing
 	// Assuming "digitalocean-mock" is a valid provider ID that compute.NewComputeProvider can handle
@@ -96,7 +96,7 @@ func TestWorker_getProvider(t *testing.T) {
 
 func TestWorker_getProvisioner(t *testing.T) {
 	// Create a worker with nil services as they are not used by getProvisioner
-	w := NewWorkerPool(nil, nil, nil, nil, time.Millisecond*10)
+	w := NewWorkerPool(nil, nil, nil, nil, nil, time.Millisecond*10)
 
 	// Define a provider ID for testing. getProvisioner works with any valid ProviderID.
 	// We'll use the same mock ID as in the provider test for consistency.
