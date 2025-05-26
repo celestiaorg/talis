@@ -138,11 +138,6 @@ func (h *SSHKeyHandlers) List(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Invalid parameters", err.Error(), req.ID)
 	}
 
-	// Validate required fields
-	if params.OwnerID == 0 {
-		return respondWithRPCError(c, fiber.StatusBadRequest, "Owner ID is required", nil, req.ID)
-	}
-
 	// List SSH keys
 	keys, err := h.SSHKeyService.ListKeys(c.Context(), params.OwnerID)
 	if err != nil {
