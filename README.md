@@ -39,11 +39,14 @@ echo "DIGITALOCEAN_TOKEN=your_digitalocean_token_here" >> .env
 ```
    Alternatively, you can set it as an environment variable directly.
 
-3. Ensure your SSH key is available:
-```bash
-# The default path is ~/.ssh/id_rsa
-# You can specify a different path in the request
-```
+3. Configure the SSH key for Talis server operations (one of these options):
+   - Provide the SSH key content directly (preferred for deployment):
+     ```bash
+     # Add to .env file
+     echo "TALIS_SSH_KEY=-----BEGIN OPENSSH PRIVATE KEY-----..." >> .env
+     # Or set as environment variable
+     export TALIS_SSH_KEY="-----BEGIN OPENSSH PRIVATE KEY-----..."
+     ```
 
 ## Usage
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/celestiaorg/talis/internal/constants"
+	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/types"
 )
 
@@ -91,8 +93,16 @@ func (p *XimeraProvider) CreateInstance(_ context.Context, req *types.InstanceRe
 		return fmt.Errorf("failed to create ximera server: %w", err)
 	}
 
+	// Get SSH key name from environment variable
+	sshKeyName := os.Getenv(constants.EnvTalisSSHKeyName)
+	if sshKeyName != "" {
+		logger.Debugf("🔑 Using SSH key name from environment variable: %s", sshKeyName)
+	} else {
+		return fmt.Errorf("environment variable %s is not set but required for Ximera", constants.EnvTalisSSHKeyName)
+	}
+
 	// Build the server after creation
-	buildResp, err := p.client.BuildServer(resp.Data.ID, req.Image, machineName, req.SSHKeyName)
+	buildResp, err := p.client.BuildServer(resp.Data.ID, req.Image, machineName, sshKeyName)
 	if err != nil {
 		return fmt.Errorf("failed to build ximera server: %w", err)
 	}

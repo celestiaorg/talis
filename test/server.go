@@ -8,6 +8,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
+	"github.com/celestiaorg/talis/internal/db/repos"
 	"github.com/celestiaorg/talis/internal/logger"
 	"github.com/celestiaorg/talis/internal/services"
 	"github.com/celestiaorg/talis/pkg/api/v1/client"
@@ -32,6 +33,8 @@ func SetupServer(suite *Suite) {
 	projectService := services.NewProjectService(suite.ProjectRepo)
 	taskService := services.NewTaskService(suite.TaskRepo, projectService)
 	instanceService := services.NewInstanceService(suite.InstanceRepo, taskService, projectService)
+	sshKeyRepo := repos.NewSSHKeyRepository(suite.DB)
+	sshKeyService := services.NewSSHKeyService(sshKeyRepo)
 
 	// Create handlers
 	apiHandler := handlers.NewAPIHandler(instanceService, projectService, taskService, userService)
@@ -39,10 +42,14 @@ func SetupServer(suite *Suite) {
 	projectHandler := handlers.NewProjectHandlers(apiHandler)
 	taskHandler := handlers.NewTaskHandlers(apiHandler)
 	userHandler := handlers.NewUserHandler(apiHandler)
+	sshKeyHandler := &handlers.SSHKeyHandlers{
+		SSHKeyService: sshKeyService,
+	}
 	rpcHandler := &handlers.RPCHandler{
 		ProjectHandlers: projectHandler,
 		TaskHandlers:    taskHandler,
 		UserHandlers:    userHandler,
+		SSHKeyHandlers:  sshKeyHandler,
 	}
 
 	// Register routes
@@ -63,7 +70,7 @@ func SetupServer(suite *Suite) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	suite.workerWG = &wg
-	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, 100*time.Millisecond)
+	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, sshKeyService, 100*time.Millisecond)
 	go workerPool.LaunchWorkerPool(suite.ctx, &wg)
 
 	// Update cleanup to close server

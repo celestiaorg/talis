@@ -87,12 +87,14 @@ func main() {
 	userRepo := repos.NewUserRepository(DB)
 	projectRepo := repos.NewProjectRepository(DB)
 	taskRepo := repos.NewTaskRepository(DB)
+	sshKeyRepo := repos.NewSSHKeyRepository(DB)
 
 	// Initialize services
 	projectService := services.NewProjectService(projectRepo)
 	taskService := services.NewTaskService(taskRepo, projectService)
 	instanceService := services.NewInstanceService(instanceRepo, taskService, projectService)
 	userService := services.NewUserService(userRepo)
+	sshKeyService := services.NewSSHKeyService(sshKeyRepo)
 
 	// Initialize handlers
 	apiHandler := handlers.NewAPIHandler(instanceService, projectService, taskService, userService)
@@ -100,12 +102,16 @@ func main() {
 	projectHandler := handlers.NewProjectHandlers(apiHandler)
 	taskHandler := handlers.NewTaskHandlers(apiHandler)
 	userHandler := handlers.NewUserHandler(apiHandler)
+	sshKeyHandler := &handlers.SSHKeyHandlers{
+		SSHKeyService: sshKeyService,
+	}
 
 	// Create RPC handler and assign handlers directly
 	rpcHandler := &handlers.RPCHandler{
 		ProjectHandlers: projectHandler,
 		TaskHandlers:    taskHandler,
 		UserHandlers:    userHandler,
+		SSHKeyHandlers:  sshKeyHandler,
 	}
 
 	// Setup Fiber app
@@ -153,7 +159,7 @@ func main() {
 
 	// Launch worker pool with the cancellable context and WaitGroup
 	wg.Add(1) // Increment counter before launching goroutine
-	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, services.DefaultBackoff)
+	workerPool := services.NewWorkerPool(instanceService, projectService, taskService, userService, sshKeyService, services.DefaultBackoff)
 	workerPool.WithWorkerCount(workerCount).WithHighPriorityRatio(highPriorityRatio)
 
 	// Recover any stale tasks before starting the worker pool

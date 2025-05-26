@@ -33,7 +33,7 @@ import (
 
 	fiber "github.com/gofiber/fiber/v2"
 
-	// internalmodels "github.com/celestiaorg/talis/internal/db/models" // Use public alias
+	internalmodels "github.com/celestiaorg/talis/internal/db/models" // Import internal models
 	"github.com/celestiaorg/talis/pkg/api/v1/handlers"
 	"github.com/celestiaorg/talis/pkg/api/v1/routes"
 	"github.com/celestiaorg/talis/pkg/db/models" // Import public models alias
@@ -51,6 +51,7 @@ const DefaultTimeout = 30 * time.Second
 // - User management (creating, retrieving, and deleting users)
 // - Project management (creating, retrieving, and deleting projects)
 // - Task management (retrieving and managing long-running tasks)
+// - SSH Key management (creating, listing, and deleting SSH keys)
 //
 // All methods accept a context.Context as their first parameter to support
 // timeout and cancellation. Most methods return structured data and an error.
@@ -174,6 +175,20 @@ type Client interface {
 	// UpdateTaskStatus updates the status of a task.
 	// Returns an error if the operation fails.
 	UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error
+
+	// SSH Key methods - Methods for managing SSH keys
+
+	// CreateSSHKey creates a new SSH key.
+	// Returns the created SSH key and any error encountered.
+	CreateSSHKey(ctx context.Context, params handlers.SSHKeyCreateParams) (internalmodels.SSHKey, error)
+
+	// ListSSHKeys lists all SSH keys for a specific owner.
+	// Returns a slice of SSH key pointers and any error encountered.
+	ListSSHKeys(ctx context.Context, params handlers.SSHKeyListParams) ([]*internalmodels.SSHKey, error)
+
+	// DeleteSSHKey deletes an SSH key.
+	// Returns an error if the operation fails.
+	DeleteSSHKey(ctx context.Context, params handlers.SSHKeyDeleteParams) error
 }
 
 var _ Client = &APIClient{}
@@ -848,4 +863,25 @@ func (c *APIClient) TerminateTask(ctx context.Context, params handlers.TaskTermi
 // UpdateTaskStatus updates the status of a task
 func (c *APIClient) UpdateTaskStatus(ctx context.Context, params handlers.TaskUpdateStatusParams) error {
 	return c.executeRPC(ctx, handlers.TaskUpdateStatus, params, nil)
+}
+
+// SSH Key methods implementation
+
+// CreateSSHKey creates a new SSH key
+func (c *APIClient) CreateSSHKey(ctx context.Context, params handlers.SSHKeyCreateParams) (internalmodels.SSHKey, error) {
+	var key internalmodels.SSHKey
+	err := c.executeRPC(ctx, handlers.SSHKeyCreate, params, &key)
+	return key, err
+}
+
+// ListSSHKeys lists all SSH keys for a specific owner
+func (c *APIClient) ListSSHKeys(ctx context.Context, params handlers.SSHKeyListParams) ([]*internalmodels.SSHKey, error) {
+	var keys []*internalmodels.SSHKey
+	err := c.executeRPC(ctx, handlers.SSHKeyList, params, &keys)
+	return keys, err
+}
+
+// DeleteSSHKey deletes an SSH key
+func (c *APIClient) DeleteSSHKey(ctx context.Context, params handlers.SSHKeyDeleteParams) error {
+	return c.executeRPC(ctx, handlers.SSHKeyDelete, params, nil)
 }

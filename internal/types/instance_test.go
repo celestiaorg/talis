@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/celestiaorg/talis/internal/constants"
 	"github.com/celestiaorg/talis/internal/db/models"
 	"github.com/stretchr/testify/require"
 )
@@ -44,6 +45,11 @@ func createTempDir(t *testing.T, name string) string {
 // Helper function to create a base valid InstanceRequest for incremental testing
 func baseValidRequest(t *testing.T, payloadPath string) InstanceRequest {
 	t.Helper()
+
+	// Set environment variable for SSH key name
+	err := os.Setenv(constants.EnvTalisSSHKeyName, "test-key")
+	require.NoError(t, err)
+
 	return InstanceRequest{
 		OwnerID:           1,
 		Provider:          models.ProviderID("mock"),
@@ -52,7 +58,6 @@ func baseValidRequest(t *testing.T, payloadPath string) InstanceRequest {
 		Image:             "ubuntu-20-04-x64",
 		Tags:              []string{"test", "dev"},
 		ProjectName:       "test-project",
-		SSHKeyName:        "test-key",
 		NumberOfInstances: 1,
 		Provision:         true, // Assume provision is true for payload/volume tests initially
 		PayloadPath:       payloadPath,
@@ -74,6 +79,18 @@ func TestInstanceRequest_Validate(t *testing.T) {
 	validPayloadFile := createTempFile(t, "valid-payload.sh", maxPayloadSize)
 	oversizePayloadFile := createTempFile(t, "oversize-payload.sh", maxPayloadSize+1)
 	nonexistentPayloadFile := filepath.Join(t.TempDir(), "nonexistent.sh") // Does not exist
+
+	// Set up environment variable for SSH key
+	err := os.Setenv(constants.EnvTalisSSHKeyName, "test-key")
+	require.NoError(t, err)
+
+	// Cleanup after test
+	defer func() {
+		err := os.Unsetenv(constants.EnvTalisSSHKeyName)
+		if err != nil {
+			t.Logf("Failed to unset %s: %v", constants.EnvTalisSSHKeyName, err)
+		}
+	}()
 
 	// Base valid request to modify for failure cases
 	baseReq := baseValidRequest(t, validPayloadFile)
@@ -152,12 +169,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 			request: func() InstanceRequest { r := baseReq; r.Image = ""; return r }(),
 			wantErr: true,
 			errMsg:  "image is required",
-		},
-		{
-			name:    "Error: missing ssh_key_name",
-			request: func() InstanceRequest { r := baseReq; r.SSHKeyName = ""; return r }(),
-			wantErr: true,
-			errMsg:  "ssh_key_name is required",
 		},
 		{
 			name:    "Error: number_of_instances less than 1",
@@ -331,7 +342,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clone the request to avoid modifying the original test case struct during the run
-			// Needed because some fields are modified in-place (like SSHKeyName)
 			reqCopy := tt.request // Copy the struct for this specific test run
 
 			err := reqCopy.Validate()
@@ -345,12 +355,6 @@ func TestInstanceRequest_Validate(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err, fmt.Sprintf("Expected no error, but got: %v", err))
-
-				// Specific post-validation checks for non-error cases
-				if tt.name == "Check: ssh_key_name lowercased" {
-					require.Equal(t, "test-key", reqCopy.SSHKeyName, "SSHKeyName should be lowercased")
-				}
-				// Add more post-validation checks if needed for other valid cases
 			}
 		})
 	}

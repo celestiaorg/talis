@@ -36,7 +36,6 @@ type InstanceRequest struct {
 	// User Defined Configs
 	ProjectName       string         `json:"project_name"`
 	Name              string         `json:"name,omitempty"`            // Optional name for the instance(s). If multiple instances, will be suffixed with index
-	SSHKeyName        string         `json:"ssh_key_name"`              // Name of the SSH key to use
 	NumberOfInstances int            `json:"number_of_instances"`       // Number of instances to create
 	Provision         bool           `json:"provision"`                 // Whether to run Ansible provisioning
 	PayloadPath       string         `json:"payload_path,omitempty"`    // Local path to the payload script on the API server
@@ -85,11 +84,6 @@ func (i *InstanceRequest) GetImage() string {
 	return i.Image
 }
 
-// GetSSHKeyName returns the SSHKeyName value for validation
-func (i *InstanceRequest) GetSSHKeyName() string {
-	return i.SSHKeyName
-}
-
 // Validate validates the instance configuration
 func (i *InstanceRequest) Validate() error {
 	// Validate Metadata
@@ -115,9 +109,6 @@ func (i *InstanceRequest) Validate() error {
 	}
 	if i.Image == "" {
 		return fmt.Errorf("image is required")
-	}
-	if i.SSHKeyName == "" {
-		return fmt.Errorf("ssh_key_name is required")
 	}
 	if i.NumberOfInstances < 1 {
 		return fmt.Errorf("number_of_instances must be greater than 0")
