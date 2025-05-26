@@ -27,6 +27,34 @@ func TestSSHKeyRPCMethods(t *testing.T) {
 		OwnerID:   ownerID,
 	}
 
+	t.Run("ValidateSSHPublicKey", func(t *testing.T) {
+		// Test valid keys
+		validKeys := []string{
+			"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDEtest",
+			"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMHKBCIlkZhv8uEHRyW9n9NExJCPE1mHT2a6gVrUfSbR",
+			"ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBAHJjABF9xRBMB7dZ0y2xc/OyX9bMHPLQJgXHEQwCVyRNNhCHv32hV9m87VjfJK5lm0dPcIpYEtUZbC/Ot+MZEk=",
+		}
+
+		for _, key := range validKeys {
+			err := handlers.ValidateSSHPublicKey(key)
+			require.NoError(t, err, "Valid key should not return an error: %s", key)
+		}
+
+		// Test invalid keys
+		invalidKeys := []string{
+			"invalid-key",
+			"rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDEtest",
+			"ssh-invalid AAAAB3NzaC1yc2EAAAADAQABAAABgQDEtest",
+			"just some random text",
+			"", // Empty key
+		}
+
+		for _, key := range invalidKeys {
+			err := handlers.ValidateSSHPublicKey(key)
+			require.Error(t, err, "Invalid key should return an error: %s", key)
+		}
+	})
+
 	t.Run("CreateSSHKey_Success", func(t *testing.T) {
 		// Create a new SSH key
 		key, err := suite.APIClient.CreateSSHKey(suite.Context(), testKey1)
@@ -34,6 +62,18 @@ func TestSSHKeyRPCMethods(t *testing.T) {
 		require.Equal(t, testKey1.Name, key.Name)
 		require.Equal(t, testKey1.PublicKey, key.PublicKey)
 		require.Equal(t, testKey1.OwnerID, key.OwnerID)
+	})
+
+	t.Run("CreateSSHKey_InvalidFormat", func(t *testing.T) {
+		// Try to create a key with invalid format
+		invalidKey := handlers.SSHKeyCreateParams{
+			Name:      "invalid-key",
+			PublicKey: "invalid-key-format",
+			OwnerID:   ownerID,
+		}
+		_, err := suite.APIClient.CreateSSHKey(suite.Context(), invalidKey)
+		require.Error(t, err, "Creating key with invalid format should fail")
+		require.Contains(t, err.Error(), "invalid SSH public key format")
 	})
 
 	t.Run("ListSSHKeys_Success", func(t *testing.T) {

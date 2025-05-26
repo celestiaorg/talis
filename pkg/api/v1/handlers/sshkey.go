@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -42,6 +43,32 @@ type SSHKeyDeleteParams struct {
 	OwnerID uint   `json:"owner_id" validate:"required"`
 }
 
+// ValidateSSHPublicKey checks if the provided string is a valid SSH public key
+// by verifying it starts with a recognized SSH key prefix
+func ValidateSSHPublicKey(key string) error {
+	// List of valid SSH public key prefixes
+	validPrefixes := []string{
+		"ssh-rsa ",
+		"ssh-dss ",
+		"ssh-ed25519 ",
+		"ecdsa-sha2-nistp256 ",
+		"ecdsa-sha2-nistp384 ",
+		"ecdsa-sha2-nistp521 ",
+	}
+
+	// Trim whitespace
+	key = strings.TrimSpace(key)
+
+	// Check if the key starts with any of the valid prefixes
+	for _, prefix := range validPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return nil
+		}
+	}
+
+	return errors.New("invalid SSH public key format: must begin with ssh-rsa, ssh-ed25519, ecdsa-sha2-*, or ssh-dss")
+}
+
 // Create handles the creation of a new SSH key
 // @Summary Create a new SSH key
 // @Description Create a new SSH key for the specified owner
@@ -68,6 +95,11 @@ func (h *SSHKeyHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 	}
 	if params.OwnerID == 0 {
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Owner ID is required", nil, req.ID)
+	}
+
+	// Validate SSH public key format
+	if err := ValidateSSHPublicKey(params.PublicKey); err != nil {
+		return respondWithRPCError(c, fiber.StatusBadRequest, err.Error(), nil, req.ID)
 	}
 
 	// Create the SSH key
