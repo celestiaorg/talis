@@ -15,6 +15,11 @@ import (
 	"github.com/celestiaorg/talis/internal/types"
 )
 
+// Global variable to ensure RecoverStaleTasks only runs once across all worker pool instances
+var (
+	staleTaskRecoveryOnce sync.Once
+)
+
 // DefaultBackoff is the default backoff time for the worker
 const DefaultBackoff = time.Second
 
@@ -138,17 +143,21 @@ func (w *WorkerPool) LaunchWorkerPool(ctx context.Context, wg *sync.WaitGroup) {
 	logger.Info("Worker pool shutdown complete")
 }
 
-// recoverStaleTasks finds and resets tasks that were in progress when the system crashed
+// recoverStaleTasks finds and resets tasks that were in progress when the system crashed.
+// This method uses sync.Once to ensure it only runs once across all worker pool instances,
+// preventing race conditions when multiple worker pools are started concurrently.
 func (w *WorkerPool) recoverStaleTasks(ctx context.Context) {
-	count, err := w.taskService.RecoverStaleTasks(ctx)
-	if err != nil {
-		logger.Errorf("Failed to recover stale tasks: %v", err)
-		return
-	}
+	staleTaskRecoveryOnce.Do(func() {
+		count, err := w.taskService.RecoverStaleTasks(ctx)
+		if err != nil {
+			logger.Errorf("Failed to recover stale tasks: %v", err)
+			return
+		}
 
-	if count > 0 {
-		logger.Infof("Recovered %d stale tasks that were in progress during previous run", count)
-	}
+		if count > 0 {
+			logger.Infof("Recovered %d stale tasks that were in progress during previous run", count)
+		}
+	})
 }
 
 // taskDispatcher fetches tasks from database and puts them in the appropriate queue

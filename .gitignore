@@ -34,4 +34,8 @@ ignore/
 
 memory-bank/
 .clinerules
-ansible/
+
+# Ignore generated Ansible files
+ansible/talis_ssh_key
+ansible/inventory_*.ini
+
