@@ -3,9 +3,10 @@ package handlers
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 
 	"github.com/celestiaorg/talis/internal/db/models"
 )
@@ -140,18 +141,10 @@ func (h *SSHKeyHandlers) Delete(c *fiber.Ctx, req RPCRequest) error {
 		return respondWithRPCError(c, fiber.StatusBadRequest, "Invalid parameters", err.Error(), req.ID)
 	}
 
-	// Validate required fields
-	if params.Name == "" {
-		return respondWithRPCError(c, fiber.StatusBadRequest, "Name is required", nil, req.ID)
-	}
-	if params.OwnerID == 0 {
-		return respondWithRPCError(c, fiber.StatusBadRequest, "Owner ID is required", nil, req.ID)
-	}
-
 	// Delete SSH key
 	err = h.SSHKeyService.DeleteKey(c.Context(), params.OwnerID, params.Name)
 	if err != nil {
-		if err.Error() == fmt.Sprintf("SSH key '%s' not found for owner %d", params.Name, params.OwnerID) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return respondWithRPCError(c, fiber.StatusNotFound, "SSH key not found", err.Error(), req.ID)
 		}
 		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to delete SSH key", err.Error(), req.ID)

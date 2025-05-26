@@ -434,14 +434,11 @@ func (p *DigitalOceanProvider) getSSHKeyID(ctx context.Context, _ string) (int, 
 
 	// Get SSH key name from environment variable
 	keyName := os.Getenv(constants.EnvTalisSSHKeyName)
-	if keyName != "" {
-		logger.Debugf("🔑 Using SSH key name from environment variable: %s", keyName)
-	} else {
-		// If not set, use the default test key
-		keyName = "test-key"
-		logger.Warnf("🔑 Environment variable %s not set, using default test key: %s", constants.EnvTalisSSHKeyName, keyName)
+	if keyName == "" {
+		return 0, fmt.Errorf("environment variable %s not set, Talis SSH key name is required", constants.EnvTalisSSHKeyName)
 	}
 
+	logger.Debugf("🔑 Using SSH key name from environment variable: %s", keyName)
 	logger.Debugf("🔑 Looking up SSH key: %s", keyName)
 
 	// List all SSH keys

@@ -87,11 +87,16 @@ func TestSSHKeyRPCMethods(t *testing.T) {
 
 	t.Run("DeleteSSHKey_NotFound", func(t *testing.T) {
 		// Try to delete a non-existent key
+		nonExistentKeyName := "non-existent-key"
 		err := suite.APIClient.DeleteSSHKey(suite.Context(), handlers.SSHKeyDeleteParams{
-			Name:    "non-existent-key",
+			Name:    nonExistentKeyName,
 			OwnerID: ownerID,
 		})
 		require.Error(t, err)
+		// Check for the presence of key components in the error message
+		errMsg := err.Error()
+		require.Contains(t, errMsg, "not found", "Error should indicate the key was not found")
+		require.Contains(t, errMsg, nonExistentKeyName, "Error should mention the key name")
 	})
 
 	t.Run("CreateSSHKey_DuplicateName", func(t *testing.T) {
