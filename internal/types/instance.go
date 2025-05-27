@@ -18,18 +18,19 @@ const maxPayloadSize = 2 * 1024 * 1024 // 2MB
 // Example: {"owner_id":1,"provider":"do","region":"nyc1","size":"s-1vcpu-1gb","image":"ubuntu-20-04-x64","tags":["webserver","production"],"project_name":"my-web-project","ssh_key_name":"my-ssh-key","number_of_instances":2,"provision":true,"payload_path":"/path/to/your/script.sh","execute_payload":true,"volumes":[{"name":"my-volume-1","size_gb":10,"mount_point":"/mnt/data"}]}
 type InstanceRequest struct {
 	// DB Model Data - User Defined
-	OwnerID  uint              `json:"owner_id"` // Owner ID of the instance
-	Provider models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
-	Region   string            `json:"region"`   // Region where instances will be created
-	Size     string            `json:"size"`     // Instance size/type (used for cloud provider with predefined sizes)
-	Memory   int               `json:"memory"`   // Memory in MB (used for Ximera to allow custom memory)
-	CPU      int               `json:"cpu"`      // CPU cores (used for Ximera to allow custom CPU)
-	Image    string            `json:"image"`    // OS image to use
-	Tags     []string          `json:"tags"`     // Tags to apply to instances
+	OwnerID   uint              `json:"owner_id"` // Owner ID of the instance
+	ProjectID uint              `json:"-"`        // This is not user defined, it is set by the server
+	Provider  models.ProviderID `json:"provider"` // Cloud provider (e.g., "do")
+	Region    string            `json:"region"`   // Region where instances will be created
+	Size      string            `json:"size"`     // Instance size/type (used for cloud provider with predefined sizes)
+	Memory    int               `json:"memory"`   // Memory in MB (used for Ximera to allow custom memory)
+	CPU       int               `json:"cpu"`      // CPU cores (used for Ximera to allow custom CPU)
+	Image     string            `json:"image"`    // OS image to use
+	Tags      []string          `json:"tags"`     // Tags to apply to instances
 
 	// DB Model Data - Internally set during creation
-	InstanceID    uint            `json:"instance_id"`              // Instance ID
-	PublicIP      string          `json:"public_ip"`                // Public IP address
+	InstanceID    uint            `json:"instance_id,omitempty"`    // Instance ID
+	PublicIP      string          `json:"-"`                        // Public IP address
 	VolumeIDs     []string        `json:"volume_ids,omitempty"`     // List of attached volume IDs
 	VolumeDetails []VolumeDetails `json:"volume_details,omitempty"` // Detailed information about attached volumes
 
@@ -172,4 +173,9 @@ func (i *InstanceRequest) Validate() error {
 	}
 
 	return nil
+}
+
+// GenerateProviderTag creates a standardized tag for identifying instances on cloud providers
+func GenerateProviderTag(projectID, instanceID uint) string {
+	return fmt.Sprintf("talis-%d-%d", projectID, instanceID)
 }
