@@ -290,3 +290,8 @@ func (c *XimeraAPIClient) WaitForServerCreation(serverID int, timeoutSeconds int
 		}
 	}
 }
+
+// GetPackageID returns the configured package ID
+func (c *XimeraAPIClient) GetPackageID() int {
+	return c.config.PackageID
+}

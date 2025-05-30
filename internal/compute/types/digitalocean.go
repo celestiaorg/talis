@@ -26,6 +26,7 @@ type DropletService interface {
 	Get(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error)
 	Delete(ctx context.Context, id int) (*godo.Response, error)
 	List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	ListByTag(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 }
 
 // KeyService defines the interface for SSH key operations

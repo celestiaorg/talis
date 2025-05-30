@@ -25,6 +25,9 @@ type Provider interface {
 
 	// DeleteInstance deletes an instance
 	DeleteInstance(ctx context.Context, providerInstanceID int) error
+
+	// GetInstanceByTag retrieves an instance by its Talis tag
+	GetInstanceByTag(ctx context.Context, tag string) (*types.InstanceRequest, error)
 }
 
 // Provisioner is the interface for system configuration

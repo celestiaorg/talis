@@ -111,7 +111,10 @@ func (h *SSHKeyHandlers) Create(c *fiber.Ctx, req RPCRequest) error {
 
 	err = h.SSHKeyService.CreateSSHKey(c.Context(), key)
 	if err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to create SSH key", err.Error(), req.ID)
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return respondWithRPCError(c, fiber.StatusBadRequest, ErrMsgSSHKeyAlreadyExists, err.Error(), req.ID)
+		}
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgSSHKeyCreateFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{
@@ -141,7 +144,7 @@ func (h *SSHKeyHandlers) List(c *fiber.Ctx, req RPCRequest) error {
 	// List SSH keys
 	keys, err := h.SSHKeyService.ListKeys(c.Context(), params.OwnerID)
 	if err != nil {
-		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to list SSH keys", err.Error(), req.ID)
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgSSHKeyListFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{
@@ -172,9 +175,9 @@ func (h *SSHKeyHandlers) Delete(c *fiber.Ctx, req RPCRequest) error {
 	err = h.SSHKeyService.DeleteKey(c.Context(), params.OwnerID, params.Name)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return respondWithRPCError(c, fiber.StatusNotFound, "SSH key not found", err.Error(), req.ID)
+			return respondWithRPCError(c, fiber.StatusNotFound, ErrMsgSSHKeyNotFound, err.Error(), req.ID)
 		}
-		return respondWithRPCError(c, fiber.StatusInternalServerError, "Failed to delete SSH key", err.Error(), req.ID)
+		return respondWithRPCError(c, fiber.StatusInternalServerError, ErrMsgSSHKeyDeleteFailed, err.Error(), req.ID)
 	}
 
 	return c.JSON(RPCResponse{

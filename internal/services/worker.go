@@ -127,12 +127,12 @@ func (w *WorkerPool) LaunchWorkerPool(ctx context.Context, wg *sync.WaitGroup) {
 		go w.lowPriorityTaskProcessor(ctx, &workersWg, workerID)
 	}
 
-	logger.Infof("Worker pool started with %d workers (%d high priority, %d low priority)",
+	logger.Debugf("Worker pool started with %d workers (%d high priority, %d low priority)",
 		w.workerCount, highPriorityWorkers, lowPriorityWorkers)
 
 	// Wait for context cancellation
 	<-ctx.Done()
-	logger.Info("Worker pool received shutdown signal, stopping dispatchers...")
+	logger.Debug("Worker pool received shutdown signal, stopping dispatchers...")
 	cancelDispatcher()
 
 	// Close task queues after dispatchers are done
@@ -140,7 +140,7 @@ func (w *WorkerPool) LaunchWorkerPool(ctx context.Context, wg *sync.WaitGroup) {
 	close(w.highPriorityQueue)
 	close(w.lowPriorityQueue)
 
-	logger.Info("Worker pool shutdown complete")
+	logger.Debug("Worker pool shutdown complete")
 }
 
 // recoverStaleTasks finds and resets tasks that were in progress when the system crashed.
@@ -155,7 +155,7 @@ func (w *WorkerPool) recoverStaleTasks(ctx context.Context) {
 		}
 
 		if count > 0 {
-			logger.Infof("Recovered %d stale tasks that were in progress during previous run", count)
+			logger.Debugf("Recovered %d stale tasks that were in progress during previous run", count)
 		}
 	})
 }
@@ -178,12 +178,12 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 		queue = w.lowPriorityQueue
 	}
 
-	logger.Infof("%s priority task dispatcher started", priorityName)
+	logger.Debugf("%s priority task dispatcher started", priorityName)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
+			logger.Debugf("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
 			return
 		case <-t.C:
 		}
@@ -198,7 +198,7 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 		}
 
 		if len(tasks) == 0 {
-			logger.Debugf("%s priority task dispatcher: No tasks to process", priorityName)
+			logger.Debugf("%s priority task dispatcher: No tasks to process (priority=%d, limit=%d)", priorityName, priority, taskLimit)
 			// Wait before retrying to give time for tasks to be created
 			t.Reset(w.backoff)
 			continue
@@ -208,7 +208,7 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 		for i := range tasks {
 			select {
 			case <-ctx.Done():
-				logger.Infof("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
+				logger.Debugf("%s priority task dispatcher received shutdown signal, stopping...", priorityName)
 				return
 			case queue <- &tasks[i]:
 				logger.Debugf("%s priority task dispatcher: Queued task %d for processing", priorityName, tasks[i].ID)
@@ -221,17 +221,17 @@ func (w *WorkerPool) taskDispatcher(ctx context.Context, wg *sync.WaitGroup, pri
 func (w *WorkerPool) highPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerID int) {
 	defer wg.Done()
 
-	logger.Infof("High priority worker %d started", workerID)
+	logger.Debugf("High priority worker %d started", workerID)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("High priority worker %d received shutdown signal, stopping...", workerID)
+			logger.Debugf("High priority worker %d received shutdown signal, stopping...", workerID)
 			return
 		case task, ok := <-w.highPriorityQueue:
 			if !ok {
 				// Queue is closed
-				logger.Infof("High priority worker %d shutting down, task queue is closed", workerID)
+				logger.Debugf("High priority worker %d shutting down, task queue is closed", workerID)
 				return
 			}
 
@@ -245,17 +245,17 @@ func (w *WorkerPool) highPriorityTaskProcessor(ctx context.Context, wg *sync.Wai
 func (w *WorkerPool) lowPriorityTaskProcessor(ctx context.Context, wg *sync.WaitGroup, workerID int) {
 	defer wg.Done()
 
-	logger.Infof("Low priority worker %d started", workerID)
+	logger.Debugf("Low priority worker %d started", workerID)
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Infof("Low priority worker %d received shutdown signal, stopping...", workerID)
+			logger.Debugf("Low priority worker %d received shutdown signal, stopping...", workerID)
 			return
 		case task, ok := <-w.lowPriorityQueue:
 			if !ok {
 				// Queue is closed
-				logger.Infof("Low priority worker %d shutting down, task queue is closed", workerID)
+				logger.Debugf("Low priority worker %d shutting down, task queue is closed", workerID)
 				return
 			}
 
@@ -346,6 +346,43 @@ func (w *WorkerPool) processTask(ctx context.Context, workerID int, task *models
 	}
 }
 
+// logToTaskAndDebug logs a message to both the task logs and debug logs
+func (w *WorkerPool) logToTaskAndDebug(ctx context.Context, ownerID uint, task *models.Task, msg string) {
+	logger.Debugf("%s", msg)
+	w.instanceService.addTaskLogs(ctx, ownerID, task, msg)
+}
+
+// checkExistingInstance checks if an instance already exists on the provider
+// It returns the existing instance (if found), a boolean indicating if it exists, and any error
+func (w *WorkerPool) checkExistingInstance(ctx context.Context, task *models.Task, provider compute.Provider, instance *models.Instance) (*types.InstanceRequest, error) {
+	// Generate the Talis tag to check for existing instance
+	talisTag := types.GenerateProviderTag(instance.ProjectID, instance.ID)
+
+	msg := fmt.Sprintf("Checking for existing instance with tag: %s", talisTag)
+	w.logToTaskAndDebug(ctx, instance.OwnerID, task, msg)
+
+	// Check if instance already exists on provider side
+	existingInstance, err := provider.GetInstanceByTag(ctx, talisTag)
+	if err != nil {
+		// Instance doesn't exist or error occurred
+		if !strings.Contains(err.Error(), "not found") {
+			warnMsg := fmt.Sprintf("Warning: Error checking for existing instance with tag %s: %v", talisTag, err)
+			logger.Warnf("%s", warnMsg)
+			w.instanceService.addTaskLogs(ctx, instance.OwnerID, task, fmt.Sprintf("Warning: Error checking for existing instance: %v", err))
+			return nil, err
+		}
+
+		w.logToTaskAndDebug(ctx, instance.OwnerID, task, "No existing instance found, proceeding with creation")
+		return nil, nil
+	}
+
+	// Instance already exists on provider side
+	logger.Infof("✅ Found existing instance on provider with tag %s, updating database", talisTag)
+	w.instanceService.addTaskLogs(ctx, instance.OwnerID, task, fmt.Sprintf("Found existing instance on provider, updating database with provider instance ID %d", existingInstance.ProviderInstanceID))
+
+	return existingInstance, nil
+}
+
 // processCreateInstanceTask processes a create instance task. It will handle the instance creation, provisioning, and status updates for the instance.
 func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models.Task) error {
 	err := w.taskService.UpdateStatus(ctx, task.OwnerID, task.ID, models.TaskStatusRunning)
@@ -372,10 +409,8 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 
 	switch instance.Status {
 	case models.InstanceStatusPending:
-		logger.Debugf("Instance ID %d is in status %s, creating", instance.ID, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Creating instance ID %d", instance.ID))
-		// Create the instance
-		// NOTE: need to understand if server creation via the hypervisor is atomic or if we need to understand how to pick up where we left off
+		msg := fmt.Sprintf("Instance ID %d is in status %s, checking if instance already exists on provider", instance.ID, instance.Status)
+		w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
 
 		// Get the compute provider or create a new one
 		provider, err := w.getProvider(instanceReq.Provider)
@@ -383,11 +418,32 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 			return fmt.Errorf("worker: failed to get compute provider for provider %s: %w", instanceReq.Provider, err)
 		}
 
-		// Create the instance
-		// NOTE: since the instance request type is now being updated during the create instance process we might need to update the task payload to include the updates. This is more of a concern if we want to support resuming from a failed task.
-		err = provider.CreateInstance(ctx, &instanceReq)
-		if err != nil {
-			return fmt.Errorf("worker: failed to create instance: %w", err)
+		// Add project ID to instance request for provider use
+		instanceReq.ProjectID = instance.ProjectID
+
+		// Check if instance already exists on provider
+		existingInstance, err := w.checkExistingInstance(ctx, task, provider, instance)
+		if err != nil && !strings.Contains(err.Error(), "not found") {
+			// Only return if it's a serious error, not just "not found"
+			return fmt.Errorf("worker: error checking for existing instance: %w", err)
+		}
+
+		if existingInstance != nil {
+			// Update instanceReq with existing instance details
+			instanceReq.ProviderInstanceID = existingInstance.ProviderInstanceID
+			instanceReq.PublicIP = existingInstance.PublicIP
+			instanceReq.VolumeIDs = existingInstance.VolumeIDs
+			instanceReq.VolumeDetails = existingInstance.VolumeDetails
+		} else {
+			// Create the instance if it doesn't exist
+			msg := fmt.Sprintf("Creating new instance ID %d", instance.ID)
+			w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
+
+			// NOTE: since the instance request type is now being updated during the create instance process we might need to update the task payload to include the updates. This is more of a concern if we want to support resuming from a failed task.
+			err = provider.CreateInstance(ctx, &instanceReq)
+			if err != nil {
+				return fmt.Errorf("worker: failed to create instance: %w", err)
+			}
 		}
 
 		// Update instance DB with IP and volume info
@@ -415,25 +471,30 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		// Fall through to the next case and step in the process
 		fallthrough
 	case models.InstanceStatusCreated:
-		logger.Debugf("Instance ID %d is in status %s, determine if provisioning is needed", instance.ID, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d created, determining if provisioning is needed", instance.ID))
+		msg := fmt.Sprintf("Instance ID %d is in status %s, determine if provisioning is needed", instance.ID, instance.Status)
+		w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
 
 		// Check if the instance needs to be provisioned
 		if !instanceReq.Provision {
-			logger.Debugf("Provisioning is not needed for instance ID %d, updating status to ready", instance.ID)
+			msg := fmt.Sprintf("Provisioning is not needed for instance ID %d, updating status to ready", instance.ID)
+			logger.Debugf("%s", msg)
+
 			// Instance is ready, update and return
 			instance.Status = models.InstanceStatusReady
 			err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 			if err != nil {
 				return fmt.Errorf("worker: failed to update instance ID %d: %w", instance.ID, err)
 			}
-			logger.Debugf("✅ Instance ID %d is ready", instance.ID)
-			w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d is ready", instance.ID))
+
+			msg = fmt.Sprintf("Instance ID %d is ready", instance.ID)
+			w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
 			return nil
 		}
 
 		// Instance needs to be provisioned, update the status to provisioning
-		logger.Debugf("Provisioning is needed for instance ID %d, updating status to provisioning", instance.ID)
+		msg = fmt.Sprintf("Provisioning is needed for instance ID %d, updating status to provisioning", instance.ID)
+		logger.Debugf("%s", msg)
+
 		instance.Status = models.InstanceStatusProvisioning
 		err = w.instanceService.Update(ctx, instanceReq.OwnerID, instance.ID, instance)
 		if err != nil {
@@ -442,8 +503,8 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 
 		fallthrough
 	case models.InstanceStatusProvisioning:
-		logger.Debugf("Instance ID %d is in status %s, provisioning", instance.ID, instance.Status)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Provisioning instance ID %d", instance.ID))
+		msg := fmt.Sprintf("Instance ID %d is in status %s, provisioning", instance.ID, instance.Status)
+		w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
 
 		// Get provisioning tasks
 		provisioner, err := w.getProvisioner(instanceReq.Provider)
@@ -492,13 +553,13 @@ func (w *WorkerPool) processCreateInstanceTask(ctx context.Context, task *models
 		if err != nil {
 			return fmt.Errorf("worker: failed to update instance ID %d to ready: %w", instance.ID, err)
 		}
-		logger.Debugf("✅ Instance ID %d successfully provisioned, marking as ready", instance.ID)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d successfully provisioned and is ready", instance.ID))
+		msg = fmt.Sprintf("Instance ID %d successfully provisioned and is ready", instance.ID)
+		w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
 
 	case models.InstanceStatusReady, models.InstanceStatusTerminated:
 		// Instance is already in a final state for this task
-		logger.Debugf("Instance ID %d is already ready or terminated, nothing to do for create task.", instance.ID)
-		w.instanceService.addTaskLogs(ctx, instanceReq.OwnerID, task, fmt.Sprintf("Instance ID %d already in final state (%s)", instance.ID, instance.Status))
+		msg := fmt.Sprintf("Instance ID %d already in final state (%s)", instance.ID, instance.Status)
+		w.logToTaskAndDebug(ctx, instanceReq.OwnerID, task, msg)
 		return nil
 	default:
 		return fmt.Errorf("worker: instance ID %d is in an unknown state %s", instance.ID, instance.Status)

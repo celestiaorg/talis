@@ -2,6 +2,7 @@ package repos
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -33,6 +34,36 @@ func (r *TaskRepository) Create(ctx context.Context, task *models.Task) error {
 // CreateBatch creates a batch of tasks in the database
 func (r *TaskRepository) CreateBatch(ctx context.Context, tasks []*models.Task) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// For each task, ensure the InstanceID is properly set in the payload
+		for _, task := range tasks {
+			// Skip if no InstanceID is set or if the payload is empty
+			if task.InstanceID == 0 || len(task.Payload) == 0 {
+				continue
+			}
+
+			// For instance-related task actions, update the payload
+			if task.Action == models.TaskActionCreateInstances || task.Action == models.TaskActionTerminateInstances {
+				// Try to unmarshal the payload to check if it's for instance creation
+				var payload map[string]interface{}
+				if err := json.Unmarshal(task.Payload, &payload); err != nil {
+					continue // Skip if we can't unmarshal
+				}
+
+				// Set the instance ID in the payload
+				payload["instance_id"] = task.InstanceID
+
+				// Marshal back to JSON
+				updatedPayload, err := json.Marshal(payload)
+				if err != nil {
+					continue // Skip if we can't marshal
+				}
+
+				// Update the payload
+				task.Payload = updatedPayload
+			}
+		}
+
+		// Create the tasks
 		return tx.CreateInBatches(tasks, models.DBBatchSize).Error
 	})
 }

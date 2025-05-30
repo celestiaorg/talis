@@ -56,6 +56,12 @@ func (c *DefaultDOClient) DeleteInstance(ctx context.Context, dropletID int) err
 	return provider.DeleteInstance(ctx, dropletID)
 }
 
+// GetInstanceByTag retrieves an instance by its Talis tag
+func (c *DefaultDOClient) GetInstanceByTag(ctx context.Context, tag string) (*talisTypes.InstanceRequest, error) {
+	provider := &DigitalOceanProvider{doClient: c}
+	return provider.GetInstanceByTag(ctx, tag)
+}
+
 // Droplets returns the droplet service
 func (c *DefaultDOClient) Droplets() computeTypes.DropletService {
 	return &DefaultDropletService{service: c.client.Droplets}
@@ -105,6 +111,11 @@ func (s *DefaultDropletService) Delete(ctx context.Context, dropletID int) (*god
 // List lists all droplets
 func (s *DefaultDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	return s.service.List(ctx, opt)
+}
+
+// ListByTag lists droplets filtered by tag
+func (s *DefaultDropletService) ListByTag(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	return s.service.ListByTag(ctx, tag, opt)
 }
 
 // DefaultKeyService adapts godo.KeyService to our KeyService interface
@@ -321,6 +332,9 @@ func (p *DigitalOceanProvider) createDropletRequest(
 		dropletName = fmt.Sprintf("%s-%s", config.ProjectName, generateRandomSuffix())
 	}
 
+	// Add the Talis tag for resource identification
+	talisTag := talisTypes.GenerateProviderTag(config.ProjectID, config.InstanceID)
+
 	return &godo.DropletCreateRequest{
 		Name:   dropletName,
 		Region: config.Region,
@@ -331,7 +345,7 @@ func (p *DigitalOceanProvider) createDropletRequest(
 		SSHKeys: []godo.DropletCreateSSHKey{
 			{ID: sshKeyID},
 		},
-		Tags: append([]string{dropletName}, config.Tags...),
+		Tags: append([]string{dropletName, talisTag}, config.Tags...),
 		UserData: fmt.Sprintf(`#!/bin/bash
 apt-get update
 apt-get install -y python3
@@ -352,6 +366,13 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 		return fmt.Errorf("client not initialized")
 	}
 
+	// Validate that instance ID is set - critical for resource tracking
+	if config.InstanceID == 0 {
+		err := fmt.Errorf("missing instance ID when creating droplet request - this indicates a bug in the creation workflow")
+		logger.Error(err)
+		return err
+	}
+
 	// Create droplet
 	createRequest := p.createDropletRequest(config, sshKeyID)
 	logger.Debugf("  Sending droplet creation request: %+v", createRequest)
@@ -365,6 +386,7 @@ func (p *DigitalOceanProvider) createSingleDroplet(
 
 	// Initialize instance info
 	config.ProviderInstanceID = droplet.ID
+
 	config.VolumeIDs = []string{}
 	config.VolumeDetails = []talisTypes.VolumeDetails{}
 
@@ -618,6 +640,78 @@ func (p *DigitalOceanProvider) DeleteInstance(ctx context.Context, dropletID int
 
 	logger.Debugf("✅ Deleted droplet: %d", dropletID)
 	return nil
+}
+
+// GetInstanceByTag retrieves an instance by its Talis tag from DigitalOcean using server-side filtering
+func (p *DigitalOceanProvider) GetInstanceByTag(ctx context.Context, tag string) (*talisTypes.InstanceRequest, error) {
+	if p.doClient == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	logger.Debugf("🔍 Searching for droplet with tag: %s (using server-side filtering)", tag)
+
+	// Use DigitalOcean's dedicated ListByTag method for efficient server-side filtering
+	droplets, _, err := p.doClient.Droplets().ListByTag(ctx, tag, &godo.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list droplets by tag: %w", err)
+	}
+
+	// If no droplets are returned, the tag wasn't found
+	if len(droplets) == 0 {
+		logger.Debugf("❌ No droplet found with tag: %s", tag)
+		return nil, fmt.Errorf("instance with tag '%s' not found", tag)
+	}
+
+	// Should only be one droplet with this specific Talis tag, but take the first one
+	droplet := droplets[0]
+	if len(droplets) > 1 {
+		logger.Warnf("⚠️ Warning: Found %d droplets with tag %s, using the first one (ID: %d)", len(droplets), tag, droplet.ID)
+	}
+
+	logger.Debugf("✅ Found droplet with tag %s: %s (ID: %d)", tag, droplet.Name, droplet.ID)
+
+	// Convert droplet to InstanceRequest format
+	instanceRequest := &talisTypes.InstanceRequest{
+		ProviderInstanceID: droplet.ID,
+		Name:               droplet.Name,
+		Region:             droplet.Region.Slug,
+		Size:               droplet.Size.Slug,
+		Image:              droplet.Image.Slug,
+		Tags:               droplet.Tags,
+	}
+
+	// Get public IP if available
+	for _, network := range droplet.Networks.V4 {
+		if network.Type == "public" {
+			instanceRequest.PublicIP = network.IPAddress
+			break
+		}
+	}
+
+	// Get volume information if volumes are attached
+	if len(droplet.VolumeIDs) > 0 {
+		instanceRequest.VolumeIDs = droplet.VolumeIDs
+		volumeDetails := make([]talisTypes.VolumeDetails, 0, len(droplet.VolumeIDs))
+
+		for _, volumeID := range droplet.VolumeIDs {
+			volume, _, err := p.doClient.Storage().GetVolume(ctx, volumeID)
+			if err != nil {
+				logger.Warnf("⚠️ Warning: Failed to get volume details for %s: %v", volumeID, err)
+				continue
+			}
+
+			volumeDetail := talisTypes.VolumeDetails{
+				ID:     volume.ID,
+				Name:   volume.Name,
+				Region: volume.Region.Slug,
+				SizeGB: int(volume.SizeGigaBytes),
+			}
+			volumeDetails = append(volumeDetails, volumeDetail)
+		}
+		instanceRequest.VolumeDetails = volumeDetails
+	}
+
+	return instanceRequest, nil
 }
 
 // NewDigitalOceanProvider creates a new DigitalOcean provider instance
