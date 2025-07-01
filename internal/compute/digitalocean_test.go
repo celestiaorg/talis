@@ -251,15 +251,38 @@ func TestDigitalOceanProvider(t *testing.T) {
 			Region:      "nyc1",
 			Size:        "s-1vcpu-1gb",
 			Image:       "ubuntu-20-04-x64",
+			ProjectID:   123,
+			InstanceID:  456,
 		}
 
 		sshKeyID := 12345
 		request := provider.createDropletRequest(&config, sshKeyID)
+		assert.NotNil(t, request)
 		assert.Contains(t, request.Name, config.ProjectName)
 		assert.Equal(t, config.Region, request.Region)
 		assert.Equal(t, config.Size, request.Size)
 		assert.Equal(t, config.Image, request.Image.Slug)
 		assert.Equal(t, sshKeyID, request.SSHKeys[0].ID)
+
+		talisTag := types.GenerateProviderTag(config.ProjectID, config.InstanceID)
+		assert.Contains(t, request.Tags, talisTag)
+	})
+
+	t.Run("CreateSingleDroplet_MissingInstanceID", func(t *testing.T) {
+		provider, _ := newTestProvider()
+		config := types.InstanceRequest{
+			ProjectName: "test-project",
+			Region:      "nyc1",
+			Size:        "s-1vcpu-1gb",
+			Image:       "ubuntu-20-04-x64",
+			ProjectID:   123,
+			// InstanceID deliberately omitted
+		}
+
+		sshKeyID := 12345
+		err := provider.createSingleDroplet(context.Background(), &config, sshKeyID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "missing instance ID")
 	})
 
 	t.Run("CreateInstance_SingleInstance", func(t *testing.T) {
@@ -279,6 +302,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			Region:      "nyc1",
 			Size:        "s-1vcpu-1gb",
 			Image:       "ubuntu-20-04-x64",
+			ProjectID:   123,
+			InstanceID:  456,
 		}
 
 		err = provider.CreateInstance(context.Background(), &config)
@@ -319,11 +344,13 @@ func TestDigitalOceanProvider(t *testing.T) {
 		require.NoError(t, err)
 
 		config := types.InstanceRequest{
-			ProjectName:       "test-project-ssh",
+			ProjectName:       "test-project",
 			Region:            "nyc1",
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
 			NumberOfInstances: 1,
+			ProjectID:         789,
+			InstanceID:        101112,
 		}
 
 		// Call CreateInstance which internally uses getSSHKeyID
@@ -347,6 +374,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
 			NumberOfInstances: 1,
+			ProjectID:         333, // Add project ID
+			InstanceID:        444, // Add instance ID
 		}
 
 		// Call CreateInstance which internally uses getSSHKeyID
@@ -407,6 +436,8 @@ func TestDigitalOceanProvider(t *testing.T) {
 			Size:              "s-1vcpu-1gb",
 			Image:             "ubuntu-22-04-x64",
 			NumberOfInstances: 1,
+			ProjectID:         999, // Add project ID
+			InstanceID:        888, // Add instance ID
 		}
 
 		// Call CreateInstance which internally uses waitForIP

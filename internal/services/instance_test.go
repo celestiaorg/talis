@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -144,6 +145,12 @@ func TestInstanceService_CreateInstance_SetsTaskInstanceID(t *testing.T) {
 	var taskPayload types.InstanceRequest
 	err = json.Unmarshal(tasks[0].Payload, &taskPayload)
 	assert.NoError(t, err)
+
+	// Add debug output
+	fmt.Printf("DEBUG TEST: Task InstanceID in DB: %d\n", tasks[0].InstanceID)
+	fmt.Printf("DEBUG TEST: Task Payload InstanceID: %d\n", taskPayload.InstanceID)
+	fmt.Printf("DEBUG TEST: Expected InstanceID: %d\n", expectedInstanceID)
+
 	assert.Equal(t, expectedInstanceID, taskPayload.InstanceID)
 }
 
