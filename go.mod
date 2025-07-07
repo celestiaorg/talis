@@ -3,7 +3,7 @@ module github.com/celestiaorg/talis
 go 1.24
 
 require (
-	github.com/digitalocean/godo v1.155.0
+	github.com/digitalocean/godo v1.156.0
 	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
