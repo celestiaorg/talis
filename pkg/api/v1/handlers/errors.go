@@ -54,6 +54,17 @@ const (
 	ErrMsgNilUserObject          = "User object is nil"
 )
 
+// SSH key error messages
+const (
+	ErrMsgSSHKeyNameRequired    = "SSH key name is required"
+	ErrMsgSSHKeyOwnerIDRequired = "SSH key owner_id is required"
+	ErrMsgSSHKeyNotFound        = "SSH key not found"
+	ErrMsgSSHKeyCreateFailed    = "Failed to create SSH key"
+	ErrMsgSSHKeyListFailed      = "Failed to list SSH keys"
+	ErrMsgSSHKeyDeleteFailed    = "Failed to delete SSH key"
+	ErrMsgSSHKeyAlreadyExists   = "SSH key with this name already exists"
+)
+
 // Pagination error messages
 const (
 	ErrMsgNegativePagination = "Page must be a positive number from 1"

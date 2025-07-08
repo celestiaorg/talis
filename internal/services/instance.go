@@ -114,7 +114,7 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 		return nil, err
 	}
 
-	// Update the task payload with the instance ID
+	// Update the task models with the instance ID
 	// This loop assumes a 1:1 mapping between createdInstances and tasksToCreate based on order.
 	// This should be safe given how they are populated in parallel.
 	for idx, instance := range createdInstances {
@@ -122,25 +122,65 @@ func (s *Instance) CreateInstance(ctx context.Context, instances []types.Instanc
 			// Set the InstanceID on the task model itself
 			tasksToCreate[idx].InstanceID = instance.ID
 
+			// Also update the task payload with the instance ID
+			// Since InstanceID is json:"-" in the struct, we need to update it manually
 			var taskPayload types.InstanceRequest
 			err := json.Unmarshal(tasksToCreate[idx].Payload, &taskPayload)
 			if err != nil {
 				return createdInstances, fmt.Errorf("failed to unmarshal task payload for instance %d: %w", instance.ID, err)
 			}
+
+			// Set the instance ID in the struct
 			taskPayload.InstanceID = instance.ID
 
+			// Now that we've updated the InstanceID field on the taskPayload,
+			// we need to manually add it to the JSON since the field is tagged with json:"-"
+			// First marshal the original payload
 			updatedPayload, err := json.Marshal(taskPayload)
 			if err != nil {
 				return createdInstances, fmt.Errorf("failed to marshal updated task payload for instance %d: %w", instance.ID, err)
 			}
-			tasksToCreate[idx].Payload = updatedPayload
+
+			// Now unmarshal to a map so we can add the field
+			var payloadMap map[string]interface{}
+			if err := json.Unmarshal(updatedPayload, &payloadMap); err != nil {
+				return createdInstances, fmt.Errorf("failed to unmarshal payload map for instance %d: %w", instance.ID, err)
+			}
+
+			// Add the instanceID field explicitly
+			payloadMap["instance_id"] = instance.ID
+
+			// Marshal back to JSON
+			finalPayload, err := json.Marshal(payloadMap)
+			if err != nil {
+				return createdInstances, fmt.Errorf("failed to marshal final payload for instance %d: %w", instance.ID, err)
+			}
+
+			tasksToCreate[idx].Payload = finalPayload
+
+			fmt.Printf("DEBUG: Set InstanceID %d on task %d and its payload\n", instance.ID, tasksToCreate[idx].ID)
 		}
 	}
 
 	// Create the tasks
+	for _, task := range tasksToCreate {
+		fmt.Printf("DEBUG: Before CreateBatch - Task InstanceID: %d\n", task.InstanceID)
+	}
+
 	if err := s.taskService.CreateBatch(ctx, tasksToCreate); err != nil {
 		err = fmt.Errorf("failed to add tasks to database: %w", err)
 		return nil, err
+	}
+
+	// Verify task creation
+	for _, instance := range createdInstances {
+		fmt.Printf("DEBUG: Verifying task for instance %d\n", instance.ID)
+		tasks, err := s.taskService.ListTasksByInstanceID(ctx, instance.OwnerID, instance.ID, "", nil)
+		if err != nil {
+			fmt.Printf("DEBUG: Error listing tasks for instance %d: %v\n", instance.ID, err)
+			continue
+		}
+		fmt.Printf("DEBUG: Found %d tasks for instance %d\n", len(tasks), instance.ID)
 	}
 
 	return createdInstances, nil

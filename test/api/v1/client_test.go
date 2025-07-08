@@ -54,6 +54,7 @@ var defaultInstanceRequest1 = types.InstanceRequest{
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
 	Image:             "ubuntu-20-04-x64",
+	Provision:         false, // Explicitly disable provisioning for tests
 	Volumes: []types.VolumeConfig{
 		{
 			Name:       "test-volume",
@@ -72,6 +73,7 @@ var defaultInstanceRequest2 = types.InstanceRequest{
 	Region:            "nyc1",
 	Size:              "s-1vcpu-1gb",
 	Image:             "ubuntu-20-04-x64",
+	Provision:         false, // Explicitly disable provisioning for tests
 	Volumes: []types.VolumeConfig{
 		{
 			Name:       "test-volume",
@@ -304,6 +306,7 @@ func TestClient_ListTasksByInstanceID(t *testing.T) {
 		{
 			Provider: models.ProviderID("digitalocean-mock"), OwnerID: models.AdminID, NumberOfInstances: 1,
 			ProjectName: project.Name, Region: "sfo3", Size: "s-1vcpu-1gb", Image: "ubuntu-22-04-x64",
+			Provision: false, // Explicitly disable provisioning for tests
 			Volumes: []types.VolumeConfig{{
 				Name: "vol-inst1", SizeGB: 5, MountPoint: "/mnt/data", Region: "sfo3", FileSystem: "ext4",
 			}},
@@ -311,6 +314,7 @@ func TestClient_ListTasksByInstanceID(t *testing.T) {
 		{
 			Provider: models.ProviderID("digitalocean-mock"), OwnerID: models.AdminID, NumberOfInstances: 1,
 			ProjectName: project.Name, Region: "ams3", Size: "s-2vcpu-2gb", Image: "fedora-38-x64",
+			Provision: false, // Explicitly disable provisioning for tests
 			Volumes: []types.VolumeConfig{{
 				Name: "vol-inst2", SizeGB: 8, MountPoint: "/mnt/data", Region: "ams3", FileSystem: "xfs",
 			}},
