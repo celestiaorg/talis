@@ -12,7 +12,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: CelestiaBot Approval
         run: gh pr review --approve "$PR_URL"
         # Leaving out the auto merge step until we have 2 approvals enforced
