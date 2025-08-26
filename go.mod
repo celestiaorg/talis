@@ -3,14 +3,14 @@ module github.com/celestiaorg/talis
 go 1.24
 
 require (
-	github.com/digitalocean/godo v1.161.0
+	github.com/digitalocean/godo v1.163.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
-	github.com/swaggo/swag v1.16.5
+	github.com/stretchr/testify v1.11.0
+	github.com/swaggo/swag v1.16.6
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.1
